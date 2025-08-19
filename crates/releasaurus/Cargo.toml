@@ -4,3 +4,12 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+color-eyre = { workspace = true }
+log = { workspace = true }
+paris = { workspace = true }
+simplelog = {workspace = true, features = ["paris"]}
+toml = { workspace = true}
+releasaurus-core = { path = "../releasaurus-core", version = "0.1.0" }
+
+[package.metadata.cargo-machete]
+ignored = ["paris"]
