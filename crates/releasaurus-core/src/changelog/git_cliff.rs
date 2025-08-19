@@ -69,10 +69,14 @@ impl GitCliffChangelog {
         config.git.protect_breaking_commits = true;
         config.git.require_conventional = false;
 
-        let re = Regex::new(&package_config.tag_prefix)?;
+        let mut tag_prefix = format!("{}-v", package_config.name);
+        if let Some(prefix) = package_config.tag_prefix.clone() {
+            tag_prefix = prefix
+        }
+
+        let re = Regex::new(&tag_prefix)?;
         config.git.tag_pattern = Some(re);
-        config.bump.initial_tag =
-            Some(format!("{}0.1.0", package_config.tag_prefix));
+        config.bump.initial_tag = Some(format!("{}0.1.0", tag_prefix));
 
         config.git.include_paths =
             process_package_path(package_config.path.clone())?;
