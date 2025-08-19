@@ -2,8 +2,6 @@ use std::{env, fs, process::Command, thread, time::Duration};
 
 use tempfile::TempDir;
 
-use crate::config::Config;
-
 use super::*;
 
 #[derive(Clone)]
@@ -123,9 +121,8 @@ fn process_git_repository() {
     let result = context.setup_repo();
     assert!(result.is_ok(), "failed to setup test repo");
 
-    let config = Config::default();
-    let result =
-        GitCliffChangelog::new(config.changelog, config.packages[0].clone());
+    let config = SinglePackageConfig::default();
+    let result = GitCliffChangelog::new(config);
     assert!(result.is_ok(), "failed to create changelog instance");
 
     let changelog = result.unwrap();

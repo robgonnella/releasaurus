@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     changelog::traits::{CurrentVersion, Generator, NextVersion, Writer},
-    config::{ChangelogConfig, PackageConfig},
+    config::SinglePackageConfig,
 };
 
 fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
@@ -60,40 +60,42 @@ pub struct GitCliffChangelog {
 
 impl GitCliffChangelog {
     /// Returns new instance based on provided configs
-    pub fn new(
-        changelog_config: ChangelogConfig,
-        package_config: PackageConfig,
-    ) -> Result<Self> {
-        let mut config = git_cliff_core::embed::EmbeddedConfig::parse()?;
+    pub fn new(config: SinglePackageConfig) -> Result<Self> {
+        let mut cliff_config = git_cliff_core::embed::EmbeddedConfig::parse()?;
 
-        config.changelog.body = changelog_config.body.clone();
-        config.changelog.header = changelog_config.header.clone();
-        config.changelog.footer = changelog_config.footer.clone();
-        config.changelog.trim = true;
-        config.git.conventional_commits = true;
-        config.git.filter_unconventional = false;
-        config.git.protect_breaking_commits = true;
-        config.git.require_conventional = false;
+        cliff_config.changelog.body = config.changelog.body.clone();
+        cliff_config.changelog.header = config.changelog.header.clone();
+        cliff_config.changelog.footer = config.changelog.footer.clone();
+        cliff_config.changelog.trim = true;
+        cliff_config.git.conventional_commits = true;
+        cliff_config.git.filter_unconventional = false;
+        cliff_config.git.protect_breaking_commits = true;
+        cliff_config.git.require_conventional = false;
+
+        if let Some(remote) = config.gitlab {
+            cliff_config.remote.gitlab.repo = remote.url.clone();
+            cliff_config.remote.gitlab.token = Some(remote.token.clone());
+        }
 
         let mut tag_prefix = "v".to_string();
-        if !package_config.name.is_empty() {
-            tag_prefix = format!("{}-v", package_config.name);
+        if !config.package.name.is_empty() {
+            tag_prefix = format!("{}-v", config.package.name);
         }
-        if let Some(prefix) = package_config.tag_prefix.clone() {
+        if let Some(prefix) = config.package.tag_prefix.clone() {
             tag_prefix = prefix
         }
 
         let re = Regex::new(&tag_prefix)?;
-        config.git.tag_pattern = Some(re);
-        config.bump.initial_tag = Some(format!("{}0.1.0", tag_prefix));
+        cliff_config.git.tag_pattern = Some(re);
+        cliff_config.bump.initial_tag = Some(format!("{}0.1.0", tag_prefix));
 
-        config.git.include_paths =
-            process_package_path(package_config.path.clone())?;
+        cliff_config.git.include_paths =
+            process_package_path(config.package.path.clone())?;
 
         let group_number_re = Regex::new(r"\d{1,2}\s-")?;
         let mut group_id = 0;
 
-        for parser in config.git.commit_parsers.iter_mut() {
+        for parser in cliff_config.git.commit_parsers.iter_mut() {
             if let Some(ref group) = parser.group
                 && group_number_re.is_match(group)
             {
@@ -117,14 +119,17 @@ impl GitCliffChangelog {
         breaking_change_parser.group =
             Some("<!-- 0 -->❌ Breaking Changes".to_string());
 
-        config.git.commit_parsers.insert(0, breaking_change_parser);
+        cliff_config
+            .git
+            .commit_parsers
+            .insert(0, breaking_change_parser);
 
         let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
 
         Ok(Self {
-            config: Box::new(config),
+            config: Box::new(cliff_config),
             repo,
-            path: package_config.path,
+            path: config.package.path,
             current_version: RefCell::new(None),
             next_version: RefCell::new(None),
         })

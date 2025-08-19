@@ -1,4 +1,5 @@
 //! Configuration for releasaurus-core
+use secrecy::SecretString;
 use serde::Deserialize;
 
 /// The default body value for [`ChangelogConfig`]
@@ -76,6 +77,15 @@ impl Default for PackageConfig {
     }
 }
 
+/// Remote Repository configuration
+#[derive(Debug, Clone, Deserialize)]
+pub struct Remote {
+    // The url for the remote repo
+    pub url: String,
+    // The access token for the remote repo
+    pub token: SecretString,
+}
+
 /// Complete configuration for the core
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -84,6 +94,41 @@ pub struct Config {
     pub changelog: ChangelogConfig,
     /// [`Vec<PackageConfig>`]
     pub packages: Vec<PackageConfig>,
+    /// gitlab [`Remote`]
+    pub gitlab: Option<Remote>,
+    // not supported yet
+    // pub github: Remote,
+    // pub bitbucket: Remote,
+    // pub gitea: Remote,
+}
+
+/// Represents a single package config
+/// This is what is passed to the changelog generator. Each package
+/// defined in the config file will be looped over and SinglePackageConfig
+/// will be used to generate the changelog for each.
+#[derive(Debug, Default, Clone)]
+pub struct SinglePackageConfig {
+    /// [`ChangelogConfig`]
+    pub changelog: ChangelogConfig,
+    /// [`Vec<PackageConfig>`]
+    pub package: PackageConfig,
+    /// gitlab [`Remote`]
+    pub gitlab: Option<Remote>,
+    // not supported yet
+    // pub github: Remote,
+    // pub bitbucket: Remote,
+    // pub gitea: Remote,
+}
+
+impl SinglePackageConfig {
+    /// Creates and instance using a specific package index from parent config
+    pub fn from_config_index(config: Config, idx: usize) -> Self {
+        Self {
+            changelog: config.changelog.clone(),
+            package: config.packages[idx].clone(),
+            gitlab: config.gitlab.clone(),
+        }
+    }
 }
 
 impl Default for Config {
@@ -94,6 +139,7 @@ impl Default for Config {
         Self {
             packages: pkgs,
             changelog: chglg,
+            gitlab: None,
         }
     }
 }
