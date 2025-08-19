@@ -3,25 +3,24 @@ use secrecy::SecretString;
 use serde::Deserialize;
 
 /// The default body value for [`ChangelogConfig`]
-const DEFAULT_BODY: &str = r#"
-{%- if version -%}
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+const DEFAULT_BODY: &str = r#"{% if version -%}
+    # [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
-    ## [unreleased]
+    # [unreleased]
 {% endif -%}
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
       {% if commit.breaking -%}
-      {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }}<br />
-      > {{ commit.body }}
-      > {{ commit.breaking_description }}
+        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }}
+        > {{ commit.body }}
+        > {{ commit.breaking_description }}
       {% else -%}
-      - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first -}}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }}
       {% endif -%}
-    {% endfor %}
-{% endfor -%}
-"#;
+    {% endfor -%}
+{% endfor %}
+ "#;
 
 /// Changelog Configuration allowing you to customize changelog output format
 #[derive(Debug, Clone, Deserialize)]
