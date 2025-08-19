@@ -47,6 +47,92 @@ fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
     Ok(vec![pattern])
 }
 
+fn get_cliff_config(
+    package_config: SinglePackageConfig,
+) -> Result<git_cliff_core::config::Config> {
+    let mut cliff_config = git_cliff_core::embed::EmbeddedConfig::parse()?;
+
+    cliff_config.changelog.body = package_config.changelog.body.clone();
+    cliff_config.changelog.header = package_config.changelog.header.clone();
+    cliff_config.changelog.footer = package_config.changelog.footer.clone();
+    cliff_config.changelog.trim = true;
+    cliff_config.git.conventional_commits = true;
+    cliff_config.git.filter_unconventional = false;
+    cliff_config.git.protect_breaking_commits = true;
+    cliff_config.git.require_conventional = false;
+
+    if let Some(remote) = package_config.github {
+        cliff_config.remote.github.owner = remote.owner;
+        cliff_config.remote.github.repo = remote.repo;
+        cliff_config.remote.github.token = Some(remote.token.clone());
+        cliff_config.remote.github.is_custom = true;
+    } else if let Some(remote) = package_config.gitlab {
+        cliff_config.remote.gitlab.owner = remote.owner;
+        cliff_config.remote.gitlab.repo = remote.repo;
+        cliff_config.remote.gitlab.token = Some(remote.token.clone());
+        cliff_config.remote.gitlab.is_custom = true;
+    } else if let Some(remote) = package_config.gitea {
+        cliff_config.remote.gitea.owner = remote.owner;
+        cliff_config.remote.gitea.repo = remote.repo;
+        cliff_config.remote.gitea.token = Some(remote.token.clone());
+        cliff_config.remote.gitea.is_custom = true;
+    } else if let Some(remote) = package_config.bitbucket {
+        cliff_config.remote.bitbucket.owner = remote.owner;
+        cliff_config.remote.bitbucket.repo = remote.repo;
+        cliff_config.remote.bitbucket.token = Some(remote.token.clone());
+        cliff_config.remote.bitbucket.is_custom = true;
+    }
+
+    let mut tag_prefix = "v".to_string();
+    if !package_config.package.name.is_empty() {
+        tag_prefix = format!("{}-v", package_config.package.name);
+    }
+    if let Some(prefix) = package_config.package.tag_prefix.clone() {
+        tag_prefix = prefix
+    }
+
+    let re = Regex::new(&tag_prefix)?;
+    cliff_config.git.tag_pattern = Some(re);
+    cliff_config.bump.initial_tag = Some(format!("{}0.1.0", tag_prefix));
+
+    cliff_config.git.include_paths =
+        process_package_path(package_config.package.path.clone())?;
+
+    let group_number_re = Regex::new(r"\d{1,2}\s-")?;
+    let mut group_id = 0;
+
+    for parser in cliff_config.git.commit_parsers.iter_mut() {
+        if let Some(ref group) = parser.group
+            && group_number_re.is_match(group)
+        {
+            group_id += 1;
+            let new_group =
+                group_number_re.replace(group, format!("{group_id} -"));
+            parser.group = Some(new_group.to_string());
+        }
+    }
+
+    let mut breaking_change_parser =
+        git_cliff_core::config::CommitParser::default();
+
+    let br_message_re = Regex::new(r"^.+!:")?;
+    let br_footer_re = RegexBuilder::new(r"breaking-?change:")
+        .case_insensitive(true)
+        .build()?;
+
+    breaking_change_parser.message = Some(br_message_re);
+    breaking_change_parser.footer = Some(br_footer_re);
+    breaking_change_parser.group =
+        Some("<!-- 0 -->❌ Breaking Changes".to_string());
+
+    cliff_config
+        .git
+        .commit_parsers
+        .insert(0, breaking_change_parser);
+
+    Ok(cliff_config)
+}
+
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
 /// and [`NextVersion`]
 pub struct GitCliffChangelog {
@@ -58,88 +144,14 @@ pub struct GitCliffChangelog {
 impl GitCliffChangelog {
     /// Returns new instance based on provided configs
     pub fn new(config: SinglePackageConfig) -> Result<Self> {
-        let mut cliff_config = git_cliff_core::embed::EmbeddedConfig::parse()?;
-
-        cliff_config.changelog.body = config.changelog.body.clone();
-        cliff_config.changelog.header = config.changelog.header.clone();
-        cliff_config.changelog.footer = config.changelog.footer.clone();
-        cliff_config.changelog.trim = true;
-        cliff_config.git.conventional_commits = true;
-        cliff_config.git.filter_unconventional = false;
-        cliff_config.git.protect_breaking_commits = true;
-        cliff_config.git.require_conventional = false;
-
-        if let Some(remote) = config.github {
-            cliff_config.remote.github.owner = remote.owner;
-            cliff_config.remote.github.repo = remote.repo;
-            cliff_config.remote.github.token = Some(remote.token.clone());
-        } else if let Some(remote) = config.gitlab {
-            cliff_config.remote.gitlab.owner = remote.owner;
-            cliff_config.remote.gitlab.repo = remote.repo;
-            cliff_config.remote.gitlab.token = Some(remote.token.clone());
-        } else if let Some(remote) = config.gitea {
-            cliff_config.remote.gitea.owner = remote.owner;
-            cliff_config.remote.gitea.repo = remote.repo;
-            cliff_config.remote.gitea.token = Some(remote.token.clone());
-        } else if let Some(remote) = config.bitbucket {
-            cliff_config.remote.bitbucket.owner = remote.owner;
-            cliff_config.remote.bitbucket.repo = remote.repo;
-            cliff_config.remote.bitbucket.token = Some(remote.token.clone());
-        }
-
-        let mut tag_prefix = "v".to_string();
-        if !config.package.name.is_empty() {
-            tag_prefix = format!("{}-v", config.package.name);
-        }
-        if let Some(prefix) = config.package.tag_prefix.clone() {
-            tag_prefix = prefix
-        }
-
-        let re = Regex::new(&tag_prefix)?;
-        cliff_config.git.tag_pattern = Some(re);
-        cliff_config.bump.initial_tag = Some(format!("{}0.1.0", tag_prefix));
-
-        cliff_config.git.include_paths =
-            process_package_path(config.package.path.clone())?;
-
-        let group_number_re = Regex::new(r"\d{1,2}\s-")?;
-        let mut group_id = 0;
-
-        for parser in cliff_config.git.commit_parsers.iter_mut() {
-            if let Some(ref group) = parser.group
-                && group_number_re.is_match(group)
-            {
-                group_id += 1;
-                let new_group =
-                    group_number_re.replace(group, format!("{group_id} -"));
-                parser.group = Some(new_group.to_string());
-            }
-        }
-
-        let mut breaking_change_parser =
-            git_cliff_core::config::CommitParser::default();
-
-        let br_message_re = Regex::new(r"^.+!:")?;
-        let br_footer_re = RegexBuilder::new(r"breaking-?change:")
-            .case_insensitive(true)
-            .build()?;
-
-        breaking_change_parser.message = Some(br_message_re);
-        breaking_change_parser.footer = Some(br_footer_re);
-        breaking_change_parser.group =
-            Some("<!-- 0 -->❌ Breaking Changes".to_string());
-
-        cliff_config
-            .git
-            .commit_parsers
-            .insert(0, breaking_change_parser);
-
+        let path = config.package.path.clone();
+        let cliff_config = get_cliff_config(config)?;
         let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
 
         Ok(Self {
             config: Box::new(cliff_config),
             repo,
-            path: config.package.path,
+            path,
         })
     }
 
@@ -163,7 +175,7 @@ impl GitCliffChangelog {
         for git_commit in commits.iter().rev() {
             // get release at end of list
             let release = releases.last_mut().unwrap();
-            // copy commit
+            // create git_cliff commit from git2 commit
             let commit = git_cliff_core::commit::Commit::from(git_commit);
             let commit_id = commit.id.to_string();
             // add commit to release
