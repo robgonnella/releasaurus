@@ -1,3 +1,4 @@
+//! A git-cliff implementation of a [`Generator`]
 use color_eyre::eyre::{Result, eyre};
 use glob::Pattern;
 use indexmap::IndexMap;
@@ -46,6 +47,8 @@ fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
     Ok(vec![pattern])
 }
 
+/// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
+/// and [`NextVersion`]
 pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
@@ -54,6 +57,7 @@ pub struct GitCliffChangelog {
 }
 
 impl GitCliffChangelog {
+    /// Returns new instance based on provided configs
     pub fn new(
         changelog_config: ChangelogConfig,
         package_config: PackageConfig,
