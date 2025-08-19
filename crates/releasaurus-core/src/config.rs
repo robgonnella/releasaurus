@@ -108,7 +108,8 @@ pub struct Config {
     /// [`ChangelogConfig`]
     pub changelog: ChangelogConfig,
     /// [`Vec<PackageConfig>`]
-    pub package: Vec<PackageConfig>,
+    #[serde(rename = "package")]
+    pub packages: Vec<PackageConfig>,
     /// gitlab [`Remote`]
     pub gitlab: Option<Remote>,
     // not supported yet
@@ -125,7 +126,7 @@ impl Default for Config {
         let chglg = ChangelogConfig::default();
 
         Self {
-            package: pkgs,
+            packages: pkgs,
             changelog: chglg,
             gitlab: None,
             next_pkg: 0,
@@ -142,14 +143,14 @@ impl Iterator for Config {
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.next_pkg;
 
-        if idx >= self.package.len() {
+        if idx >= self.packages.len() {
             return None;
         }
 
         self.next_pkg += 1;
         Some(SinglePackageConfig {
             changelog: self.changelog.clone(),
-            package: self.package[idx].clone(),
+            package: self.packages[idx].clone(),
             gitlab: self.gitlab.clone(),
         })
     }
