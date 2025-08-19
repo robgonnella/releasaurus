@@ -6,12 +6,13 @@ use log::*;
 use regex::{Regex, RegexBuilder};
 use std::{
     cell::RefCell,
-    io::BufWriter,
+    fs::OpenOptions,
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
 };
 
 use crate::{
-    changelog::traits::{CurrentVersion, Generator, NextVersion},
+    changelog::traits::{CurrentVersion, Generator, NextVersion, Writer},
     config::{ChangelogConfig, PackageConfig},
 };
 
@@ -52,6 +53,7 @@ fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
 pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
+    path: String,
     current_version: RefCell<Option<String>>,
     next_version: RefCell<Option<String>>,
 }
@@ -73,7 +75,10 @@ impl GitCliffChangelog {
         config.git.protect_breaking_commits = true;
         config.git.require_conventional = false;
 
-        let mut tag_prefix = format!("{}-v", package_config.name);
+        let mut tag_prefix = "v".to_string();
+        if !package_config.name.is_empty() {
+            tag_prefix = format!("{}-v", package_config.name);
+        }
         if let Some(prefix) = package_config.tag_prefix.clone() {
             tag_prefix = prefix
         }
@@ -119,6 +124,7 @@ impl GitCliffChangelog {
         Ok(Self {
             config: Box::new(config),
             repo,
+            path: package_config.path,
             current_version: RefCell::new(None),
             next_version: RefCell::new(None),
         })
@@ -231,9 +237,11 @@ impl Generator for GitCliffChangelog {
 
         debug!("changelog: {:#?}", changelog);
 
+        // increase to next version
         let next_version = changelog.bump_version()?;
         *self.next_version.borrow_mut() = next_version;
 
+        // generate content
         let mut buf = BufWriter::new(Vec::new());
         changelog.generate(&mut buf)?;
         let bytes = buf.into_inner()?;
@@ -288,6 +296,25 @@ impl NextVersion for GitCliffChangelog {
         debug!("comparing current {current} and next {next}");
 
         Ok(next_semver.major > current_semver.major)
+    }
+}
+
+impl Writer for GitCliffChangelog {
+    fn write(&self) -> Result<()> {
+        let content = self.generate()?;
+        let package_dir = Path::new(self.path.as_str());
+        let file_path = package_dir.join("CHANGELOG.md");
+
+        // OpenOptions allows fine-grained control over how a file is opened.
+        let mut file = OpenOptions::new()
+            .write(true) // Enable writing to the file
+            .create(true) // Create the file if it doesn't exist
+            .truncate(true) // Truncate the file to 0 length if it already exists
+            .open(file_path)?;
+
+        file.write_all(content.as_bytes())?;
+
+        Ok(())
     }
 }
 
