@@ -1,0 +1,284 @@
+use color_eyre::eyre::{Result, eyre};
+use glob::Pattern;
+use indexmap::IndexMap;
+use log::*;
+use regex::{Regex, RegexBuilder};
+use std::{
+    cell::RefCell,
+    io::BufWriter,
+    path::{Path, PathBuf},
+};
+
+use crate::{
+    changelog::traits::{CurrentVersion, Generator, NextVersion},
+    config::{ChangelogConfig, PackageConfig},
+};
+
+fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
+    let path = Path::new(package_path.as_str());
+
+    if !path.is_dir() {
+        return Err(eyre!(
+            "package path is not a valid directory: {}",
+            path.to_string_lossy()
+        ));
+    }
+
+    let mut package_path = package_path;
+
+    // include paths only work on with globs
+    if package_path.ends_with("*") {
+        // if the path provided ends in * return as is
+        debug!("using package path {package_path}")
+    } else if package_path.ends_with("/") {
+        // otherwise if ends in "/" return modified with glob
+        package_path = format!("{package_path}**/*").to_string();
+        debug!("modified package_path to include glob: {package_path}")
+    } else {
+        // otherwise return a modified version that adds /**/*
+        package_path = format!("{package_path}/**/*").to_string();
+        debug!("modified package_path to include directory glob {package_path}")
+    };
+
+    // return vec of glob Pattern or None
+    let pattern = Pattern::new(&package_path)?;
+
+    Ok(vec![pattern])
+}
+
+pub struct GitCliffChangelog {
+    config: Box<git_cliff_core::config::Config>,
+    repo: git_cliff_core::repo::Repository,
+    current_version: RefCell<Option<String>>,
+    next_version: RefCell<Option<String>>,
+}
+
+impl GitCliffChangelog {
+    pub fn new(
+        changelog_config: ChangelogConfig,
+        package_config: PackageConfig,
+    ) -> Result<Self> {
+        let mut config = git_cliff_core::embed::EmbeddedConfig::parse()?;
+
+        config.changelog.body = changelog_config.body.clone();
+        config.changelog.header = changelog_config.header.clone();
+        config.changelog.footer = changelog_config.footer.clone();
+        config.changelog.trim = true;
+        config.git.conventional_commits = true;
+        config.git.filter_unconventional = false;
+        config.git.protect_breaking_commits = true;
+        config.git.require_conventional = false;
+
+        let re = Regex::new(&package_config.tag_prefix)?;
+        config.git.tag_pattern = Some(re);
+        config.bump.initial_tag =
+            Some(format!("{}0.1.0", package_config.tag_prefix));
+
+        config.git.include_paths =
+            process_package_path(package_config.path.clone())?;
+
+        let group_number_re = Regex::new(r"\d{1,2}\s-")?;
+        let mut group_id = 0;
+
+        for parser in config.git.commit_parsers.iter_mut() {
+            if let Some(ref group) = parser.group
+                && group_number_re.is_match(group)
+            {
+                group_id += 1;
+                let new_group =
+                    group_number_re.replace(group, format!("{group_id} -"));
+                parser.group = Some(new_group.to_string());
+            }
+        }
+
+        let mut breaking_change_parser =
+            git_cliff_core::config::CommitParser::default();
+
+        let br_message_re = Regex::new(r"^.+!:")?;
+        let br_footer_re = RegexBuilder::new(r"breaking-?change:")
+            .case_insensitive(true)
+            .build()?;
+
+        breaking_change_parser.message = Some(br_message_re);
+        breaking_change_parser.footer = Some(br_footer_re);
+        breaking_change_parser.group =
+            Some("<!-- 0 -->❌ Breaking Changes".to_string());
+
+        config.git.commit_parsers.insert(0, breaking_change_parser);
+
+        let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
+
+        Ok(Self {
+            config: Box::new(config),
+            repo,
+            current_version: RefCell::new(None),
+            next_version: RefCell::new(None),
+        })
+    }
+
+    fn process_releases<'a>(
+        &self,
+        commits: Vec<git2::Commit>,
+        tags: IndexMap<String, git_cliff_core::tag::Tag>,
+    ) -> Result<Vec<git_cliff_core::release::Release<'a>>> {
+        let repository_path =
+            self.repo.root_path()?.to_string_lossy().into_owned();
+
+        // fill out and append to list of releases as we process commits
+        let mut releases = vec![git_cliff_core::release::Release::default()];
+        // track last "completed" release - meaning we found a tag
+        let mut previous_release = git_cliff_core::release::Release::default();
+        // keep track of the very first tag we encounter
+        // let mut first_processed_tag = None;
+
+        // loop commits in reverse oldest -> newest
+        for git_commit in commits.iter().rev() {
+            // get release at end of list
+            let release = releases.last_mut().unwrap();
+            // copy commit
+            let commit = git_cliff_core::commit::Commit::from(git_commit);
+            let commit_id = commit.id.to_string();
+            // add commit to release
+            release.commits.push(commit);
+            release.repository = Some(repository_path.clone());
+            // set release commit - this will keep getting updated until we
+            // get to the last commit in the release, which will be a tag
+            release.commit_id = Some(commit_id);
+            // now check if we have a tag matching this commit
+            if let Some(tag) = tags.get(release.commit_id.as_ref().unwrap()) {
+                // we only care about releases for this specific package
+                if let Some(re) = self.config.git.tag_pattern.clone()
+                    && !re.is_match(&tag.name)
+                {
+                    continue;
+                }
+                // we've found the top of the release!
+                *self.current_version.borrow_mut() = Some(tag.name.clone());
+                release.version = Some(tag.name.to_string());
+                release.message.clone_from(&tag.message);
+                release.timestamp = Some(git_commit.time().seconds());
+
+                // reset and get ready to process next release
+                previous_release.previous = None;
+                release.previous = Some(Box::new(previous_release));
+                // set previous_release to release we just finished processing
+                previous_release = release.clone();
+                // add a new empty release to the end of our list so our loop
+                // starts working on next release
+                releases.push(git_cliff_core::release::Release::default());
+            }
+        }
+
+        if let Some(rel) = releases.last()
+            && rel.previous.is_none()
+        {
+            debug!("setting final release.previous");
+            previous_release.previous = None;
+            releases.last_mut().unwrap().previous =
+                Some(Box::new(previous_release));
+        }
+
+        // set the commit range on each release
+        for release in &mut releases {
+            // Set the commit ranges for all releases
+            if !release.commits.is_empty() {
+                release.commit_range = Some(git_cliff_core::commit::Range::new(
+                    release.commits.first().unwrap(),
+                    release.commits.last().unwrap(),
+                ))
+            }
+        }
+
+        Ok(releases)
+    }
+
+    fn get_repo_releases<'a>(
+        &self,
+    ) -> Result<Vec<git_cliff_core::release::Release<'a>>> {
+        let tags = self.repo.tags(&None, false, false)?;
+
+        // get just the commits for the path specified or all commits
+        // if option is None
+        let commits = self.repo.commits(
+            None,
+            Some(self.config.git.include_paths.clone()),
+            None,
+            false,
+        )?;
+
+        // process and return the releases for this repo
+        self.process_releases(commits, tags)
+    }
+}
+
+impl Generator for GitCliffChangelog {
+    fn generate(&self) -> Result<String> {
+        let releases = self.get_repo_releases()?;
+
+        let mut changelog = git_cliff_core::changelog::Changelog::new(
+            releases,
+            &self.config,
+            None,
+        )?;
+
+        debug!("changelog: {:#?}", changelog);
+
+        let next_version = changelog.bump_version()?;
+        *self.next_version.borrow_mut() = next_version;
+
+        let mut buf = BufWriter::new(Vec::new());
+        changelog.generate(&mut buf)?;
+        let bytes = buf.into_inner()?;
+        let out = String::from_utf8(bytes)?;
+        Ok(out)
+    }
+}
+
+impl CurrentVersion for GitCliffChangelog {
+    fn current_version(&self) -> Option<String> {
+        self.current_version.borrow().clone()
+    }
+}
+
+impl NextVersion for GitCliffChangelog {
+    fn next_version(&self) -> Option<String> {
+        self.next_version.borrow().clone()
+    }
+
+    fn next_is_breaking(&self) -> Result<bool> {
+        let current_version = self.current_version();
+        let next_version = self.next_version();
+
+        if next_version.is_none() {
+            return Ok(false);
+        }
+
+        if current_version.is_none() {
+            let mut next = next_version.unwrap();
+
+            if let Some(pattern) = self.config.git.tag_pattern.clone() {
+                next = pattern.replace(next.as_str(), "").into_owned();
+            }
+
+            let next_semver = semver::Version::parse(next.as_str()).unwrap();
+            // 1st release don't consider it a breaking change unless
+            // major version is at least 1
+            return Ok(next_semver.major > 0);
+        }
+
+        let mut current = current_version.unwrap();
+        let mut next = next_version.unwrap();
+
+        if let Some(pattern) = self.config.git.tag_pattern.clone() {
+            current = pattern.replace(current.as_str(), "").into_owned();
+            next = pattern.replace(next.as_str(), "").into_owned();
+        }
+
+        let current_semver = semver::Version::parse(current.as_str())?;
+        let next_semver = semver::Version::parse(next.as_str())?;
+
+        debug!("comparing current {current} and next {next}");
+
+        Ok(next_semver.major > current_semver.major)
+    }
+}
