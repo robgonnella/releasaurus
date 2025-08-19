@@ -8,7 +8,7 @@ use std::fs;
 
 fn initialize_logger(debug: bool) {
     let filter = if debug {
-        simplelog::LevelFilter::Debug
+        simplelog::LevelFilter::Trace
     } else {
         simplelog::LevelFilter::Info
     };
@@ -32,7 +32,7 @@ fn load_config() -> Result<Config> {
 }
 
 fn main() -> Result<()> {
-    initialize_logger(false);
+    initialize_logger(true);
 
     let config = load_config()?;
 
@@ -42,7 +42,6 @@ fn main() -> Result<()> {
         let output = changelog.write()?;
 
         info!("=============={}==============", name);
-        // println!("{output}");
         println!("current_version: {:#?}", output.current_version);
         println!("next_version: {:#?}", output.next_version);
         println!("is_breaking: {}\n\n", output.is_breaking);

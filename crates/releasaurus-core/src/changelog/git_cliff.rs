@@ -288,8 +288,6 @@ impl Generator for GitCliffChangelog {
             None,
         )?;
 
-        debug!("changelog: {:#?}", changelog);
-
         // increase to next version
         let next_version = changelog.bump_version()?;
         let is_breaking = self
