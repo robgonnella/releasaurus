@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 /// The default body value for [`ChangelogConfig`]
 const DEFAULT_BODY: &str = r#"
-{% if version -%}
+{%- if version -%}
     ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
     ## [unreleased]
@@ -13,11 +13,11 @@ const DEFAULT_BODY: &str = r#"
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
       {% if commit.breaking -%}
-      {% if commit.scope %}*({{ commit.scope }})* {% endif %}[**breaking**]: {{ commit.message | upper_first }}
-      body: {{ commit.body }}
-      footer: {{ commit.breaking_description }}
+      {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }}<br />
+      > {{ commit.body }}
+      > {{ commit.breaking_description }}
       {% else -%}
-      - {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first -}}
+      - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first -}}
       {% endif -%}
     {% endfor %}
 {% endfor -%}

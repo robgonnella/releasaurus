@@ -1,18 +1,17 @@
-//! A git-cliff implementation of a [`Generator`]
+//! A git-cliff implementation of a changelog [`Generator`]
 use color_eyre::eyre::{Result, eyre};
 use glob::Pattern;
 use indexmap::IndexMap;
 use log::*;
 use regex::{Regex, RegexBuilder};
 use std::{
-    cell::RefCell,
     fs::OpenOptions,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
 };
 
 use crate::{
-    changelog::traits::{CurrentVersion, Generator, NextVersion, Writer},
+    changelog::traits::{Generator, Output, Writer},
     config::SinglePackageConfig,
 };
 
@@ -54,8 +53,6 @@ pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
-    current_version: RefCell<Option<String>>,
-    next_version: RefCell<Option<String>>,
 }
 
 impl GitCliffChangelog {
@@ -130,8 +127,6 @@ impl GitCliffChangelog {
             config: Box::new(cliff_config),
             repo,
             path: config.package.path,
-            current_version: RefCell::new(None),
-            next_version: RefCell::new(None),
         })
     }
 
@@ -139,7 +134,8 @@ impl GitCliffChangelog {
         &self,
         commits: Vec<git2::Commit>,
         tags: IndexMap<String, git_cliff_core::tag::Tag>,
-    ) -> Result<Vec<git_cliff_core::release::Release<'a>>> {
+    ) -> Result<(Vec<git_cliff_core::release::Release<'a>>, Option<String>)>
+    {
         let repository_path =
             self.repo.root_path()?.to_string_lossy().into_owned();
 
@@ -147,8 +143,8 @@ impl GitCliffChangelog {
         let mut releases = vec![git_cliff_core::release::Release::default()];
         // track last "completed" release - meaning we found a tag
         let mut previous_release = git_cliff_core::release::Release::default();
-        // keep track of the very first tag we encounter
-        // let mut first_processed_tag = None;
+        // keep track of the current version as we process commits / tags
+        let mut current_version: Option<String> = None;
 
         // loop commits in reverse oldest -> newest
         for git_commit in commits.iter().rev() {
@@ -172,7 +168,7 @@ impl GitCliffChangelog {
                     continue;
                 }
                 // we've found the top of the release!
-                *self.current_version.borrow_mut() = Some(tag.name.clone());
+                current_version = Some(tag.name.clone());
                 release.version = Some(tag.name.to_string());
                 release.message.clone_from(&tag.message);
                 release.timestamp = Some(git_commit.time().seconds());
@@ -208,12 +204,13 @@ impl GitCliffChangelog {
             }
         }
 
-        Ok(releases)
+        Ok((releases, current_version))
     }
 
     fn get_repo_releases<'a>(
         &self,
-    ) -> Result<Vec<git_cliff_core::release::Release<'a>>> {
+    ) -> Result<(Vec<git_cliff_core::release::Release<'a>>, Option<String>)>
+    {
         let tags = self.repo.tags(&None, false, false)?;
 
         // get just the commits for the path specified or all commits
@@ -228,48 +225,12 @@ impl GitCliffChangelog {
         // process and return the releases for this repo
         self.process_releases(commits, tags)
     }
-}
 
-impl Generator for GitCliffChangelog {
-    fn generate(&self) -> Result<String> {
-        let releases = self.get_repo_releases()?;
-
-        let mut changelog = git_cliff_core::changelog::Changelog::new(
-            releases,
-            &self.config,
-            None,
-        )?;
-
-        debug!("changelog: {:#?}", changelog);
-
-        // increase to next version
-        let next_version = changelog.bump_version()?;
-        *self.next_version.borrow_mut() = next_version;
-
-        // generate content
-        let mut buf = BufWriter::new(Vec::new());
-        changelog.generate(&mut buf)?;
-        let bytes = buf.into_inner()?;
-        let out = String::from_utf8(bytes)?;
-        Ok(out)
-    }
-}
-
-impl CurrentVersion for GitCliffChangelog {
-    fn current_version(&self) -> Option<String> {
-        self.current_version.borrow().clone()
-    }
-}
-
-impl NextVersion for GitCliffChangelog {
-    fn next_version(&self) -> Option<String> {
-        self.next_version.borrow().clone()
-    }
-
-    fn next_is_breaking(&self) -> Result<bool> {
-        let current_version = self.current_version();
-        let next_version = self.next_version();
-
+    fn next_is_breaking(
+        &self,
+        current_version: Option<String>,
+        next_version: Option<String>,
+    ) -> Result<bool> {
         if next_version.is_none() {
             return Ok(false);
         }
@@ -304,9 +265,41 @@ impl NextVersion for GitCliffChangelog {
     }
 }
 
+impl Generator for GitCliffChangelog {
+    fn generate(&self) -> Result<Output> {
+        let (releases, current_version) = self.get_repo_releases()?;
+
+        let mut changelog = git_cliff_core::changelog::Changelog::new(
+            releases,
+            &self.config,
+            None,
+        )?;
+
+        debug!("changelog: {:#?}", changelog);
+
+        // increase to next version
+        let next_version = changelog.bump_version()?;
+        let is_breaking = self
+            .next_is_breaking(current_version.clone(), next_version.clone())?;
+
+        // generate content
+        let mut buf = BufWriter::new(Vec::new());
+        changelog.generate(&mut buf)?;
+        let bytes = buf.into_inner()?;
+        let out = String::from_utf8(bytes)?;
+
+        Ok(Output {
+            log: out,
+            current_version,
+            next_version,
+            is_breaking,
+        })
+    }
+}
+
 impl Writer for GitCliffChangelog {
-    fn write(&self) -> Result<()> {
-        let content = self.generate()?;
+    fn write(&self) -> Result<Output> {
+        let output = self.generate()?;
         let package_dir = Path::new(self.path.as_str());
         let file_path = package_dir.join("CHANGELOG.md");
 
@@ -317,9 +310,9 @@ impl Writer for GitCliffChangelog {
             .truncate(true) // Truncate the file to 0 length if it already exists
             .open(file_path)?;
 
-        file.write_all(content.as_bytes())?;
+        file.write_all(output.log.as_bytes())?;
 
-        Ok(())
+        Ok(output)
     }
 }
 

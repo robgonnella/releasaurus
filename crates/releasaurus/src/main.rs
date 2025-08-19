@@ -1,10 +1,7 @@
 use color_eyre::eyre::Result;
 use log::*;
 use releasaurus_core::{
-    changelog::{
-        git_cliff::GitCliffChangelog,
-        traits::{CurrentVersion, Generator, NextVersion},
-    },
+    changelog::{git_cliff::GitCliffChangelog, traits::Writer},
     config::Config,
 };
 use std::fs;
@@ -42,16 +39,13 @@ fn main() -> Result<()> {
     for package_config in config.into_iter() {
         let name = package_config.package.name.clone();
         let changelog = GitCliffChangelog::new(package_config)?;
-        let output = changelog.generate()?;
-        let current_version = changelog.current_version();
-        let next_version = changelog.next_version();
-        let is_breaking = changelog.next_is_breaking()?;
+        let output = changelog.write()?;
 
         info!("=============={}==============", name);
-        println!("{output}");
-        println!("current_version: {:#?}", current_version);
-        println!("next_version: {:#?}", next_version);
-        println!("is_breaking: {}\n\n", is_breaking);
+        // println!("{output}");
+        println!("current_version: {:#?}", output.current_version);
+        println!("next_version: {:#?}", output.next_version);
+        println!("is_breaking: {}\n\n", output.is_breaking);
     }
 
     Ok(())
