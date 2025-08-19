@@ -79,9 +79,11 @@ impl Default for PackageConfig {
 /// Remote Repository configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct Remote {
-    // The url for the remote repo
-    pub url: String,
-    // The access token for the remote repo
+    /// The owner of the remote repo
+    pub owner: String,
+    /// The repo path i.e. <group>/<repo>
+    pub repo: String,
+    /// The access token for the remote repo
     pub token: SecretString,
 }
 
@@ -93,12 +95,14 @@ pub struct SinglePackageConfig {
     pub changelog: ChangelogConfig,
     /// [`PackageConfig`]
     pub package: PackageConfig,
-    /// gitlab [`Remote`]
+    /// gitlab [`Option<Remote>`]
     pub gitlab: Option<Remote>,
-    // not supported yet
-    // pub github: Remote,
-    // pub bitbucket: Remote,
-    // pub gitea: Remote,
+    /// github [`Option<Remote>`]
+    pub github: Option<Remote>,
+    /// bitbucket [`Option<Remote>`]
+    pub bitbucket: Option<Remote>,
+    /// gitea [`Option<Remote>`]
+    pub gitea: Option<Remote>,
 }
 
 /// Complete configuration for the core
@@ -110,12 +114,14 @@ pub struct Config {
     /// [`Vec<PackageConfig>`]
     #[serde(rename = "package")]
     pub packages: Vec<PackageConfig>,
-    /// gitlab [`Remote`]
+    /// gitlab [`Option<Remote>`]
     pub gitlab: Option<Remote>,
-    // not supported yet
-    // pub github: Remote,
-    // pub bitbucket: Remote,
-    // pub gitea: Remote,
+    /// github [`Option<Remote>`]
+    pub github: Option<Remote>,
+    /// bitbucket [`Option<Remote>`]
+    pub bitbucket: Option<Remote>,
+    /// gitea [`Option<Remote>`]
+    pub gitea: Option<Remote>,
     // used to make this an iterator for SinglePackageConfigs
     next_pkg: usize,
 }
@@ -128,7 +134,10 @@ impl Default for Config {
         Self {
             packages: pkgs,
             changelog: chglg,
+            github: None,
             gitlab: None,
+            gitea: None,
+            bitbucket: None,
             next_pkg: 0,
         }
     }
@@ -151,7 +160,10 @@ impl Iterator for Config {
         Some(SinglePackageConfig {
             changelog: self.changelog.clone(),
             package: self.packages[idx].clone(),
+            github: self.github.clone(),
             gitlab: self.gitlab.clone(),
+            gitea: self.gitea.clone(),
+            bitbucket: self.bitbucket.clone(),
         })
     }
 }

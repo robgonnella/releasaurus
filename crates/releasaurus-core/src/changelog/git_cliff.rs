@@ -69,9 +69,22 @@ impl GitCliffChangelog {
         cliff_config.git.protect_breaking_commits = true;
         cliff_config.git.require_conventional = false;
 
-        if let Some(remote) = config.gitlab {
-            cliff_config.remote.gitlab.repo = remote.url.clone();
+        if let Some(remote) = config.github {
+            cliff_config.remote.github.owner = remote.owner;
+            cliff_config.remote.github.repo = remote.repo;
+            cliff_config.remote.github.token = Some(remote.token.clone());
+        } else if let Some(remote) = config.gitlab {
+            cliff_config.remote.gitlab.owner = remote.owner;
+            cliff_config.remote.gitlab.repo = remote.repo;
             cliff_config.remote.gitlab.token = Some(remote.token.clone());
+        } else if let Some(remote) = config.gitea {
+            cliff_config.remote.gitea.owner = remote.owner;
+            cliff_config.remote.gitea.repo = remote.repo;
+            cliff_config.remote.gitea.token = Some(remote.token.clone());
+        } else if let Some(remote) = config.bitbucket {
+            cliff_config.remote.bitbucket.owner = remote.owner;
+            cliff_config.remote.bitbucket.repo = remote.repo;
+            cliff_config.remote.bitbucket.token = Some(remote.token.clone());
         }
 
         let mut tag_prefix = "v".to_string();
