@@ -290,3 +290,7 @@ impl NextVersion for GitCliffChangelog {
         Ok(next_semver.major > current_semver.major)
     }
 }
+
+#[cfg(test)]
+#[path = "./git_cliff_tests.rs"]
+mod tests;
