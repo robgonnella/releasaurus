@@ -2,9 +2,9 @@
 use secrecy::SecretString;
 use serde::Deserialize;
 
-pub const GITHUB_DEFAULT_HOST: &str = "github.com";
-pub const GITLAB_DEFAULT_HOST: &str = "gitlab.com";
-pub const BITBUCKET_DEFAULT_HOST: &str = "bitbucket.org";
+pub const GITHUB_DEFAULT_BASE_URL: &str = "https://github.com";
+pub const GITLAB_DEFAULT_BASE_URL: &str = "https://gitlab.com";
+pub const GITEA_DEFAULT_BASE_URL: &str = "https://gitea.com";
 
 /// The default body value for [`ChangelogConfig`]
 const DEFAULT_BODY: &str = r#"{% if version -%}
@@ -93,9 +93,10 @@ pub struct RemoteConfig {
     pub repo: String,
     /// The access token for the remote repo
     pub token: SecretString,
-    /// Optional host for the remote
-    /// defaults to community version hosts i.e. github.com, gitlab.com etc
-    pub host: Option<String>,
+    /// Optional base_url for the remote
+    /// defaults to community version urls
+    /// i.e. https://github.com, https://gitlab.com, https://gitea.com
+    pub base_url: Option<String>,
 }
 
 /// Represents the valid types of remotes
@@ -104,7 +105,6 @@ pub enum Remote {
     Github(RemoteConfig),
     Gitlab(RemoteConfig),
     Gitea(RemoteConfig),
-    BitBucket(RemoteConfig),
 }
 
 /// Represents configuration for a single package which includes global
@@ -132,8 +132,6 @@ pub struct Config {
     pub gitlab: Option<RemoteConfig>,
     /// github [`Option<Remote>`]
     pub github: Option<RemoteConfig>,
-    /// bitbucket [`Option<Remote>`]
-    pub bitbucket: Option<RemoteConfig>,
     /// gitea [`Option<Remote>`]
     pub gitea: Option<RemoteConfig>,
     // used to make this an iterator for SinglePackageConfigs
@@ -151,7 +149,6 @@ impl Default for Config {
             github: None,
             gitlab: None,
             gitea: None,
-            bitbucket: None,
             next_pkg: 0,
         }
     }
@@ -174,30 +171,28 @@ impl Iterator for Config {
 
         if let Some(conf) = self.github.clone() {
             let mut remote_config = conf.clone();
-            remote_config.host = Some(
+            remote_config.base_url = Some(
                 remote_config
-                    .host
-                    .unwrap_or(GITHUB_DEFAULT_HOST.to_string()),
+                    .base_url
+                    .unwrap_or(GITHUB_DEFAULT_BASE_URL.to_string()),
             );
             remote = Some(Remote::Github(remote_config));
         } else if let Some(conf) = self.gitlab.clone() {
             let mut remote_config = conf.clone();
-            remote_config.host = Some(
+            remote_config.base_url = Some(
                 remote_config
-                    .host
-                    .unwrap_or(GITLAB_DEFAULT_HOST.to_string()),
+                    .base_url
+                    .unwrap_or(GITLAB_DEFAULT_BASE_URL.to_string()),
             );
             remote = Some(Remote::Gitlab(remote_config));
         } else if let Some(conf) = self.gitea.clone() {
-            remote = Some(Remote::Gitea(conf));
-        } else if let Some(conf) = self.bitbucket.clone() {
             let mut remote_config = conf.clone();
-            remote_config.host = Some(
+            remote_config.base_url = Some(
                 remote_config
-                    .host
-                    .unwrap_or(BITBUCKET_DEFAULT_HOST.to_string()),
+                    .base_url
+                    .unwrap_or(GITEA_DEFAULT_BASE_URL.to_string()),
             );
-            remote = Some(Remote::BitBucket(remote_config));
+            remote = Some(Remote::Gitea(remote_config));
         }
 
         self.next_pkg += 1;
@@ -235,7 +230,7 @@ mod tests {
     fn defaults_remote_host_for_github() {
         let config = Config {
             github: Some(RemoteConfig {
-                host: None,
+                base_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -249,7 +244,10 @@ mod tests {
             let remote = c.remote.unwrap();
             assert!(matches!(remote, Remote::Github(_)));
             if let Remote::Github(conf) = remote {
-                assert_eq!(conf.host, Some("github.com".to_string()));
+                assert_eq!(
+                    conf.base_url,
+                    Some(GITHUB_DEFAULT_BASE_URL.to_string())
+                );
             }
         }
     }
@@ -258,7 +256,7 @@ mod tests {
     fn defaults_remote_host_for_gitlab() {
         let config = Config {
             gitlab: Some(RemoteConfig {
-                host: None,
+                base_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -272,7 +270,10 @@ mod tests {
             let remote = c.remote.unwrap();
             assert!(matches!(remote, Remote::Gitlab(_)));
             if let Remote::Gitlab(conf) = remote {
-                assert_eq!(conf.host, Some("gitlab.com".to_string()));
+                assert_eq!(
+                    conf.base_url,
+                    Some(GITLAB_DEFAULT_BASE_URL.to_string())
+                );
             }
         }
     }
@@ -281,7 +282,7 @@ mod tests {
     fn does_not_default_remote_host_for_gitea() {
         let config = Config {
             gitea: Some(RemoteConfig {
-                host: None,
+                base_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -295,30 +296,10 @@ mod tests {
             let remote = c.remote.unwrap();
             assert!(matches!(remote, Remote::Gitea(_)));
             if let Remote::Gitea(conf) = remote {
-                assert_eq!(conf.host, None);
-            }
-        }
-    }
-
-    #[test]
-    fn defaults_remote_host_for_bitbucket() {
-        let config = Config {
-            bitbucket: Some(RemoteConfig {
-                host: None,
-                owner: "owner".to_string(),
-                repo: "repo".to_string(),
-                token: Secret::new("secret".to_string()),
-            }),
-            ..Config::default()
-        };
-
-        for c in config {
-            assert!(!c.changelog.body.is_empty());
-            assert!(!c.package.path.is_empty());
-            let remote = c.remote.unwrap();
-            assert!(matches!(remote, Remote::BitBucket(_)));
-            if let Remote::BitBucket(conf) = remote {
-                assert_eq!(conf.host, Some("bitbucket.org".to_string()));
+                assert_eq!(
+                    conf.base_url,
+                    Some(GITEA_DEFAULT_BASE_URL.to_string())
+                );
             }
         }
     }
