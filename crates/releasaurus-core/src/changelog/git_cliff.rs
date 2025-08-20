@@ -179,6 +179,39 @@ fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
     }
 }
 
+fn get_version_link_for_remote(remote: Remote, tag: String) -> String {
+    match remote {
+        Remote::Github(config) => format!(
+            "https://{}/{}/{}/releases/tag/{}",
+            config.host.unwrap_or(String::from(GITHUB_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            tag
+        ),
+        Remote::Gitlab(config) => format!(
+            "https://{}/{}/{}/releases/{}",
+            config.host.unwrap_or(String::from(GITLAB_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            tag
+        ),
+        Remote::Gitea(config) => format!(
+            "https://{}/{}/{}/releases/{}",
+            config.host.unwrap_or(String::from("gitea.example.com")),
+            config.owner,
+            config.repo,
+            tag
+        ),
+        Remote::BitBucket(config) => format!(
+            "https://{}/{}/{}/commits/tag/{}",
+            config.host.unwrap_or(String::from(BITBUCKET_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            tag
+        ),
+    }
+}
+
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
 /// and [`NextVersion`]
 pub struct GitCliffChangelog {
@@ -226,17 +259,20 @@ impl GitCliffChangelog {
             let release = releases.last_mut().unwrap();
             // create git_cliff commit from git2 commit
             let mut commit = git_cliff_core::commit::Commit::from(git_commit);
+
+            // add extra link properties for remote
             if let Some(remote) = self.remote.clone() {
-                let mut map = Map::new();
-                map.insert(
+                let mut commit_extra = Map::new();
+                commit_extra.insert(
                     "link".to_string(),
                     Value::String(get_commit_link_for_remote(
-                        remote,
+                        remote.clone(),
                         commit.id.clone(),
                     )),
                 );
-                commit.extra = Some(Value::Object(map));
+                commit.extra = Some(Value::Object(commit_extra));
             }
+
             let commit_id = commit.id.to_string();
             // add commit to release
             release.commits.push(commit);
@@ -278,8 +314,20 @@ impl GitCliffChangelog {
                 Some(Box::new(previous_release));
         }
 
-        // set the commit range on each release
+        // set the commit range and version link for each release
         for release in &mut releases {
+            // add extra version_link property
+            if let Some(remote) = self.remote.clone()
+                && let Some(version) = release.version.clone()
+            {
+                let mut release_extra = Map::new();
+                release_extra.insert(
+                    "version_link".to_string(),
+                    Value::String(get_version_link_for_remote(remote, version)),
+                );
+                release.extra = Some(Value::Object(release_extra));
+            }
+
             // Set the commit ranges for all releases
             if !release.commits.is_empty() {
                 release.commit_range = Some(git_cliff_core::commit::Range::new(
