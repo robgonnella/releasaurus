@@ -4,6 +4,7 @@ use glob::Pattern;
 use indexmap::IndexMap;
 use log::*;
 use regex::{Regex, RegexBuilder};
+use serde_json::{Map, Value};
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Write},
@@ -12,7 +13,10 @@ use std::{
 
 use crate::{
     changelog::traits::{Generator, Output, Writer},
-    config::SinglePackageConfig,
+    config::{
+        BITBUCKET_DEFAULT_HOST, GITHUB_DEFAULT_HOST, GITLAB_DEFAULT_HOST,
+        Remote, SinglePackageConfig,
+    },
 };
 
 fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
@@ -61,26 +65,35 @@ fn get_cliff_config(
     cliff_config.git.protect_breaking_commits = true;
     cliff_config.git.require_conventional = false;
 
-    if let Some(remote) = package_config.github {
-        cliff_config.remote.github.owner = remote.owner;
-        cliff_config.remote.github.repo = remote.repo;
-        cliff_config.remote.github.token = Some(remote.token.clone());
-        cliff_config.remote.github.is_custom = true;
-    } else if let Some(remote) = package_config.gitlab {
-        cliff_config.remote.gitlab.owner = remote.owner;
-        cliff_config.remote.gitlab.repo = remote.repo;
-        cliff_config.remote.gitlab.token = Some(remote.token.clone());
-        cliff_config.remote.gitlab.is_custom = true;
-    } else if let Some(remote) = package_config.gitea {
-        cliff_config.remote.gitea.owner = remote.owner;
-        cliff_config.remote.gitea.repo = remote.repo;
-        cliff_config.remote.gitea.token = Some(remote.token.clone());
-        cliff_config.remote.gitea.is_custom = true;
-    } else if let Some(remote) = package_config.bitbucket {
-        cliff_config.remote.bitbucket.owner = remote.owner;
-        cliff_config.remote.bitbucket.repo = remote.repo;
-        cliff_config.remote.bitbucket.token = Some(remote.token.clone());
-        cliff_config.remote.bitbucket.is_custom = true;
+    match package_config.remote {
+        Some(Remote::Github(remote_config)) => {
+            cliff_config.remote.github.owner = remote_config.owner;
+            cliff_config.remote.github.repo = remote_config.repo;
+            cliff_config.remote.github.token =
+                Some(remote_config.token.clone());
+            cliff_config.remote.github.is_custom = true;
+        }
+        Some(Remote::Gitlab(remote_config)) => {
+            cliff_config.remote.gitlab.owner = remote_config.owner;
+            cliff_config.remote.gitlab.repo = remote_config.repo;
+            cliff_config.remote.gitlab.token =
+                Some(remote_config.token.clone());
+            cliff_config.remote.gitlab.is_custom = true;
+        }
+        Some(Remote::Gitea(remote_config)) => {
+            cliff_config.remote.gitea.owner = remote_config.owner;
+            cliff_config.remote.gitea.repo = remote_config.repo;
+            cliff_config.remote.gitea.token = Some(remote_config.token.clone());
+            cliff_config.remote.gitea.is_custom = true;
+        }
+        Some(Remote::BitBucket(remote_config)) => {
+            cliff_config.remote.bitbucket.owner = remote_config.owner;
+            cliff_config.remote.bitbucket.repo = remote_config.repo;
+            cliff_config.remote.bitbucket.token =
+                Some(remote_config.token.clone());
+            cliff_config.remote.bitbucket.is_custom = true;
+        }
+        _ => {}
     }
 
     let mut tag_prefix = "v".to_string();
@@ -133,18 +146,53 @@ fn get_cliff_config(
     Ok(cliff_config)
 }
 
+fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
+    match remote {
+        Remote::Github(config) => format!(
+            "https://{}/{}/{}/commit/{}",
+            config.host.unwrap_or(String::from(GITHUB_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            commit_id
+        ),
+        Remote::Gitlab(config) => format!(
+            "https://{}/{}/{}/commit/{}",
+            config.host.unwrap_or(String::from(GITLAB_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            commit_id
+        ),
+        Remote::Gitea(config) => format!(
+            "https://{}/{}/{}/commit/{}",
+            config.host.unwrap_or(String::from("gitea.example.com")),
+            config.owner,
+            config.repo,
+            commit_id
+        ),
+        Remote::BitBucket(config) => format!(
+            "https://{}/{}/{}/commit/{}",
+            config.host.unwrap_or(String::from(BITBUCKET_DEFAULT_HOST)),
+            config.owner,
+            config.repo,
+            commit_id
+        ),
+    }
+}
+
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
 /// and [`NextVersion`]
 pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
+    remote: Option<Remote>,
 }
 
 impl GitCliffChangelog {
     /// Returns new instance based on provided configs
     pub fn new(config: SinglePackageConfig) -> Result<Self> {
         let path = config.package.path.clone();
+        let remote = config.remote.clone();
         let cliff_config = get_cliff_config(config)?;
         let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
 
@@ -152,10 +200,11 @@ impl GitCliffChangelog {
             config: Box::new(cliff_config),
             repo,
             path,
+            remote,
         })
     }
 
-    fn process_releases<'a>(
+    fn process_commits<'a>(
         &self,
         commits: Vec<git2::Commit>,
         tags: IndexMap<String, git_cliff_core::tag::Tag>,
@@ -176,7 +225,18 @@ impl GitCliffChangelog {
             // get release at end of list
             let release = releases.last_mut().unwrap();
             // create git_cliff commit from git2 commit
-            let commit = git_cliff_core::commit::Commit::from(git_commit);
+            let mut commit = git_cliff_core::commit::Commit::from(git_commit);
+            if let Some(remote) = self.remote.clone() {
+                let mut map = Map::new();
+                map.insert(
+                    "link".to_string(),
+                    Value::String(get_commit_link_for_remote(
+                        remote,
+                        commit.id.clone(),
+                    )),
+                );
+                commit.extra = Some(Value::Object(map));
+            }
             let commit_id = commit.id.to_string();
             // add commit to release
             release.commits.push(commit);
@@ -248,7 +308,7 @@ impl GitCliffChangelog {
         )?;
 
         // process and return the releases for this repo
-        self.process_releases(commits, tags)
+        self.process_commits(commits, tags)
     }
 
     fn next_is_breaking(
