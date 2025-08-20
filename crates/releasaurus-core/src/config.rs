@@ -8,7 +8,7 @@ pub const BITBUCKET_DEFAULT_HOST: &str = "bitbucket.org";
 
 /// The default body value for [`ChangelogConfig`]
 const DEFAULT_BODY: &str = r#"{% if version -%}
-    # [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+    # [{{ version | trim_start_matches(pat="v") }}]{% if extra.version_link %}({{ extra.version_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
     # [unreleased]
 {% endif -%}
@@ -27,7 +27,7 @@ const DEFAULT_BODY: &str = r#"{% if version -%}
         - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} {% if commit.extra and commit.extra.link %}[_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.extra.link }}){% endif -%}
       {% endif -%}
     {% endfor %}
-{% endfor -%}
+{% endfor %}
  "#;
 
 /// Changelog Configuration allowing you to customize changelog output format
