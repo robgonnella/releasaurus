@@ -1,0 +1,14 @@
+services:
+  gitea:
+    image: docker.gitea.com/gitea:1.24.5
+    restart: always
+    volumes:
+      - tea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+      - "222:22"
+
+volumes:
+  tea:
