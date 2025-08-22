@@ -8,10 +8,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::changelog::{
-    cliff_helpers,
-    config::{ChangelogConfig, Remote},
-    traits::{Generator, Output, Writer},
+use crate::{
+    changelog::{
+        cliff_helpers,
+        config::ChangelogConfig,
+        traits::{Generator, Output, Writer},
+    },
+    config::Remote,
 };
 
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
