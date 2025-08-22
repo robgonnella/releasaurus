@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Result, eyre};
 use git_url_parse::GitUrl;
-use releasaurus_core::changelog::config::{Remote, RemoteConfig};
+use releasaurus_core::config::{Remote, RemoteConfig};
 use secrecy::Secret;
 use std::env;
 
