@@ -4,7 +4,7 @@ use crate::config::{Remote, RemoteConfig};
 
 /// The default body value for [`ChangelogConfig`]
 pub const DEFAULT_BODY: &str = r#"{% if version -%}
-    # [{{ version | trim_start_matches(pat="v") }}]{% if extra.version_link %}({{ extra.version_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+    # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
     # [unreleased]
 {% endif -%}
@@ -12,7 +12,7 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
       {% if commit.breaking -%}
-        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }} {% if commit.extra and commit.extra.link %}[_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.extra.link }}){% endif %}
+        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id }})
         {% if commit.body -%}
         > {{ commit.body }}
         {% endif -%}
@@ -20,7 +20,7 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
         > {{ commit.breaking_description }}
         {% endif -%}
       {% else -%}
-        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} {% if commit.extra and commit.extra.link %}[_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.extra.link }}){% endif -%}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id -}})
       {% endif -%}
     {% endfor %}
 {% endfor %}

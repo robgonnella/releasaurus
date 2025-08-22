@@ -68,7 +68,6 @@ impl GitCliffChangelog {
                 repository_path.clone(),
                 release,
                 git_commit,
-                self.remote.clone(),
             );
             // now check if we have a tag matching this commit
             if let Some(tag) = tags.get(release.commit_id.as_ref().unwrap())
@@ -101,7 +100,7 @@ impl GitCliffChangelog {
         // set the commit range and version link for each release
         for release in &mut releases {
             // add extra version_link property
-            cliff_helpers::add_version_link_and_commit_range_to_release(
+            cliff_helpers::add_link_base_and_commit_range_to_release(
                 release,
                 self.remote.clone(),
             );
