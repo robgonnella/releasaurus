@@ -9,9 +9,12 @@ pub struct RemoteConfig {
     pub repo: String,
     /// The access token for the remote repo
     pub token: Secret<String>,
-    /// link_base_url for the remote
+    /// commit link base_url for the remote
     /// This is only used for links displayed in changelog
-    pub link_base_url: String,
+    pub commit_link_base_url: String,
+    /// release link base_url for the remote
+    /// This is only used for links displayed in changelog
+    pub release_link_base_url: String,
     /// Optional api_url for the remote
     /// If you're updating base_url you should be updating this field as well
     pub api_url: Option<String>,
@@ -23,7 +26,8 @@ impl Default for RemoteConfig {
             owner: "".to_string(),
             repo: "".to_string(),
             token: Secret::from("".to_string()),
-            link_base_url: "".to_string(),
+            commit_link_base_url: "".to_string(),
+            release_link_base_url: "".to_string(),
             api_url: None,
         }
     }
