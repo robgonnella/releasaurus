@@ -121,7 +121,7 @@ fn process_git_repository() {
     let result = context.setup_repo();
     assert!(result.is_ok(), "failed to setup test repo");
 
-    let config = SinglePackageConfig::default();
+    let config = ChangelogConfig::default();
     let result = GitCliffChangelog::new(config);
     assert!(result.is_ok(), "failed to create changelog instance");
 

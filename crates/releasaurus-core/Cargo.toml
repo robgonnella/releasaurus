@@ -6,14 +6,13 @@ edition.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+secrecy = { workspace = true }
 git-cliff-core = { version = "2.10.0", features = ["github", "gitlab", "bitbucket", "gitea"] }
 glob = "0.3.3"
 regex = "1.11.1"
 git2 = "0.20.2"
 indexmap = "2.10.0"
 semver = "1.0.26"
-secrecy = "0.8.0"
 serde_json = "1.0.143"
 
 [dev-dependencies]

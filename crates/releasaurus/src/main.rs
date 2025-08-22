@@ -1,10 +1,15 @@
+use clap::Parser;
 use color_eyre::eyre::Result;
 use log::*;
-use releasaurus_core::{
-    changelog::{git_cliff::GitCliffChangelog, traits::Writer},
-    config::Config,
+use releasaurus_core::changelog::{
+    config::{ChangelogConfig, PackageConfig},
+    git_cliff::GitCliffChangelog,
+    traits::Writer,
 };
 use std::{env, fs};
+
+mod args;
+mod config;
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
@@ -24,7 +29,7 @@ fn initialize_logger(debug: bool) {
     .unwrap();
 }
 
-fn load_config() -> Result<Config> {
+fn load_config() -> Result<config::CliConfig> {
     // search for config file walking up ancestors as necessary
     let maybe_found_config = env::current_dir()?.ancestors().find_map(|dir| {
         let path = dir.join(DEFAULT_CONFIG_FILE);
@@ -45,23 +50,37 @@ fn load_config() -> Result<Config> {
         }
 
         if let Ok(content) = fs::read_to_string(config_file) {
-            let config: Config = toml::from_str(&content)?;
-            return Ok(config);
+            let cli_config: config::CliConfig = toml::from_str(&content)?;
+            return Ok(cli_config);
         }
     }
 
     // otherwise return default config
-    Ok(Config::default())
+    Ok(config::CliConfig::default())
 }
 
 fn main() -> Result<()> {
-    initialize_logger(false);
+    let cli_args = args::Cli::parse();
 
-    let config = load_config()?;
+    initialize_logger(cli_args.debug);
 
-    for package_config in config {
-        let name = package_config.package.name.clone();
-        let changelog = GitCliffChangelog::new(package_config)?;
+    let cli_config = load_config()?;
+
+    let remote = cli_args.get_remote()?;
+
+    for single in cli_config {
+        let name = single.package.name.clone();
+        let changelog = GitCliffChangelog::new(ChangelogConfig {
+            body: single.changelog.body.clone(),
+            header: single.changelog.header.clone(),
+            footer: single.changelog.footer.clone(),
+            package: PackageConfig {
+                name: single.package.name.clone(),
+                path: single.package.path.clone(),
+                tag_prefix: single.package.tag_prefix.clone(),
+            },
+            remote: remote.clone(),
+        })?;
         let output = changelog.write()?;
 
         info!("=============={}==============", name);

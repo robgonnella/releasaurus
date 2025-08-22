@@ -7,9 +7,13 @@ edition.workspace = true
 color-eyre = { workspace = true }
 log = { workspace = true }
 paris = { workspace = true }
+secrecy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 simplelog = {workspace = true, features = ["paris"]}
 toml = { workspace = true}
 releasaurus-core = { path = "../releasaurus-core", version = "0.1.0" }
+clap = { version = "4.5.45", features = ["derive"]}
+git-url-parse = "0.4.5"
 
 [package.metadata.cargo-machete]
 ignored = ["paris"]
