@@ -1,6 +1,7 @@
 //! Changelog related traits
 use color_eyre::eyre::Result;
 
+#[derive(Debug)]
 /// The output returned from Generator and Writer traits
 pub struct Output {
     /// The entire changelog as a string
