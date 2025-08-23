@@ -51,9 +51,7 @@ impl Gitea {
 impl Forge for Gitea {
     fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
         let pr_number = self.rt.block_on(async {
-            let handler = self
-                .gt
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
 
             let pr = handler
                 .get_by_branches(req.head_branch, req.base_branch)
@@ -71,9 +69,7 @@ impl Forge for Gitea {
 
     fn create_pr(&self, req: CreatePrRequest) -> Result<u64> {
         let pr_number = self.rt.block_on(async {
-            let handler = self
-                .gt
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
 
             let pr = handler
                 .create(req.target_branch, req.base_branch, req.title)
@@ -92,9 +88,7 @@ impl Forge for Gitea {
 
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         self.rt.block_on(async {
-            let handler = self
-                .gt
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
 
             handler
                 .edit(req.pr_number as i64)
