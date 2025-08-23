@@ -1,5 +1,6 @@
 #[derive(Debug)]
 pub struct GetPrRequest {
+    pub head_branch: String,
     pub base_branch: String,
 }
 
