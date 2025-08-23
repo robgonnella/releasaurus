@@ -1,0 +1,92 @@
+# [core-v0.1.0](https://github.com/robgonnella/releasaurus/releases/tag/core-v0.1.0) - 2025-08-23
+
+### ❌ Breaking Changes
+
+[**breaking**]: Refactors changelog to return output struct [_(cf932cf7)_](https://github.com/robgonnella/releasaurus/commit/cf932cf74eb63557924cc8d4f7e807a1d2ff52cf)
+> Instead of separate traits, this approach is more streamlined by
+returning an output struct that includes current_version, next_version,
+and is_breaking as fields.
+> Removes CurrentVersion and NextVersion traits and
+modifies Generator and Writer traits to instead return an Output struct
+which includes current_version, next_version, and is_breaking as fields
+
+[**breaking**]: Improves monorepo setup [_(a9e4a00c)_](https://github.com/robgonnella/releasaurus/commit/a9e4a00c8f5dd52e74e78240aa7dc538834a8027)
+> Uses an iterator setup on Config allowing users to simply loop the
+config into SinglePackageConfigs. This is more intuitive than generating
+each SinglePackageConfig by index directly.
+> Toml config property changed from packages to package
+as it's more idiomatic. In toml it's common to represent a list item as
+the singular form encased in double brackets i.e. `[[package]]`
+
+[**breaking**]: Removes support for bitbucket [_(c4352932)_](https://github.com/robgonnella/releasaurus/commit/c43529320250da2e2a08152965818a581d4726d2)
+> Removes support for bitbucket remote. We will decide
+later if we want to include support for this forge
+
+
+### 🚀 Features
+
+- _(core)_ Adds git-cliff changelog implementation [_(03db4373)_](https://github.com/robgonnella/releasaurus/commit/03db43738f63122230cb24a9cadfcb083c61d9c9)
+
+- _(core)_ Adds config setup to core [_(c5afcce5)_](https://github.com/robgonnella/releasaurus/commit/c5afcce5ea08b7ec85f3c476b1bb3da3a8899b6f)
+
+- _(core)_ Adds support for other remotes [_(526fc08d)_](https://github.com/robgonnella/releasaurus/commit/526fc08d5f1c10a9fe8be0e884bc39d7551a713d)
+
+- _(core)_ Adds support for setting gitlab remote [_(3ee68923)_](https://github.com/robgonnella/releasaurus/commit/3ee689235aa6cdb9566f04589178f97ec0ec0b66)
+
+- _(core)_ Add ability to write changelog to file [_(9c103614)_](https://github.com/robgonnella/releasaurus/commit/9c103614e36fe52b8f08d4dd21ad48b9f3e77b7c)
+
+- _(core)_ Adds commit links to changelog [_(89134509)_](https://github.com/robgonnella/releasaurus/commit/891345091630605d6cfee3b7e648b521ae4c69d3)
+
+- _(core)_ Adds version links to changelog [_(ef992192)_](https://github.com/robgonnella/releasaurus/commit/ef9921928d9bfa00cc09a505067e36e2450f55df)
+
+- Improves links in generated changelog [_(53adf850)_](https://github.com/robgonnella/releasaurus/commit/53adf850a981a998bc200bcc985b363faf012e9d)
+
+
+### 💼 Other
+
+- Wip [_(31f469ac)_](https://github.com/robgonnella/releasaurus/commit/31f469acbf3cad6c9d8f2ecf2048a9868f24f397)
+
+- Wip [_(c69b1bc1)_](https://github.com/robgonnella/releasaurus/commit/c69b1bc1f13e862a13d8766fb1e45b8317bd5363)
+
+
+### 🐛 Bug Fixes
+
+- _(core)_ Fixes issue with setting tag_prefix [_(8865b9d1)_](https://github.com/robgonnella/releasaurus/commit/8865b9d1ed465b045d858effd5b7a039cacbed74)
+
+- _(core)_ Minor update to changelog body tera [_(5649877e)_](https://github.com/robgonnella/releasaurus/commit/5649877ea6fca6973d051eca7c3d2051d578cf42)
+
+- _(core)_ Fixes issue with setting remotes [_(c2302e34)_](https://github.com/robgonnella/releasaurus/commit/c2302e34dea975ecd8b7df57a1a0be9c0ba23ebb)
+
+- _(core)_ Fixes issue with setting api_url [_(2cd48eaa)_](https://github.com/robgonnella/releasaurus/commit/2cd48eaa2dc2d0f294fb98e51fb699f0f7d4b7b7)
+
+
+### 📚 Documentation
+
+- _(core)_ Adds doc comments to changelog modules [_(ba12df52)_](https://github.com/robgonnella/releasaurus/commit/ba12df529b7a99643775e1e270a7c9dafa05b442)
+
+- _(core)_ Adds doc comments to config [_(9aedadf2)_](https://github.com/robgonnella/releasaurus/commit/9aedadf272efa47421f1f30c42097df6003929e9)
+
+
+### 🚜 Refactor
+
+- Refactors config and adds beginning of cli [_(ac7e44b0)_](https://github.com/robgonnella/releasaurus/commit/ac7e44b011ffbdb135efb9e8a18338918d3b8fad)
+
+
+### 🧪 Testing
+
+- _(core)_ Adds unit tests for git-cliff changelog [_(4dd60272)_](https://github.com/robgonnella/releasaurus/commit/4dd60272d6e453382017c8beb1e87e50db04ce45)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- _(main)_ Initial commit [_(b3fe8e60)_](https://github.com/robgonnella/releasaurus/commit/b3fe8e60e1be6359624e082e1bd9e525b767ebb8)
+
+- _(core)_ Use serde to rename packages field in config [_(e12ed8b7)_](https://github.com/robgonnella/releasaurus/commit/e12ed8b7dee79acfa0820e6b359dac20d1cdce73)
+
+- _(core)_ More improvements to formatting [_(6e83cec6)_](https://github.com/robgonnella/releasaurus/commit/6e83cec661cdc3ec217b32ce9551c442c27e9fa3)
+
+- Moves remote config to top level in core [_(67f56572)_](https://github.com/robgonnella/releasaurus/commit/67f56572739059c91b7d6960d7499b1127313ba6)
+
+- Change remote base_url to link_base_url [_(3a0a804d)_](https://github.com/robgonnella/releasaurus/commit/3a0a804d14e9c2c1aa8a92134b996b4e6880b31a)
+
+
