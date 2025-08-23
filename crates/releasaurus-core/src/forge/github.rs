@@ -52,7 +52,7 @@ impl Github {
 }
 
 impl Forge for Github {
-    fn get_pr(&self, req: GetPrRequest) -> Result<Option<u64>> {
+    fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
         let prs = self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
@@ -62,6 +62,7 @@ impl Forge for Github {
             handler
                 .list()
                 .state(params::State::Open)
+                .head(req.head_branch)
                 .base(req.base_branch)
                 .send()
                 .await

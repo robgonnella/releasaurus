@@ -5,7 +5,7 @@ use crate::forge::types::{
 };
 
 pub trait Forge {
-    fn get_pr(&self, req: GetPrRequest) -> Result<Option<u64>>;
+    fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>>;
     fn create_pr(&self, req: CreatePrRequest) -> Result<u64>;
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()>;
     fn add_pr_labels(&self, req: PrLabelsRequest) -> Result<()>;
