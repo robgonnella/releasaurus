@@ -3,6 +3,10 @@ use secrecy::Secret;
 #[derive(Debug, Clone)]
 /// Remote Repository configuration
 pub struct RemoteConfig {
+    /// The host for this remote repo
+    pub host: String,
+    /// The scheme for this remote repo http|https
+    pub scheme: String,
     /// The owner of the remote repo
     pub owner: String,
     /// The repo path i.e. <group>/<repo>
@@ -23,6 +27,8 @@ pub struct RemoteConfig {
 impl Default for RemoteConfig {
     fn default() -> Self {
         Self {
+            host: "".to_string(),
+            scheme: "".to_string(),
             owner: "".to_string(),
             repo: "".to_string(),
             token: Secret::from("".to_string()),
