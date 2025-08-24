@@ -1,10 +1,11 @@
-use color_eyre::eyre::{Report, Result, WrapErr};
-use gitea_sdk::{
-    Client,
-    model::{issues::Label, pulls::PullRequest},
+use color_eyre::eyre::Result;
+use reqwest::{
+    Url,
+    blocking::Client,
+    header::{HeaderMap, HeaderValue},
 };
 use secrecy::ExposeSecret;
-use tokio::runtime::Runtime;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     config::RemoteConfig,
@@ -16,144 +17,201 @@ use crate::{
     },
 };
 
+#[derive(Debug, Default, Serialize)]
+struct CreateLabel {
+    name: String,
+    color: String,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+struct Label {
+    id: u64,
+    name: String,
+    color: String,
+    description: String,
+    exclusive: bool,
+    is_archived: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct PullRequest {
+    number: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct CreatePull {
+    title: String,
+    body: String,
+    head: String,
+    base: String,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdatePullBody {
+    body: String,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdatePullLabels {
+    labels: Vec<u64>,
+}
+
 pub struct Gitea {
-    config: RemoteConfig,
-    gt: Client,
-    rt: Runtime,
+    base_url: Url,
+    client: Client,
 }
 
 impl Gitea {
     pub fn new(config: RemoteConfig) -> Result<Self> {
-        let base_url = format!("{}://{}", config.scheme, config.host);
         let token = config.token.expose_secret();
-        let gt = Client::new(base_url, gitea_sdk::Auth::Token(token));
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
+
+        let mut headers = HeaderMap::new();
+
+        let token_value =
+            HeaderValue::from_str(format!("token {}", token).as_str())?;
+
+        headers.append("Authorization", token_value);
+
+        let client = reqwest::blocking::Client::builder()
+            .default_headers(headers)
             .build()?;
-        Ok(Gitea { config, gt, rt })
+
+        let base_url = Url::parse(
+            format!(
+                "{}://{}/api/v1/repos/{}/{}/",
+                config.scheme, config.host, config.owner, config.repo
+            )
+            .as_str(),
+        )?;
+
+        Ok(Gitea { client, base_url })
     }
 
-    async fn get_pr_by_number(&self, pr_number: u64) -> Result<PullRequest> {
-        let handler = self
-            .gt
-            .pulls(self.config.owner.clone(), self.config.repo.clone());
+    fn get_pr_labels(&self, pr_number: u64) -> Result<Vec<Label>> {
+        let labels_url = self
+            .base_url
+            .join(format!("issues/{}/labels", pr_number).as_str())?;
+        let request = self.client.get(labels_url).build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let labels: Vec<Label> = result.json()?;
+        Ok(labels)
+    }
 
-        let pr = handler
-            .get(pr_number as i64)
-            .send(&self.gt)
-            .await
-            .wrap_err("failed to get pull request")?;
+    fn get_all_labels(&self) -> Result<Vec<Label>> {
+        let labels_url = self.base_url.join("labels")?;
+        let request = self.client.get(labels_url).build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let labels: Vec<Label> = result.json()?;
+        Ok(labels)
+    }
 
-        Ok(pr)
+    fn create_label(&self, label_name: String) -> Result<Label> {
+        let labels_url = self.base_url.join("labels")?;
+        let request = self
+            .client
+            .post(labels_url)
+            .json(&CreateLabel {
+                name: label_name,
+                color: "00aabb".to_string(),
+            })
+            .build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let label: Label = result.json()?;
+        Ok(label)
     }
 }
 
 impl Forge for Gitea {
     fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
-        let pr_number = self.rt.block_on(async {
-            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
-
-            let pr = handler
-                .get_by_branches(req.head_branch, req.base_branch)
-                .send(&self.gt)
-                .await
-                .wrap_err("failed to create pull request")?;
-
-            let pr_num = pr.number.unsigned_abs();
-
-            Ok::<u64, Report>(pr_num)
-        })?;
-
-        Ok(Some(pr_number))
+        let pulls_url = self.base_url.join(
+            format!("pulls/{}/{}", req.base_branch, req.head_branch).as_str(),
+        )?;
+        let request = self.client.get(pulls_url).build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let pr: PullRequest = result.json()?;
+        Ok(Some(pr.number))
     }
 
     fn create_pr(&self, req: CreatePrRequest) -> Result<u64> {
-        let pr_number = self.rt.block_on(async {
-            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
-
-            let pr = handler
-                .create(req.target_branch, req.base_branch, req.title)
-                .body(req.body)
-                .send(&self.gt)
-                .await
-                .wrap_err("failed to create pull request")?;
-
-            let pr_num = pr.number.unsigned_abs();
-
-            Ok::<u64, Report>(pr_num)
-        })?;
-
-        Ok(pr_number)
+        let data = CreatePull {
+            title: req.title,
+            body: req.body,
+            head: req.head_branch,
+            base: req.base_branch,
+        };
+        let pulls_url = self.base_url.join("pulls")?;
+        let request = self.client.post(pulls_url).json(&data).build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let pr: PullRequest = result.json()?;
+        Ok(pr.number)
     }
 
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        self.rt.block_on(async {
-            let handler = self.gt.pulls(&self.config.owner, &self.config.repo);
-
-            handler
-                .edit(req.pr_number as i64)
-                .body(req.body)
-                .send(&self.gt)
-                .await
-                .wrap_err("failed to update pull request")
-        })?;
-
+        let data = UpdatePullBody { body: req.body };
+        let pulls_url = self
+            .base_url
+            .join(format!("pulls/{}", req.pr_number).as_str())?;
+        let request = self.client.patch(pulls_url).json(&data).build()?;
+        let response = self.client.execute(request)?;
+        response.error_for_status()?;
         Ok(())
     }
 
     fn add_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        self.rt.block_on(async {
-            let pr = self.get_pr_by_number(req.pr_number).await?;
+        let all_labels = self.get_all_labels()?;
+        let pr_labels = self.get_pr_labels(req.pr_number)?;
 
-            let mut labels = vec![];
+        let mut labels = vec![];
 
-            for label in pr.labels {
-                labels.push(label)
+        for label in pr_labels {
+            labels.push(label.id)
+        }
+
+        for name in req.labels {
+            if let Some(label) = all_labels.iter().find(|l| l.name == name) {
+                labels.push(label.id);
+            } else {
+                let label = self.create_label(name)?;
+                labels.push(label.id);
             }
+        }
 
-            for label in req.labels {
-                let new_label = Label {
-                    name: label,
-                    ..Label::default()
-                };
-                labels.push(new_label);
-            }
+        let data = UpdatePullLabels { labels };
 
-            let label_ids: Vec<i64> = labels.iter().map(|l| l.id).collect();
+        let labels_url = self
+            .base_url
+            .join(format!("issues/{}/labels", req.pr_number).as_str())?;
 
-            self.gt
-                .pulls(&self.config.owner, &self.config.repo)
-                .edit(pr.number)
-                .labels(label_ids)
-                .send(&self.gt)
-                .await?;
-
-            Ok::<(), Report>(())
-        })?;
+        let request = self.client.put(labels_url).json(&data).build()?;
+        let response = self.client.execute(request)?;
+        response.error_for_status()?;
 
         Ok(())
     }
 
     fn remove_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        self.rt.block_on(async {
-            let pr = self.get_pr_by_number(req.pr_number).await?;
+        let pr_labels = self.get_pr_labels(req.pr_number)?;
 
-            let labels: Vec<i64> = pr
-                .labels
-                .iter()
-                .filter(|l| !req.labels.contains(&l.name))
-                .map(|l| l.id)
-                .collect();
+        let labels = pr_labels
+            .into_iter()
+            .filter(|l| !req.labels.contains(&l.name))
+            .map(|l| l.id)
+            .collect::<Vec<u64>>();
 
-            self.gt
-                .pulls(&self.config.owner, &self.config.repo)
-                .edit(pr.number)
-                .labels(labels)
-                .send(&self.gt)
-                .await?;
+        let data = UpdatePullLabels { labels };
 
-            Ok::<(), Report>(())
-        })?;
+        let labels_url = self
+            .base_url
+            .join(format!("issues/{}/labels", req.pr_number).as_str())?;
+
+        let request = self.client.put(labels_url).json(&data).build()?;
+        let response = self.client.execute(request)?;
+        response.error_for_status()?;
 
         Ok(())
     }

@@ -85,7 +85,7 @@ impl Forge for Gitlab {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(self.project_id.clone())
-            .source_branch(&req.target_branch)
+            .source_branch(&req.head_branch)
             .target_branch(&req.base_branch)
             .title(&req.title)
             .description(&req.body)
