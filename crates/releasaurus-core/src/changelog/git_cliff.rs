@@ -8,13 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    changelog::{
-        cliff_helpers,
-        config::ChangelogConfig,
-        traits::{Generator, Output, Writer},
-    },
-    config::Remote,
+use crate::changelog::{
+    cliff_helpers,
+    config::ChangelogConfig,
+    traits::{Generator, Output, Writer},
 };
 
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
@@ -23,14 +20,16 @@ pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
-    remote: Remote,
+    commit_link_base_url: String,
+    release_link_base_url: String,
 }
 
 impl GitCliffChangelog {
     /// Returns new instance based on provided configs
     pub fn new(config: ChangelogConfig) -> Result<Self> {
         let path = config.package.path.clone();
-        let remote = config.remote.clone();
+        let commit_link_base_url = config.commit_link_base_url.clone();
+        let release_link_base_url = config.release_link_base_url.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
         let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
 
@@ -38,7 +37,8 @@ impl GitCliffChangelog {
             config: Box::new(cliff_config),
             repo,
             path,
-            remote,
+            commit_link_base_url,
+            release_link_base_url,
         })
     }
 
@@ -102,7 +102,8 @@ impl GitCliffChangelog {
             // add extra version_link property
             cliff_helpers::add_link_base_and_commit_range_to_release(
                 release,
-                self.remote.clone(),
+                self.commit_link_base_url.clone(),
+                self.release_link_base_url.clone(),
             );
         }
 

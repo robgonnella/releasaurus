@@ -66,7 +66,7 @@ fn main() -> Result<()> {
 
     let cli_config = load_config()?;
 
-    let remote = cli_args.get_remote()?;
+    let (_remote, remote_config) = cli_args.get_remote()?;
 
     for single in cli_config {
         let name = single.package.name.clone();
@@ -79,7 +79,8 @@ fn main() -> Result<()> {
                 path: single.package.path.clone(),
                 tag_prefix: single.package.tag_prefix.clone(),
             },
-            remote: remote.clone(),
+            commit_link_base_url: remote_config.commit_link_base_url.clone(),
+            release_link_base_url: remote_config.release_link_base_url.clone(),
         })?;
         let output = changelog.write()?;
 

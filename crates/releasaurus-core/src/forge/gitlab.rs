@@ -12,7 +12,7 @@ use gitlab::{
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
-use crate::{config::RemoteConfig, forge::traits::Forge};
+use crate::forge::{config::RemoteConfig, traits::Forge};
 
 pub struct Gitlab {
     gl: GitlabClient,
