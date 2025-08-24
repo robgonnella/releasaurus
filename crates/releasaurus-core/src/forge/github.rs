@@ -3,14 +3,10 @@ use octocrab::{Octocrab, models::pulls::PullRequest, params};
 use secrecy::ExposeSecret;
 use tokio::runtime::Runtime;
 
-use crate::{
+use crate::forge::{
     config::RemoteConfig,
-    forge::{
-        traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
-        },
-    },
+    traits::Forge,
+    types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
 };
 
 pub struct Github {

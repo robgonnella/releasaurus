@@ -5,7 +5,7 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::path::Path;
 
-use crate::{changelog::config::ChangelogConfig, config::Remote};
+use crate::changelog::config::ChangelogConfig;
 
 pub fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
     let path = Path::new(package_path.as_str());
@@ -54,37 +54,6 @@ pub fn set_config_basic_settings(
     cliff_config.git.include_paths =
         process_package_path(changelog_config.package.path.clone())?;
     Ok(())
-}
-
-pub fn set_config_remote(
-    cliff_config: &mut git_cliff_core::config::Config,
-    changelog_config: &ChangelogConfig,
-) {
-    match changelog_config.remote.clone() {
-        Remote::Github(remote_config) => {
-            cliff_config.remote.github.owner = remote_config.owner;
-            cliff_config.remote.github.repo = remote_config.repo;
-            cliff_config.remote.github.token =
-                Some(remote_config.token.clone());
-            cliff_config.remote.github.api_url = remote_config.api_url;
-            cliff_config.remote.github.is_custom = true;
-        }
-        Remote::Gitlab(remote_config) => {
-            cliff_config.remote.gitlab.owner = remote_config.owner;
-            cliff_config.remote.gitlab.repo = remote_config.repo;
-            cliff_config.remote.gitlab.token =
-                Some(remote_config.token.clone());
-            cliff_config.remote.gitlab.api_url = remote_config.api_url;
-            cliff_config.remote.gitlab.is_custom = true;
-        }
-        Remote::Gitea(remote_config) => {
-            cliff_config.remote.gitea.owner = remote_config.owner;
-            cliff_config.remote.gitea.repo = remote_config.repo;
-            cliff_config.remote.gitea.token = Some(remote_config.token.clone());
-            cliff_config.remote.gitea.api_url = remote_config.api_url;
-            cliff_config.remote.gitea.is_custom = true;
-        }
-    }
 }
 
 pub fn set_config_tag_settings(
@@ -158,27 +127,10 @@ pub fn get_cliff_config(
     let mut cliff_config = git_cliff_core::embed::EmbeddedConfig::parse()?;
 
     set_config_basic_settings(&mut cliff_config, &changelog_config)?;
-    set_config_remote(&mut cliff_config, &changelog_config);
     set_config_tag_settings(&mut cliff_config, &changelog_config)?;
     set_config_commit_parsers(&mut cliff_config)?;
 
     Ok(cliff_config)
-}
-
-pub fn get_commit_link_base_for_remote(remote: Remote) -> String {
-    match remote {
-        Remote::Github(config) => config.commit_link_base_url,
-        Remote::Gitlab(config) => config.commit_link_base_url,
-        Remote::Gitea(config) => config.commit_link_base_url,
-    }
-}
-
-pub fn get_release_link_base_for_remote(remote: Remote) -> String {
-    match remote {
-        Remote::Github(config) => config.release_link_base_url,
-        Remote::Gitlab(config) => config.release_link_base_url,
-        Remote::Gitea(config) => config.release_link_base_url,
-    }
 }
 
 pub fn update_release_with_commit(
@@ -220,19 +172,20 @@ pub fn process_tag_for_release(
 
 pub fn add_link_base_and_commit_range_to_release(
     release: &mut git_cliff_core::release::Release,
-    remote: Remote,
+    commit_link_base_url: String,
+    release_link_base_url: String,
 ) {
     // add extra link properties
     let mut release_extra = Map::new();
 
     release_extra.insert(
         "release_link_base".to_string(),
-        Value::String(get_release_link_base_for_remote(remote.clone())),
+        Value::String(release_link_base_url),
     );
 
     release_extra.insert(
         "commit_link_base".to_string(),
-        Value::String(get_commit_link_base_for_remote(remote)),
+        Value::String(commit_link_base_url),
     );
 
     release.extra = Some(Value::Object(release_extra));

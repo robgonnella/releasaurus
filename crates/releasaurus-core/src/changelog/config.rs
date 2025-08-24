@@ -1,7 +1,5 @@
 //! Configuration for releasaurus-core
 
-use crate::config::{Remote, RemoteConfig};
-
 /// The default body value for [`ChangelogConfig`]
 pub const DEFAULT_BODY: &str = r#"{% if version -%}
     # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -64,8 +62,12 @@ pub struct ChangelogConfig {
     pub footer: Option<String>,
     /// [`PackageConfig`]
     pub package: PackageConfig,
-    ///  The enabled [`Remote`] for this package
-    pub remote: Remote,
+    /// The base url for commit links
+    /// Used to display commit links in changelog
+    pub commit_link_base_url: String,
+    /// The base url for release links
+    /// Used to display release links in changelog
+    pub release_link_base_url: String,
 }
 
 impl Default for ChangelogConfig {
@@ -75,7 +77,8 @@ impl Default for ChangelogConfig {
             header: None,
             footer: None,
             package: PackageConfig::default(),
-            remote: Remote::Github(RemoteConfig::default()),
+            commit_link_base_url: "".to_string(),
+            release_link_base_url: "".to_string(),
         }
     }
 }
