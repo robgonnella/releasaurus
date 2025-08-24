@@ -252,17 +252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "build-it"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb13a73a10ff7e425c3b397e54848825ce396d7e6c16be83bc9af81923e51191"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -981,19 +970,6 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "url",
-]
-
-[[package]]
-name = "gitea-sdk"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b32b19e3a95a89d95f4e193564532f7e688acf839bfc9bc18f978a8decccd0"
-dependencies = [
- "base64 0.22.1",
- "build-it",
- "reqwest",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2438,13 +2414,13 @@ dependencies = [
  "color-eyre",
  "git-cliff-core",
  "git2",
- "gitea-sdk",
  "gitlab",
  "glob",
  "indexmap",
  "log",
  "octocrab",
  "regex",
+ "reqwest",
  "secrecy 0.8.0",
  "semver",
  "serde",

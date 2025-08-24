@@ -80,7 +80,7 @@ impl Forge for Github {
             let handler = octocrab.pulls(&self.config.owner, &self.config.repo);
 
             let pr = handler
-                .create(req.title, req.base_branch, req.target_branch)
+                .create(req.title, req.base_branch, req.head_branch)
                 .body(req.body)
                 .send()
                 .await?;

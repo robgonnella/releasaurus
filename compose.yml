@@ -1,6 +1,6 @@
 services:
   gitea:
-    image: docker.gitea.com/gitea:1.24.5
+    image: docker.gitea.com/gitea:latest
     restart: always
     volumes:
       - tea:/data
