@@ -1,7 +1,8 @@
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
+pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
-use secrecy::Secret;
+use secrecy::SecretString;
 
 #[derive(Debug, Clone)]
 /// Remote Repository configuration
@@ -15,7 +16,7 @@ pub struct RemoteConfig {
     /// The repo path i.e. <group>/<repo>
     pub repo: String,
     /// The access token for the remote repo
-    pub token: Secret<String>,
+    pub token: SecretString,
     /// commit link base_url for the remote
     /// This is only used for links displayed in changelog
     pub commit_link_base_url: String,
@@ -31,7 +32,7 @@ impl Default for RemoteConfig {
             scheme: "".to_string(),
             owner: "".to_string(),
             repo: "".to_string(),
-            token: Secret::from("".to_string()),
+            token: SecretString::from("".to_string()),
             commit_link_base_url: "".to_string(),
             release_link_base_url: "".to_string(),
         }

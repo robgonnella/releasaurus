@@ -4,15 +4,32 @@ use gitlab::{
     api::{
         Query, ignore,
         merge_requests::MergeRequestState,
-        projects::merge_requests::{
-            CreateMergeRequest, EditMergeRequest, MergeRequest, MergeRequests,
+        projects::{
+            labels::{CreateLabel, Labels},
+            merge_requests::{
+                CreateMergeRequest, EditMergeRequest, MergeRequests,
+            },
         },
     },
 };
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
-use crate::forge::{config::RemoteConfig, traits::Forge};
+use crate::forge::{
+    config::{DEFAULT_LABEL_COLOR, RemoteConfig},
+    traits::Forge,
+    types::{CreatePrRequest, PrLabelsRequest, UpdatePrRequest},
+};
+
+#[derive(Debug, Deserialize)]
+struct MergeRequestInfo {
+    iid: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct LabelInfo {
+    name: String,
+}
 
 pub struct Gitlab {
     gl: GitlabClient,
@@ -31,26 +48,33 @@ impl Gitlab {
         Ok(Self { gl, project_id })
     }
 
-    fn get_merge_request_by_iid(&self, iid: u64) -> Result<MergeRequestInfo> {
-        let get_endpoint = MergeRequest::builder()
-            .project(self.project_id.clone())
-            .merge_request(iid)
+    fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
+        let endpoint = Labels::builder()
+            .project(&self.project_id)
             .build()
-            .wrap_err("failed to build get merge request")?;
+            .wrap_err("failed to build labels request")?;
 
-        let mr: MergeRequestInfo = get_endpoint
+        let labels: Vec<LabelInfo> = endpoint
             .query(&self.gl)
-            .wrap_err("failed to get current merge request")?;
+            .wrap_err("failed to query project labels")?;
 
-        Ok(mr)
+        Ok(labels)
     }
-}
 
-// Simple structs to deserialize GitLab API responses
-#[derive(Debug, Deserialize)]
-struct MergeRequestInfo {
-    iid: u64,
-    labels: Option<Vec<String>>,
+    fn create_label(&self, label_name: String) -> Result<LabelInfo> {
+        let endpoint = CreateLabel::builder()
+            .name(label_name)
+            .color(DEFAULT_LABEL_COLOR)
+            .description("".to_string())
+            .build()
+            .wrap_err("failed to build label endpoint")?;
+
+        let label: LabelInfo = endpoint
+            .query(&self.gl)
+            .wrap_err("failed to create label")?;
+
+        Ok(label)
+    }
 }
 
 impl Forge for Gitlab {
@@ -61,7 +85,7 @@ impl Forge for Gitlab {
         // Create the merge requests query to find open MRs
         // targeting the base branch
         let endpoint = MergeRequests::builder()
-            .project(self.project_id.clone())
+            .project(&self.project_id)
             .state(MergeRequestState::Opened)
             .source_branch(&req.head_branch)
             .target_branch(&req.base_branch)
@@ -78,13 +102,10 @@ impl Forge for Gitlab {
         Ok(merge_requests.first().map(|mr| mr.iid))
     }
 
-    fn create_pr(
-        &self,
-        req: super::types::CreatePrRequest,
-    ) -> color_eyre::eyre::Result<u64> {
+    fn create_pr(&self, req: CreatePrRequest) -> color_eyre::eyre::Result<u64> {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
-            .project(self.project_id.clone())
+            .project(&self.project_id)
             .source_branch(&req.head_branch)
             .target_branch(&req.base_branch)
             .title(&req.title)
@@ -100,13 +121,10 @@ impl Forge for Gitlab {
         Ok(response.iid)
     }
 
-    fn update_pr(
-        &self,
-        req: super::types::UpdatePrRequest,
-    ) -> color_eyre::eyre::Result<()> {
+    fn update_pr(&self, req: UpdatePrRequest) -> color_eyre::eyre::Result<()> {
         // Update the merge request
         let endpoint = EditMergeRequest::builder()
-            .project(self.project_id.clone())
+            .project(&self.project_id)
             .merge_request(req.pr_number)
             .description(&req.body)
             .build()
@@ -120,26 +138,27 @@ impl Forge for Gitlab {
         Ok(())
     }
 
-    fn add_pr_labels(
+    fn replace_pr_labels(
         &self,
-        req: super::types::PrLabelsRequest,
+        req: PrLabelsRequest,
     ) -> color_eyre::eyre::Result<()> {
-        // First, get the current merge request to see existing labels
-        let current_mr = self.get_merge_request_by_iid(req.pr_number)?;
+        let all_labels = self.get_repo_labels()?;
+        let mut labels = vec![];
 
-        // Combine existing labels with new ones
-        let mut all_labels = current_mr.labels.unwrap_or_default();
-        for label in &req.labels {
-            if !all_labels.contains(label) {
-                all_labels.push(label.clone());
+        for name in req.labels {
+            if let Some(label) = all_labels.iter().find(|l| l.name == name) {
+                labels.push(label.name.clone());
+            } else {
+                let label = self.create_label(name)?;
+                labels.push(label.name);
             }
         }
 
         // Update the merge request with combined labels
         let endpoint = EditMergeRequest::builder()
-            .project(self.project_id.clone())
+            .project(&self.project_id)
             .merge_request(req.pr_number)
-            .labels(all_labels.iter().map(|s| s.as_str()))
+            .labels(labels.iter())
             .build()
             .wrap_err("failed to build edit merge request for labels")?;
 
@@ -147,37 +166,6 @@ impl Forge for Gitlab {
         ignore(endpoint)
             .query(&self.gl)
             .wrap_err("failed to add labels to merge request")?;
-
-        Ok(())
-    }
-
-    fn remove_pr_labels(
-        &self,
-        req: super::types::PrLabelsRequest,
-    ) -> color_eyre::eyre::Result<()> {
-        // First, get the current merge request to see existing labels
-        let current_mr = self.get_merge_request_by_iid(req.pr_number)?;
-
-        // Remove specified labels from the existing labels
-        let remaining_labels: Vec<String> = current_mr
-            .labels
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|label| !req.labels.contains(label))
-            .collect();
-
-        // Update the merge request with the remaining labels
-        let endpoint = EditMergeRequest::builder()
-            .project(self.project_id.clone())
-            .merge_request(req.pr_number)
-            .labels(remaining_labels.iter().map(|s| s.as_str()))
-            .build()
-            .wrap_err("failed to build edit merge request for label removal")?;
-
-        // Execute the update
-        ignore(endpoint)
-            .query(&self.gl)
-            .wrap_err("failed to remove labels from merge request")?;
 
         Ok(())
     }

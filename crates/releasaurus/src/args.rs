@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Result, eyre};
 use git_url_parse::GitUrl;
 use releasaurus_core::forge::config::{Remote, RemoteConfig};
-use secrecy::Secret;
+use secrecy::SecretString;
 use std::env;
 
 /// Program to manage releases! Easily generate changelogs and release PRs
@@ -133,7 +133,7 @@ fn get_github_remote(
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        token: Secret::new(token),
+        token: SecretString::from(token),
     };
 
     Ok((Remote::Github(remote_config.clone()), remote_config))
@@ -188,7 +188,7 @@ fn get_gitlab_remote(
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        token: Secret::new(token),
+        token: SecretString::from(token),
     };
 
     Ok((Remote::Gitlab(remote_config.clone()), remote_config))
@@ -243,7 +243,7 @@ fn get_gitea_remote(
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        token: Secret::new(token),
+        token: SecretString::from(token),
     };
 
     Ok((Remote::Gitea(remote_config.clone()), remote_config))
