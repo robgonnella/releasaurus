@@ -20,9 +20,9 @@ struct CreateLabel {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-struct Label {
-    id: u64,
-    name: String,
+pub struct Label {
+    pub id: u64,
+    pub name: String,
     color: String,
     description: String,
     exclusive: bool,
