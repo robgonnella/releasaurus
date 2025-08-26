@@ -2,6 +2,7 @@ use std::path::Path;
 
 use color_eyre::eyre::{Result, eyre};
 use log::*;
+use regex::Regex;
 use reqwest::Url;
 use tempfile::TempDir;
 
@@ -47,6 +48,31 @@ impl Git {
 
     pub fn path(&self) -> &Path {
         self.tmp_dir.path()
+    }
+
+    pub fn get_latest_tag_commit(&self, prefix: &str) -> Option<String> {
+        let prefix_rgx = format!(r"^{}", prefix);
+        let re = Regex::new(&prefix_rgx).ok()?;
+        let references = self.repo.references_glob("refs/tags/*").ok()?;
+        let tags: Vec<git2::Reference> = references
+            .filter_map(|r| r.ok())
+            .filter(|r| {
+                if let Some(name) = r.name()
+                    && let Some(stripped) = name.strip_prefix("refs/tags/")
+                {
+                    info!("stripped --> {stripped}");
+                    return re.is_match(stripped);
+                }
+                false
+            })
+            .collect();
+
+        if let Some(tag) = tags.last() {
+            let name = tag.name()?.strip_prefix("refs/tags/")?;
+            return Some(name.to_string());
+        }
+
+        None
     }
 
     pub fn create_branch(&self, branch: &str) -> Result<()> {

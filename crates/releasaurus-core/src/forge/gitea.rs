@@ -53,6 +53,7 @@ struct UpdatePullLabels {
 }
 
 pub struct Gitea {
+    config: RemoteConfig,
     base_url: Url,
     client: Client,
 }
@@ -80,7 +81,11 @@ impl Gitea {
             .as_str(),
         )?;
 
-        Ok(Gitea { client, base_url })
+        Ok(Gitea {
+            config,
+            client,
+            base_url,
+        })
     }
 
     fn get_all_labels(&self) -> Result<Vec<Label>> {
@@ -110,6 +115,10 @@ impl Gitea {
 }
 
 impl Forge for Gitea {
+    fn config(&self) -> &RemoteConfig {
+        &self.config
+    }
+
     fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
         let pulls_url = self.base_url.join(
             format!("pulls/{}/{}", req.base_branch, req.head_branch).as_str(),

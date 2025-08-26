@@ -32,6 +32,7 @@ struct LabelInfo {
 }
 
 pub struct Gitlab {
+    config: RemoteConfig,
     gl: GitlabClient,
     project_id: String,
 }
@@ -45,7 +46,11 @@ impl Gitlab {
         let gl =
             gitlab::GitlabBuilder::new(config.host.clone(), token).build()?;
 
-        Ok(Self { gl, project_id })
+        Ok(Self {
+            config,
+            gl,
+            project_id,
+        })
     }
 
     fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
@@ -71,6 +76,10 @@ impl Gitlab {
 }
 
 impl Forge for Gitlab {
+    fn config(&self) -> &RemoteConfig {
+        &self.config
+    }
+
     fn get_pr_number(
         &self,
         req: super::types::GetPrRequest,

@@ -38,6 +38,10 @@ impl Github {
 }
 
 impl Forge for Github {
+    fn config(&self) -> &RemoteConfig {
+        &self.config
+    }
+
     fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
         let prs = self.rt.block_on(async {
             let octocrab = self.new_instance()?;

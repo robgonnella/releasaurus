@@ -48,7 +48,7 @@ pub enum Commands {
 }
 
 impl Cli {
-    pub fn get_remote(&self) -> Result<(Remote, RemoteConfig)> {
+    pub fn get_remote(&self) -> Result<Remote> {
         if !self.github_repo.is_empty() {
             return get_github_remote(&self.github_repo, &self.github_token);
         }
@@ -75,10 +75,7 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
     }
 }
 
-fn get_github_remote(
-    github_repo: &str,
-    github_token: &str,
-) -> Result<(Remote, RemoteConfig)> {
+fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(github_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -127,13 +124,10 @@ fn get_github_remote(
         token: SecretString::from(token),
     };
 
-    Ok((Remote::Github(remote_config.clone()), remote_config))
+    Ok(Remote::Github(remote_config.clone()))
 }
 
-fn get_gitlab_remote(
-    gitlab_repo: &str,
-    gitlab_token: &str,
-) -> Result<(Remote, RemoteConfig)> {
+fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitlab_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -182,13 +176,10 @@ fn get_gitlab_remote(
         token: SecretString::from(token),
     };
 
-    Ok((Remote::Gitlab(remote_config.clone()), remote_config))
+    Ok(Remote::Gitlab(remote_config.clone()))
 }
 
-fn get_gitea_remote(
-    gitea_repo: &str,
-    gitea_token: &str,
-) -> Result<(Remote, RemoteConfig)> {
+fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitea_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -237,7 +228,7 @@ fn get_gitea_remote(
         token: SecretString::from(token),
     };
 
-    Ok((Remote::Gitea(remote_config.clone()), remote_config))
+    Ok(Remote::Gitea(remote_config.clone()))
 }
 
 #[cfg(test)]
@@ -258,7 +249,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote.0, Remote::Github(_)));
+        assert!(matches!(remote, Remote::Github(_)));
     }
 
     #[test]
@@ -275,7 +266,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote.0, Remote::Gitlab(_)));
+        assert!(matches!(remote, Remote::Gitlab(_)));
     }
 
     #[test]
@@ -292,7 +283,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote.0, Remote::Gitea(_)));
+        assert!(matches!(remote, Remote::Gitea(_)));
     }
 
     #[test]

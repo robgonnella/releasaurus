@@ -1,17 +1,29 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 use log::*;
-use releasaurus_core::changelog::{
-    config::{ChangelogConfig, PackageConfig},
-    git_cliff::GitCliffChangelog,
-    traits::Writer,
+use releasaurus_core::{
+    changelog::{
+        config::{ChangelogConfig, PackageConfig},
+        git_cliff::GitCliffChangelog,
+        traits::Writer,
+    },
+    forge::config::DEFAULT_PR_BRANCH_PREFIX,
+    git::Git,
 };
-use std::{env, fs};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, env, fs};
 
 mod args;
 mod config;
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VersionInfo {
+    pub current_version: Option<String>,
+    pub next_version: Option<String>,
+    pub is_breaking: bool,
+}
 
 fn initialize_logger(debug: bool) {
     let filter = if debug {
@@ -56,6 +68,9 @@ fn load_config() -> Result<config::CliConfig> {
     }
 
     // otherwise return default config
+    info!(
+        "no configuration file found for {DEFAULT_CONFIG_FILE}: using default config"
+    );
     Ok(config::CliConfig::default())
 }
 
@@ -64,9 +79,27 @@ fn main() -> Result<()> {
 
     initialize_logger(cli_args.debug);
 
+    let remote = cli_args.get_remote()?;
+    let forge = remote.get_forge()?;
+    let remote_config = forge.config();
+    let git = Git::new(remote_config.clone())?;
+
+    info!(
+        "switching directory to cloned repository: {}",
+        git.path().display()
+    );
+    env::set_current_dir(git.path())?;
+
+    info!("loading configuration");
     let cli_config = load_config()?;
 
-    let (_remote, remote_config) = cli_args.get_remote()?;
+    let release_branch =
+        format!("{}{}", DEFAULT_PR_BRANCH_PREFIX, git.default_branch);
+
+    git.create_branch(&release_branch)?;
+    git.switch_branch(&release_branch)?;
+
+    let mut manifest: HashMap<String, VersionInfo> = HashMap::new();
 
     for single in cli_config {
         let name = single.package.name.clone();
@@ -83,12 +116,19 @@ fn main() -> Result<()> {
             release_link_base_url: remote_config.release_link_base_url.clone(),
         })?;
         let output = changelog.write()?;
-
-        info!("=============={}==============", name);
-        println!("current_version: {:#?}", output.current_version);
-        println!("next_version: {:#?}", output.next_version);
-        println!("is_breaking: {}\n\n", output.is_breaking);
+        let version_info = VersionInfo {
+            current_version: output.current_version,
+            next_version: output.next_version,
+            is_breaking: output.is_breaking,
+        };
+        if name.is_empty() {
+            manifest.insert(single.package.path, version_info);
+        } else {
+            manifest.insert(name, version_info);
+        }
     }
+
+    info!("manifest: {:#?}", manifest);
 
     Ok(())
 }
