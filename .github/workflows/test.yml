@@ -34,8 +34,30 @@ jobs:
       - name: fmt
         run: cargo fmt --all --check
 
-  test:
+  test-unit:
     runs-on: ubuntu-latest
+    if: github.event.repository.fork == true || github.ref_name != github.event.repository.default_branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust-setup
+      - name: test
+        env:
+          GH_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
+          GL_TEST_TOKEN: ${{ secrets.GL_TEST_TOKEN }}
+          GT_TEST_TOKEN: ${{ secrets.GT_TEST_TOKEN }}
+        run: |
+          git config --global user.name "github-ci"
+          git config --global user.email "github-ci@ci.com"
+          git config --global init.defaultBranch main
+          cargo llvm-cov \
+            --lib \
+            --bins \
+            --workspace \
+            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)(tests\/)"
+
+  test-all:
+    runs-on: ubuntu-latest
+    if: github.event.repository.fork == false && github.ref_name == github.event.repository.default_branch
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/rust-setup

@@ -170,6 +170,7 @@ impl GitCliffChangelog {
 
 impl Generator for GitCliffChangelog {
     fn generate(&self) -> Result<Output> {
+        info!("generating changelog for package: {}", self.path);
         let (releases, current_version) = self.get_repo_releases()?;
 
         let mut changelog = git_cliff_core::changelog::Changelog::new(

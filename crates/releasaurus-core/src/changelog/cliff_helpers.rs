@@ -8,6 +8,8 @@ use std::path::Path;
 use crate::changelog::config::ChangelogConfig;
 
 pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
+    info!("processing package path: {package_path}");
+
     let path = Path::new(package_path);
 
     if !path.is_dir() {
@@ -23,11 +25,11 @@ pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
     if package_path.ends_with("/") {
         // otherwise if ends in "/" return modified with glob
         package_path = format!("{package_path}**/*").to_string();
-        debug!("modified package_path to include glob: {package_path}")
+        info!("modified package_path to include glob: {package_path}")
     } else {
         // otherwise return a modified version that adds /**/*
         package_path = format!("{package_path}/**/*").to_string();
-        debug!("modified package_path to include directory glob {package_path}")
+        info!("modified package_path to include directory glob {package_path}")
     };
 
     // return vec of glob Pattern or None
@@ -69,7 +71,7 @@ pub fn set_config_tag_settings(
         info!("set tag prefix to provided option: {tag_prefix}");
     }
 
-    info!("using tag_prefix: {tag_prefix}");
+    info!("configuring tag prefix: {tag_prefix}");
     let regex_prefix = format!(r"^{}", tag_prefix);
     let re = Regex::new(&regex_prefix)?;
     cliff_config.git.tag_pattern = Some(re);
@@ -81,6 +83,7 @@ pub fn set_config_tag_settings(
 pub fn set_config_commit_parsers(
     cliff_config: &mut git_cliff_core::config::Config,
 ) -> Result<()> {
+    info!("updating commit parsers");
     let group_number_re = Regex::new(r"\d{1,2}\s-")?;
     let mut group_id = 0;
 
@@ -140,6 +143,18 @@ pub fn update_release_with_commit(
     // create git_cliff commit from git2 commit
     let commit = git_cliff_core::commit::Commit::from(git_commit);
     let commit_id = commit.id.to_string();
+    let lines = commit
+        .message
+        .split("\n")
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+    let title = lines.first();
+
+    if let Some(t) = title {
+        let short_sha =
+            commit_id.split("").take(8).collect::<Vec<&str>>().join("");
+        info!("processing commit: {} : {}", short_sha, t);
+    }
     // add commit to release
     release.commits.push(commit);
     release.repository = Some(repo_path);
@@ -158,10 +173,15 @@ pub fn process_tag_for_release(
     if let Some(re) = tag_pattern.clone()
         && !re.is_match(&tag.name)
     {
+        info!(
+            "tag does not match pattern: skipping: tag: {:#?}, pattern: {:#?}",
+            re, tag.name
+        );
         return None;
     }
     // we've found the top of the release!
     // current_version = Some(tag.name.clone());
+    info!("identified previous release version: {}", tag.name);
     release.version = Some(tag.name.to_string());
     release.message.clone_from(&tag.message);
     release.timestamp = Some(git_commit.time().seconds());
