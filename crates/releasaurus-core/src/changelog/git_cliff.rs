@@ -102,8 +102,8 @@ impl GitCliffChangelog {
             // add extra version_link property
             cliff_helpers::add_link_base_and_commit_range_to_release(
                 release,
-                self.commit_link_base_url.clone(),
-                self.release_link_base_url.clone(),
+                &self.commit_link_base_url,
+                &self.release_link_base_url,
             );
         }
 

@@ -50,24 +50,15 @@ pub enum Commands {
 impl Cli {
     pub fn get_remote(&self) -> Result<(Remote, RemoteConfig)> {
         if !self.github_repo.is_empty() {
-            return get_github_remote(
-                self.github_repo.clone(),
-                self.github_token.clone(),
-            );
+            return get_github_remote(&self.github_repo, &self.github_token);
         }
 
         if !self.gitlab_repo.is_empty() {
-            return get_gitlab_remote(
-                self.gitlab_repo.clone(),
-                self.gitlab_token.clone(),
-            );
+            return get_gitlab_remote(&self.gitlab_repo, &self.gitlab_token);
         }
 
         if !self.gitea_repo.is_empty() {
-            return get_gitea_remote(
-                self.gitea_repo.clone(),
-                self.gitea_token.clone(),
-            );
+            return get_gitea_remote(&self.gitea_repo, &self.gitea_token);
         }
 
         Err(eyre!("must configure a remote"))
@@ -85,14 +76,14 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 }
 
 fn get_github_remote(
-    github_repo: String,
-    github_token: String,
+    github_repo: &str,
+    github_token: &str,
 ) -> Result<(Remote, RemoteConfig)> {
-    let parsed = GitUrl::parse(github_repo.as_str())?;
+    let parsed = GitUrl::parse(github_repo)?;
 
     validate_scheme(parsed.scheme)?;
 
-    let mut token = github_token;
+    let mut token = github_token.to_string();
 
     if token.is_empty()
         && let Some(parsed_token) = parsed.token
@@ -140,14 +131,14 @@ fn get_github_remote(
 }
 
 fn get_gitlab_remote(
-    gitlab_repo: String,
-    gitlab_token: String,
+    gitlab_repo: &str,
+    gitlab_token: &str,
 ) -> Result<(Remote, RemoteConfig)> {
-    let parsed = GitUrl::parse(gitlab_repo.as_str())?;
+    let parsed = GitUrl::parse(gitlab_repo)?;
 
     validate_scheme(parsed.scheme)?;
 
-    let mut token = gitlab_token;
+    let mut token = gitlab_token.to_string();
 
     if token.is_empty()
         && let Some(parsed_token) = parsed.token
@@ -195,14 +186,14 @@ fn get_gitlab_remote(
 }
 
 fn get_gitea_remote(
-    gitea_repo: String,
-    gitea_token: String,
+    gitea_repo: &str,
+    gitea_token: &str,
 ) -> Result<(Remote, RemoteConfig)> {
-    let parsed = GitUrl::parse(gitea_repo.as_str())?;
+    let parsed = GitUrl::parse(gitea_repo)?;
 
     validate_scheme(parsed.scheme)?;
 
-    let mut token = gitea_token;
+    let mut token = gitea_token.to_string();
 
     if token.is_empty()
         && let Some(parsed_token) = parsed.token
