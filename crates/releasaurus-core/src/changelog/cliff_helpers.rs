@@ -7,8 +7,8 @@ use std::path::Path;
 
 use crate::changelog::config::ChangelogConfig;
 
-pub fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
-    let path = Path::new(package_path.as_str());
+pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
+    let path = Path::new(package_path);
 
     if !path.is_dir() {
         return Err(eyre!(
@@ -17,7 +17,7 @@ pub fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
         ));
     }
 
-    let mut package_path = package_path;
+    let mut package_path = package_path.to_string();
 
     // include paths only work on with globs
     if package_path.ends_with("/") {
@@ -49,7 +49,7 @@ pub fn set_config_basic_settings(
     cliff_config.git.protect_breaking_commits = true;
     cliff_config.git.require_conventional = false;
     cliff_config.git.include_paths =
-        process_package_path(changelog_config.package.path.clone())?;
+        process_package_path(&changelog_config.package.path)?;
     Ok(())
 }
 
@@ -171,20 +171,20 @@ pub fn process_tag_for_release(
 
 pub fn add_link_base_and_commit_range_to_release(
     release: &mut git_cliff_core::release::Release,
-    commit_link_base_url: String,
-    release_link_base_url: String,
+    commit_link_base_url: &str,
+    release_link_base_url: &str,
 ) {
     // add extra link properties
     let mut release_extra = Map::new();
 
     release_extra.insert(
         "release_link_base".to_string(),
-        Value::String(release_link_base_url),
+        Value::String(release_link_base_url.to_string()),
     );
 
     release_extra.insert(
         "commit_link_base".to_string(),
-        Value::String(commit_link_base_url),
+        Value::String(commit_link_base_url.to_string()),
     );
 
     release.extra = Some(Value::Object(release_extra));
@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn errors_for_invalid_package_path() {
         let package_path = "./file.rs";
-        let result = process_package_path(package_path.into());
+        let result = process_package_path(package_path);
         assert!(result.is_err());
     }
 
@@ -217,7 +217,7 @@ mod tests {
 
         let expected_pattern = Pattern::new("./**/*").unwrap();
 
-        let result = process_package_path(package_path.into());
+        let result = process_package_path(package_path);
 
         assert!(
             result.is_ok(),
@@ -235,7 +235,7 @@ mod tests {
 
         let expected_pattern = Pattern::new("./**/*").unwrap();
 
-        let result = process_package_path(package_path.into());
+        let result = process_package_path(package_path);
 
         assert!(
             result.is_ok(),
