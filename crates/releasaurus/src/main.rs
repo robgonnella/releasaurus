@@ -12,6 +12,7 @@ use releasaurus_core::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs};
+use tempfile::TempDir;
 
 mod args;
 mod config;
@@ -82,13 +83,20 @@ fn main() -> Result<()> {
     let remote = cli_args.get_remote()?;
     let forge = remote.get_forge()?;
     let remote_config = forge.config();
-    let git = Git::new(remote_config.clone())?;
+    let tmp_dir = TempDir::new()?;
+
+    info!(
+        "cloning repository {} to {}",
+        remote_config.repo,
+        tmp_dir.path().display()
+    );
+    let git = Git::new(tmp_dir.path(), remote_config.clone())?;
 
     info!(
         "switching directory to cloned repository: {}",
-        git.path().display()
+        tmp_dir.path().display(),
     );
-    env::set_current_dir(git.path())?;
+    env::set_current_dir(tmp_dir.path())?;
 
     info!("loading configuration");
     let cli_config = load_config()?;

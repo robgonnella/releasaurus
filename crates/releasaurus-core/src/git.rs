@@ -1,23 +1,18 @@
-use std::path::Path;
-
 use color_eyre::eyre::{Result, eyre};
 use log::*;
 use regex::Regex;
 use reqwest::Url;
-use tempfile::TempDir;
+use std::path::Path;
 
 use crate::forge::config::RemoteConfig;
 
 pub struct Git {
-    pub tmp_dir: TempDir,
     pub default_branch: String,
     repo: git2::Repository,
 }
 
 impl Git {
-    pub fn new(config: RemoteConfig) -> Result<Self> {
-        let tmp = TempDir::new()?;
-
+    pub fn new(local_path: &Path, config: RemoteConfig) -> Result<Self> {
         let repo_url = format!(
             "{}://{}/{}/{}",
             config.scheme, config.host, config.owner, config.repo
@@ -25,7 +20,7 @@ impl Git {
 
         let url = Url::parse(repo_url.as_str())?;
 
-        let repo = git2::Repository::clone(url.as_str(), tmp.path())?;
+        let repo = git2::Repository::clone(url.as_str(), local_path)?;
 
         repo.remote_rename("origin", "upstream")?;
 
@@ -40,14 +35,9 @@ impl Git {
         drop(remote);
 
         Ok(Self {
-            tmp_dir: tmp,
             repo,
             default_branch,
         })
-    }
-
-    pub fn path(&self) -> &Path {
-        self.tmp_dir.path()
     }
 
     pub fn get_latest_tag_commit(&self, prefix: &str) -> Option<String> {
