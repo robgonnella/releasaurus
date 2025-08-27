@@ -10,8 +10,6 @@ pub struct Output {
     pub current_version: Option<String>,
     /// The next version as determined by conventional commits
     pub next_version: Option<String>,
-    /// True if the next version is a breaking change (major version bump)
-    pub is_breaking: bool,
 }
 
 /// Defines the ability to generate a changelog string for package

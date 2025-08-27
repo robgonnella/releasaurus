@@ -23,7 +23,6 @@ const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 pub struct VersionInfo {
     pub current_version: Option<String>,
     pub next_version: Option<String>,
-    pub is_breaking: bool,
 }
 
 fn initialize_logger(debug: bool) {
@@ -127,7 +126,6 @@ fn main() -> Result<()> {
         let version_info = VersionInfo {
             current_version: output.current_version,
             next_version: output.next_version,
-            is_breaking: output.is_breaking,
         };
         if name.is_empty() {
             manifest.insert(single.package.path, version_info);

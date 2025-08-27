@@ -128,44 +128,6 @@ impl GitCliffChangelog {
         // process and return the releases for this repo
         self.process_commits(commits, tags)
     }
-
-    fn next_is_breaking(
-        &self,
-        current_version: Option<String>,
-        next_version: Option<String>,
-    ) -> Result<bool> {
-        if next_version.is_none() {
-            return Ok(false);
-        }
-
-        if current_version.is_none() {
-            let mut next = next_version.unwrap();
-
-            if let Some(pattern) = self.config.git.tag_pattern.clone() {
-                next = pattern.replace(next.as_str(), "").into_owned();
-            }
-
-            let next_semver = semver::Version::parse(next.as_str()).unwrap();
-            // 1st release don't consider it a breaking change unless
-            // major version is at least 1
-            return Ok(next_semver.major > 0);
-        }
-
-        let mut current = current_version.unwrap();
-        let mut next = next_version.unwrap();
-
-        if let Some(pattern) = self.config.git.tag_pattern.clone() {
-            current = pattern.replace(current.as_str(), "").into_owned();
-            next = pattern.replace(next.as_str(), "").into_owned();
-        }
-
-        let current_semver = semver::Version::parse(current.as_str())?;
-        let next_semver = semver::Version::parse(next.as_str())?;
-
-        debug!("comparing current {current} and next {next}");
-
-        Ok(next_semver.major > current_semver.major)
-    }
 }
 
 impl Generator for GitCliffChangelog {
@@ -181,8 +143,6 @@ impl Generator for GitCliffChangelog {
 
         // increase to next version
         let next_version = changelog.bump_version()?;
-        let is_breaking = self
-            .next_is_breaking(current_version.clone(), next_version.clone())?;
 
         // generate content
         let mut buf = BufWriter::new(Vec::new());
@@ -194,7 +154,6 @@ impl Generator for GitCliffChangelog {
             log: out,
             current_version,
             next_version,
-            is_breaking,
         })
     }
 }
