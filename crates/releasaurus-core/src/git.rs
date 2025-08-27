@@ -1,6 +1,5 @@
 use color_eyre::eyre::{Result, eyre};
 use log::*;
-use regex::Regex;
 use reqwest::Url;
 use std::path::Path;
 
@@ -51,31 +50,6 @@ impl Git {
         })
     }
 
-    pub fn get_latest_tag_commit(&self, prefix: &str) -> Option<String> {
-        let prefix_rgx = format!(r"^{}", prefix);
-        let re = Regex::new(&prefix_rgx).ok()?;
-        let references = self.repo.references_glob("refs/tags/*").ok()?;
-        let tags: Vec<git2::Reference> = references
-            .filter_map(|r| r.ok())
-            .filter(|r| {
-                if let Some(name) = r.name()
-                    && let Some(stripped) = name.strip_prefix("refs/tags/")
-                {
-                    info!("stripped --> {stripped}");
-                    return re.is_match(stripped);
-                }
-                false
-            })
-            .collect();
-
-        if let Some(tag) = tags.last() {
-            let name = tag.name()?.strip_prefix("refs/tags/")?;
-            return Some(name.to_string());
-        }
-
-        None
-    }
-
     pub fn create_branch(&self, branch: &str) -> Result<()> {
         info!("creating branch: {branch}");
         let head = self.repo.head()?;
@@ -100,16 +74,15 @@ impl Git {
         Ok(())
     }
 
-    pub fn commit(&self, msg: &str) -> Result<()> {
+    pub fn commit(&self, msg: &str, author: &str, email: &str) -> Result<()> {
         let mut index = self.repo.index()?;
         let oid = index.write_tree()?;
         let tree = self.repo.find_tree(oid)?;
         let parent_commit = self.repo.head()?.peel_to_commit()?;
-        let author = git2::Signature::now("Releasaurus", "rele@saurus.com")?;
-        let committer = git2::Signature::now("Releasaurus", "rele@saurus.com")?;
+        let committer = git2::Signature::now(author, email)?;
         self.repo.commit(
             Some("HEAD"),
-            &author,
+            &committer,
             &committer,
             msg,
             &tree,
@@ -130,3 +103,6 @@ impl Git {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {}

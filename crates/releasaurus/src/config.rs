@@ -1,5 +1,10 @@
+use color_eyre::eyre::Result;
+use log::*;
 use releasaurus_core::changelog::config::DEFAULT_BODY;
 use serde::Deserialize;
+use std::{env, fs};
+
+const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
 #[derive(Debug, Clone, Deserialize)]
 /// Changelog Configuration allowing you to customize changelog output format
@@ -108,9 +113,58 @@ impl Iterator for CliConfig {
     }
 }
 
+pub fn load_config() -> Result<CliConfig> {
+    // search for config file walking up ancestors as necessary
+    let maybe_found_config = env::current_dir()?.ancestors().find_map(|dir| {
+        let path = dir.join(DEFAULT_CONFIG_FILE);
+        if path.is_file() {
+            info!("found config file: {}", path.display());
+            return Some(path);
+        }
+
+        None
+    });
+
+    // process and use config file if found
+    if let Some(config_file) = maybe_found_config {
+        if let Some(dir) = config_file.parent() {
+            // make sure to switch to directory of config file
+            // so any paths defined in config work
+            env::set_current_dir(dir)?;
+        }
+
+        if let Ok(content) = fs::read_to_string(config_file) {
+            let cli_config: CliConfig = toml::from_str(&content)?;
+            return Ok(cli_config);
+        }
+    }
+
+    // otherwise return default config
+    info!(
+        "no configuration file found for {DEFAULT_CONFIG_FILE}: using default config"
+    );
+    Ok(CliConfig::default())
+}
+
 #[cfg(test)]
 mod tests {
+    use color_eyre::eyre::Result;
+    use std::{path::Path, sync::Mutex};
+    use tempfile::TempDir;
+
     use super::*;
+
+    static MUTEX: Mutex<i64> = Mutex::new(1);
+
+    pub fn switch_current_directory<F: Fn()>(
+        dir: &Path,
+        closure: F,
+    ) -> Result<()> {
+        let _lock = MUTEX.lock().unwrap();
+        env::set_current_dir(dir)?;
+        closure();
+        Ok(())
+    }
 
     #[test]
     fn loads_defaults() {
@@ -143,5 +197,55 @@ mod tests {
             assert_eq!(c.package.path, format!("path{count}"));
             assert_eq!(c.package.tag_prefix, Some(format!("p{count}")));
         }
+    }
+
+    #[test]
+    fn loads_config_file() {
+        let tmp = TempDir::new().unwrap();
+
+        switch_current_directory(tmp.path(), || {
+            let content = r#"
+[[package]]
+name = "test"
+path = "."
+"#;
+
+            fs::write(tmp.path().join(DEFAULT_CONFIG_FILE), content.as_bytes())
+                .unwrap();
+
+            let result = load_config();
+            assert!(result.is_ok(), "failed to load config file");
+
+            let config = result.unwrap();
+
+            assert_eq!(config.packages.len(), 1, "packages length should be 1");
+            assert_eq!(
+                config.packages[0].name, "test",
+                "package name should be \"test\""
+            );
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn loads_default_config() {
+        let tmp = TempDir::new().unwrap();
+
+        switch_current_directory(tmp.path(), || {
+            let result = load_config();
+            assert!(result.is_ok(), "failed to load config file");
+
+            let config = result.unwrap();
+            assert_eq!(config.packages.len(), 1, "packages length should be 1");
+            assert_eq!(
+                config.packages[0].name, "",
+                "package name should be \"\""
+            );
+            assert_eq!(
+                config.packages[0].path, ".",
+                "package path should be \".\""
+            );
+        })
+        .unwrap();
     }
 }

@@ -8,7 +8,7 @@ use std::env;
 /// Program to manage releases! Easily generate changelogs and release PRs
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-pub struct Cli {
+pub struct Args {
     #[arg(long, default_value = "", global = true)]
     /// Github remote repository
     pub github_repo: String,
@@ -38,16 +38,16 @@ pub struct Cli {
     pub debug: bool,
 
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Command,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Commands {
+pub enum Command {
     /// Analyzes commits and creates or updates a release PR
     ReleasePR,
 }
 
-impl Cli {
+impl Args {
     pub fn get_remote(&self) -> Result<Remote> {
         if !self.github_repo.is_empty() {
             return get_github_remote(&self.github_repo, &self.github_token);
@@ -237,12 +237,19 @@ mod tests {
 
     #[test]
     fn gets_github_remote() {
-        let mut cli_config = Cli::parse();
         let repo = "https://github.com/github_owner/github_repo".to_string();
         let token = "github_token".to_string();
 
-        cli_config.github_repo = repo;
-        cli_config.github_token = token;
+        let cli_config = Args {
+            debug: true,
+            gitea_repo: "".into(),
+            gitea_token: "".into(),
+            gitlab_repo: "".into(),
+            gitlab_token: "".into(),
+            github_repo: repo,
+            github_token: token,
+            command: Command::ReleasePR,
+        };
 
         let result = cli_config.get_remote();
         assert!(result.is_ok());
@@ -254,12 +261,19 @@ mod tests {
 
     #[test]
     fn gets_gitlab_remote() {
-        let mut cli_config = Cli::parse();
         let repo = "https://gitlab.com/gitlab_owner/gitlab_repo".to_string();
         let token = "gitlab_token".to_string();
 
-        cli_config.gitlab_repo = repo;
-        cli_config.gitlab_token = token;
+        let cli_config = Args {
+            debug: true,
+            gitea_repo: "".into(),
+            gitea_token: "".into(),
+            gitlab_repo: repo,
+            gitlab_token: token,
+            github_repo: "".into(),
+            github_token: "".into(),
+            command: Command::ReleasePR,
+        };
 
         let result = cli_config.get_remote();
         assert!(result.is_ok());
@@ -271,12 +285,19 @@ mod tests {
 
     #[test]
     fn gets_gitea_remote() {
-        let mut cli_config = Cli::parse();
         let repo = "http://gitea.com/gitea_owner/gitea_repo".to_string();
         let token = "gitea_token".to_string();
 
-        cli_config.gitea_repo = repo;
-        cli_config.gitea_token = token;
+        let cli_config = Args {
+            debug: true,
+            gitea_repo: repo,
+            gitea_token: token,
+            gitlab_repo: "".into(),
+            gitlab_token: "".into(),
+            github_repo: "".into(),
+            github_token: "".into(),
+            command: Command::ReleasePR,
+        };
 
         let result = cli_config.get_remote();
         assert!(result.is_ok());
@@ -288,12 +309,19 @@ mod tests {
 
     #[test]
     fn only_supports_http_and_https_schemes() {
-        let mut cli_config = Cli::parse();
         let repo = "git@gitea.com:gitea_owner/gitea_repo".to_string();
         let token = "gitea_token".to_string();
 
-        cli_config.gitea_repo = repo;
-        cli_config.gitea_token = token;
+        let cli_config = Args {
+            debug: true,
+            gitea_repo: repo,
+            gitea_token: token,
+            gitlab_repo: "".into(),
+            gitlab_token: "".into(),
+            github_repo: "".into(),
+            github_token: "".into(),
+            command: Command::ReleasePR,
+        };
 
         let result = cli_config.get_remote();
         assert!(result.is_err());
