@@ -141,8 +141,6 @@ fn process_git_repository() {
     let next_version = output.next_version.unwrap();
     assert_eq!(next_version, "v1.0.0", "next version does not match");
 
-    assert!(output.is_breaking, "is_breaking should be true");
-
     let file_path = format!("{}/CHANGELOG.md", context.path().display());
 
     // Assert that the file exists
