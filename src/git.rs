@@ -5,6 +5,8 @@ use std::path::Path;
 
 use crate::forge::config::RemoteConfig;
 
+const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
+
 pub struct Git {
     pub default_branch: String,
     repo: git2::Repository,
@@ -32,9 +34,9 @@ impl Git {
             .fetch_options(fetch_options)
             .clone(url.as_str(), local_path)?;
 
-        repo.remote_rename("origin", "upstream")?;
+        repo.remote_rename("origin", DEFAULT_UPSTREAM_REMOTE)?;
 
-        let mut remote = repo.find_remote("upstream")?;
+        let mut remote = repo.find_remote(DEFAULT_UPSTREAM_REMOTE)?;
         remote.connect(git2::Direction::Fetch)?;
 
         let buf = remote.default_branch()?;
@@ -74,12 +76,15 @@ impl Git {
         Ok(())
     }
 
-    pub fn commit(&self, msg: &str, author: &str, email: &str) -> Result<()> {
+    pub fn commit(&self, msg: &str) -> Result<()> {
+        let config = self.repo.config()?;
+        let user = config.get_str("user.name")?;
+        let email = config.get_str("user.email")?;
         let mut index = self.repo.index()?;
         let oid = index.write_tree()?;
         let tree = self.repo.find_tree(oid)?;
         let parent_commit = self.repo.head()?.peel_to_commit()?;
-        let committer = git2::Signature::now(author, email)?;
+        let committer = git2::Signature::now(user, email)?;
         self.repo.commit(
             Some("HEAD"),
             &committer,
@@ -91,18 +96,25 @@ impl Git {
         Ok(())
     }
 
-    pub fn tag_current_head(&self, tag: &str) -> Result<()> {
-        let head = self.repo.head()?;
-        let oid = head
-            .target()
-            .ok_or(eyre!("failed to find current head oid"))?;
-        let commit = self.repo.find_commit(oid)?;
-        let tagger = git2::Signature::now("Releasaurus", "rele@saurs.com")?;
-        self.repo
-            .tag(tag, commit.as_object(), &tagger, tag, false)?;
+    pub fn push_branch(&self, branch: &str) -> Result<()> {
+        // + indicates "force" push
+        let ref_spec = format!("+refs/heads/{branch}:refs/heads/{branch}");
+        let mut push_opts = git2::PushOptions::default();
+        let mut remote = self.repo.find_remote(DEFAULT_UPSTREAM_REMOTE)?;
+        remote.connect(git2::Direction::Push)?;
+        remote.push(&[ref_spec], Some(&mut push_opts))?;
         Ok(())
     }
-}
 
-#[cfg(test)]
-mod tests {}
+    // pub fn tag_current_head(&self, tag: &str) -> Result<()> {
+    //     let head = self.repo.head()?;
+    //     let oid = head
+    //         .target()
+    //         .ok_or(eyre!("failed to find current head oid"))?;
+    //     let commit = self.repo.find_commit(oid)?;
+    //     let tagger = git2::Signature::now("Releasaurus", "rele@saurs.com")?;
+    //     self.repo
+    //         .tag(tag, commit.as_object(), &tagger, tag, false)?;
+    //     Ok(())
+    // }
+}

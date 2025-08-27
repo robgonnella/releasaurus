@@ -1,9 +1,12 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 
+mod changelog;
 mod cli;
 mod command;
 mod config;
+mod forge;
+mod git;
 
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {
@@ -12,9 +15,13 @@ fn initialize_logger(debug: bool) -> Result<()> {
         simplelog::LevelFilter::Info
     };
 
+    let config = simplelog::ConfigBuilder::new()
+        .add_filter_allow_str("releasaurus")
+        .build();
+
     simplelog::TermLogger::init(
         filter,
-        simplelog::Config::default(),
+        config,
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
     )?;
