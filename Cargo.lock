@@ -2300,36 +2300,24 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "color-eyre",
- "git-url-parse",
- "log",
- "paris",
- "releasaurus-core",
- "secrecy 0.10.3",
- "serde",
- "simplelog",
- "tempfile",
- "toml",
-]
-
-[[package]]
-name = "releasaurus-core"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
  "git-cliff-core",
+ "git-url-parse",
  "git2",
  "gitlab",
  "glob",
  "indexmap",
  "log",
  "octocrab",
+ "paris",
  "regex",
  "reqwest",
  "secrecy 0.10.3",
  "serde",
  "serde_json",
+ "simplelog",
  "tempfile",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -2737,7 +2725,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16257adbfaef1ee58b1363bdc0664c9b8e1e30aed86049635fb5f147d065a9c0"
 dependencies = [
  "log",
- "paris",
  "termcolor",
  "time",
 ]

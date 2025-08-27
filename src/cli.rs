@@ -1,9 +1,10 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Result, eyre};
 use git_url_parse::GitUrl;
-use releasaurus_core::forge::config::{Remote, RemoteConfig};
 use secrecy::SecretString;
 use std::env;
+
+use crate::forge::config::{Remote, RemoteConfig};
 
 /// Program to manage releases! Easily generate changelogs and release PRs
 #[derive(Parser, Debug)]
@@ -36,6 +37,10 @@ pub struct Args {
     #[arg(long, default_value_t = false, global = true)]
     /// Enables debug logs
     pub debug: bool,
+
+    #[arg(long, default_value_t = false, global = true)]
+    /// Enables dry-run mode
+    pub dry_run: bool,
 
     #[command(subcommand)]
     pub command: Command,
@@ -242,6 +247,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            dry_run: true,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: "".into(),
@@ -266,6 +272,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            dry_run: true,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: repo,
@@ -290,6 +297,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            dry_run: true,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
@@ -314,6 +322,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            dry_run: true,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),

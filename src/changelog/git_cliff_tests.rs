@@ -131,7 +131,10 @@ fn process_git_repository() {
 
     let output = result.unwrap();
 
-    assert!(!output.log.is_empty(), "output.log should not be empty");
+    assert!(
+        !output.changelog.is_empty(),
+        "output.log should not be empty"
+    );
 
     assert!(output.current_version.is_some());
     let current_version = output.current_version.unwrap();

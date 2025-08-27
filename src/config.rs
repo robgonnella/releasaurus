@@ -1,8 +1,9 @@
 use color_eyre::eyre::Result;
 use log::*;
-use releasaurus_core::changelog::config::DEFAULT_BODY;
 use serde::Deserialize;
 use std::{env, fs};
+
+use crate::changelog::config::DEFAULT_BODY;
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 

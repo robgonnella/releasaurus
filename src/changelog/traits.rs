@@ -5,7 +5,7 @@ use color_eyre::eyre::Result;
 /// The output returned from Generator and Writer traits
 pub struct Output {
     /// The entire changelog as a string
-    pub log: String,
+    pub changelog: String,
     /// The current version of latest release
     pub current_version: Option<String>,
     /// The next version as determined by conventional commits

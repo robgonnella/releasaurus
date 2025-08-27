@@ -49,11 +49,7 @@ jobs:
           git config --global user.name "github-ci"
           git config --global user.email "github-ci@ci.com"
           git config --global init.defaultBranch main
-          cargo llvm-cov \
-            --lib \
-            --bins \
-            --workspace \
-            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)(tests\/)"
+          cargo llvm-cov --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
 
   test-all:
     runs-on: ubuntu-latest
@@ -73,5 +69,5 @@ jobs:
           git config --global user.email "github-ci@ci.com"
           git config --global init.defaultBranch main
           cargo llvm-cov \
-            --workspace \
-            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)(tests\/)"
+            --features forge-tests \
+            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
