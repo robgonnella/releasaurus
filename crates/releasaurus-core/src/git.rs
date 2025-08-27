@@ -20,7 +20,18 @@ impl Git {
 
         let url = Url::parse(repo_url.as_str())?;
 
-        let repo = git2::Repository::clone(url.as_str(), local_path)?;
+        // Sets a maximum depth of 250 commits when cloning to prevent cloning
+        // thousands of commits. This is one of the reasons this project works
+        // best on repos that enforce linear commit histories. If we tried
+        // a depth of 250 on something like torvalds/linux repo we would get
+        // many thousands of commits due to the non-linear history of that repo
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.depth(250);
+
+        let mut builder = git2::build::RepoBuilder::new();
+        let repo = builder
+            .fetch_options(fetch_options)
+            .clone(url.as_str(), local_path)?;
 
         repo.remote_rename("origin", "upstream")?;
 
