@@ -169,6 +169,7 @@ pub fn process_tag_for_release(
     tag: &git_cliff_core::tag::Tag,
     tag_pattern: Option<Regex>,
 ) -> Option<String> {
+    info!("processing tag: {}", tag.name);
     // we only care about releases for this specific package
     if let Some(re) = tag_pattern.clone()
         && !re.is_match(&tag.name)
