@@ -60,13 +60,15 @@ fn create_or_update_pr(
         base_branch: base_branch.clone(),
     };
 
-    let result = forge.get_pr_number(req)?;
+    info!("looking for existing release pull request");
+    let result = forge.get_open_release_pr(req)?;
 
-    let pr_number = match result {
+    let pr = match result {
         Some(pr) => {
-            info!("updating pr {pr}");
+            info!("updating pr {}", pr.number);
             let req = UpdatePrRequest {
-                pr_number: pr,
+                pr_number: pr.number,
+                title: title.to_string(),
                 body: body.to_string(),
             };
 
@@ -86,9 +88,10 @@ fn create_or_update_pr(
         }
     };
 
-    info!("setting labels for pr {pr_number}");
+    info!("setting labels for pr {}", pr.number);
+
     let req = PrLabelsRequest {
-        pr_number,
+        pr_number: pr.number,
         labels: vec![PENDING_LABEL.into()],
     };
 

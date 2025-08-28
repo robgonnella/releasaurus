@@ -1,11 +1,15 @@
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Result, eyre};
 use octocrab::{Octocrab, params};
 use tokio::runtime::Runtime;
 
 use crate::forge::{
     config::{DEFAULT_LABEL_COLOR, RemoteConfig},
     traits::Forge,
-    types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
+    types::{
+        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+        UpdatePrRequest,
+    },
+    util::parse_pr_body,
 };
 
 pub struct Github {
@@ -42,7 +46,10 @@ impl Forge for Github {
         &self.config
     }
 
-    fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
+    fn get_open_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<ReleasePullRequest>> {
         let prs = self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
@@ -58,13 +65,37 @@ impl Forge for Github {
         })?;
 
         if let Some(pr) = prs.into_iter().last() {
-            return Ok(Some(pr.number));
+            let title =
+                pr.title.ok_or(eyre!("no title found for pull request"))?;
+
+            let body =
+                pr.body.ok_or(eyre!("no body found for pull request"))?;
+
+            let mut labels = vec![];
+
+            if let Some(pr_labels) = pr.labels {
+                labels = pr_labels
+                    .iter()
+                    .map(|l| l.name.clone())
+                    .collect::<Vec<String>>();
+            }
+
+            let releases = parse_pr_body(&body)?;
+
+            return Ok(Some(ReleasePullRequest {
+                number: pr.number,
+                sha: pr.head.sha,
+                title,
+                body: body.clone(),
+                labels,
+                releases,
+            }));
         }
 
         Ok(None)
     }
 
-    fn create_pr(&self, req: CreatePrRequest) -> Result<u64> {
+    fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest> {
         self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
@@ -76,7 +107,28 @@ impl Forge for Github {
                 .send()
                 .await?;
 
-            Ok(pr.number)
+            let title =
+                pr.title.ok_or(eyre!("no title found for pull request"))?;
+            let body =
+                pr.body.ok_or(eyre!("no body found for pull request"))?;
+            let mut labels = vec![];
+            if let Some(pr_labels) = pr.labels {
+                labels = pr_labels
+                    .iter()
+                    .map(|l| l.name.clone())
+                    .collect::<Vec<String>>();
+            }
+
+            let releases = parse_pr_body(&body)?;
+
+            Ok(ReleasePullRequest {
+                number: pr.number,
+                sha: pr.head.sha,
+                title,
+                body: body.clone(),
+                labels,
+                releases,
+            })
         })
     }
 
@@ -89,6 +141,7 @@ impl Forge for Github {
 
             pr_handler
                 .update(req.pr_number)
+                .title(req.title)
                 .body(req.body)
                 .send()
                 .await?;
