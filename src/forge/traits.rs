@@ -4,13 +4,19 @@ use color_eyre::eyre::Result;
 
 use crate::forge::{
     config::RemoteConfig,
-    types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
+    types::{
+        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+        UpdatePrRequest,
+    },
 };
 
 pub trait Forge: Any {
     fn config(&self) -> &RemoteConfig;
-    fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>>;
-    fn create_pr(&self, req: CreatePrRequest) -> Result<u64>;
+    fn get_open_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<ReleasePullRequest>>;
+    fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest>;
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()>;
     fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()>;
 }
