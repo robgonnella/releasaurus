@@ -83,6 +83,7 @@ impl Git {
     }
 
     pub fn add_all(&self) -> Result<()> {
+        debug!("adding changed files to index");
         let mut index = self.repo.index()?;
         index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
         index.write()?;
@@ -90,9 +91,11 @@ impl Git {
     }
 
     pub fn commit(&self, msg: &str) -> Result<()> {
+        debug!("committing changes with msg: {msg}");
         let config = self.repo.config()?.snapshot()?;
         let user = config.get_str("user.name")?;
         let email = config.get_str("user.email")?;
+        debug!("using committer: user: {user}, email: {email}");
         let mut index = self.repo.index()?;
         let oid = index.write_tree()?;
         let tree = self.repo.find_tree(oid)?;
@@ -110,6 +113,7 @@ impl Git {
     }
 
     pub fn push_branch(&self, branch: &str) -> Result<()> {
+        info!("pushing branch {branch}");
         // setup callbacks for authentication
         let config = self.repo.config()?.snapshot()?;
         let user = config.get_str("user.name")?;
@@ -143,5 +147,4 @@ impl Git {
     //         .tag(tag, commit.as_object(), &tagger, tag, false)?;
     //     Ok(())
     // }
-    //
 }
