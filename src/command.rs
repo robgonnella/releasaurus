@@ -87,13 +87,7 @@ pub fn release_pr(args: &cli::Args) -> Result<()> {
             info!("{name} is releasable: next version: {version}");
             releasable = true;
             let drop_down = format!(
-                r#"
-<details>
-<summary>{}
-<br>
-{}
-</details>
-"#,
+                "<details><summary>{}</summary><br>{}</details>",
                 version, info.changelog
             );
             body.push(drop_down);
@@ -101,8 +95,8 @@ pub fn release_pr(args: &cli::Args) -> Result<()> {
         }
     }
 
-    debug!("creating pr");
-    debug!("title: {title}");
+    info!("creating pr");
+    info!("title: {title}");
 
     if args.dry_run {
         info!("dry-run: skipping remote update");
@@ -115,34 +109,37 @@ pub fn release_pr(args: &cli::Args) -> Result<()> {
         git.push_branch(&release_branch)?;
 
         let req = GetPrRequest {
-            head_branch,
-            base_branch,
+            head_branch: head_branch.clone(),
+            base_branch: base_branch.clone(),
         };
 
         let result = forge.get_pr_number(req)?;
 
         let pr_number = match result {
             Some(pr) => {
+                info!("updating pr {pr}");
                 let req = UpdatePrRequest {
                     pr_number: pr,
-                    body: body.join("\n\n"),
+                    body: body.join("\n"),
                 };
 
                 forge.update_pr(req)?;
                 pr
             }
             None => {
+                info!("creating pull request");
                 let req = CreatePrRequest {
-                    title: "chore: release 1.0.0".into(),
-                    body: "body".into(),
-                    head_branch: "my-branch".into(),
-                    base_branch: "main".into(),
+                    title,
+                    body: body.join("\n\n"),
+                    head_branch,
+                    base_branch,
                 };
 
                 forge.create_pr(req)?
             }
         };
 
+        info!("setting labels for pr {pr_number}");
         let req = PrLabelsRequest {
             pr_number,
             labels: vec![PENDING_LABEL.into()],
