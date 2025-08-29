@@ -1,12 +1,12 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 
-mod changelog;
 mod cli;
 mod command;
 mod config;
 mod forge;
-mod git;
+mod processor;
+mod repo;
 
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {

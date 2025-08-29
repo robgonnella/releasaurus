@@ -1,3 +1,4 @@
+//! Facilitates interaction with a local git repository
 use color_eyre::eyre::{Result, eyre};
 use git2::RemoteCallbacks;
 use log::*;
@@ -9,7 +10,7 @@ use crate::forge::config::RemoteConfig;
 
 const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
 
-pub struct Git {
+pub struct Repository {
     pub default_branch: String,
     config: RemoteConfig,
     repo: git2::Repository,
@@ -23,7 +24,7 @@ fn get_auth_callbacks<'r>(user: String, token: String) -> RemoteCallbacks<'r> {
     callbacks
 }
 
-impl Git {
+impl Repository {
     pub fn new(local_path: &Path, config: RemoteConfig) -> Result<Self> {
         let repo_url =
             format!("{}://{}/{}", config.scheme, config.host, config.path);

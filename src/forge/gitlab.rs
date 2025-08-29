@@ -1,3 +1,4 @@
+//! Implements the Forge trait for Gitlab
 use color_eyre::eyre::{Result as EyreResult, eyre};
 use gitlab::{
     Gitlab as GitlabClient,
@@ -22,7 +23,6 @@ use crate::forge::{
     types::{
         CreatePrRequest, PrLabelsRequest, ReleasePullRequest, UpdatePrRequest,
     },
-    util::parse_pr_body,
 };
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +119,6 @@ impl Forge for Gitlab {
                 }
 
                 let merge_request = first.unwrap();
-                let releases = parse_pr_body(&merge_request.description)?;
 
                 Ok(Some(ReleasePullRequest {
                     number: merge_request.iid,
@@ -127,7 +126,6 @@ impl Forge for Gitlab {
                     title: merge_request.title.clone(),
                     body: merge_request.description.clone(),
                     labels: merge_request.labels.clone(),
-                    releases,
                 }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
@@ -162,7 +160,6 @@ impl Forge for Gitlab {
 
         // Execute the creation
         let merge_request: MergeRequestInfo = endpoint.query(&self.gl)?;
-        let releases = parse_pr_body(&merge_request.description)?;
 
         Ok(ReleasePullRequest {
             number: merge_request.iid,
@@ -170,7 +167,6 @@ impl Forge for Gitlab {
             title: merge_request.title.clone(),
             body: merge_request.description.clone(),
             labels: merge_request.labels.clone(),
-            releases,
         })
     }
 
@@ -319,10 +315,12 @@ mod tests {
 
         let result = forge.create_pr(req);
         assert!(result.is_ok(), "failed to create PR");
-        let pr_number = result.unwrap();
+        let pr = result.unwrap();
+        let pr_number = pr.number;
 
         let req = UpdatePrRequest {
             pr_number,
+            title: "This is my updated title".into(),
             body: "now this is a good body!".into(),
         };
 
@@ -343,7 +341,7 @@ mod tests {
             head_branch: "test-branch".into(),
             base_branch: "main".into(),
         };
-        let result = forge.get_pr_number(req);
+        let result = forge.get_open_release_pr(req);
         assert!(result.is_ok(), "failed to get PR number");
 
         let result = close_pr(&gl, project_id.clone(), pr_number);

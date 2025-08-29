@@ -1,3 +1,4 @@
+//! Implements the Forge trait for Github
 use color_eyre::eyre::{Result, eyre};
 use octocrab::{Octocrab, params};
 use tokio::runtime::Runtime;
@@ -9,7 +10,6 @@ use crate::forge::{
         CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
         UpdatePrRequest,
     },
-    util::parse_pr_body,
 };
 
 pub struct Github {
@@ -80,15 +80,12 @@ impl Forge for Github {
                     .collect::<Vec<String>>();
             }
 
-            let releases = parse_pr_body(&body)?;
-
             return Ok(Some(ReleasePullRequest {
                 number: pr.number,
                 sha: pr.head.sha,
                 title,
                 body: body.clone(),
                 labels,
-                releases,
             }));
         }
 
@@ -119,15 +116,12 @@ impl Forge for Github {
                     .collect::<Vec<String>>();
             }
 
-            let releases = parse_pr_body(&body)?;
-
             Ok(ReleasePullRequest {
                 number: pr.number,
                 sha: pr.head.sha,
                 title,
                 body: body.clone(),
                 labels,
-                releases,
             })
         })
     }
@@ -283,10 +277,12 @@ mod tests {
 
         let result = forge.create_pr(req);
         assert!(result.is_ok(), "failed to create PR");
-        let pr_number = result.unwrap();
+        let pr = result.unwrap();
+        let pr_number = pr.number;
 
         let req = UpdatePrRequest {
             pr_number,
+            title: "This is my updated title".into(),
             body: "now this is a good body!".into(),
         };
 
@@ -307,7 +303,7 @@ mod tests {
             head_branch: "test-branch".into(),
             base_branch: "main".into(),
         };
-        let result = forge.get_pr_number(req);
+        let result = forge.get_open_release_pr(req);
         assert!(result.is_ok(), "failed to get PR number");
 
         let result = close_pr(&remote_config, pr_number);

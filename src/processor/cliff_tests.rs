@@ -122,11 +122,11 @@ fn process_git_repository() {
     assert!(result.is_ok(), "failed to setup test repo");
 
     let config = ChangelogConfig::default();
-    let result = GitCliffChangelog::new(config);
+    let result = CliffProcessor::new(config);
     assert!(result.is_ok(), "failed to create changelog instance");
 
     let changelog = result.unwrap();
-    let result = changelog.write();
+    let result = changelog.write_changelog();
     assert!(result.is_ok(), "failed to write to file");
 
     let output = result.unwrap();

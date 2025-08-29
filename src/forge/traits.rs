@@ -1,3 +1,4 @@
+//! Traits related to remote git forges
 use std::any::Any;
 
 use color_eyre::eyre::Result;
