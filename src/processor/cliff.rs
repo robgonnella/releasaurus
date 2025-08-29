@@ -1,5 +1,5 @@
 //! A git-cliff implementation of a changelog [`Generator`]
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use indexmap::IndexMap;
 use log::*;
 use std::{
@@ -8,15 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::changelog::{
-    cliff_helpers,
-    config::ChangelogConfig,
-    traits::{Generator, Output, Writer},
-};
+use crate::processor::{cliff_helpers, config::ChangelogConfig, types::Output};
 
-/// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
-/// and [`NextVersion`]
-pub struct GitCliffChangelog {
+/// Represents a git-cliff implementation of a repository processor
+pub struct CliffProcessor {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
@@ -24,10 +19,10 @@ pub struct GitCliffChangelog {
     release_link_base_url: String,
 }
 
-impl GitCliffChangelog {
+impl CliffProcessor {
     /// Returns new instance based on provided configs
     pub fn new(config: ChangelogConfig) -> Result<Self> {
-        let path = config.package.path.clone();
+        let path = config.package_path.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
@@ -128,12 +123,15 @@ impl GitCliffChangelog {
         // process and return the releases for this repo
         self.process_commits(commits, tags)
     }
-}
 
-impl Generator for GitCliffChangelog {
-    fn generate(&self) -> Result<Output> {
-        info!("generating changelog for package: {}", self.path);
+    pub fn process_repository(&self) -> Result<Output> {
+        info!("processing repository for package: {}", self.path);
         let (releases, current_version) = self.get_repo_releases()?;
+
+        let projected_release = releases
+            .last()
+            .wrap_err("failed to find projected release")?
+            .clone();
 
         let mut changelog = git_cliff_core::changelog::Changelog::new(
             releases,
@@ -154,13 +152,12 @@ impl Generator for GitCliffChangelog {
             changelog: out,
             current_version,
             next_version,
+            projected_release,
         })
     }
-}
 
-impl Writer for GitCliffChangelog {
-    fn write(&self) -> Result<Output> {
-        let output = self.generate()?;
+    pub fn write_changelog(&self) -> Result<Output> {
+        let output = self.process_repository()?;
         let package_dir = Path::new(self.path.as_str());
         let file_path = package_dir.join("CHANGELOG.md");
 
@@ -178,5 +175,5 @@ impl Writer for GitCliffChangelog {
 }
 
 #[cfg(test)]
-#[path = "./git_cliff_tests.rs"]
+#[path = "./cliff_tests.rs"]
 mod tests;

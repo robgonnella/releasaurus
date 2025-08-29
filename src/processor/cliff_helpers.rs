@@ -5,7 +5,7 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::path::Path;
 
-use crate::changelog::config::ChangelogConfig;
+use crate::processor::config::ChangelogConfig;
 
 pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
     info!("processing package path: {package_path}");
@@ -51,7 +51,7 @@ pub fn set_config_basic_settings(
     cliff_config.git.protect_breaking_commits = true;
     cliff_config.git.require_conventional = false;
     cliff_config.git.include_paths =
-        process_package_path(&changelog_config.package.path)?;
+        process_package_path(&changelog_config.package_path)?;
     Ok(())
 }
 
@@ -61,12 +61,7 @@ pub fn set_config_tag_settings(
 ) -> Result<()> {
     let mut tag_prefix = "v".to_string();
 
-    if !changelog_config.package.name.is_empty() {
-        tag_prefix = format!("{}-v", changelog_config.package.name);
-        info!("set tag prefix for package name: {tag_prefix}");
-    }
-
-    if let Some(prefix) = changelog_config.package.tag_prefix.clone() {
+    if let Some(prefix) = changelog_config.tag_prefix.clone() {
         tag_prefix = prefix;
         info!("set tag prefix to provided option: {tag_prefix}");
     }
@@ -221,8 +216,6 @@ pub fn add_link_base_and_commit_range_to_release(
 
 #[cfg(test)]
 mod tests {
-    use crate::changelog::config::PackageConfig;
-
     use super::*;
 
     #[test]
@@ -288,34 +281,6 @@ mod tests {
     }
 
     #[test]
-    fn set_config_tag_settings_uses_package_name() {
-        let package_name = "test".to_string();
-
-        let mut cliff_config =
-            git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
-
-        let changelog_config = ChangelogConfig {
-            package: PackageConfig {
-                name: package_name,
-                ..PackageConfig::default()
-            },
-            ..ChangelogConfig::default()
-        };
-
-        let result =
-            set_config_tag_settings(&mut cliff_config, &changelog_config);
-
-        assert!(result.is_ok(), "failed to set config tag settings");
-
-        assert!(cliff_config.git.tag_pattern.is_some());
-
-        let tag_pattern = cliff_config.git.tag_pattern.unwrap();
-
-        assert!(!tag_pattern.is_match("v1.0.0"));
-        assert!(tag_pattern.is_match("test-v1.0.0"));
-    }
-
-    #[test]
     fn set_config_tag_settings_uses_prefix_option() {
         let prefix = "prefix".to_string();
 
@@ -323,11 +288,7 @@ mod tests {
             git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
 
         let changelog_config = ChangelogConfig {
-            package: PackageConfig {
-                name: "test".into(),
-                tag_prefix: Some(prefix),
-                ..PackageConfig::default()
-            },
+            tag_prefix: Some(prefix),
             ..ChangelogConfig::default()
         };
 
