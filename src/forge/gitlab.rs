@@ -1,4 +1,4 @@
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Result as EyreResult, eyre};
 use gitlab::{
     Gitlab as GitlabClient,
     api::{
@@ -12,6 +12,7 @@ use gitlab::{
         },
     },
 };
+use log::*;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
@@ -38,8 +39,8 @@ pub struct Gitlab {
 }
 
 impl Gitlab {
-    pub fn new(config: RemoteConfig) -> Result<Self> {
-        let project_id = format!("{}/{}", config.owner, config.repo);
+    pub fn new(config: RemoteConfig) -> EyreResult<Self> {
+        let project_id = config.path.clone();
 
         let token = config.token.expose_secret();
 
@@ -53,7 +54,7 @@ impl Gitlab {
         })
     }
 
-    fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
+    fn get_repo_labels(&self) -> EyreResult<Vec<LabelInfo>> {
         let endpoint = Labels::builder().project(&self.project_id).build()?;
 
         let labels: Vec<LabelInfo> = endpoint.query(&self.gl)?;
@@ -61,7 +62,7 @@ impl Gitlab {
         Ok(labels)
     }
 
-    fn create_label(&self, label_name: String) -> Result<LabelInfo> {
+    fn create_label(&self, label_name: String) -> EyreResult<LabelInfo> {
         let endpoint = CreateLabel::builder()
             .project(&self.project_id)
             .name(label_name)
@@ -83,7 +84,7 @@ impl Forge for Gitlab {
     fn get_pr_number(
         &self,
         req: super::types::GetPrRequest,
-    ) -> color_eyre::eyre::Result<Option<u64>> {
+    ) -> EyreResult<Option<u64>> {
         // Create the merge requests query to find open MRs
         // targeting the base branch
         let endpoint = MergeRequests::builder()
@@ -94,14 +95,37 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the query to get matching merge requests
-        let merge_requests: Vec<MergeRequestInfo> = endpoint.query(&self.gl)?;
+        let result: Result<
+            Vec<MergeRequestInfo>,
+            gitlab::api::ApiError<gitlab::RestError>,
+        > = endpoint.query(&self.gl);
 
-        // Return the first matching merge request's IID
-        // (should only be one for a given branch)
-        Ok(merge_requests.first().map(|mr| mr.iid))
+        // Execute the query to get matching merge requests
+        match result {
+            Ok(merge_requests) => {
+                // Return the first matching merge request's IID
+                // (should only be one for a given branch)
+                let result = merge_requests.first().map(|mr| mr.iid);
+                Ok(result)
+            }
+            Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
+                if status == reqwest::StatusCode::NOT_FOUND {
+                    Ok(None)
+                } else {
+                    let msg = format!(
+                        "request for pull request failed: status {status}, msg: {msg}"
+                    );
+                    error!("{msg}");
+                    Err(eyre!(msg))
+                }
+            }
+            Err(err) => Err(eyre!(
+                "encountered error querying gitlab for merge request: {err}"
+            )),
+        }
     }
 
-    fn create_pr(&self, req: CreatePrRequest) -> color_eyre::eyre::Result<u64> {
+    fn create_pr(&self, req: CreatePrRequest) -> EyreResult<u64> {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(&self.project_id)
@@ -117,7 +141,7 @@ impl Forge for Gitlab {
         Ok(response.iid)
     }
 
-    fn update_pr(&self, req: UpdatePrRequest) -> color_eyre::eyre::Result<()> {
+    fn update_pr(&self, req: UpdatePrRequest) -> EyreResult<()> {
         // Update the merge request
         let endpoint = EditMergeRequest::builder()
             .project(&self.project_id)

@@ -1,4 +1,5 @@
 use color_eyre::eyre::{Result, eyre};
+use git2::RemoteCallbacks;
 use log::*;
 use reqwest::Url;
 use secrecy::ExposeSecret;
@@ -14,23 +15,26 @@ pub struct Git {
     repo: git2::Repository,
 }
 
+fn get_auth_callbacks<'r>(user: String, token: String) -> RemoteCallbacks<'r> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(move |_url, _username, _allowed| {
+        git2::Cred::userpass_plaintext(&user, &token)
+    });
+    callbacks
+}
+
 impl Git {
     pub fn new(local_path: &Path, config: RemoteConfig) -> Result<Self> {
-        let repo_url = format!(
-            "{}://{}/{}/{}",
-            config.scheme, config.host, config.owner, config.repo
-        );
+        let repo_url =
+            format!("{}://{}/{}", config.scheme, config.host, config.path);
 
         let url = Url::parse(repo_url.as_str())?;
-        let token = config.token.expose_secret().to_string();
         let git_config = git2::Config::open_default()?.snapshot()?;
         let user = git_config.get_str("user.name")?;
+        let token = config.token.expose_secret().to_string();
 
         // setup callbacks for authentication
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|_url, _username, _allowed| {
-            git2::Cred::userpass_plaintext(user, &token)
-        });
+        let callbacks = get_auth_callbacks(user.into(), token.clone());
 
         // Sets a maximum depth of 250 commits when cloning to prevent cloning
         // thousands of commits. This is one of the reasons this project works
@@ -48,8 +52,10 @@ impl Git {
 
         repo.remote_rename("origin", DEFAULT_UPSTREAM_REMOTE)?;
 
+        // setup callbacks for authentication
+        let callbacks = get_auth_callbacks(user.into(), token.clone());
         let mut remote = repo.find_remote(DEFAULT_UPSTREAM_REMOTE)?;
-        remote.connect(git2::Direction::Fetch)?;
+        remote.connect_auth(git2::Direction::Fetch, Some(callbacks), None)?;
 
         let buf = remote.default_branch()?;
         let default_branch =
@@ -118,21 +124,16 @@ impl Git {
         let config = self.repo.config()?.snapshot()?;
         let user = config.get_str("user.name")?;
         let token = self.config.token.expose_secret().to_string();
+        let callbacks = get_auth_callbacks(user.into(), token.clone());
+        let mut push_opts = git2::PushOptions::default();
+        push_opts.remote_callbacks(callbacks);
 
         let mut remote = self.repo.find_remote(DEFAULT_UPSTREAM_REMOTE)?;
 
         // + indicates "force" push
         let ref_spec = format!("+refs/heads/{branch}");
-
-        // setup auth for push
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|_url, _username, _allowed| {
-            git2::Cred::userpass_plaintext(user, &token)
-        });
-
-        let mut push_opts = git2::PushOptions::default();
-        push_opts.remote_callbacks(callbacks);
         remote.push(&[ref_spec], Some(&mut push_opts))?;
+
         Ok(())
     }
 

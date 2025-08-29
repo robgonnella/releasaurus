@@ -1,7 +1,7 @@
 use color_eyre::eyre::Result;
 use log::*;
 use serde::Deserialize;
-use std::{env, fs};
+use std::fs;
 
 use crate::changelog::config::DEFAULT_BODY;
 
@@ -115,26 +115,14 @@ impl Iterator for CliConfig {
 }
 
 pub fn load_config() -> Result<CliConfig> {
+    let current = std::path::Path::new(".");
+    let config_path = current.join(DEFAULT_CONFIG_FILE);
+    let exists = std::fs::exists(config_path.clone())?;
+
     // search for config file walking up ancestors as necessary
-    let maybe_found_config = env::current_dir()?.ancestors().find_map(|dir| {
-        let path = dir.join(DEFAULT_CONFIG_FILE);
-        if path.is_file() {
-            info!("found config file: {}", path.display());
-            return Some(path);
-        }
-
-        None
-    });
-
-    // process and use config file if found
-    if let Some(config_file) = maybe_found_config {
-        if let Some(dir) = config_file.parent() {
-            // make sure to switch to directory of config file
-            // so any paths defined in config work
-            env::set_current_dir(dir)?;
-        }
-
-        if let Ok(content) = fs::read_to_string(config_file) {
+    if exists {
+        info!("found config file: {}", config_path.display());
+        if let Ok(content) = fs::read_to_string(config_path) {
             let cli_config: CliConfig = toml::from_str(&content)?;
             return Ok(cli_config);
         }
@@ -150,7 +138,7 @@ pub fn load_config() -> Result<CliConfig> {
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Result;
-    use std::{path::Path, sync::Mutex};
+    use std::{env, path::Path, sync::Mutex};
     use tempfile::TempDir;
 
     use super::*;

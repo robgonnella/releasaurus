@@ -20,6 +20,8 @@ pub struct RemoteConfig {
     pub owner: String,
     /// The repo path i.e. <group>/<repo>
     pub repo: String,
+    /// The full path to the repo i.e. /org/group/owner/repo
+    pub path: String,
     /// The access token for the remote repo
     pub token: SecretString,
     /// commit link base_url for the remote
@@ -37,6 +39,7 @@ impl Default for RemoteConfig {
             scheme: "".to_string(),
             owner: "".to_string(),
             repo: "".to_string(),
+            path: "".to_string(),
             token: SecretString::from("".to_string()),
             commit_link_base_url: "".to_string(),
             release_link_base_url: "".to_string(),
