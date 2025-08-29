@@ -247,6 +247,7 @@ mod tests {
             host: "gitea.com".into(),
             owner: "rgon".into(),
             repo: "test-repo".into(),
+            path: format!("{}/{}", "rgon", "test-repo"),
             token: SecretString::from(token.clone()),
             commit_link_base_url: "".into(),
             release_link_base_url: "".into(),

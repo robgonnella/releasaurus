@@ -211,6 +211,7 @@ mod tests {
             host: "github.com".into(),
             owner: "robgonnella".into(),
             repo: "test-repo".into(),
+            path: format!("{}/{}", "robgonnella", "test-repo"),
             token: SecretString::from(token),
             commit_link_base_url: "".into(),
             release_link_base_url: "".into(),

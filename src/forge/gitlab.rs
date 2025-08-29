@@ -256,6 +256,7 @@ mod tests {
             host: "gitlab.com".into(),
             owner: "rgon".into(),
             repo: "test-repo".into(),
+            path: format!("{}/{}", "rgon", "test-repo"),
             token: SecretString::from(token),
             commit_link_base_url: "".into(),
             release_link_base_url: "".into(),
