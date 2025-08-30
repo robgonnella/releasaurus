@@ -63,7 +63,6 @@ pub fn set_config_tag_settings(
 
     if let Some(prefix) = changelog_config.tag_prefix.clone() {
         tag_prefix = prefix;
-        info!("set tag prefix to provided option: {tag_prefix}");
     }
 
     info!("configuring tag prefix: {tag_prefix}");
@@ -171,7 +170,7 @@ pub fn process_tag_for_release(
     {
         info!(
             "tag does not match pattern: skipping: tag: {:#?}, pattern: {:#?}",
-            re, tag.name
+            tag.name, tag_pattern,
         );
         return None;
     }

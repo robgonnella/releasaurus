@@ -1,5 +1,5 @@
 //! A git-cliff implementation of a changelog [`Generator`]
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::Result;
 use indexmap::IndexMap;
 use log::*;
 use std::{
@@ -15,6 +15,7 @@ pub struct CliffProcessor {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
+    since_commit: Option<String>,
     commit_link_base_url: String,
     release_link_base_url: String,
 }
@@ -23,6 +24,7 @@ impl CliffProcessor {
     /// Returns new instance based on provided configs
     pub fn new(config: ChangelogConfig) -> Result<Self> {
         let path = config.package_path.clone();
+        let since_commit = config.since_commit.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
@@ -32,6 +34,7 @@ impl CliffProcessor {
             config: Box::new(cliff_config),
             repo,
             path,
+            since_commit,
             commit_link_base_url,
             release_link_base_url,
         })
@@ -109,12 +112,18 @@ impl CliffProcessor {
         &self,
     ) -> Result<(Vec<git_cliff_core::release::Release<'a>>, Option<String>)>
     {
-        let tags = self.repo.tags(&None, false, false)?;
+        let tags =
+            self.repo.tags(&self.config.git.tag_pattern, false, false)?;
+
+        let since = self.since_commit.clone().map(|c| format!("{}..HEAD", c));
+        let range = since.as_deref();
+
+        info!("using range for commits: {:#?}", range);
 
         // get just the commits for the path specified or all commits
         // if option is None
         let commits = self.repo.commits(
-            None,
+            range,
             Some(self.config.git.include_paths.clone()),
             None,
             false,
@@ -126,12 +135,10 @@ impl CliffProcessor {
 
     pub fn process_repository(&self) -> Result<Output> {
         info!("processing repository for package: {}", self.path);
+
         let (releases, current_version) = self.get_repo_releases()?;
 
-        let projected_release = releases
-            .last()
-            .wrap_err("failed to find projected release")?
-            .clone();
+        let last_release = releases.last().map(|r| r.to_owned());
 
         let mut changelog = git_cliff_core::changelog::Changelog::new(
             releases,
@@ -141,6 +148,12 @@ impl CliffProcessor {
 
         // increase to next version
         let next_version = changelog.bump_version()?;
+
+        let mut projected_release = None;
+
+        if next_version.is_some() {
+            projected_release = last_release;
+        }
 
         // generate content
         let mut buf = BufWriter::new(Vec::new());

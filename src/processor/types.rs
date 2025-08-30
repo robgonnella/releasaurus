@@ -11,5 +11,5 @@ pub struct Output {
     /// The next version as determined by conventional commits
     pub next_version: Option<String>,
     /// The release that will be created
-    pub projected_release: git_cliff_core::release::Release<'static>,
+    pub projected_release: Option<git_cliff_core::release::Release<'static>>,
 }

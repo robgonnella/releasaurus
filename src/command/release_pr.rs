@@ -93,10 +93,11 @@ fn process_manifest(
     let version_line_re = Regex::new(r"(?m)^#\s.+\w.+$").unwrap();
 
     for (name, info) in manifest {
-        debug!(
-            "package: {}, current_version: {:#?}, next_version: {:#?}",
-            name, info.current_version, info.next_version
+        info!(
+            "\n\n{}\n  current_version: {:?}\n  next_version: {:?}\n  projected_release_version: {:?}",
+            name, info.current_version, info.next_version, info.next_version,
         );
+
         if let Some(version) = info.next_version {
             info!("{name} is releasable: next version: {version}");
             releasable = true;
@@ -155,7 +156,13 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let mut manifest: HashMap<String, Output> = HashMap::new();
 
     for package in cli_config.packages {
-        debug!("processing changelog for package path: {}", package.path);
+        let tag_prefix = package.tag_prefix.clone().unwrap_or("v".into());
+        info!(
+            "processing changelog for package path: {}, tag_prefix: {}",
+            package.path, tag_prefix
+        );
+        let starting_sha =
+            repo.get_latest_tagged_starting_point(&tag_prefix)?;
 
         let changelog_config = ChangelogConfig {
             package_path: package.path.clone(),
@@ -165,6 +172,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
             commit_link_base_url: remote_config.commit_link_base_url.clone(),
             release_link_base_url: remote_config.release_link_base_url.clone(),
             tag_prefix: package.tag_prefix,
+            since_commit: starting_sha,
         };
 
         let processor = CliffProcessor::new(changelog_config)?;
@@ -174,20 +182,23 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
     let manifest_result = process_manifest(manifest, &repo);
 
+    if !manifest_result.releasable {
+        info!("no releasable commits found");
+        return Ok(());
+    }
+
     if args.dry_run {
         info!("dry-run: skipping remote update");
         return Ok(());
     }
 
-    if manifest_result.releasable {
-        create_or_update_pr(
-            &manifest_result.title,
-            &manifest_result.body.join("\n"),
-            &release_branch,
-            &repo,
-            forge,
-        )?;
-    }
+    create_or_update_pr(
+        &manifest_result.title,
+        &manifest_result.body.join("\n"),
+        &release_branch,
+        &repo,
+        forge,
+    )?;
 
     Ok(())
 }
