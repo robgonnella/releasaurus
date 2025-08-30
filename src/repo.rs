@@ -2,6 +2,7 @@
 use color_eyre::eyre::{Result, eyre};
 use git2::RemoteCallbacks;
 use log::*;
+use regex::Regex;
 use reqwest::Url;
 use secrecy::ExposeSecret;
 use std::path::Path;
@@ -37,13 +38,7 @@ impl Repository {
         // setup callbacks for authentication
         let callbacks = get_auth_callbacks(user.into(), token.clone());
 
-        // Sets a maximum depth of 250 commits when cloning to prevent cloning
-        // thousands of commits. This is one of the reasons this project works
-        // best on repos that enforce linear commit histories. If we tried
-        // a depth of 250 on something like torvalds/linux repo we would get
-        // many thousands of commits due to the non-linear history of that repo
         let mut fetch_options = git2::FetchOptions::new();
-        fetch_options.depth(250);
         fetch_options.remote_callbacks(callbacks);
 
         let mut builder = git2::build::RepoBuilder::new();
@@ -70,6 +65,39 @@ impl Repository {
             config,
             default_branch,
         })
+    }
+
+    pub fn get_latest_tagged_starting_point(
+        &self,
+        prefix: &str,
+    ) -> Result<Option<String>> {
+        let regex_prefix = format!(r"^{}", prefix);
+        let tag_regex = Regex::new(&regex_prefix)?;
+        let references = self
+            .repo
+            .references()?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<git2::Reference>>();
+
+        // Iterate through all references in the repository in reverse and stop
+        // at first that matches prefix
+        for reference in references.into_iter().rev() {
+            // Check if the reference is a tag with desired prefix
+            if reference.is_tag()
+                && let Some(name) = reference.name()
+                && let Some(stripped) = name.strip_prefix("refs/tags/")
+                && tag_regex.is_match(stripped)
+            {
+                let commit = reference.peel_to_commit()?;
+
+                // return the parent of the tagged commit so the commit range
+                // is inclusive of the tagged commit
+                if let Ok(parent) = commit.parent(0) {
+                    return Ok(Some(parent.id().to_string()));
+                }
+            }
+        }
+        Ok(None)
     }
 
     pub fn create_branch(&self, branch: &str) -> Result<()> {
