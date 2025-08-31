@@ -12,7 +12,7 @@ use crate::{
 
 #[test]
 fn github_e2e_test() {
-    let token = env::var("GITHUB_TOKEN").unwrap();
+    let token = env::var("GH_TEST_TOKEN").unwrap();
 
     let args = Args {
         command: Command::ReleasePR,
