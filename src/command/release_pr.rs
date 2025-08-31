@@ -1,23 +1,155 @@
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use log::*;
-use regex::Regex;
-use std::{collections::HashMap, env};
-use tempfile::TempDir;
+use std::collections::HashMap;
 
 use crate::{
-    cli, config,
+    cli,
+    command::common,
+    config,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
-        },
+        types::{CreatePrRequest, GetPrRequest, UpdatePrRequest},
     },
-    processor::{
-        cliff::CliffProcessor, config::ChangelogConfig, types::Output,
-    },
+    processor::{cliff::CliffProcessor, types::Output},
     repo::Repository,
 };
+
+struct PrContent {
+    pub title: String,
+    pub body: Vec<String>,
+    pub releasable: bool,
+}
+
+pub fn execute(args: &cli::Args) -> Result<()> {
+    let remote = args.get_remote()?;
+    let forge = remote.get_forge()?;
+
+    let (repo, tmp_dir) = common::setup_repository(forge.as_ref())?;
+    let cli_config = common::load_configuration()?;
+
+    let release_branch =
+        common::setup_release_branch(&repo, DEFAULT_PR_BRANCH_PREFIX)?;
+
+    let manifest = process_packages(&repo, &cli_config, forge.config())?;
+    let pr_content = create_pr_content(manifest, &repo)?;
+
+    if !pr_content.releasable {
+        info!("no releasable commits found");
+        return Ok(());
+    }
+
+    if args.dry_run {
+        info!("dry-run: skipping remote update");
+        return Ok(());
+    }
+
+    create_or_update_pr(
+        &pr_content.title,
+        &pr_content.body.join("\n"),
+        &release_branch,
+        &repo,
+        forge,
+    )?;
+
+    // Keep tmp_dir alive until the end to prevent cleanup
+    drop(tmp_dir);
+
+    Ok(())
+}
+
+fn process_packages(
+    repo: &Repository,
+    cli_config: &config::CliConfig,
+    remote_config: &crate::forge::config::RemoteConfig,
+) -> Result<HashMap<String, Output>> {
+    let mut manifest: HashMap<String, Output> = HashMap::new();
+
+    for package in &cli_config.packages {
+        let output =
+            process_single_package(package, repo, cli_config, remote_config)?;
+        manifest.insert(package.path.clone(), output);
+    }
+
+    Ok(manifest)
+}
+
+fn process_single_package(
+    package: &config::CliPackageConfig,
+    repo: &Repository,
+    cli_config: &config::CliConfig,
+    remote_config: &crate::forge::config::RemoteConfig,
+) -> Result<Output> {
+    let tag_prefix = common::get_tag_prefix(package);
+
+    common::log_package_processing(&package.path, &tag_prefix);
+
+    let starting_sha = repo.get_latest_tagged_starting_point(&tag_prefix)?;
+
+    let changelog_config = common::create_changelog_config(
+        package,
+        cli_config,
+        remote_config,
+        starting_sha,
+    );
+
+    let processor = CliffProcessor::new(changelog_config)?;
+    processor.write_changelog()
+}
+
+fn create_pr_content(
+    manifest: HashMap<String, Output>,
+    repo: &Repository,
+) -> Result<PrContent> {
+    let mut title = format!("chore({}): release", repo.default_branch);
+    let mut include_title_version = false;
+    let mut body = vec![];
+    let mut releasable = false;
+
+    let mut start_tag = "<details>";
+
+    // auto-open dropdown if there's only one package
+    if manifest.len() == 1 {
+        include_title_version = true;
+        start_tag = "<details open>";
+    }
+
+    for (name, info) in manifest {
+        info!(
+            "\n\n{}\n  current_version: {:?}\n  next_version: {:?}\n  projected_release_version: {:?}",
+            name, info.current_version, info.next_version, info.next_version,
+        );
+
+        // only keep packages that have releasable commits
+        if let Some(version) = info.next_version {
+            info!("{name} is releasable: next version: {version}");
+            releasable = true;
+
+            let notes = info
+                .projected_release
+                .wrap_err("failed to find projected release")?
+                .notes;
+
+            // create the drop down
+            let drop_down = format!(
+                "{start_tag}<summary>{version}</summary>{}</details>",
+                notes
+            );
+
+            body.push(drop_down);
+
+            if include_title_version {
+                title = format!("{} {}", title, version)
+            }
+        }
+    }
+
+    Ok(PrContent {
+        title,
+        body,
+        releasable,
+    })
+}
 
 fn create_or_update_pr(
     title: &str,
@@ -30,13 +162,35 @@ fn create_or_update_pr(
         format!("{}{}", DEFAULT_PR_BRANCH_PREFIX, repo.default_branch);
     let base_branch = repo.default_branch.clone();
 
-    repo.add_all()?;
-    repo.commit(title)?;
-    repo.push_branch(release_branch)?;
+    common::commit_and_push_changes(repo, title, release_branch)?;
 
+    let pr = find_or_create_pr(
+        title,
+        body,
+        &head_branch,
+        &base_branch,
+        forge.as_ref(),
+    )?;
+
+    common::update_pr_labels(
+        forge.as_ref(),
+        pr.number,
+        vec![PENDING_LABEL.into()],
+    )?;
+
+    Ok(())
+}
+
+fn find_or_create_pr(
+    title: &str,
+    body: &str,
+    head_branch: &str,
+    base_branch: &str,
+    forge: &dyn Forge,
+) -> Result<crate::forge::types::ReleasePullRequest> {
     let req = GetPrRequest {
-        head_branch: head_branch.clone(),
-        base_branch: base_branch.clone(),
+        head_branch: head_branch.to_string(),
+        base_branch: base_branch.to_string(),
     };
 
     info!("looking for existing release pull request");
@@ -59,146 +213,13 @@ fn create_or_update_pr(
             let req = CreatePrRequest {
                 title: title.to_string(),
                 body: body.to_string(),
-                head_branch,
-                base_branch,
+                head_branch: head_branch.to_string(),
+                base_branch: base_branch.to_string(),
             };
 
             forge.create_pr(req)?
         }
     };
 
-    info!("setting labels for pr {}", pr.number);
-
-    let req = PrLabelsRequest {
-        pr_number: pr.number,
-        labels: vec![PENDING_LABEL.into()],
-    };
-
-    forge.replace_pr_labels(req)
-}
-
-struct ManifestProcessingResult {
-    pub title: String,
-    pub body: Vec<String>,
-    pub releasable: bool,
-}
-
-fn process_manifest(
-    manifest: HashMap<String, Output>,
-    repo: &Repository,
-) -> ManifestProcessingResult {
-    let mut title = format!("chore({}): release", repo.default_branch);
-    let mut body = vec![];
-    let mut releasable = false;
-    let version_line_re = Regex::new(r"(?m)^#\s.+\w.+$").unwrap();
-
-    for (name, info) in manifest {
-        info!(
-            "\n\n{}\n  current_version: {:?}\n  next_version: {:?}\n  projected_release_version: {:?}",
-            name, info.current_version, info.next_version, info.next_version,
-        );
-
-        if let Some(version) = info.next_version {
-            info!("{name} is releasable: next version: {version}");
-            releasable = true;
-
-            // replace first line as it will be part of drop down title
-            let changelog = version_line_re.replace(&info.changelog, "");
-
-            let drop_down = format!(
-                "<details><summary>{}</summary><br>{}</details>",
-                version, changelog
-            );
-            body.push(drop_down);
-            title = format!("{} {}", title, version)
-        }
-    }
-
-    ManifestProcessingResult {
-        title,
-        body,
-        releasable,
-    }
-}
-
-pub fn execute(args: &cli::Args) -> Result<()> {
-    let remote = args.get_remote()?;
-    let forge = remote.get_forge()?;
-    let remote_config = forge.config();
-    let tmp_dir = TempDir::new()?;
-
-    info!(
-        "cloning repository {} to {}",
-        remote_config.repo,
-        tmp_dir.path().display()
-    );
-
-    let repo = Repository::new(tmp_dir.path(), remote_config.clone())?;
-
-    info!(
-        "switching directory to cloned repository: {}",
-        tmp_dir.path().display(),
-    );
-
-    env::set_current_dir(tmp_dir.path())?;
-
-    info!("loading configuration");
-
-    let cli_config = config::load_config()?;
-
-    let release_branch =
-        format!("{}{}", DEFAULT_PR_BRANCH_PREFIX, repo.default_branch);
-
-    debug!("setting up release branch: {release_branch}");
-    repo.create_branch(&release_branch)?;
-    repo.switch_branch(&release_branch)?;
-
-    let mut manifest: HashMap<String, Output> = HashMap::new();
-
-    for package in cli_config.packages {
-        let tag_prefix = package.tag_prefix.clone().unwrap_or("v".into());
-        info!(
-            "processing changelog for package path: {}, tag_prefix: {}",
-            package.path, tag_prefix
-        );
-        let starting_sha =
-            repo.get_latest_tagged_starting_point(&tag_prefix)?;
-
-        let changelog_config = ChangelogConfig {
-            package_path: package.path.clone(),
-            header: cli_config.changelog.header.clone(),
-            body: cli_config.changelog.body.clone(),
-            footer: cli_config.changelog.footer.clone(),
-            commit_link_base_url: remote_config.commit_link_base_url.clone(),
-            release_link_base_url: remote_config.release_link_base_url.clone(),
-            tag_prefix: package.tag_prefix,
-            since_commit: starting_sha,
-        };
-
-        let processor = CliffProcessor::new(changelog_config)?;
-        let output = processor.write_changelog()?;
-        manifest.insert(package.path, output);
-    }
-
-    let manifest_result = process_manifest(manifest, &repo);
-
-    if !manifest_result.releasable {
-        info!("no releasable commits found");
-        return Ok(());
-    }
-
-    if args.dry_run {
-        info!("dry-run: skipping remote update");
-        return Ok(());
-    }
-
-    create_or_update_pr(
-        &manifest_result.title,
-        &manifest_result.body.join("\n"),
-        &release_branch,
-        &repo,
-        forge,
-    )?;
-
-    Ok(())
+    Ok(pr)
 }

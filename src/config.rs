@@ -1,7 +1,7 @@
 use color_eyre::eyre::Result;
 use log::*;
 use serde::Deserialize;
-use std::fs;
+use std::{fs, path::Path};
 
 use crate::processor::config::DEFAULT_BODY;
 
@@ -75,9 +75,9 @@ impl Default for CliConfig {
     }
 }
 
-pub fn load_config() -> Result<CliConfig> {
-    let current = std::path::Path::new(".");
-    let config_path = current.join(DEFAULT_CONFIG_FILE);
+pub fn load_config(dir: Option<&Path>) -> Result<CliConfig> {
+    let project = dir.unwrap_or(Path::new("."));
+    let config_path = project.join(DEFAULT_CONFIG_FILE);
     let exists = std::fs::exists(config_path.clone())?;
 
     // search for config file walking up ancestors as necessary
@@ -98,23 +98,9 @@ pub fn load_config() -> Result<CliConfig> {
 
 #[cfg(test)]
 mod tests {
-    use color_eyre::eyre::Result;
-    use std::{env, path::Path, sync::Mutex};
     use tempfile::TempDir;
 
     use super::*;
-
-    static MUTEX: Mutex<i64> = Mutex::new(1);
-
-    pub fn switch_current_directory<F: Fn()>(
-        dir: &Path,
-        closure: F,
-    ) -> Result<()> {
-        let _lock = MUTEX.lock().unwrap();
-        env::set_current_dir(dir)?;
-        closure();
-        Ok(())
-    }
 
     #[test]
     fn loads_defaults() {
@@ -126,44 +112,38 @@ mod tests {
     fn loads_config_file() {
         let tmp = TempDir::new().unwrap();
 
-        switch_current_directory(tmp.path(), || {
-            let content = r#"
+        let content = r#"
 [[package]]
 path = "./some/path"
 "#;
 
-            fs::write(tmp.path().join(DEFAULT_CONFIG_FILE), content.as_bytes())
-                .unwrap();
+        fs::write(tmp.path().join(DEFAULT_CONFIG_FILE), content.as_bytes())
+            .unwrap();
 
-            let result = load_config();
-            assert!(result.is_ok(), "failed to load config file");
+        let result = load_config(Some(tmp.path()));
+        assert!(result.is_ok(), "failed to load config file");
 
-            let config = result.unwrap();
+        let config = result.unwrap();
 
-            assert_eq!(config.packages.len(), 1, "packages length should be 1");
-            assert_eq!(
-                config.packages[0].path, "./some/path",
-                "packages path should be ./some/path"
-            );
-        })
-        .unwrap();
+        assert_eq!(config.packages.len(), 1, "packages length should be 1");
+        assert_eq!(
+            config.packages[0].path, "./some/path",
+            "packages path should be ./some/path"
+        );
     }
 
     #[test]
     fn loads_default_config() {
         let tmp = TempDir::new().unwrap();
 
-        switch_current_directory(tmp.path(), || {
-            let result = load_config();
-            assert!(result.is_ok(), "failed to load config file");
+        let result = load_config(Some(tmp.path()));
+        assert!(result.is_ok(), "failed to load config file");
 
-            let config = result.unwrap();
-            assert_eq!(config.packages.len(), 1, "packages length should be 1");
-            assert_eq!(
-                config.packages[0].path, ".",
-                "package path should be \".\""
-            );
-        })
-        .unwrap();
+        let config = result.unwrap();
+        assert_eq!(config.packages.len(), 1, "packages length should be 1");
+        assert_eq!(
+            config.packages[0].path, ".",
+            "package path should be \".\""
+        );
     }
 }

@@ -17,7 +17,9 @@ pub trait Forge: Any {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<ReleasePullRequest>>;
+    fn get_merged_release_pr(&self) -> Result<Option<ReleasePullRequest>>;
     fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest>;
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()>;
     fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()>;
+    fn create_release(&self, tag: &str, sha: &str, notes: &str) -> Result<()>;
 }

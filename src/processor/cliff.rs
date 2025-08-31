@@ -1,5 +1,5 @@
 //! A git-cliff implementation of a changelog [`Generator`]
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use indexmap::IndexMap;
 use log::*;
 use std::{
@@ -8,7 +8,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::processor::{cliff_helpers, config::ChangelogConfig, types::Output};
+use crate::processor::{
+    cliff_helpers,
+    config::ChangelogConfig,
+    types::{Output, ProjectedRelease},
+};
 
 /// Represents a git-cliff implementation of a repository processor
 pub struct CliffProcessor {
@@ -138,8 +142,6 @@ impl CliffProcessor {
 
         let (releases, current_version) = self.get_repo_releases()?;
 
-        let last_release = releases.last().map(|r| r.to_owned());
-
         let mut changelog = git_cliff_core::changelog::Changelog::new(
             releases,
             &self.config,
@@ -149,17 +151,25 @@ impl CliffProcessor {
         // increase to next version
         let next_version = changelog.bump_version()?;
 
-        let mut projected_release = None;
-
-        if next_version.is_some() {
-            projected_release = last_release;
-        }
-
         // generate content
         let mut buf = BufWriter::new(Vec::new());
         changelog.generate(&mut buf)?;
         let bytes = buf.into_inner()?;
         let out = String::from_utf8(bytes)?;
+
+        let mut projected_release = None;
+
+        if next_version.is_some() {
+            let notes = cliff_helpers::parse_projected_release_notes(&out);
+            let last_release =
+                changelog.releases.last().wrap_err("no releases found")?;
+            projected_release = Some(ProjectedRelease {
+                tag: next_version.clone().unwrap_or("".into()),
+                path: self.path.clone(),
+                sha: last_release.commit_id.clone().unwrap_or("".into()),
+                notes,
+            });
+        }
 
         Ok(Output {
             changelog: out,
