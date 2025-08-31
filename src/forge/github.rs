@@ -1,10 +1,14 @@
 //! Implements the Forge trait for Github
-use color_eyre::eyre::{Result, eyre};
-use octocrab::{Octocrab, params};
+use color_eyre::eyre::{Report, Result, eyre};
+use log::*;
+use octocrab::{
+    Octocrab,
+    params::{self, Direction, State},
+};
 use tokio::runtime::Runtime;
 
 use crate::forge::{
-    config::{DEFAULT_LABEL_COLOR, RemoteConfig},
+    config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
     traits::Forge,
     types::{
         CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
@@ -65,31 +69,70 @@ impl Forge for Github {
         })?;
 
         if let Some(pr) = prs.into_iter().last() {
-            let title =
-                pr.title.ok_or(eyre!("no title found for pull request"))?;
-
-            let body =
-                pr.body.ok_or(eyre!("no body found for pull request"))?;
-
-            let mut labels = vec![];
-
-            if let Some(pr_labels) = pr.labels {
-                labels = pr_labels
-                    .iter()
-                    .map(|l| l.name.clone())
-                    .collect::<Vec<String>>();
-            }
-
             return Ok(Some(ReleasePullRequest {
                 number: pr.number,
                 sha: pr.head.sha,
-                title,
-                body: body.clone(),
-                labels,
             }));
         }
 
         Ok(None)
+    }
+
+    fn get_merged_release_pr(&self) -> Result<Option<ReleasePullRequest>> {
+        self.rt.block_on(async {
+            let octocrab = self.new_instance().unwrap();
+
+            let issues_handler =
+                octocrab.issues(&self.config.owner, &self.config.repo);
+
+            info!("looking for closed release prs with pending label");
+
+            let issues = issues_handler
+                .list()
+                .direction(Direction::Descending)
+                .labels(&[PENDING_LABEL.into()])
+                .state(State::Closed)
+                .per_page(2)
+                .send()
+                .await?;
+
+            if issues.items.is_empty() {
+              warn!(
+                  r"No merged release PRs with the label {} found. Nothing to release",
+                  PENDING_LABEL
+              );
+                return Ok::<Option<ReleasePullRequest>, Report>(None);
+            }
+
+            if issues.items.len() > 1 {
+                return Err(eyre!(
+                  format!(
+                    r"Found more than one closed release PR with pending label.
+                    This mean either release PR were closed manually or releasaurus failed to remove tags.
+                    You must remove the {} label from all closed release PRs except for the most recent.",
+                    PENDING_LABEL
+                )));
+            }
+
+            let issue = issues.items[0].clone();
+
+            info!("found release pr: {}", issue.number);
+
+            let pulls_handler = octocrab.pulls(&self.config.owner, &self.config.repo);
+
+            let pr = pulls_handler.get(issue.number).await?;
+
+            if let Some(merged) = pr.merged && !merged {
+              return Err(eyre!(format!("found release PR {} but it hasn't been merged yet", pr.number)));
+            }
+
+            let sha = pr.merge_commit_sha.ok_or(eyre!("no merge_commit_sha found for pr"))?;
+
+            Ok(Some(ReleasePullRequest{
+              number: pr.number,
+              sha,
+            }))
+        })
     }
 
     fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest> {
@@ -104,24 +147,9 @@ impl Forge for Github {
                 .send()
                 .await?;
 
-            let title =
-                pr.title.ok_or(eyre!("no title found for pull request"))?;
-            let body =
-                pr.body.ok_or(eyre!("no body found for pull request"))?;
-            let mut labels = vec![];
-            if let Some(pr_labels) = pr.labels {
-                labels = pr_labels
-                    .iter()
-                    .map(|l| l.name.clone())
-                    .collect::<Vec<String>>();
-            }
-
             Ok(ReleasePullRequest {
                 number: pr.number,
                 sha: pr.head.sha,
-                title,
-                body: body.clone(),
-                labels,
             })
         })
     }
@@ -174,142 +202,31 @@ impl Forge for Github {
             let issue_handler =
                 octocrab.issues(&self.config.owner, &self.config.repo);
 
-            issue_handler.add_labels(req.pr_number, &labels).await?;
-
-            Ok(())
-        })
-    }
-}
-
-#[cfg(test)]
-#[cfg(feature = "forge-tests")]
-mod tests {
-    use std::env;
-
-    use color_eyre::eyre::Result;
-    use octocrab::{Octocrab, params};
-    use secrecy::SecretString;
-
-    use crate::forge::{
-        config::{PENDING_LABEL, RemoteConfig},
-        github::Github,
-        traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
-        },
-    };
-
-    fn delete_label(config: &RemoteConfig, label: String) -> Result<()> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-
-        rt.block_on(async {
-            let builder = Octocrab::builder()
-                .personal_token(config.token.clone())
-                .base_uri(format!("{}://api.{}", config.scheme, config.host))?;
-
-            let octocrab = builder.build()?;
-
-            octocrab
-                .issues(&config.owner, &config.repo)
-                .delete_label(label)
+            issue_handler
+                .replace_all_labels(req.pr_number, &labels)
                 .await?;
 
             Ok(())
         })
     }
 
-    fn close_pr(config: &RemoteConfig, pr_number: u64) -> Result<()> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-
-        rt.block_on(async {
-            let builder = Octocrab::builder()
-                .personal_token(config.token.clone())
-                .base_uri(format!("{}://api.{}", config.scheme, config.host))?;
-
-            let octocrab = builder.build()?;
+    fn create_release(&self, tag: &str, sha: &str, notes: &str) -> Result<()> {
+        self.rt.block_on(async {
+            let octocrab = self.new_instance()?;
 
             octocrab
-                .pulls(&config.owner, &config.repo)
-                .update(pr_number)
-                .state(params::pulls::State::Closed)
+                .repos(&self.config.owner, &self.config.repo)
+                .releases()
+                .create(tag)
+                .name(tag)
+                .body(notes)
+                .target_commitish(sha)
+                .draft(false)
+                .prerelease(false)
                 .send()
                 .await?;
 
-            Ok(())
+            Ok::<(), Report>(())
         })
-    }
-
-    #[test]
-    fn test_github_forge() {
-        let result = env::var("GH_TEST_TOKEN");
-        assert!(
-            result.is_ok(),
-            "must set GH_TEST_TOKEN as environment variable to run these tests"
-        );
-
-        let token = result.unwrap();
-
-        let remote_config = RemoteConfig {
-            scheme: "https".into(),
-            host: "github.com".into(),
-            owner: "robgonnella".into(),
-            repo: "test-repo".into(),
-            path: format!("{}/{}", "robgonnella", "test-repo"),
-            token: SecretString::from(token),
-            commit_link_base_url: "".into(),
-            release_link_base_url: "".into(),
-        };
-
-        let result = Github::new(remote_config.clone());
-        assert!(result.is_ok(), "failed to create github forge");
-        let forge = result.unwrap();
-
-        let req = CreatePrRequest {
-            head_branch: "test-branch".into(),
-            base_branch: "main".into(),
-            body: "super duper!".into(),
-            title: "The is my test PR".into(),
-        };
-
-        let result = forge.create_pr(req);
-        assert!(result.is_ok(), "failed to create PR");
-        let pr = result.unwrap();
-        let pr_number = pr.number;
-
-        let req = UpdatePrRequest {
-            pr_number,
-            title: "This is my updated title".into(),
-            body: "now this is a good body!".into(),
-        };
-
-        let result = forge.update_pr(req);
-        assert!(result.is_ok(), "failed to update PR");
-
-        let new_label = "releasaurus:1".to_string();
-
-        let req = PrLabelsRequest {
-            pr_number,
-            labels: vec![new_label.clone(), PENDING_LABEL.into()],
-        };
-
-        let result = forge.replace_pr_labels(req);
-        assert!(result.is_ok(), "failed to replace PR labels");
-
-        let req = GetPrRequest {
-            head_branch: "test-branch".into(),
-            base_branch: "main".into(),
-        };
-        let result = forge.get_open_release_pr(req);
-        assert!(result.is_ok(), "failed to get PR number");
-
-        let result = close_pr(&remote_config, pr_number);
-        assert!(result.is_ok(), "failed to close PR");
-
-        let result = delete_label(&remote_config, new_label);
-        assert!(result.is_ok(), "failed to delete label")
     }
 }

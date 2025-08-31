@@ -3,9 +3,13 @@ name = "releasaurus"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "releasaurus"
+path = "src/main.rs"
+
 [features]
 default = []
-forge-tests = []
+_internal_e2e_tests = []
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"]}
@@ -28,3 +32,6 @@ simplelog = { version = "0.12.2" }
 tempfile = "3.20.0"
 tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros"] }
 toml = "0.9.5"
+
+[dev-dependencies]
+nanoid = "0.4.0"

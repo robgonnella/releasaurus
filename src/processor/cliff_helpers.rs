@@ -3,7 +3,11 @@ use glob::Pattern;
 use log::*;
 use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
-use std::path::Path;
+use std::{path::Path, sync::LazyLock};
+
+static RELEASE_NOTES_START_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"#\s\[.*\]\(.*\)\s-\s\d{4}-\d{2}-\d{2}").unwrap()
+});
 
 use crate::processor::config::ChangelogConfig;
 
@@ -211,6 +215,14 @@ pub fn add_link_base_and_commit_range_to_release(
             release.commits.last().unwrap(),
         ))
     }
+}
+
+pub fn parse_projected_release_notes(changelog: &str) -> String {
+    let notes: Vec<&str> = RELEASE_NOTES_START_LINE
+        .split(changelog.trim())
+        .map(|c| c.trim())
+        .collect();
+    notes[1].to_string()
 }
 
 #[cfg(test)]

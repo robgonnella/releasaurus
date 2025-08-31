@@ -10,6 +10,7 @@ use gitlab::{
             merge_requests::{
                 CreateMergeRequest, EditMergeRequest, MergeRequests,
             },
+            releases::CreateRelease,
         },
     },
 };
@@ -18,7 +19,7 @@ use secrecy::ExposeSecret;
 use serde::Deserialize;
 
 use crate::forge::{
-    config::{DEFAULT_LABEL_COLOR, RemoteConfig},
+    config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
     traits::Forge,
     types::{
         CreatePrRequest, PrLabelsRequest, ReleasePullRequest, UpdatePrRequest,
@@ -29,9 +30,8 @@ use crate::forge::{
 struct MergeRequestInfo {
     iid: u64,
     sha: String,
-    title: String,
-    description: String,
-    labels: Vec<String>,
+    merged_at: Option<String>,
+    merge_commit_sha: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,9 +123,6 @@ impl Forge for Gitlab {
                 Ok(Some(ReleasePullRequest {
                     number: merge_request.iid,
                     sha: merge_request.sha.clone(),
-                    title: merge_request.title.clone(),
-                    body: merge_request.description.clone(),
-                    labels: merge_request.labels.clone(),
                 }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
@@ -143,6 +140,58 @@ impl Forge for Gitlab {
                 "encountered error querying gitlab for merge request: {err}"
             )),
         }
+    }
+
+    fn get_merged_release_pr(&self) -> EyreResult<Option<ReleasePullRequest>> {
+        info!("looking for closed release prs with pending label");
+
+        // Search for closed merge requests with the pending label
+        let endpoint = MergeRequests::builder()
+            .project(&self.project_id)
+            .state(MergeRequestState::Merged)
+            .labels(vec![PENDING_LABEL])
+            .build()?;
+
+        let merge_requests: Vec<MergeRequestInfo> = endpoint.query(&self.gl)?;
+
+        if merge_requests.is_empty() {
+            warn!(
+                "No merged release PRs with the label {} found. Nothing to release",
+                PENDING_LABEL
+            );
+            return Ok(None);
+        }
+
+        if merge_requests.len() > 1 {
+            return Err(eyre!(
+                "Found more than one closed release PR with pending label. \
+                This means either release PRs were closed manually or releasaurus failed to remove tags. \
+                You must remove the {} label from all closed release PRs except for the most recent.",
+                PENDING_LABEL
+            ));
+        }
+
+        let merge_request = &merge_requests[0];
+        info!("found release pr: {}", merge_request.iid);
+
+        // Check if the MR is actually merged (has merged_at timestamp)
+        if merge_request.merged_at.is_none() {
+            return Err(eyre!(
+                "found release PR {} but it hasn't been merged yet",
+                merge_request.iid
+            ));
+        }
+
+        let sha = merge_request
+            .merge_commit_sha
+            .as_ref()
+            .ok_or_else(|| eyre!("no merge_commit_sha found for pr"))?
+            .clone();
+
+        Ok(Some(ReleasePullRequest {
+            number: merge_request.iid,
+            sha,
+        }))
     }
 
     fn create_pr(
@@ -164,9 +213,6 @@ impl Forge for Gitlab {
         Ok(ReleasePullRequest {
             number: merge_request.iid,
             sha: merge_request.sha.clone(),
-            title: merge_request.title.clone(),
-            body: merge_request.description.clone(),
-            labels: merge_request.labels.clone(),
         })
     }
 
@@ -214,140 +260,25 @@ impl Forge for Gitlab {
 
         Ok(())
     }
-}
 
-#[cfg(test)]
-#[cfg(feature = "forge-tests")]
-mod tests {
-    use color_eyre::eyre::Result;
-    use gitlab::{
-        Gitlab as GitlabClient,
-        api::{
-            Query, ignore,
-            projects::{
-                labels::DeleteLabel,
-                merge_requests::{EditMergeRequest, MergeRequestStateEvent},
-            },
-        },
-    };
-    use secrecy::{ExposeSecret, SecretString};
-    use std::env;
-
-    use crate::forge::{
-        config::{PENDING_LABEL, RemoteConfig},
-        gitlab::Gitlab,
-        traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
-        },
-    };
-
-    fn delete_label(
-        gl: &GitlabClient,
-        project_id: String,
-        label: String,
-    ) -> Result<()> {
-        let endpoint = DeleteLabel::builder()
-            .project(project_id)
-            .label(label)
-            .build()?;
-        ignore(endpoint).query(gl)?;
-        Ok(())
-    }
-
-    fn close_pr(
-        gl: &GitlabClient,
-        project_id: String,
-        pr_number: u64,
-    ) -> Result<()> {
-        let endpoint = EditMergeRequest::builder()
-            .project(project_id)
-            .merge_request(pr_number)
-            .state_event(MergeRequestStateEvent::Close)
+    fn create_release(
+        &self,
+        tag: &str,
+        sha: &str,
+        notes: &str,
+    ) -> EyreResult<()> {
+        // Create the release
+        let endpoint = CreateRelease::builder()
+            .project(&self.project_id)
+            .tag_name(tag)
+            .name(tag)
+            .description(notes)
+            .ref_sha(sha)
             .build()?;
 
-        ignore(endpoint).query(gl)?;
+        // Execute the creation using ignore since we don't need the response
+        ignore(endpoint).query(&self.gl)?;
 
         Ok(())
-    }
-
-    #[test]
-    fn test_gitlab_forge() {
-        let result = env::var("GL_TEST_TOKEN");
-        assert!(
-            result.is_ok(),
-            "must set GL_TEST_TOKEN as environment variable to run these tests"
-        );
-
-        let token = result.unwrap();
-
-        let remote_config = RemoteConfig {
-            scheme: "https".into(),
-            host: "gitlab.com".into(),
-            owner: "rgon".into(),
-            repo: "test-repo".into(),
-            path: format!("{}/{}", "rgon", "test-repo"),
-            token: SecretString::from(token),
-            commit_link_base_url: "".into(),
-            release_link_base_url: "".into(),
-        };
-
-        let result = gitlab::GitlabBuilder::new(
-            remote_config.host.clone(),
-            remote_config.token.expose_secret(),
-        )
-        .build();
-        assert!(result.is_ok(), "failed to create gitlab client");
-        let gl = result.unwrap();
-        let project_id =
-            format!("{}/{}", remote_config.owner, remote_config.repo);
-
-        let result = Gitlab::new(remote_config.clone());
-        assert!(result.is_ok(), "failed to create gitlab forge");
-        let forge = result.unwrap();
-
-        let req = CreatePrRequest {
-            head_branch: "test-branch".into(),
-            base_branch: "main".into(),
-            body: "super duper!".into(),
-            title: "The is my test PR".into(),
-        };
-
-        let result = forge.create_pr(req);
-        assert!(result.is_ok(), "failed to create PR");
-        let pr = result.unwrap();
-        let pr_number = pr.number;
-
-        let req = UpdatePrRequest {
-            pr_number,
-            title: "This is my updated title".into(),
-            body: "now this is a good body!".into(),
-        };
-
-        let result = forge.update_pr(req);
-        assert!(result.is_ok(), "failed to update PR");
-
-        let new_label = "releasaurus:1".to_string();
-
-        let req = PrLabelsRequest {
-            pr_number,
-            labels: vec![new_label.clone(), PENDING_LABEL.into()],
-        };
-
-        let result = forge.replace_pr_labels(req);
-        assert!(result.is_ok(), "failed to replace PR labels");
-
-        let req = GetPrRequest {
-            head_branch: "test-branch".into(),
-            base_branch: "main".into(),
-        };
-        let result = forge.get_open_release_pr(req);
-        assert!(result.is_ok(), "failed to get PR number");
-
-        let result = close_pr(&gl, project_id.clone(), pr_number);
-        assert!(result.is_ok(), "failed to close PR");
-
-        let result = delete_label(&gl, project_id, new_label);
-        assert!(result.is_ok(), "failed to delete label")
     }
 }

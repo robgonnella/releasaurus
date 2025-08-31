@@ -1,11 +1,7 @@
 #[derive(Debug)]
-#[allow(unused)]
 pub struct ReleasePullRequest {
     pub number: u64,
     pub sha: String,
-    pub title: String,
-    pub body: String,
-    pub labels: Vec<String>,
 }
 
 #[derive(Debug)]
