@@ -1,11 +1,11 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 
+mod analyzer;
 mod cli;
 mod command;
 mod config;
 mod forge;
-mod processor;
 mod repo;
 
 fn initialize_logger(debug: bool) -> Result<()> {

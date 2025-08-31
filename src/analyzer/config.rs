@@ -25,7 +25,7 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
  "#;
 
 #[derive(Debug, Clone)]
-pub struct ChangelogConfig {
+pub struct AnalyzerConfig {
     /// Path to the package directory
     pub package_path: String,
     /// [Tera](https://github.com/Keats/tera) template string allowing you
@@ -52,7 +52,7 @@ pub struct ChangelogConfig {
     pub since_commit: Option<String>,
 }
 
-impl Default for ChangelogConfig {
+impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
             package_path: ".".to_string(),
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn loads_defaults() {
-        let config = ChangelogConfig::default();
+        let config = AnalyzerConfig::default();
         assert!(!config.body.is_empty())
     }
 }

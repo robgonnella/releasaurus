@@ -8,14 +8,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::processor::{
+use crate::analyzer::{
     cliff_helpers,
-    config::ChangelogConfig,
+    config::AnalyzerConfig,
     types::{Output, ProjectedRelease},
 };
 
-/// Represents a git-cliff implementation of a repository processor
-pub struct CliffProcessor {
+/// Represents a git-cliff implementation of a repository analyzer
+pub struct CliffAnalyzer {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
@@ -24,9 +24,9 @@ pub struct CliffProcessor {
     release_link_base_url: String,
 }
 
-impl CliffProcessor {
+impl CliffAnalyzer {
     /// Returns new instance based on provided configs
-    pub fn new(config: ChangelogConfig) -> Result<Self> {
+    pub fn new(config: AnalyzerConfig) -> Result<Self> {
         let path = config.package_path.clone();
         let since_commit = config.since_commit.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();

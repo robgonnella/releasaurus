@@ -3,7 +3,7 @@ use log::*;
 use serde::Deserialize;
 use std::{fs, path::Path};
 
-use crate::processor::config::DEFAULT_BODY;
+use crate::analyzer::config::DEFAULT_BODY;
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
