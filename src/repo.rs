@@ -203,4 +203,10 @@ impl Repository {
 
         Ok(())
     }
+
+    pub fn workdir(&self) -> Result<&Path> {
+        self.repo
+            .workdir()
+            .ok_or_else(|| eyre!("Repository has no working directory"))
+    }
 }
