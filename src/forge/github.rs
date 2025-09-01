@@ -62,8 +62,8 @@ impl Forge for Github {
             handler
                 .list()
                 .state(params::State::Open)
-                .head(req.head_branch)
                 .base(req.base_branch)
+                .head(req.head_branch)
                 .send()
                 .await
         })?;

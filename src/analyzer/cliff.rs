@@ -184,11 +184,10 @@ impl CliffAnalyzer {
         let package_dir = Path::new(self.path.as_str());
         let file_path = package_dir.join("CHANGELOG.md");
 
-        // OpenOptions allows fine-grained control over how a file is opened.
         let mut file = OpenOptions::new()
-            .write(true) // Enable writing to the file
-            .create(true) // Create the file if it doesn't exist
-            .truncate(true) // Truncate the file to 0 length if it already exists
+            .write(true)
+            .create(true)
+            .truncate(true)
             .open(file_path)?;
 
         file.write_all(output.changelog.as_bytes())?;

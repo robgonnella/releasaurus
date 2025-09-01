@@ -7,6 +7,7 @@ mod command;
 mod config;
 mod forge;
 mod repo;
+mod updater;
 
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {
