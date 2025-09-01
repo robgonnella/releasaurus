@@ -12,7 +12,7 @@ use crate::{
     analyzer::{
         cliff_helpers,
         config::AnalyzerConfig,
-        types::{Output, ProjectedRelease},
+        types::{Output, ProjectedRelease, Version},
     },
     repo::StartingPoint,
 };
@@ -150,6 +150,18 @@ impl CliffAnalyzer {
 
         let (releases, current_version) = self.get_repo_releases()?;
 
+        let mut current: Option<Version> = None;
+        if let Some(tag) = current_version
+            && let Some(pattern) = self.config.git.tag_pattern.clone()
+        {
+            let stripped = pattern.replace(&tag, "").to_string();
+            let semver_version = semver::Version::parse(&stripped)?;
+            current = Some(Version {
+                tag,
+                semver: semver_version,
+            })
+        }
+
         let mut changelog = git_cliff_core::changelog::Changelog::new(
             releases,
             &self.config,
@@ -169,6 +181,19 @@ impl CliffAnalyzer {
             out = cliff_helpers::strip_trailing_previous_release(&out);
         }
 
+        let mut next: Option<Version> = None;
+
+        if let Some(tag) = next_version.clone()
+            && let Some(pattern) = self.config.git.tag_pattern.clone()
+        {
+            let stripped = pattern.replace(&tag, "").to_string();
+            let semver_version = semver::Version::parse(&stripped)?;
+            next = Some(Version {
+                tag,
+                semver: semver_version,
+            })
+        }
+
         let mut projected_release = None;
 
         if next_version.is_some() {
@@ -185,8 +210,8 @@ impl CliffAnalyzer {
 
         Ok(Output {
             changelog: out,
-            current_version,
-            next_version,
+            current_version: current,
+            next_version: next,
             projected_release,
         })
     }

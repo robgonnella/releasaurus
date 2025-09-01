@@ -1,5 +1,5 @@
 //! Defines execution function for the release command
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::Result;
 use log::*;
 
 use crate::{
@@ -14,9 +14,17 @@ use crate::{
 pub fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
-
     let (repo, tmp_dir) = common::setup_repository(forge.as_ref())?;
-    let merged_pr = get_merged_release_pr(forge.as_ref())?;
+
+    let merged_pr = forge.get_merged_release_pr()?;
+
+    if merged_pr.is_none() {
+        warn!("releases are up-to-date: nothing to release");
+        return Ok(());
+    }
+
+    let merged_pr = merged_pr.unwrap();
+
     let cli_config = common::load_configuration()?;
 
     let releases = process_packages_for_release(
@@ -42,12 +50,6 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     drop(tmp_dir);
 
     Ok(())
-}
-
-fn get_merged_release_pr(forge: &dyn Forge) -> Result<ReleasePullRequest> {
-    forge
-        .get_merged_release_pr()?
-        .wrap_err("no release pr found")
 }
 
 fn process_packages_for_release(
@@ -96,7 +98,7 @@ fn create_package_release(
     if let Some(next_version) = output.next_version
         && let Some(projected_release) = output.projected_release
     {
-        repo.tag_commit(&next_version, &merged_pr.sha)?;
+        repo.tag_commit(&next_version.tag, &merged_pr.sha)?;
         Ok(Some(projected_release))
     } else {
         Ok(None)
