@@ -63,16 +63,20 @@ impl Forge for Github {
                 .list()
                 .state(params::State::Open)
                 .head(req.head_branch)
-                .base(req.base_branch)
                 .send()
                 .await
         })?;
 
-        if let Some(pr) = prs.into_iter().last() {
-            return Ok(Some(ReleasePullRequest {
-                number: pr.number,
-                sha: pr.head.sha,
-            }));
+        for pr in prs {
+            if let Some(labels) = pr.labels
+                && let Some(_pending_label) =
+                    labels.iter().find(|l| l.name == PENDING_LABEL)
+            {
+                return Ok(Some(ReleasePullRequest {
+                    number: pr.number,
+                    sha: pr.head.sha,
+                }));
+            }
         }
 
         Ok(None)
