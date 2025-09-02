@@ -76,7 +76,7 @@ impl Repository {
     pub fn get_latest_tagged_starting_point(
         &self,
         prefix: &str,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<(String, String)>> {
         let regex_prefix = format!(r"^{}", prefix);
         let tag_regex = Regex::new(&regex_prefix)?;
         let references = self
@@ -96,10 +96,14 @@ impl Repository {
             {
                 let commit = reference.peel_to_commit()?;
 
-                // return the parent of the tagged commit so the commit range
-                // is inclusive of the tagged commit
+                // return the commit and the parent of the tagged commit so the
+                // commit range can use the parent to get a full release in the
+                // event no new commits have been added
                 if let Ok(parent) = commit.parent(0) {
-                    return Ok(Some(parent.id().to_string()));
+                    return Ok(Some((
+                        commit.id().to_string(),
+                        parent.id().to_string(),
+                    )));
                 }
             }
         }

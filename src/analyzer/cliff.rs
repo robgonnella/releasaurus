@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use log::*;
 use std::{
     fs::OpenOptions,
-    io::{BufWriter, Write},
+    io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -19,7 +19,7 @@ pub struct CliffAnalyzer {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
-    since_commit: Option<String>,
+    starting_point: Option<(String, String)>,
     commit_link_base_url: String,
     release_link_base_url: String,
 }
@@ -28,7 +28,7 @@ impl CliffAnalyzer {
     /// Returns new instance based on provided configs
     pub fn new(config: AnalyzerConfig) -> Result<Self> {
         let path = config.package_path.clone();
-        let since_commit = config.since_commit.clone();
+        let starting_point = config.starting_point.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
@@ -38,7 +38,7 @@ impl CliffAnalyzer {
             config: Box::new(cliff_config),
             repo,
             path,
-            since_commit,
+            starting_point,
             commit_link_base_url,
             release_link_base_url,
         })
@@ -63,6 +63,15 @@ impl CliffAnalyzer {
 
         // loop commits in reverse oldest -> newest
         for git_commit in commits.iter().rev() {
+            // skip release commit since it would have been the last release
+            // commit which was already processed and added to changelog in
+            // last release
+            if let Some(starting_point) = self.starting_point.clone()
+                && git_commit.id().to_string() == starting_point.0
+            {
+                continue;
+            }
+
             // get release at end of list
             let release = releases.last_mut().unwrap();
             // add commit details to release
@@ -119,8 +128,15 @@ impl CliffAnalyzer {
         let tags =
             self.repo.tags(&self.config.git.tag_pattern, false, false)?;
 
-        let since = self.since_commit.clone().map(|c| format!("{}..HEAD", c));
-        let range = since.as_deref();
+        // use the parent of last release as starting point
+        // c.0 = release commit
+        // c.1 = release commit parent
+        let start = self
+            .starting_point
+            .clone()
+            .map(|c| format!("{}..HEAD", c.1));
+
+        let range = start.as_deref();
 
         info!("using range for commits: {:#?}", range);
 
@@ -184,14 +200,35 @@ impl CliffAnalyzer {
         let package_dir = Path::new(self.path.as_str());
         let file_path = package_dir.join("CHANGELOG.md");
 
-        // OpenOptions allows fine-grained control over how a file is opened.
-        let mut file = OpenOptions::new()
-            .write(true) // Enable writing to the file
-            .create(true) // Create the file if it doesn't exist
-            .truncate(true) // Truncate the file to 0 length if it already exists
-            .open(file_path)?;
+        let mut existing_content = String::from("");
 
-        file.write_all(output.changelog.as_bytes())?;
+        // if we're starting from a specific point in time we won't get
+        // the entire changelog generated in output so we'll want to read
+        // in existing content and prepend
+        if self.starting_point.is_some() {
+            let mut read_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false) // don't truncate here so we can read content
+                .open(file_path.clone())?;
+
+            read_file.read_to_string(&mut existing_content)?;
+
+            drop(read_file);
+        }
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(file_path.clone())?;
+
+        let content = format!("{}{}", output.changelog, existing_content);
+
+        println!("{content}");
+
+        file.write_all(content.as_bytes())?;
 
         Ok(output)
     }

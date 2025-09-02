@@ -49,7 +49,8 @@ pub struct AnalyzerConfig {
     /// Used to display release links in changelog
     pub release_link_base_url: String,
     /// Only process since commits since provided commit sha
-    pub since_commit: Option<String>,
+    /// (tagged_release_commit, tagged_release_commit_parent)
+    pub starting_point: Option<(String, String)>,
 }
 
 impl Default for AnalyzerConfig {
@@ -60,7 +61,7 @@ impl Default for AnalyzerConfig {
             header: None,
             footer: None,
             tag_prefix: None,
-            since_commit: None,
+            starting_point: None,
             commit_link_base_url: "".into(),
             release_link_base_url: "".into(),
         }

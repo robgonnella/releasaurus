@@ -60,7 +60,7 @@ pub fn create_changelog_config(
     package: &config::CliPackageConfig,
     cli_config: &config::CliConfig,
     remote_config: &RemoteConfig,
-    starting_sha: Option<String>,
+    starting_point: Option<(String, String)>,
 ) -> AnalyzerConfig {
     AnalyzerConfig {
         body: cli_config.changelog.body.clone(),
@@ -69,7 +69,7 @@ pub fn create_changelog_config(
         header: cli_config.changelog.header.clone(),
         package_path: package.path.clone(),
         release_link_base_url: remote_config.release_link_base_url.clone(),
-        since_commit: starting_sha,
+        starting_point,
         tag_prefix: Some(get_tag_prefix(package)),
     }
 }
@@ -204,14 +204,17 @@ mod tests {
             &package,
             &cli_config,
             &remote_config,
-            Some("abc123".to_string()),
+            Some(("abc123".to_string(), "def123".to_string())),
         );
 
         assert_eq!(changelog_config.package_path, "./test");
         assert_eq!(changelog_config.body, "test body");
         assert_eq!(changelog_config.header, Some("test header".to_string()));
         assert_eq!(changelog_config.footer, Some("test footer".to_string()));
-        assert_eq!(changelog_config.since_commit, Some("abc123".to_string()));
+        assert_eq!(
+            changelog_config.starting_point,
+            Some(("abc123".to_string(), "def123".to_string()))
+        );
         assert_eq!(
             changelog_config.commit_link_base_url,
             "https://example.com/commit"
