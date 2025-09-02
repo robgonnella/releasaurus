@@ -1,37 +1,52 @@
 [package]
 name = "releasaurus"
-version = "0.1.0"
+version = "v0.2.0"
 edition = "2024"
+
+[dependencies]
+octocrab = "0.44.1"
+secrecy = "0.10.3"
+reqwest = "0.12.23"
+indexmap = "2.10.0"
+log = "0.4.27"
+tempfile = "3.20.0"
+serde_json = "1.0.143"
+toml = "0.9.5"
+regex = "1.11.1"
+git2 = "0.20.2"
+glob = "0.3.3"
+paris = "1.5.15"
+color-eyre = "0.6.5"
+gitlab = "0.1802.0"
+git-url-parse = "0.4.5"
+
+[dependencies.git-cliff-core]
+version = "2.10.0"
+
+[dependencies.tokio]
+features = [
+    "rt-multi-thread",
+    "macros",
+]
+version = "1.47.1"
+
+[dependencies.simplelog]
+version = "0.12.2"
+
+[dependencies.clap]
+features = ["derive"]
+version = "4.5.45"
+
+[dependencies.serde]
+version = "1.0.219"
+
+[dev-dependencies]
+nanoid = "0.4.0"
+
+[features]
+_internal_e2e_tests = []
+default = []
 
 [[bin]]
 name = "releasaurus"
 path = "src/main.rs"
-
-[features]
-default = []
-_internal_e2e_tests = []
-
-[dependencies]
-clap = { version = "4.5.45", features = ["derive"]}
-color-eyre = "0.6.5"
-git2 = "0.20.2"
-gitlab = "0.1802.0"
-git-cliff-core = { version = "2.10.0" }
-git-url-parse = "0.4.5"
-glob = "0.3.3"
-indexmap = "2.10.0"
-log = "0.4.27"
-octocrab = "0.44.1"
-paris = "1.5.15"
-regex = "1.11.1"
-reqwest = "0.12.23"
-secrecy = "0.10.3"
-serde = { version = "1.0.219" }
-serde_json = "1.0.143"
-simplelog = { version = "0.12.2" }
-tempfile = "3.20.0"
-tokio = { version = "1.47.1", features = ["rt-multi-thread", "macros"] }
-toml = "0.9.5"
-
-[dev-dependencies]
-nanoid = "0.4.0"
