@@ -41,9 +41,7 @@ fn github_e2e_test() {
 
         repo.push_branch("main").unwrap();
 
-        let result = execute_release_pr(&args);
-
-        assert!(result.is_ok());
+        execute_release_pr(&args).unwrap();
 
         let req = GetPrRequest {
             base_branch: "main".into(),
@@ -54,9 +52,7 @@ fn github_e2e_test() {
 
         common::merge_github_release_pr(pr, forge.config()).unwrap();
 
-        let result = execute_release(&args);
-
-        assert!(result.is_ok());
+        execute_release(&args).unwrap();
     })
     .unwrap();
 }
