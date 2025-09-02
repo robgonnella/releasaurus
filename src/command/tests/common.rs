@@ -10,6 +10,8 @@ use std::{
     io::Write,
     path::Path,
     sync::{Mutex, Once},
+    thread,
+    time::Duration,
 };
 use tempfile::TempDir;
 
@@ -81,6 +83,9 @@ pub fn merge_github_release_pr(
     pr: ReleasePullRequest,
     config: &RemoteConfig,
 ) -> Result<()> {
+    // pause thread to make sure updates have registered and branch is mergeable
+    thread::sleep(Duration::from_millis(2000));
+
     let base_uri = format!("{}://api.{}", config.scheme, config.host);
 
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -113,6 +118,9 @@ pub fn merge_gitea_release_pr(
     pr: ReleasePullRequest,
     config: &RemoteConfig,
 ) -> Result<()> {
+    // pause thread to make sure updates have registered and branch is mergeable
+    thread::sleep(Duration::from_millis(2000));
+
     let token = config.token.expose_secret();
 
     let mut headers = HeaderMap::new();
@@ -146,6 +154,8 @@ pub fn merge_gitlab_release_pr(
     pr: ReleasePullRequest,
     config: &RemoteConfig,
 ) -> Result<()> {
+    // pause thread to make sure updates have registered and branch is mergeable
+    thread::sleep(Duration::from_millis(2000));
     let project_id = config.path.clone();
 
     let token = config.token.expose_secret();
