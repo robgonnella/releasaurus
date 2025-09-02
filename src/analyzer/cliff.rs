@@ -66,9 +66,6 @@ impl CliffAnalyzer {
 
         // loop commits in reverse oldest -> newest
         for git_commit in commits.iter().rev() {
-            // TODO: figure out how to omit tagged commit parent when we have
-            // a starting point
-
             // get release at end of list
             let release = releases.last_mut().unwrap();
             // add commit details to release
@@ -166,7 +163,11 @@ impl CliffAnalyzer {
         let mut buf = BufWriter::new(Vec::new());
         changelog.generate(&mut buf)?;
         let bytes = buf.into_inner()?;
-        let out = String::from_utf8(bytes)?;
+        let mut out = String::from_utf8(bytes)?;
+
+        if self.starting_point.is_some() {
+            out = cliff_helpers::strip_trailing_previous_release(&out);
+        }
 
         let mut projected_release = None;
 

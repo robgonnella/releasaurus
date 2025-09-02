@@ -225,6 +225,15 @@ pub fn parse_projected_release_notes(changelog: &str) -> String {
     notes[1].to_string()
 }
 
+pub fn strip_trailing_previous_release(changelog: &str) -> String {
+    let starting_flag = Regex::new(r"(?m)^#\s").unwrap();
+    let stripped: Vec<&str> = starting_flag
+        .splitn(changelog.trim(), 3)
+        .map(|c| c.trim())
+        .collect();
+    format!("# {}\n\n", stripped[1])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
