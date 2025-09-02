@@ -27,14 +27,13 @@ impl DetectionHelper {
 
     /// Analyze a directory using a detection pattern
     pub fn analyze_with_pattern<
-        F: FnOnce(String, Vec<String>) -> FrameworkDetection,
+        F: FnOnce(Vec<String>) -> FrameworkDetection,
     >(
         path: &Path,
         pattern: DetectionPattern,
         create_detection: F,
     ) -> Result<FrameworkDetection> {
         // Look for primary manifest files
-        let mut manifest_content = String::new();
         let mut evidence = Vec::new();
 
         for manifest_file in &pattern.manifest_files {
@@ -45,8 +44,6 @@ impl DetectionHelper {
                 // Read and analyze content
                 match fs::read_to_string(&manifest_path) {
                     Ok(content) => {
-                        manifest_content = content.clone();
-
                         // Check for content patterns
                         for pattern_text in &pattern.content_patterns {
                             if content.contains(pattern_text) {
@@ -79,6 +76,6 @@ impl DetectionHelper {
             }
         }
 
-        Ok(create_detection(manifest_content, evidence))
+        Ok(create_detection(evidence))
     }
 }

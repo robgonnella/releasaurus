@@ -4,8 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::updater::{
     detection::{traits::FrameworkDetector, types::FrameworkDetection},
-    framework::{Framework, Language},
-    generic::types::GenericMetadata,
+    framework::Framework,
 };
 
 pub struct DetectionManager {
@@ -89,14 +88,7 @@ impl DetectionManager {
         evidence: Vec<String>,
     ) -> FrameworkDetection {
         FrameworkDetection {
-            framework: Framework::Generic(Language {
-                name: "unknown".into(),
-                manifest_path: PathBuf::from(""),
-                metadata: GenericMetadata {
-                    framework_name: "generic".into(),
-                    manifest_pattern: "".into(),
-                },
-            }),
+            framework: Framework::Generic,
             confidence,
             evidence,
         }

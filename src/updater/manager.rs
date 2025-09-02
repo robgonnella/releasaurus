@@ -111,8 +111,8 @@ impl UpdaterManager {
         info!("Executing updates for {} packages", packages.len());
 
         for package in packages.iter() {
-            let updater = package.framework.updater(&self.root_path);
-            match updater.update(packages.clone()) {
+            let updater = package.framework.updater();
+            match updater.update(&self.root_path, packages.clone()) {
                 Ok(()) => {
                     stats.updated_packages += 1;
                     info!(
