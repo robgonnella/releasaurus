@@ -42,6 +42,7 @@ pub enum DependencyType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Python-specific framework metadata
 pub struct PythonMetadata {
     /// Build system (setuptools, poetry, flit, etc.)
@@ -53,6 +54,7 @@ pub struct PythonMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Python-specific package metadata
 pub struct PythonPackageMetadata {
     /// Local dependencies that need updating

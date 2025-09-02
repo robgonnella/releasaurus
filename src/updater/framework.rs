@@ -1,18 +1,14 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::analyzer::types::Version;
 use crate::updater::detection::manager::DetectionManager;
 use crate::updater::detection::traits::FrameworkDetector;
-use crate::updater::generic::types::{GenericMetadata, GenericPackageMetadata};
 use crate::updater::generic::updater::GenericUpdater;
 use crate::updater::node::detector::NodeDetector;
-use crate::updater::node::types::{NodeMetadata, NodePackageMetadata};
 use crate::updater::node::updater::NodeUpdater;
 use crate::updater::python::detector::PythonDetector;
-use crate::updater::python::types::{PythonMetadata, PythonPackageMetadata};
 use crate::updater::python::updater::PythonUpdater;
 use crate::updater::rust::detector::RustDetector;
-use crate::updater::rust::types::{RustMetadata, RustPackageMetadata};
 use crate::updater::rust::updater::CargoUpdater;
 use crate::updater::traits::PackageUpdater;
 
@@ -23,46 +19,24 @@ pub struct Package {
     pub name: String,
     /// Path to the package directory (relative to repository root)
     pub path: String,
-    /// Current version of the package
-    pub current_version: Option<Version>,
     /// Next version to update to
     pub next_version: Version,
     /// Detected framework/language for this package
     pub framework: Framework,
-    /// Path to the main manifest file
-    /// (e.g., Cargo.toml, package.json, setup.py)
-    pub manifest_path: PathBuf,
-    /// Additional metadata specific to the framework
-    pub metadata: PackageMetadata,
 }
 
-/// Framework-specific metadata container
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PackageMetadata {
-    Rust(RustPackageMetadata),
-    Node(NodePackageMetadata),
-    Python(PythonPackageMetadata),
-    Generic(GenericPackageMetadata),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Language<T> {
-    pub name: String,
-    pub manifest_path: PathBuf,
-    pub metadata: T,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 /// Supported frameworks and languages
 pub enum Framework {
     /// Rust with Cargo
-    Rust(Language<RustMetadata>),
+    Rust,
     /// Node.js with npm/yarn/pnpm
-    Node(Language<NodeMetadata>),
+    Node,
     /// Python with pip/setuptools/poetry
-    Python(Language<PythonMetadata>),
+    Python,
+    #[default]
     /// Generic framework with custom handling
-    Generic(Language<GenericMetadata>),
+    Generic,
 }
 
 impl Framework {
@@ -78,66 +52,20 @@ impl Framework {
 
     pub fn name(&self) -> &str {
         match self {
-            Framework::Rust(lang) => &lang.name,
-            Framework::Node(lang) => &lang.name,
-            Framework::Python(lang) => &lang.name,
-            Framework::Generic(lang) => &lang.name,
+            Framework::Rust => "rust",
+            Framework::Node => "node",
+            Framework::Python => "python",
+            Framework::Generic => "unknown",
         }
     }
 
-    pub fn manifest_path(&self) -> &PathBuf {
-        match &self {
-            Framework::Rust(lang) => &lang.manifest_path,
-            Framework::Node(lang) => &lang.manifest_path,
-            Framework::Python(lang) => &lang.manifest_path,
-            Framework::Generic(lang) => &lang.manifest_path,
-        }
-    }
-
-    pub fn default_metadata(&self) -> PackageMetadata {
+    pub fn updater(&self) -> Box<dyn PackageUpdater> {
         match self {
-            Framework::Rust(_) => PackageMetadata::Rust(RustPackageMetadata {
-                is_workspace_member: false,
-                is_workspace_root: false,
-                local_dependencies: Vec::new(),
-            }),
-            Framework::Node(_) => PackageMetadata::Node(NodePackageMetadata {
-                is_workspace_member: false,
-                is_monorepo_root: false,
-                local_dependencies: Vec::new(),
-            }),
-            Framework::Python(_) => {
-                PackageMetadata::Python(PythonPackageMetadata {
-                    local_dependencies: Vec::new(),
-                    python_requires: None,
-                })
-            }
-            Framework::Generic(_) => {
-                PackageMetadata::Generic(GenericPackageMetadata {})
-            }
+            Framework::Rust => Box::new(CargoUpdater::new()),
+            Framework::Node => Box::new(NodeUpdater::new()),
+            Framework::Python => Box::new(PythonUpdater::new()),
+            Framework::Generic => Box::new(GenericUpdater::new()),
         }
-    }
-
-    pub fn updater(&self, root_path: &Path) -> Box<dyn PackageUpdater> {
-        match self {
-            Framework::Rust(_) => Box::new(CargoUpdater::new(root_path)),
-            Framework::Node(_) => Box::new(NodeUpdater::new(root_path)),
-            Framework::Python(_) => Box::new(PythonUpdater::new(root_path)),
-            Framework::Generic(_) => Box::new(GenericUpdater::new()),
-        }
-    }
-}
-
-impl Default for Framework {
-    fn default() -> Self {
-        Framework::Generic(Language {
-            name: "generic".into(),
-            manifest_path: PathBuf::from(""),
-            metadata: GenericMetadata {
-                framework_name: "unknown".into(),
-                manifest_pattern: "".into(),
-            },
-        })
     }
 }
 
@@ -152,11 +80,8 @@ impl Package {
         Self {
             name,
             path,
-            current_version: None,
             next_version,
             framework: framework.clone(),
-            manifest_path: framework.manifest_path().clone(),
-            metadata: framework.default_metadata(),
         }
     }
 

@@ -1,14 +1,14 @@
+use color_eyre::eyre::Result;
+use std::path::Path;
+
 use crate::updater::{
     detection::{
         helper::DetectionHelper,
         traits::FrameworkDetector,
         types::{DetectionPattern, FrameworkDetection},
     },
-    framework::{Framework, Language},
-    python::types::PythonMetadata,
+    framework::Framework,
 };
-use color_eyre::eyre::Result;
-use std::path::Path;
 
 pub struct PythonDetector {}
 
@@ -43,46 +43,13 @@ impl PythonDetector {
         DetectionHelper::analyze_with_pattern(
             path,
             pattern.clone(),
-            |manifest_content, support_evidence| {
-                // Detect build system
-                let build_system = if manifest_content.contains("[tool.poetry]")
-                {
-                    "poetry".to_string()
-                } else if manifest_content.contains("[tool.setuptools]") {
-                    "setuptools".to_string()
-                } else if manifest_content.contains("[tool.flit]") {
-                    "flit".to_string()
-                } else {
-                    "setuptools".to_string()
-                };
-
-                // Detect package manager
-                let package_manager = if path.join("poetry.lock").exists() {
-                    "poetry".to_string()
-                } else if path.join("Pipfile").exists() {
-                    "pipenv".to_string()
-                } else {
-                    "pip".to_string()
-                };
-
-                let metadata = PythonMetadata {
-                    build_system,
-                    package_manager,
-                    uses_pyproject: true,
-                };
-
-                FrameworkDetection {
-                    framework: Framework::Python(Language {
-                        name: self.name().into(),
-                        manifest_path: path.join("pyproject.toml"),
-                        metadata,
-                    }),
-                    confidence: DetectionHelper::calculate_confidence(
-                        &pattern,
-                        &support_evidence,
-                    ),
-                    evidence: support_evidence,
-                }
+            |support_evidence| FrameworkDetection {
+                framework: Framework::Python,
+                confidence: DetectionHelper::calculate_confidence(
+                    &pattern,
+                    &support_evidence,
+                ),
+                evidence: support_evidence,
             },
         )
     }
@@ -102,25 +69,13 @@ impl PythonDetector {
         DetectionHelper::analyze_with_pattern(
             path,
             pattern.clone(),
-            |_manifest_content, support_evidence| {
-                let metadata = PythonMetadata {
-                    build_system: "setuptools".to_string(),
-                    package_manager: "pip".to_string(),
-                    uses_pyproject: false,
-                };
-
-                FrameworkDetection {
-                    framework: Framework::Python(Language {
-                        name: self.name().into(),
-                        manifest_path: path.join("setup.py"),
-                        metadata,
-                    }),
-                    confidence: DetectionHelper::calculate_confidence(
-                        &pattern,
-                        &support_evidence,
-                    ),
-                    evidence: support_evidence,
-                }
+            |support_evidence| FrameworkDetection {
+                framework: Framework::Python,
+                confidence: DetectionHelper::calculate_confidence(
+                    &pattern,
+                    &support_evidence,
+                ),
+                evidence: support_evidence,
             },
         )
     }
@@ -178,16 +133,10 @@ python = "^3.8"
         let detector = PythonDetector::new();
         let detection = detector.detect(path).unwrap();
 
-        match detection.framework {
-            Framework::Python(lang) => {
-                assert!(lang.metadata.uses_pyproject);
-                assert_eq!(lang.metadata.build_system, "poetry");
-                assert_eq!(lang.metadata.package_manager, "poetry");
-            }
-            _ => panic!("Expected Python framework"),
-        }
+        assert!(matches!(detection.framework, Framework::Python));
 
         assert!(detection.confidence > 0.8);
+
         assert!(
             detection
                 .evidence
