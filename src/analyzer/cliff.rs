@@ -8,10 +8,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::analyzer::{
-    cliff_helpers,
-    config::AnalyzerConfig,
-    types::{Output, ProjectedRelease},
+use crate::{
+    analyzer::{
+        cliff_helpers,
+        config::AnalyzerConfig,
+        types::{Output, ProjectedRelease},
+    },
+    repo::StartingPoint,
 };
 
 /// Represents a git-cliff implementation of a repository analyzer
@@ -19,7 +22,7 @@ pub struct CliffAnalyzer {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
-    starting_point: Option<(String, String)>,
+    starting_point: Option<StartingPoint>,
     commit_link_base_url: String,
     release_link_base_url: String,
 }
@@ -63,14 +66,8 @@ impl CliffAnalyzer {
 
         // loop commits in reverse oldest -> newest
         for git_commit in commits.iter().rev() {
-            // skip release commit since it would have been the last release
-            // commit which was already processed and added to changelog in
-            // last release
-            if let Some(starting_point) = self.starting_point.clone()
-                && git_commit.id().to_string() == starting_point.0
-            {
-                continue;
-            }
+            // TODO: figure out how to omit tagged commit parent when we have
+            // a starting point
 
             // get release at end of list
             let release = releases.last_mut().unwrap();
@@ -129,12 +126,10 @@ impl CliffAnalyzer {
             self.repo.tags(&self.config.git.tag_pattern, false, false)?;
 
         // use the parent of last release as starting point
-        // c.0 = release commit
-        // c.1 = release commit parent
         let start = self
             .starting_point
             .clone()
-            .map(|c| format!("{}..HEAD", c.1));
+            .map(|c| format!("{}..HEAD", c.tagged_parent));
 
         let range = start.as_deref();
 

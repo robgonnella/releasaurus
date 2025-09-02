@@ -9,7 +9,7 @@ use crate::{
     analyzer::config::AnalyzerConfig,
     config,
     forge::{config::RemoteConfig, traits::Forge, types::PrLabelsRequest},
-    repo::Repository,
+    repo::{Repository, StartingPoint},
 };
 
 /// Sets up a temporary repository for command execution
@@ -60,7 +60,7 @@ pub fn create_changelog_config(
     package: &config::CliPackageConfig,
     cli_config: &config::CliConfig,
     remote_config: &RemoteConfig,
-    starting_point: Option<(String, String)>,
+    starting_point: Option<StartingPoint>,
 ) -> AnalyzerConfig {
     AnalyzerConfig {
         body: cli_config.changelog.body.clone(),
@@ -141,7 +141,10 @@ pub fn commit_and_push_changes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{CliChangelogConfig, CliPackageConfig};
+    use crate::{
+        config::{CliChangelogConfig, CliPackageConfig},
+        repo::StartingPoint,
+    };
 
     #[test]
     fn test_get_tag_prefix_with_prefix() {
@@ -204,7 +207,10 @@ mod tests {
             &package,
             &cli_config,
             &remote_config,
-            Some(("abc123".to_string(), "def123".to_string())),
+            Some(StartingPoint {
+                tagged_commit: "abc123".into(),
+                tagged_parent: "def123".into(),
+            }),
         );
 
         assert_eq!(changelog_config.package_path, "./test");
@@ -213,7 +219,10 @@ mod tests {
         assert_eq!(changelog_config.footer, Some("test footer".to_string()));
         assert_eq!(
             changelog_config.starting_point,
-            Some(("abc123".to_string(), "def123".to_string()))
+            Some(StartingPoint {
+                tagged_commit: "abc123".into(),
+                tagged_parent: "def123".into(),
+            })
         );
         assert_eq!(
             changelog_config.commit_link_base_url,

@@ -11,6 +11,12 @@ use crate::forge::config::RemoteConfig;
 
 const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartingPoint {
+    pub tagged_commit: String,
+    pub tagged_parent: String,
+}
+
 pub struct Repository {
     pub default_branch: String,
     config: RemoteConfig,
@@ -76,7 +82,7 @@ impl Repository {
     pub fn get_latest_tagged_starting_point(
         &self,
         prefix: &str,
-    ) -> Result<Option<(String, String)>> {
+    ) -> Result<Option<StartingPoint>> {
         let regex_prefix = format!(r"^{}", prefix);
         let tag_regex = Regex::new(&regex_prefix)?;
         let references = self
@@ -100,10 +106,10 @@ impl Repository {
                 // commit range can use the parent to get a full release in the
                 // event no new commits have been added
                 if let Ok(parent) = commit.parent(0) {
-                    return Ok(Some((
-                        commit.id().to_string(),
-                        parent.id().to_string(),
-                    )));
+                    return Ok(Some(StartingPoint {
+                        tagged_commit: commit.id().to_string(),
+                        tagged_parent: parent.id().to_string(),
+                    }));
                 }
             }
         }
