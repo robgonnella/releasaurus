@@ -2369,6 +2369,7 @@ dependencies = [
  "regex",
  "reqwest",
  "secrecy 0.10.3",
+ "semver",
  "serde",
  "serde_json",
  "simplelog",
