@@ -1,3 +1,33 @@
+# [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-02
+
+### 🚀 Features
+
+- Implements release command [_(ce4a2e54)_](https://github.com/robgonnella/releasaurus/commit/ce4a2e545a2a773aa72d8cc1c80ca25d172b88e2)
+
+
+### 🐛 Bug Fixes
+
+- Fixes issue in github forge (#36) [_(2dd556c7)_](https://github.com/robgonnella/releasaurus/commit/2dd556c7fdff8c61dc7fc7d08daef57f7e382aab)
+
+- Fixes issue in changelog generation (#39) [_(3d07da79)_](https://github.com/robgonnella/releasaurus/commit/3d07da79678e29c2b5efe3587d93e9d22765cf30)
+
+- Another fix for changelog generation [_(56d5b614)_](https://github.com/robgonnella/releasaurus/commit/56d5b614c7410e5e45df6d8b8e1a6ed39b835245)
+
+- Fixes trailing release in changelog (#40) [_(60843806)_](https://github.com/robgonnella/releasaurus/commit/60843806388672c04817f44b05393da1a5bba7f0)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- Fixes test-all job [_(06b476a1)_](https://github.com/robgonnella/releasaurus/commit/06b476a1b08e848a73233904ef9059d527889130)
+
+- Fixes e2e tests [_(66b7e376)_](https://github.com/robgonnella/releasaurus/commit/66b7e3766fb2f6fd664797a66b4142c95d3ddd70)
+
+- Renames processor module to analyzer [_(3eb0978d)_](https://github.com/robgonnella/releasaurus/commit/3eb0978dc6957220f1dc26527262ade44ae2239d)
+
+- Remove log line [_(d0e623ab)_](https://github.com/robgonnella/releasaurus/commit/d0e623ab1c368322c7ae4e0e8e89dc83ef1ccb75)
+
+- Update deps [_(ce19946e)_](https://github.com/robgonnella/releasaurus/commit/ce19946e21a4c13489b642f7437c1cf8fc08f839)
+
 # [0.1.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.0) - 2025-08-30
 
 ### ❌ Breaking Changes
