@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: build
         run: cargo build --release
@@ -21,7 +21,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: lint
         run: cargo clippy --all-targets --all-features
@@ -29,7 +29,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: fmt
         run: cargo fmt --all --check
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.repository.fork == true || github.ref_name != github.event.repository.default_branch
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: test
         env:
@@ -57,7 +57,7 @@ jobs:
     concurrency:
       group: integration-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: test
         env:

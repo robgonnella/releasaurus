@@ -61,7 +61,7 @@ impl TestContext {
                 .status()?;
         }
 
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(500));
 
         Ok(())
     }
