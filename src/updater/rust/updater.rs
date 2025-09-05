@@ -56,15 +56,13 @@ impl CargoUpdater {
             .unwrap_or(package.name.clone())
     }
 
-    fn process_doc_dependencies(
+    fn process_manifest_dependencies(
         &self,
         doc: &mut DocumentMut,
         package_name: &str,
         next_version: &str,
         kind: &str,
-    ) -> Result<bool> {
-        let mut updated = false;
-
+    ) {
         let dep_exists = doc
             .get(kind)
             .and_then(|deps| deps.as_table())
@@ -85,16 +83,33 @@ impl CargoUpdater {
             } else {
                 doc[kind][&package_name] = value(next_version);
             }
-            updated = true;
         }
+    }
 
-        Ok(updated)
+    fn process_lockfile_dependencies(
+        &self,
+        lock_doc: &mut DocumentMut,
+        package_name: &str,
+        next_version: &str,
+    ) {
+        if let Some(lock_packages) =
+            lock_doc["package"].as_array_of_tables_mut()
+            && let Some(found) = lock_packages.iter_mut().find(|p| {
+                let lock_name =
+                    p.get("name").and_then(|item| item.as_str()).unwrap_or("");
+
+                lock_name == package_name
+            })
+        {
+            // found one - update its version to the dependency's version
+            found["version"] = value(next_version);
+        }
     }
 
     fn process_workspace_lockfile(
         &self,
         root_path: &Path,
-        packages: &[Package],
+        packages: &[(String, Package)],
     ) -> Result<()> {
         let lock_path = root_path.join("Cargo.lock");
         let mut lock_doc = self.load_doc(lock_path.as_path())?;
@@ -109,12 +124,7 @@ impl CargoUpdater {
                 break;
             }
 
-            for package in packages.iter() {
-                let package_doc =
-                    self.load_doc(Path::new(&package.path).join("Cargo.toml"))?;
-
-                let package_name = self.get_package_name(&package_doc, package);
-
+            for (package_name, package) in packages.iter() {
                 if let Some(name) = lock_pkg.get("name")
                     && let Some(name_str) = name.as_str()
                     && package_name == name_str
@@ -133,51 +143,13 @@ impl CargoUpdater {
         Ok(())
     }
 
-    fn process_package_lock_files(&self, packages: &[Package]) -> Result<()> {
-        for package in packages {
-            let lock_path = Path::new(&package.path).join("Cargo.lock");
-
-            if let Ok(mut lock_doc) = self.load_doc(lock_path.as_path())
-                && let Some(lock_packages) =
-                    lock_doc["package"].as_array_of_tables_mut()
-            {
-                let mut updated = false;
-                // we found a Cargo.lock for this package
-                // now loop other packages to see if they are included as
-                // deps in this Cargo.lock
-                for dep in packages.iter().filter(|p| p.path != package.path) {
-                    let dep_doc =
-                        self.load_doc(Path::new(&dep.path).join("Cargo.toml"))?;
-                    let dep_name = self.get_package_name(&dep_doc, dep);
-
-                    // search Cargo.lock packages for a dep with this dep_name
-                    if let Some(found) = lock_packages.iter_mut().find(|p| {
-                        let lock_name = p
-                            .get("name")
-                            .and_then(|item| item.as_str())
-                            .unwrap_or("");
-
-                        lock_name == dep_name
-                    }) {
-                        // found one - update its version to the dependency's version
-                        found["version"] =
-                            value(dep.next_version.semver.to_string());
-                        updated = true;
-                    }
-                }
-
-                if updated {
-                    self.write_doc(&mut lock_doc, lock_path.as_path())?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn process_package_manifests(&self, packages: &[Package]) -> Result<()> {
-        for package in packages.iter() {
+    fn process_package_manifests(
+        &self,
+        packages: &[(String, Package)],
+    ) -> Result<()> {
+        for (package_name, package) in packages.iter() {
             let manifest_path = Path::new(&package.path).join("Cargo.toml");
+            let lock_path = Path::new(&package.path).join("Cargo.lock");
 
             let mut doc = self.load_doc(manifest_path.as_path())?;
 
@@ -186,72 +158,106 @@ impl CargoUpdater {
                 continue;
             }
 
-            let package_name = self.get_package_name(&doc, package);
+            let mut lock_doc = self.load_doc(lock_path.as_path()).ok();
+            let mut lock_updated = false;
+
             let next_version = package.next_version.semver.to_string();
 
             info!("setting version for {package_name} to {next_version}");
 
             doc["package"]["version"] = value(&next_version);
 
-            self.write_doc(&mut doc, manifest_path.as_path())?;
+            let other_pkgs = packages
+                .iter()
+                .filter(|(n, _)| n != package_name)
+                .cloned()
+                .collect::<Vec<(String, Package)>>();
 
             // loop other packages to check if they current manifest deps
-            for dep in packages.iter().filter(|p| p.path != package.path) {
-                let mut dep_doc =
-                    self.load_doc(Path::new(&dep.path).join("Cargo.toml"))?;
+            for (dep_name, dep) in other_pkgs.iter() {
+                let dep_next_version = dep.next_version.semver.to_string();
 
-                let dep_updated = self.process_doc_dependencies(
-                    &mut dep_doc,
-                    &package_name,
-                    &next_version,
+                self.process_manifest_dependencies(
+                    &mut doc,
+                    dep_name,
+                    &dep_next_version,
                     "dependencies",
-                )?;
+                );
 
-                let dev_updated = self.process_doc_dependencies(
-                    &mut dep_doc,
-                    &package_name,
-                    &next_version,
+                self.process_manifest_dependencies(
+                    &mut doc,
+                    dep_name,
+                    &dep_next_version,
                     "dev-dependencies",
-                )?;
+                );
 
-                let build_updated = self.process_doc_dependencies(
-                    &mut dep_doc,
-                    &package_name,
-                    &next_version,
+                self.process_manifest_dependencies(
+                    &mut doc,
+                    dep_name,
+                    &dep_next_version,
                     "build-dependencies",
-                )?;
+                );
 
-                if dep_updated || dev_updated || build_updated {
-                    let dep_manifest_path =
-                        Path::new(&dep.path).join("Cargo.toml");
-                    self.write_doc(&mut dep_doc, dep_manifest_path.as_path())?;
+                if let Some(lock_doc) = &mut lock_doc {
+                    self.process_lockfile_dependencies(
+                        lock_doc,
+                        dep_name,
+                        &dep_next_version,
+                    );
+                    lock_updated = true;
                 }
+            }
+
+            self.write_doc(&mut doc, manifest_path.as_path())?;
+
+            if let Some(mut lock_doc) = lock_doc
+                && lock_updated
+            {
+                self.write_doc(&mut lock_doc, lock_path.as_path())?;
             }
         }
 
         Ok(())
     }
+
+    fn get_packages_with_names(
+        &self,
+        packages: Vec<Package>,
+    ) -> Vec<(String, Package)> {
+        packages
+            .into_iter()
+            .map(|p| {
+                let manifest_path = Path::new(&p.path).join("Cargo.toml");
+                if let Ok(doc) = self.load_doc(manifest_path) {
+                    let pkg_name = self.get_package_name(&doc, &p);
+                    return (pkg_name, p);
+                }
+                (p.name.clone(), p)
+            })
+            .collect::<Vec<(String, Package)>>()
+    }
 }
 
 impl PackageUpdater for CargoUpdater {
     fn update(&self, root_path: &Path, packages: Vec<Package>) -> Result<()> {
-        info!(
-            "Found {} rust packages in {}",
-            packages.len(),
-            root_path.display(),
-        );
-
         let rust_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Rust))
             .collect::<Vec<Package>>();
 
+        info!(
+            "Found {} rust packages in {}",
+            rust_packages.len(),
+            root_path.display(),
+        );
+
+        let packages_with_names = self.get_packages_with_names(rust_packages);
+
         if self.is_workspace(root_path)? {
-            self.process_workspace_lockfile(root_path, &rust_packages)?;
+            self.process_workspace_lockfile(root_path, &packages_with_names)?;
         }
 
-        self.process_package_manifests(&rust_packages)?;
-        self.process_package_lock_files(&rust_packages)?;
+        self.process_package_manifests(&packages_with_names)?;
 
         Ok(())
     }
@@ -385,16 +391,13 @@ other-dep = "2.0.0"
         let mut doc = content.parse::<DocumentMut>().unwrap();
         let updater = CargoUpdater::new();
 
-        let updated = updater
-            .process_doc_dependencies(
-                &mut doc,
-                "my-dep",
-                "1.1.0",
-                "dependencies",
-            )
-            .unwrap();
+        updater.process_manifest_dependencies(
+            &mut doc,
+            "my-dep",
+            "1.1.0",
+            "dependencies",
+        );
 
-        assert!(updated);
         assert_eq!(doc["dependencies"]["my-dep"].as_str(), Some("1.1.0"));
         assert_eq!(doc["dependencies"]["other-dep"].as_str(), Some("2.0.0"));
     }
@@ -412,22 +415,20 @@ other-dep = "2.0.0"
         let mut doc = content.parse::<DocumentMut>().unwrap();
         let updater = CargoUpdater::new();
 
-        // First, let's verify the initial structure - inline tables are not detected as version objects
+        // First, let's verify the initial structure - inline tables are not
+        // detected as version objects
         assert!(doc["dependencies"]["my-dep"].as_inline_table().is_some());
 
-        let updated = updater
-            .process_doc_dependencies(
-                &mut doc,
-                "my-dep",
-                "1.1.0",
-                "dependencies",
-            )
-            .unwrap();
+        updater.process_manifest_dependencies(
+            &mut doc,
+            "my-dep",
+            "1.1.0",
+            "dependencies",
+        );
 
-        assert!(updated);
-
-        // The actual behavior: inline tables are not detected as "version objects" by the current logic,
-        // so the entire dependency gets replaced with just the version string, losing the features
+        // The actual behavior: inline tables are not detected as "version
+        // objects" by the current logic, so the entire dependency gets replaced
+        // with just the version string, losing the features
         assert_eq!(doc["dependencies"]["my-dep"].as_str(), Some("1.1.0"));
         assert_eq!(doc["dependencies"]["other-dep"].as_str(), Some("2.0.0"));
     }
@@ -444,16 +445,12 @@ other-dep = "2.0.0"
         let mut doc = content.parse::<DocumentMut>().unwrap();
         let updater = CargoUpdater::new();
 
-        let updated = updater
-            .process_doc_dependencies(
-                &mut doc,
-                "missing-dep",
-                "1.1.0",
-                "dependencies",
-            )
-            .unwrap();
-
-        assert!(!updated);
+        updater.process_manifest_dependencies(
+            &mut doc,
+            "missing-dep",
+            "1.1.0",
+            "dependencies",
+        );
     }
 
     #[test]
@@ -468,16 +465,13 @@ test-dep = "1.0.0"
         let mut doc = content.parse::<DocumentMut>().unwrap();
         let updater = CargoUpdater::new();
 
-        let updated = updater
-            .process_doc_dependencies(
-                &mut doc,
-                "test-dep",
-                "1.1.0",
-                "dev-dependencies",
-            )
-            .unwrap();
+        updater.process_manifest_dependencies(
+            &mut doc,
+            "test-dep",
+            "1.1.0",
+            "dev-dependencies",
+        );
 
-        assert!(updated);
         assert_eq!(doc["dev-dependencies"]["test-dep"].as_str(), Some("1.1.0"));
     }
 
@@ -595,11 +589,13 @@ serde = "1.0"
             fs::read_to_string(pkg_a_path.join("Cargo.toml")).unwrap();
         assert!(pkg_a_content.contains("version = \"2.0.0\""));
 
-        // Check that pkg-b was updated to 1.1.0 and its dependency on pkg-a was updated
+        // Check that pkg-b was updated to 1.1.0 and its dependency on pkg-a was
+        // updated
         let pkg_b_content =
             fs::read_to_string(pkg_b_path.join("Cargo.toml")).unwrap();
         assert!(pkg_b_content.contains("version = \"1.1.0\""));
-        // The package name is extracted without quotes, so the dependency update uses the clean name
+        // The package name is extracted without quotes, so the dependency
+        // update uses the clean name
         assert!(pkg_b_content.contains("pkg-a = \"2.0.0\""));
     }
 
@@ -649,11 +645,13 @@ pkg-a = "1.0.0"
         let pkg_b_content =
             fs::read_to_string(pkg_b_path.join("Cargo.toml")).unwrap();
 
-        // The actual behavior: inline table dependencies get replaced with simple version strings
-        // because the current logic doesn't detect inline tables as "version objects"
+        // The actual behavior: inline table dependencies get replaced with
+        // simple version strings because the current logic doesn't detect
+        // inline tables as "version objects"
         assert!(pkg_b_content.contains(r#"pkg-a = "2.0.0""#));
 
-        // Count occurrences of the version update to ensure all dependency types were updated
+        // Count occurrences of the version update to ensure all dependency
+        // types were updated
         let version_count = pkg_b_content.matches("2.0.0").count();
         assert!(
             version_count >= 3,
@@ -664,7 +662,8 @@ pkg-a = "1.0.0"
 
     #[test]
     fn test_process_doc_dependencies_regular_table_version_object() {
-        // Test behavior when dependency is defined as regular table (not inline)
+        // Test behavior when dependency is defined as regular table
+        // (not inline)
         let content = r#"[package]
 name = "test-crate"
 version = "1.0.0"
@@ -679,21 +678,19 @@ other-dep = "2.0.0"
         let mut doc = content.parse::<DocumentMut>().unwrap();
         let updater = CargoUpdater::new();
 
-        // Verify this is detected as a version object (regular table with version field)
+        // Verify this is detected as a version object (regular table with
+        // version field)
         assert!(doc["dependencies"]["my-dep"].as_table().is_some());
 
-        let updated = updater
-            .process_doc_dependencies(
-                &mut doc,
-                "my-dep",
-                "1.1.0",
-                "dependencies",
-            )
-            .unwrap();
+        updater.process_manifest_dependencies(
+            &mut doc,
+            "my-dep",
+            "1.1.0",
+            "dependencies",
+        );
 
-        assert!(updated);
-
-        // With regular table, only the version field should be updated, preserving features
+        // With regular table, only the version field should be updated,
+        // preserving features
         assert_eq!(
             doc["dependencies"]["my-dep"]["version"].as_str(),
             Some("1.1.0")
@@ -792,8 +789,10 @@ version = "1.5.0"
             create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
         ];
 
+        let packages_with_names = updater.get_packages_with_names(packages);
+
         updater
-            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .process_workspace_lockfile(temp_dir.path(), &packages_with_names)
             .unwrap();
 
         let lock_content =
@@ -859,8 +858,10 @@ version = "1.0.0"
             ),
         ];
 
+        let packages_with_names = updater.get_packages_with_names(packages);
+
         updater
-            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .process_workspace_lockfile(temp_dir.path(), &packages_with_names)
             .unwrap();
 
         let lock_content =
@@ -894,8 +895,10 @@ version = "1.0.0"
             "1.1.0",
         )];
 
-        let result =
-            updater.process_workspace_lockfile(temp_dir.path(), &packages);
+        let packages_with_names = updater.get_packages_with_names(packages);
+
+        let result = updater
+            .process_workspace_lockfile(temp_dir.path(), &packages_with_names);
         assert!(result.is_err());
     }
 
@@ -956,7 +959,13 @@ version = "2.0.0"
             create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
         ];
 
-        updater.process_package_lock_files(&packages).unwrap();
+        let packages_with_names = updater.get_packages_with_names(packages);
+
+        // Lock file processing is now integrated into process_package_manifests
+        // This test verifies that dependencies in lock files are updated correctly
+        updater
+            .process_package_manifests(&packages_with_names)
+            .unwrap();
 
         let lock_content =
             fs::read_to_string(pkg1_path.join("Cargo.lock")).unwrap();
@@ -999,9 +1008,26 @@ version = "2.0.0"
             create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
         ];
 
+        let packages_with_names = updater.get_packages_with_names(packages);
+
         // Should not error even when lock files don't exist
-        let result = updater.process_package_lock_files(&packages);
-        assert!(result.is_ok());
+        // This tests that the system gracefully handles missing lock files
+        updater
+            .process_package_manifests(&packages_with_names)
+            .unwrap();
+
+        // Verify that package manifests were updated even without lock files
+        let pkg1_content =
+            fs::read_to_string(pkg1_path.join("Cargo.toml")).unwrap();
+        assert!(pkg1_content.contains("version = \"1.1.0\""));
+
+        let pkg2_content =
+            fs::read_to_string(pkg2_path.join("Cargo.toml")).unwrap();
+        assert!(pkg2_content.contains("version = \"2.1.0\""));
+
+        // Verify no lock files were created
+        assert!(!pkg1_path.join("Cargo.lock").exists());
+        assert!(!pkg2_path.join("Cargo.lock").exists());
     }
 
     #[test]
@@ -1054,7 +1080,14 @@ version = "3.0.0"
             create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
         ];
 
-        updater.process_package_lock_files(&packages).unwrap();
+        let packages_with_names = updater.get_packages_with_names(packages);
+
+        // Process the packages - this should update manifest versions but leave
+        // lock file unchanged since pkg1 and pkg2 have no dependency
+        // relationship
+        updater
+            .process_package_manifests(&packages_with_names)
+            .unwrap();
 
         // Lock file should remain unchanged since no dependencies match
         let lock_content =
@@ -1064,6 +1097,15 @@ version = "3.0.0"
                 .contains("name = \"external-dep\"\nversion = \"3.0.0\"")
         );
         assert!(!lock_content.contains("2.1.0"));
+
+        // But the package manifest versions should be updated
+        let pkg1_content =
+            fs::read_to_string(pkg1_path.join("Cargo.toml")).unwrap();
+        assert!(pkg1_content.contains("version = \"1.1.0\""));
+
+        let pkg2_content =
+            fs::read_to_string(pkg2_path.join("Cargo.toml")).unwrap();
+        assert!(pkg2_content.contains("version = \"2.1.0\""));
     }
 
     #[test]
@@ -1183,8 +1225,10 @@ version = "0.5.0"
             "1.5.0",
         )];
 
+        let packages_with_names = updater.get_packages_with_names(packages);
+
         updater
-            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .process_workspace_lockfile(temp_dir.path(), &packages_with_names)
             .unwrap();
 
         let lock_content =
