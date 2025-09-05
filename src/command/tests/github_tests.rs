@@ -28,31 +28,31 @@ fn github_e2e_test() {
 
     let (forge, repo, tmp) = common::init(&args).unwrap();
 
-    common::switch_current_directory(tmp.path(), || {
-        let id = nanoid!();
+    let id = nanoid!();
 
-        let msg = format!("feat({}): my fancy feature", id);
+    let msg = format!("feat({}): my fancy feature", id);
 
-        common::overwrite_file("./README.md", &msg).unwrap();
+    common::overwrite_file(tmp.path().join("README.md"), &msg).unwrap();
 
-        repo.add_all().unwrap();
+    repo.add_all().unwrap();
 
-        repo.commit(&msg).unwrap();
+    repo.commit(&msg).unwrap();
 
-        repo.push_branch("main").unwrap();
+    repo.push_branch("main").unwrap();
 
-        execute_release_pr(&args).unwrap();
+    execute_release_pr(&args).unwrap();
 
-        let req = GetPrRequest {
-            base_branch: "main".into(),
-            head_branch: "releasaurus-release--main".into(),
-        };
+    let req = GetPrRequest {
+        base_branch: "main".into(),
+        head_branch: "releasaurus-release--main".into(),
+    };
 
-        let pr = forge.get_open_release_pr(req).unwrap().unwrap();
+    let pr = forge.get_open_release_pr(req).unwrap().unwrap();
 
-        common::merge_github_release_pr(pr, forge.config()).unwrap();
+    common::merge_github_release_pr(pr, forge.config()).unwrap();
 
-        execute_release(&args).unwrap();
-    })
-    .unwrap();
+    execute_release(&args).unwrap();
+
+    // keep tmp dir around until tests finish
+    drop(tmp);
 }

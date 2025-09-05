@@ -138,6 +138,7 @@ fn process_single_package(
         cli_config,
         remote_config,
         starting_point,
+        String::from(repo.workdir_as_str()),
     );
 
     let analyzer = CliffAnalyzer::new(changelog_config)?;

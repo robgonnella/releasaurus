@@ -28,7 +28,10 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
 
 #[derive(Debug, Clone)]
 pub struct AnalyzerConfig {
-    /// Path to the package directory
+    /// Path to cloned repository
+    /// default "."
+    pub repo_path: String,
+    /// Path to the package directory within repository
     pub package_path: String,
     /// [Tera](https://github.com/Keats/tera) template string allowing you
     /// to modify the format of the generated changelog.
@@ -58,8 +61,9 @@ pub struct AnalyzerConfig {
 impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
-            package_path: ".".to_string(),
-            body: DEFAULT_BODY.to_string(),
+            repo_path: ".".into(),
+            package_path: ".".into(),
+            body: DEFAULT_BODY.into(),
             header: None,
             footer: None,
             tag_prefix: None,

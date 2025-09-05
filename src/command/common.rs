@@ -2,7 +2,7 @@
 
 use color_eyre::eyre::Result;
 use log::*;
-use std::{env, path::Path};
+use std::path::Path;
 use tempfile::TempDir;
 
 use crate::{
@@ -38,8 +38,6 @@ pub fn setup_repository(forge: &dyn Forge) -> Result<(Repository, TempDir)> {
         tmp_dir.path().display(),
     );
 
-    env::set_current_dir(tmp_dir.path())?;
-
     Ok((repo, tmp_dir))
 }
 
@@ -61,13 +59,15 @@ pub fn create_changelog_config(
     cli_config: &config::CliConfig,
     remote_config: &RemoteConfig,
     starting_point: Option<StartingPoint>,
+    repo_path: String,
 ) -> AnalyzerConfig {
     AnalyzerConfig {
+        repo_path,
+        package_path: package.path.clone(),
         body: cli_config.changelog.body.clone(),
         commit_link_base_url: remote_config.commit_link_base_url.clone(),
         footer: cli_config.changelog.footer.clone(),
         header: cli_config.changelog.header.clone(),
-        package_path: package.path.clone(),
         release_link_base_url: remote_config.release_link_base_url.clone(),
         starting_point,
         tag_prefix: Some(get_tag_prefix(package)),
@@ -211,6 +211,7 @@ mod tests {
                 tagged_commit: "abc123".into(),
                 tagged_parent: "def123".into(),
             }),
+            ".".into(),
         );
 
         assert_eq!(changelog_config.package_path, "./test");

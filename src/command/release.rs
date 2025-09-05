@@ -90,6 +90,7 @@ fn create_package_release(
         cli_config,
         remote_config,
         starting_sha,
+        String::from(repo.workdir_as_str()),
     );
 
     let analyzer = CliffAnalyzer::new(changelog_config)?;
