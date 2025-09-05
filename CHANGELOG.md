@@ -1,3 +1,28 @@
+# [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-05
+
+### 🚀 Features
+
+- Adds stubs for updater framework (#41) [_(62b3db7e)_](https://github.com/robgonnella/releasaurus/commit/62b3db7ea8c07ccb8401255720f55f7285644028)
+
+- Implements rust updater (#44) [_(7ee38f2a)_](https://github.com/robgonnella/releasaurus/commit/7ee38f2a57d1578f9774217af3509ae35bdfe72e)
+
+
+### 🚜 Refactor
+
+- Simplify updater framework (#42) [_(62dac299)_](https://github.com/robgonnella/releasaurus/commit/62dac2992e5bfaea241327566c97298f434c9943)
+
+
+### 🧪 Testing
+
+- Fix e2e tests [_(46981994)_](https://github.com/robgonnella/releasaurus/commit/4698199402f0532c711c9ddd4fc36f414ecb7e6d)
+
+- Adds unit tests for rust updater (#45) [_(64876014)_](https://github.com/robgonnella/releasaurus/commit/6487601416f25fd8e2448c69668bd5f425ecb746)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- Show more info when e2e tests fail [_(1806ca13)_](https://github.com/robgonnella/releasaurus/commit/1806ca135ab3a1a51e135bf64753b41be54b3288)
+
 # [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-02
 
 ### 🚀 Features
