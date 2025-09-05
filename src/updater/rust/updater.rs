@@ -1,5 +1,5 @@
 //! Cargo updater for handling rust projects
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use log::*;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -16,8 +16,10 @@ impl CargoUpdater {
         Self {}
     }
 
-    pub fn load_doc(&self, package_path: &str) -> Result<DocumentMut> {
-        let file_path = Path::new(&package_path).join("Cargo.toml");
+    pub fn load_doc<P: AsRef<Path>>(
+        &self,
+        file_path: P,
+    ) -> Result<DocumentMut> {
         let mut file = OpenOptions::new().read(true).open(file_path)?;
         let mut content = String::from("");
         file.read_to_string(&mut content)?;
@@ -25,18 +27,24 @@ impl CargoUpdater {
         Ok(doc)
     }
 
-    fn write_doc(
+    fn write_doc<P: AsRef<Path>>(
         &self,
         doc: &mut DocumentMut,
-        package_path: &str,
+        file_path: P,
     ) -> Result<()> {
-        let file_path = Path::new(&package_path).join("Cargo.toml");
         let mut file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .open(file_path)?;
         file.write_all(doc.to_string().as_bytes())?;
         Ok(())
+    }
+
+    fn is_workspace(&self, root_path: &Path) -> Result<bool> {
+        match self.load_doc(root_path.join("Cargo.toml")) {
+            Ok(doc) => Ok(doc.get("workspace").is_some()),
+            Err(_) => Ok(false),
+        }
     }
 
     fn get_package_name(&self, doc: &DocumentMut, package: &Package) -> String {
@@ -82,33 +90,99 @@ impl CargoUpdater {
 
         Ok(updated)
     }
-}
 
-impl PackageUpdater for CargoUpdater {
-    fn update(&self, root_path: &Path, packages: Vec<Package>) -> Result<()> {
-        info!(
-            "Found {} rust packages in {}",
-            packages.len(),
-            root_path.display(),
-        );
+    fn process_workspace_lockfile(
+        &self,
+        root_path: &Path,
+        packages: &[Package],
+    ) -> Result<()> {
+        let lock_path = root_path.join("Cargo.lock");
+        let mut lock_doc = self.load_doc(lock_path.as_path())?;
+        let lock_packages = lock_doc["package"]
+            .as_array_of_tables_mut()
+            .wrap_err("Cargo.lock doesn't seem to have any packages")?;
 
-        let rust_packages = packages
-            .into_iter()
-            .filter(|p| matches!(p.framework, Framework::Rust))
-            .collect::<Vec<Package>>();
+        let mut updated = 0;
 
-        for package in rust_packages.iter() {
-            let mut doc = self.load_doc(&package.path)?;
+        for lock_pkg in lock_packages.iter_mut() {
+            if updated == packages.len() {
+                break;
+            }
+
+            for package in packages.iter() {
+                let package_doc =
+                    self.load_doc(Path::new(&package.path).join("Cargo.toml"))?;
+
+                let package_name = self.get_package_name(&package_doc, package);
+
+                if let Some(name) = lock_pkg.get("name")
+                    && let Some(name_str) = name.as_str()
+                    && package_name == name_str
+                    && let Some(version) = lock_pkg.get_mut("version")
+                {
+                    *version = value(package.next_version.semver.to_string());
+                    updated += 1;
+                }
+            }
+        }
+
+        if updated > 0 {
+            self.write_doc(&mut lock_doc, lock_path.as_path())?;
+        }
+
+        Ok(())
+    }
+
+    fn process_package_lock_files(&self, packages: &[Package]) -> Result<()> {
+        for package in packages {
+            let lock_path = Path::new(&package.path).join("Cargo.lock");
+
+            if let Ok(mut lock_doc) = self.load_doc(lock_path.as_path())
+                && let Some(lock_packages) =
+                    lock_doc["package"].as_array_of_tables_mut()
+            {
+                let mut updated = false;
+                // we found a Cargo.lock for this package
+                // now loop other packages to see if they are included as
+                // deps in this Cargo.lock
+                for dep in packages.iter().filter(|p| p.path != package.path) {
+                    let dep_doc =
+                        self.load_doc(Path::new(&dep.path).join("Cargo.toml"))?;
+                    let dep_name = self.get_package_name(&dep_doc, dep);
+
+                    // search Cargo.lock packages for a dep with this dep_name
+                    if let Some(found) = lock_packages.iter_mut().find(|p| {
+                        let lock_name = p
+                            .get("name")
+                            .and_then(|item| item.as_str())
+                            .unwrap_or("");
+
+                        lock_name == dep_name
+                    }) {
+                        // found one - update its version to the dependency's version
+                        found["version"] =
+                            value(dep.next_version.semver.to_string());
+                        updated = true;
+                    }
+                }
+
+                if updated {
+                    self.write_doc(&mut lock_doc, lock_path.as_path())?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn process_package_manifests(&self, packages: &[Package]) -> Result<()> {
+        for package in packages.iter() {
+            let manifest_path = Path::new(&package.path).join("Cargo.toml");
+
+            let mut doc = self.load_doc(manifest_path.as_path())?;
 
             if doc.get("workspace").is_some() {
                 debug!("skipping cargo workspace file");
-                continue;
-            }
-
-            if doc.get("package").is_none() {
-                warn!(
-                    "found Cargo.toml manifest but [package] section is missing: skipping"
-                );
                 continue;
             }
 
@@ -119,19 +193,12 @@ impl PackageUpdater for CargoUpdater {
 
             doc["package"]["version"] = value(&next_version);
 
-            self.write_doc(&mut doc, &package.path)?;
+            self.write_doc(&mut doc, manifest_path.as_path())?;
 
-            // iterate through packages again to update any other packages that
-            // depend on this package
-            for c in rust_packages.iter() {
-                let mut dep_doc = self.load_doc(&c.path)?;
-
-                let dep_name = self.get_package_name(&dep_doc, c);
-
-                if dep_name == package_name {
-                    info!("skipping dep check on self: {dep_name}");
-                    continue;
-                }
+            // loop other packages to check if they current manifest deps
+            for dep in packages.iter().filter(|p| p.path != package.path) {
+                let mut dep_doc =
+                    self.load_doc(Path::new(&dep.path).join("Cargo.toml"))?;
 
                 let dep_updated = self.process_doc_dependencies(
                     &mut dep_doc,
@@ -155,10 +222,36 @@ impl PackageUpdater for CargoUpdater {
                 )?;
 
                 if dep_updated || dev_updated || build_updated {
-                    self.write_doc(&mut dep_doc, &c.path)?;
+                    let dep_manifest_path =
+                        Path::new(&dep.path).join("Cargo.toml");
+                    self.write_doc(&mut dep_doc, dep_manifest_path.as_path())?;
                 }
             }
         }
+
+        Ok(())
+    }
+}
+
+impl PackageUpdater for CargoUpdater {
+    fn update(&self, root_path: &Path, packages: Vec<Package>) -> Result<()> {
+        info!(
+            "Found {} rust packages in {}",
+            packages.len(),
+            root_path.display(),
+        );
+
+        let rust_packages = packages
+            .into_iter()
+            .filter(|p| matches!(p.framework, Framework::Rust))
+            .collect::<Vec<Package>>();
+
+        if self.is_workspace(root_path)? {
+            self.process_workspace_lockfile(root_path, &rust_packages)?;
+        }
+
+        self.process_package_manifests(&rust_packages)?;
+        self.process_package_lock_files(&rust_packages)?;
 
         Ok(())
     }
@@ -206,7 +299,7 @@ serde = "1.0"
         .unwrap();
 
         let updater = CargoUpdater::new();
-        let doc = updater.load_doc(temp_dir.path().to_str().unwrap()).unwrap();
+        let doc = updater.load_doc(&cargo_toml).unwrap();
 
         assert_eq!(doc["package"]["name"].as_str(), Some("test-crate"));
         assert_eq!(doc["package"]["version"].as_str(), Some("1.0.0"));
@@ -237,16 +330,13 @@ version = "1.0.0"
         .unwrap();
 
         let updater = CargoUpdater::new();
-        let mut doc =
-            updater.load_doc(temp_dir.path().to_str().unwrap()).unwrap();
+        let mut doc = updater.load_doc(&cargo_toml).unwrap();
 
         // Modify the document
         doc["package"]["version"] = value("2.0.0");
 
         // Write it back
-        updater
-            .write_doc(&mut doc, temp_dir.path().to_str().unwrap())
-            .unwrap();
+        updater.write_doc(&mut doc, &cargo_toml).unwrap();
 
         // Verify the change
         let updated_content = fs::read_to_string(&cargo_toml).unwrap();
@@ -643,5 +733,469 @@ version = "1.0.0"
         // Only the Rust package should be updated
         let content = fs::read_to_string(pkg_path.join("Cargo.toml")).unwrap();
         assert!(content.contains("version = \"2.0.0\""));
+    }
+
+    #[test]
+    fn test_process_workspace_lockfile_updates_packages() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create workspace structure
+        let pkg1_path = temp_dir.path().join("pkg1");
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg1_path).unwrap();
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        // Create package manifests
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        // Create workspace Cargo.lock
+        fs::write(
+            temp_dir.path().join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+# It is not intended for manual editing.
+version = 3
+
+[[package]]
+name = "pkg1"
+version = "1.0.0"
+
+[[package]]
+name = "pkg2"
+version = "2.0.0"
+
+[[package]]
+name = "other-dep"
+version = "1.5.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.1.0"),
+            create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        updater
+            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .unwrap();
+
+        let lock_content =
+            fs::read_to_string(temp_dir.path().join("Cargo.lock")).unwrap();
+        assert!(lock_content.contains("name = \"pkg1\"\nversion = \"1.1.0\""));
+        assert!(lock_content.contains("name = \"pkg2\"\nversion = \"2.1.0\""));
+        assert!(
+            lock_content.contains("name = \"other-dep\"\nversion = \"1.5.0\"")
+        );
+    }
+
+    #[test]
+    fn test_process_workspace_lockfile_partial_match() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let pkg1_path = temp_dir.path().join("pkg1");
+        fs::create_dir_all(&pkg1_path).unwrap();
+
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            temp_dir.path().join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+version = 3
+
+[[package]]
+name = "pkg1"
+version = "1.0.0"
+
+[[package]]
+name = "unrelated-pkg"
+version = "3.0.0"
+"#,
+        )
+        .unwrap();
+
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "nonexistent"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.2.0"),
+            create_test_package(
+                "nonexistent",
+                pkg2_path.to_str().unwrap(),
+                "0.1.0",
+            ),
+        ];
+
+        updater
+            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .unwrap();
+
+        let lock_content =
+            fs::read_to_string(temp_dir.path().join("Cargo.lock")).unwrap();
+        assert!(lock_content.contains("name = \"pkg1\"\nversion = \"1.2.0\""));
+        assert!(
+            lock_content
+                .contains("name = \"unrelated-pkg\"\nversion = \"3.0.0\"")
+        );
+    }
+
+    #[test]
+    fn test_process_workspace_lockfile_no_lock_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let pkg_path = temp_dir.path().join("pkg");
+        fs::create_dir_all(&pkg_path).unwrap();
+
+        fs::write(
+            pkg_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![create_test_package(
+            "pkg",
+            pkg_path.to_str().unwrap(),
+            "1.1.0",
+        )];
+
+        let result =
+            updater.process_workspace_lockfile(temp_dir.path(), &packages);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_package_lock_files_updates_dependencies() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let pkg1_path = temp_dir.path().join("pkg1");
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg1_path).unwrap();
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        // Create package manifests
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+
+[dependencies]
+pkg2 = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        // Create pkg1's Cargo.lock that includes pkg2 as a dependency
+        fs::write(
+            pkg1_path.join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+version = 3
+
+[[package]]
+name = "pkg1"
+version = "1.0.0"
+dependencies = [
+ "pkg2",
+]
+
+[[package]]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.1.0"),
+            create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        updater.process_package_lock_files(&packages).unwrap();
+
+        let lock_content =
+            fs::read_to_string(pkg1_path.join("Cargo.lock")).unwrap();
+
+        // pkg2's version should be updated to pkg2's version in pkg1's lock file
+        assert!(lock_content.contains("name = \"pkg2\"\nversion = \"2.1.0\""));
+        assert!(lock_content.contains("name = \"pkg1\""));
+    }
+
+    #[test]
+    fn test_process_package_lock_files_no_lock_file() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let pkg1_path = temp_dir.path().join("pkg1");
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg1_path).unwrap();
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.1.0"),
+            create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        // Should not error even when lock files don't exist
+        let result = updater.process_package_lock_files(&packages);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_process_package_lock_files_no_matching_dependencies() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let pkg1_path = temp_dir.path().join("pkg1");
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg1_path).unwrap();
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        // Create lock file with different dependencies
+        fs::write(
+            pkg1_path.join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+version = 3
+
+[[package]]
+name = "pkg1"
+version = "1.0.0"
+
+[[package]]
+name = "external-dep"
+version = "3.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.1.0"),
+            create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        updater.process_package_lock_files(&packages).unwrap();
+
+        // Lock file should remain unchanged since no dependencies match
+        let lock_content =
+            fs::read_to_string(pkg1_path.join("Cargo.lock")).unwrap();
+        assert!(
+            lock_content
+                .contains("name = \"external-dep\"\nversion = \"3.0.0\"")
+        );
+        assert!(!lock_content.contains("2.1.0"));
+    }
+
+    #[test]
+    fn test_update_workspace_with_lockfile() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create workspace root Cargo.toml
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"[workspace]
+members = ["pkg1", "pkg2"]
+"#,
+        )
+        .unwrap();
+
+        let pkg1_path = temp_dir.path().join("pkg1");
+        let pkg2_path = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&pkg1_path).unwrap();
+        fs::create_dir_all(&pkg2_path).unwrap();
+
+        fs::write(
+            pkg1_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg1"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            pkg2_path.join("Cargo.toml"),
+            r#"[package]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        // Create workspace Cargo.lock
+        fs::write(
+            temp_dir.path().join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+version = 3
+
+[[package]]
+name = "pkg1"
+version = "1.0.0"
+
+[[package]]
+name = "pkg2"
+version = "2.0.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![
+            create_test_package("pkg1", pkg1_path.to_str().unwrap(), "1.2.0"),
+            create_test_package("pkg2", pkg2_path.to_str().unwrap(), "2.3.0"),
+        ];
+
+        updater.update(temp_dir.path(), packages).unwrap();
+
+        // Check that workspace lock file was updated
+        let lock_content =
+            fs::read_to_string(temp_dir.path().join("Cargo.lock")).unwrap();
+        assert!(lock_content.contains("name = \"pkg1\"\nversion = \"1.2.0\""));
+        assert!(lock_content.contains("name = \"pkg2\"\nversion = \"2.3.0\""));
+
+        // Check that package manifests were also updated
+        let pkg1_content =
+            fs::read_to_string(pkg1_path.join("Cargo.toml")).unwrap();
+        assert!(pkg1_content.contains("version = \"1.2.0\""));
+
+        let pkg2_content =
+            fs::read_to_string(pkg2_path.join("Cargo.toml")).unwrap();
+        assert!(pkg2_content.contains("version = \"2.3.0\""));
+    }
+
+    #[test]
+    fn test_workspace_lockfile_with_custom_package_names() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let pkg_path = temp_dir.path().join("custom-pkg");
+        fs::create_dir_all(&pkg_path).unwrap();
+
+        // Create package with name different from directory
+        fs::write(
+            pkg_path.join("Cargo.toml"),
+            r#"[package]
+name = "my-custom-name"
+version = "1.0.0"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            temp_dir.path().join("Cargo.lock"),
+            r#"# This file is automatically @generated by Cargo.
+version = 3
+
+[[package]]
+name = "my-custom-name"
+version = "1.0.0"
+
+[[package]]
+name = "other-package"
+version = "0.5.0"
+"#,
+        )
+        .unwrap();
+
+        let updater = CargoUpdater::new();
+        let packages = vec![create_test_package(
+            "ignored-name",
+            pkg_path.to_str().unwrap(),
+            "1.5.0",
+        )];
+
+        updater
+            .process_workspace_lockfile(temp_dir.path(), &packages)
+            .unwrap();
+
+        let lock_content =
+            fs::read_to_string(temp_dir.path().join("Cargo.lock")).unwrap();
+        assert!(
+            lock_content
+                .contains("name = \"my-custom-name\"\nversion = \"1.5.0\"")
+        );
+        assert!(
+            lock_content
+                .contains("name = \"other-package\"\nversion = \"0.5.0\"")
+        );
     }
 }
