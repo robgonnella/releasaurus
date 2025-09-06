@@ -31,6 +31,7 @@ impl PythonDetector {
                 "Pipfile",
                 "requirements.txt",
                 "setup.py",
+                "setup.cfg",
             ],
             content_patterns: vec![
                 "[build-system]",
@@ -61,7 +62,12 @@ impl PythonDetector {
     ) -> Result<FrameworkDetection> {
         let pattern = DetectionPattern {
             manifest_files: vec!["setup.py"],
-            support_files: vec!["requirements.txt", "MANIFEST.in", "tox.ini"],
+            support_files: vec![
+                "setup.cfg",
+                "requirements.txt",
+                "MANIFEST.in",
+                "tox.ini",
+            ],
             content_patterns: vec!["from setuptools", "setup(", "[metadata]"],
             base_confidence: 0.7,
         };
@@ -142,5 +148,48 @@ python = "^3.8"
                 .evidence
                 .contains(&"found pyproject.toml".to_string())
         );
+    }
+
+    #[test]
+    fn test_python_setuptools_detection() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path();
+
+        // Create setup.py
+        fs::write(
+            path.join("setup.py"),
+            r#"from setuptools import setup, find_packages
+
+setup(
+    name="test-package",
+    version="0.1.0",
+    packages=find_packages(),
+    install_requires=[
+        "requests>=2.20.0",
+        "click>=7.0",
+    ],
+    python_requires=">=3.8",
+)
+"#,
+        )
+        .unwrap();
+
+        // Create supporting files
+        fs::write(path.join("setup.cfg"), "[metadata]\nname = test-package")
+            .unwrap();
+        fs::write(
+            path.join("requirements.txt"),
+            "requests>=2.20.0\nclick>=7.0",
+        )
+        .unwrap();
+
+        let detector = PythonDetector::new();
+        let detection = detector.detect_python_setuptools(path).unwrap();
+
+        assert!(matches!(detection.framework, Framework::Python));
+
+        assert!(detection.confidence > 0.6);
+
+        assert!(detection.evidence.contains(&"found setup.py".to_string()));
     }
 }
