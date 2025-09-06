@@ -1,3 +1,44 @@
+# [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-06
+
+### 🚀 Features
+
+- Adds stubs for updater framework (#41) [_(62b3db7e)_](https://github.com/robgonnella/releasaurus/commit/62b3db7ea8c07ccb8401255720f55f7285644028)
+
+- Implements rust updater (#44) [_(7ee38f2a)_](https://github.com/robgonnella/releasaurus/commit/7ee38f2a57d1578f9774217af3509ae35bdfe72e)
+
+- Implements rust Cargo.lock file updates (#46) [_(f336d0bc)_](https://github.com/robgonnella/releasaurus/commit/f336d0bc6109ccb321f3ed4573324b0526da2a79)
+
+- Adds initial implementation for node updater (#47) [_(11f0996a)_](https://github.com/robgonnella/releasaurus/commit/11f0996a9ea68625ebb8c1d79c54d0c64d7f2011)
+
+- Fully implements node updater (#48) [_(0da7b558)_](https://github.com/robgonnella/releasaurus/commit/0da7b5581950c7691c61ad469bc06068d7a5f387)
+
+
+### 🚜 Refactor
+
+- Simplify updater framework (#42) [_(62dac299)_](https://github.com/robgonnella/releasaurus/commit/62dac2992e5bfaea241327566c97298f434c9943)
+
+- Minor refactor to rust updater [_(a59effa4)_](https://github.com/robgonnella/releasaurus/commit/a59effa408e2a5b315dab8bb18f4539c83815560)
+
+- Removes the need to switch to repo dir [_(c2762e98)_](https://github.com/robgonnella/releasaurus/commit/c2762e9829b9581a5096baa06bc57544bb1d9232)
+
+- Removes support for lockFileVersion 1 in node updater [_(90f6a59f)_](https://github.com/robgonnella/releasaurus/commit/90f6a59f9cd3b15dd7e9112030ea7a15a89e2368)
+
+- Removes support pnpm-lockfile.yaml updates [_(76ed1dbe)_](https://github.com/robgonnella/releasaurus/commit/76ed1dbe6f1500d847af97c7a11315dca18e348b)
+
+
+### 🧪 Testing
+
+- Fix e2e tests [_(46981994)_](https://github.com/robgonnella/releasaurus/commit/4698199402f0532c711c9ddd4fc36f414ecb7e6d)
+
+- Adds unit tests for rust updater (#45) [_(64876014)_](https://github.com/robgonnella/releasaurus/commit/6487601416f25fd8e2448c69668bd5f425ecb746)
+
+- Adds test for python setuptools detection [_(c2106ee7)_](https://github.com/robgonnella/releasaurus/commit/c2106ee74f28641d7df68cb9ee489b8f8c1431dc)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- Show more info when e2e tests fail [_(1806ca13)_](https://github.com/robgonnella/releasaurus/commit/1806ca135ab3a1a51e135bf64753b41be54b3288)
+
 # [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-02
 
 ### 🚀 Features
