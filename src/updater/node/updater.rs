@@ -195,27 +195,6 @@ impl NodeUpdater {
             }
         }
 
-        // Update dependencies in the root level (old lockFileVersion 1)
-        if let Some(dependencies) = lock_doc.get_mut("dependencies")
-            && let Some(deps_obj) = dependencies.as_object_mut()
-        {
-            for (dep_name, dep_info) in deps_obj {
-                // Check if it's the current package
-                if current_package.0 == dep_name {
-                    dep_info["version"] = json!(
-                        current_package.1.next_version.semver.to_string()
-                    );
-                }
-                // Check if it's one of the other packages
-                else if let Some((_, package)) =
-                    other_packages.iter().find(|(n, _)| n == dep_name)
-                {
-                    dep_info["version"] =
-                        json!(package.next_version.semver.to_string());
-                }
-            }
-        }
-
         self.write_doc(&lock_doc, &lock_path)?;
         Ok(())
     }
@@ -307,20 +286,6 @@ impl NodeUpdater {
                         all_packages.iter().find(|(n, _)| n == package_name)
                 {
                     package_info["version"] =
-                        json!(package.next_version.semver.to_string());
-                }
-            }
-        }
-
-        // Update dependencies in the root level (old lockFileVersion 1)
-        if let Some(dependencies) = lock_doc.get_mut("dependencies")
-            && let Some(deps_obj) = dependencies.as_object_mut()
-        {
-            for (dep_name, dep_info) in deps_obj {
-                if let Some((_, package)) =
-                    all_packages.iter().find(|(n, _)| n == dep_name)
-                {
-                    dep_info["version"] =
                         json!(package.next_version.semver.to_string());
                 }
             }
