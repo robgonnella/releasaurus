@@ -2,7 +2,6 @@ use color_eyre::eyre::Result;
 use log::*;
 use regex::Regex;
 use serde_json::{Value, json};
-use serde_yaml;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
@@ -295,213 +294,6 @@ impl NodeUpdater {
         Ok(())
     }
 
-    /// Update pnpm-lock.yaml file for a specific package
-    /// TODO: FIXME: logic needs to be updated to match pnpm-lock.yaml spec
-    fn update_pnpm_lock_yaml_for_package(
-        &self,
-        current_package: (&str, &Package),
-        other_packages: &[(String, Package)],
-    ) -> Result<()> {
-        let lock_path =
-            Path::new(&current_package.1.path).join("pnpm-lock.yaml");
-
-        if !lock_path.exists() {
-            return Ok(());
-        }
-
-        let file = File::open(&lock_path)?;
-        let mut lock_doc: serde_yaml::Value = serde_yaml::from_reader(file)?;
-
-        // Update dependencies section
-        if let Some(dependencies) = lock_doc.get_mut("dependencies")
-            && let Some(deps_map) = dependencies.as_mapping_mut()
-        {
-            for (key, value) in deps_map {
-                if let Some(dep_name) = key.as_str() {
-                    // Check if it's the current package
-                    if current_package.0 == dep_name {
-                        *value = serde_yaml::Value::String(
-                            current_package.1.next_version.semver.to_string(),
-                        );
-                    }
-                    // Check if it's one of the other packages
-                    else if let Some((_, package)) =
-                        other_packages.iter().find(|(n, _)| n == dep_name)
-                    {
-                        *value = serde_yaml::Value::String(
-                            package.next_version.semver.to_string(),
-                        );
-                    }
-                }
-            }
-        }
-
-        // Update devDependencies section
-        if let Some(dev_dependencies) = lock_doc.get_mut("devDependencies")
-            && let Some(dev_deps_map) = dev_dependencies.as_mapping_mut()
-        {
-            for (key, value) in dev_deps_map {
-                if let Some(dep_name) = key.as_str() {
-                    // Check if it's the current package
-                    if current_package.0 == dep_name {
-                        *value = serde_yaml::Value::String(
-                            current_package.1.next_version.semver.to_string(),
-                        );
-                    }
-                    // Check if it's one of the other packages
-                    else if let Some((_, package)) =
-                        other_packages.iter().find(|(n, _)| n == dep_name)
-                    {
-                        *value = serde_yaml::Value::String(
-                            package.next_version.semver.to_string(),
-                        );
-                    }
-                }
-            }
-        }
-
-        // Update packages section
-        if let Some(packages) = lock_doc.get_mut("packages")
-            && let Some(packages_map) = packages.as_mapping_mut()
-        {
-            for (key, package_info) in packages_map {
-                if let Some(package_key) = key.as_str() {
-                    // Parse package key format like "/@scope/package/1.0.0"
-                    let mut found = false;
-
-                    // Check if it matches the current package
-                    if package_key.contains(current_package.0) {
-                        if let Some(info_map) = package_info.as_mapping_mut()
-                            && let Some(version_key) =
-                                info_map.get_mut(serde_yaml::Value::String(
-                                    "version".to_string(),
-                                ))
-                        {
-                            *version_key = serde_yaml::Value::String(
-                                current_package
-                                    .1
-                                    .next_version
-                                    .semver
-                                    .to_string(),
-                            );
-                        }
-                        found = true;
-                    }
-
-                    // Check if it matches one of the other packages
-                    if !found {
-                        for (name, package) in other_packages {
-                            if package_key.contains(name) {
-                                if let Some(info_map) =
-                                    package_info.as_mapping_mut()
-                                    && let Some(version_key) = info_map.get_mut(
-                                        serde_yaml::Value::String(
-                                            "version".to_string(),
-                                        ),
-                                    )
-                                {
-                                    *version_key = serde_yaml::Value::String(
-                                        package.next_version.semver.to_string(),
-                                    );
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&lock_path)?;
-        file.write_all(serde_yaml::to_string(&lock_doc)?.as_bytes())?;
-        Ok(())
-    }
-
-    /// Update pnpm-lock.yaml file at root path
-    /// TODO: FIXME: logic needs to be updated to match pnpm-lock.yaml spec
-    fn update_pnpm_lock_yaml_for_root(
-        &self,
-        root_path: &Path,
-        all_packages: &[(String, Package)],
-    ) -> Result<()> {
-        let lock_path = root_path.join("pnpm-lock.yaml");
-        if !lock_path.exists() {
-            return Ok(());
-        }
-
-        let file = File::open(&lock_path)?;
-        let mut lock_doc: serde_yaml::Value = serde_yaml::from_reader(file)?;
-
-        // Update dependencies section
-        if let Some(dependencies) = lock_doc.get_mut("dependencies")
-            && let Some(deps_map) = dependencies.as_mapping_mut()
-        {
-            for (key, value) in deps_map {
-                if let Some(dep_name) = key.as_str()
-                    && let Some((_, package)) =
-                        all_packages.iter().find(|(n, _)| n == dep_name)
-                {
-                    *value = serde_yaml::Value::String(
-                        package.next_version.semver.to_string(),
-                    );
-                }
-            }
-        }
-
-        // Update devDependencies section
-        if let Some(dev_dependencies) = lock_doc.get_mut("devDependencies")
-            && let Some(dev_deps_map) = dev_dependencies.as_mapping_mut()
-        {
-            for (key, value) in dev_deps_map {
-                if let Some(dep_name) = key.as_str()
-                    && let Some((_, package)) =
-                        all_packages.iter().find(|(n, _)| n == dep_name)
-                {
-                    *value = serde_yaml::Value::String(
-                        package.next_version.semver.to_string(),
-                    );
-                }
-            }
-        }
-
-        // Update packages section
-        if let Some(packages) = lock_doc.get_mut("packages")
-            && let Some(packages_map) = packages.as_mapping_mut()
-        {
-            for (key, package_info) in packages_map {
-                if let Some(package_key) = key.as_str() {
-                    // Parse package key format like "/@scope/package/1.0.0"
-                    for (name, package) in all_packages {
-                        if package_key.contains(name) {
-                            if let Some(info_map) =
-                                package_info.as_mapping_mut()
-                                && let Some(version_key) =
-                                    info_map.get_mut(serde_yaml::Value::String(
-                                        "version".to_string(),
-                                    ))
-                            {
-                                *version_key = serde_yaml::Value::String(
-                                    package.next_version.semver.to_string(),
-                                );
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&lock_path)?;
-        file.write_all(serde_yaml::to_string(&lock_doc)?.as_bytes())?;
-        Ok(())
-    }
-
     /// Update yarn.lock file for a specific package
     fn update_yarn_lock_for_package(
         &self,
@@ -645,14 +437,6 @@ impl NodeUpdater {
             )?;
         }
 
-        if package_path.join("pnpm-lock.yaml").exists() {
-            info!("Updating pnpm-lock.yaml at {}", package_path.display());
-            self.update_pnpm_lock_yaml_for_package(
-                current_package,
-                other_packages,
-            )?;
-        }
-
         if package_path.join("yarn.lock").exists() {
             info!("Updating yarn.lock at {}", package_path.display());
             self.update_yarn_lock_for_package(current_package, other_packages)?;
@@ -670,11 +454,6 @@ impl NodeUpdater {
         if root_path.join("package-lock.json").exists() {
             info!("Updating package-lock.json at {}", root_path.display());
             self.update_package_lock_json_for_root(root_path, all_packages)?;
-        }
-
-        if root_path.join("pnpm-lock.yaml").exists() {
-            info!("Updating pnpm-lock.yaml at {}", root_path.display());
-            self.update_pnpm_lock_yaml_for_root(root_path, all_packages)?;
         }
 
         if root_path.join("yarn.lock").exists() {
@@ -1306,52 +1085,6 @@ mod tests {
         assert_eq!(
             lock_json["dependencies"]["lodash"]["version"].as_str(),
             Some("4.17.21")
-        );
-    }
-
-    #[test]
-    fn test_update_pnpm_lock_yaml() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create pnpm-lock.yaml
-        fs::write(
-            temp_dir.path().join("pnpm-lock.yaml"),
-            r#"lockfileVersion: 5.4
-dependencies:
-  test-pkg: 1.0.0
-packages:
-  /test-pkg/1.0.0:
-    version: 1.0.0
-"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("pnpm-lock.yaml")).unwrap();
-        assert!(
-            lock_content.contains("test-pkg: 2.0.0")
-                || lock_content.contains("version: 2.0.0")
         );
     }
 
