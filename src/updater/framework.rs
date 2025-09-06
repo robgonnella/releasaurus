@@ -12,19 +12,6 @@ use crate::updater::rust::detector::RustDetector;
 use crate::updater::rust::updater::CargoUpdater;
 use crate::updater::traits::PackageUpdater;
 
-/// A language/framework-agnostic package that needs version updates
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Package {
-    /// Package name as defined in the manifest file
-    pub name: String,
-    /// Path to the package directory (relative to repository root)
-    pub path: String,
-    /// Next version to update to
-    pub next_version: Version,
-    /// Detected framework/language for this package
-    pub framework: Framework,
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 /// Supported frameworks and languages
 pub enum Framework {
@@ -67,6 +54,19 @@ impl Framework {
             Framework::Generic => Box::new(GenericUpdater::new()),
         }
     }
+}
+
+/// A language/framework-agnostic package that needs version updates
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Package {
+    /// Package name as defined in the manifest file
+    pub name: String,
+    /// Path to the package directory (relative to repository root)
+    pub path: String,
+    /// Next version to update to
+    pub next_version: Version,
+    /// Detected framework/language for this package
+    pub framework: Framework,
 }
 
 impl Package {
