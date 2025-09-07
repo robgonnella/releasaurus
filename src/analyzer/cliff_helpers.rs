@@ -11,11 +11,15 @@ static RELEASE_NOTES_START_LINE: LazyLock<Regex> = LazyLock::new(|| {
 
 use crate::analyzer::config::AnalyzerConfig;
 
-pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
-    info!("processing package path: {package_path}");
+pub fn process_package_path(
+    repo_path: &str,
+    package_relative_path: &str,
+) -> Result<Vec<Pattern>> {
+    info!("processing package path: {repo_path}/{package_relative_path}");
 
-    let path = Path::new(package_path);
+    let path = Path::new(repo_path).join(package_relative_path);
 
+    // make sure it's a valid directory
     if !path.is_dir() {
         return Err(eyre!(
             "package path is not a valid directory: {}",
@@ -23,7 +27,8 @@ pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
         ));
     }
 
-    let mut package_path = package_path.to_string();
+    // now that it's validated we only need to use relative path for git-cliff
+    let mut package_path = package_relative_path.to_string();
 
     // include paths only work on with globs
     if package_path.ends_with("/") {
@@ -54,8 +59,10 @@ pub fn set_config_basic_settings(
     cliff_config.git.filter_unconventional = false;
     cliff_config.git.protect_breaking_commits = true;
     cliff_config.git.require_conventional = false;
-    cliff_config.git.include_paths =
-        process_package_path(&analyzer_config.package_path)?;
+    cliff_config.git.include_paths = process_package_path(
+        &analyzer_config.repo_path,
+        &analyzer_config.package_relative_path,
+    )?;
     Ok(())
 }
 
@@ -241,7 +248,7 @@ mod tests {
     #[test]
     fn errors_for_invalid_package_path() {
         let package_path = "./file.rs";
-        let result = process_package_path(package_path);
+        let result = process_package_path(".", package_path);
         assert!(result.is_err());
     }
 
@@ -251,7 +258,7 @@ mod tests {
 
         let expected_pattern = Pattern::new("./**/*").unwrap();
 
-        let result = process_package_path(package_path);
+        let result = process_package_path(".", package_path);
 
         assert!(
             result.is_ok(),
@@ -269,7 +276,7 @@ mod tests {
 
         let expected_pattern = Pattern::new("./**/*").unwrap();
 
-        let result = process_package_path(package_path);
+        let result = process_package_path(".", package_path);
 
         assert!(
             result.is_ok(),

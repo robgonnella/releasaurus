@@ -33,11 +33,6 @@ pub fn setup_repository(forge: &dyn Forge) -> Result<(Repository, TempDir)> {
 
     let repo = Repository::new(tmp_dir.path(), remote_config.clone())?;
 
-    info!(
-        "switching directory to cloned repository: {}",
-        tmp_dir.path().display(),
-    );
-
     Ok((repo, tmp_dir))
 }
 
@@ -45,9 +40,9 @@ pub fn setup_repository(forge: &dyn Forge) -> Result<(Repository, TempDir)> {
 ///
 /// This is a simple wrapper around config::load_config that adds
 /// appropriate logging.
-pub fn load_configuration() -> Result<config::CliConfig> {
+pub fn load_configuration(dir: &Path) -> Result<config::CliConfig> {
     info!("loading configuration");
-    config::load_config(None)
+    config::load_config(Some(dir))
 }
 
 /// Creates a changelog configuration for a specific package
@@ -63,7 +58,7 @@ pub fn create_changelog_config(
 ) -> AnalyzerConfig {
     AnalyzerConfig {
         repo_path,
-        package_path: package.path.clone(),
+        package_relative_path: package.path.clone(),
         body: cli_config.changelog.body.clone(),
         commit_link_base_url: remote_config.commit_link_base_url.clone(),
         footer: cli_config.changelog.footer.clone(),
@@ -214,7 +209,7 @@ mod tests {
             ".".into(),
         );
 
-        assert_eq!(changelog_config.package_path, "./test");
+        assert_eq!(changelog_config.package_relative_path, "./test");
         assert_eq!(changelog_config.body, "test body");
         assert_eq!(changelog_config.header, Some("test header".to_string()));
         assert_eq!(changelog_config.footer, Some("test footer".to_string()));
