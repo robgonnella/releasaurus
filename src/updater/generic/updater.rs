@@ -1,7 +1,9 @@
-use color_eyre::eyre::Result;
 use std::path::Path;
 
-use crate::updater::{framework::Package, traits::PackageUpdater};
+use crate::{
+    result::Result,
+    updater::{framework::Package, traits::PackageUpdater},
+};
 
 pub struct GenericUpdater {}
 

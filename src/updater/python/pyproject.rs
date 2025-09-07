@@ -1,4 +1,3 @@
-use color_eyre::eyre::Result;
 use log::*;
 use std::{
     fs::OpenOptions,
@@ -7,7 +6,7 @@ use std::{
 };
 use toml_edit::{DocumentMut, value};
 
-use crate::updater::framework::Package;
+use crate::{result::Result, updater::framework::Package};
 
 pub struct PyProject {}
 

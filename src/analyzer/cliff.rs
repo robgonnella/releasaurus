@@ -1,5 +1,5 @@
 //! A git-cliff implementation of a changelog [`Generator`]
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::ContextCompat;
 use indexmap::IndexMap;
 use log::*;
 use std::{
@@ -15,6 +15,7 @@ use crate::{
         types::{Output, ProjectedRelease, Version},
     },
     repo::StartingPoint,
+    result::Result,
 };
 
 /// Represents a git-cliff implementation of a repository analyzer

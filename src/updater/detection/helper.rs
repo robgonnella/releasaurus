@@ -1,8 +1,10 @@
-use color_eyre::eyre::Result;
 use log::*;
 use std::{fs, path::Path};
 
-use crate::updater::detection::types::{DetectionPattern, FrameworkDetection};
+use crate::{
+    result::Result,
+    updater::detection::types::{DetectionPattern, FrameworkDetection},
+};
 
 /// Helper for analyzing detection patterns and calculating confidence
 pub struct DetectionHelper {}

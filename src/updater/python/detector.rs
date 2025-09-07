@@ -1,13 +1,15 @@
-use color_eyre::eyre::Result;
 use std::path::Path;
 
-use crate::updater::{
-    detection::{
-        helper::DetectionHelper,
-        traits::FrameworkDetector,
-        types::{DetectionPattern, FrameworkDetection},
+use crate::{
+    result::Result,
+    updater::{
+        detection::{
+            helper::DetectionHelper,
+            traits::FrameworkDetector,
+            types::{DetectionPattern, FrameworkDetection},
+        },
+        framework::Framework,
     },
-    framework::Framework,
 };
 
 pub struct PythonDetector {}

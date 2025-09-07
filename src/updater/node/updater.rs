@@ -1,4 +1,4 @@
-use color_eyre::eyre::Result;
+use color_eyre::eyre::eyre;
 use log::*;
 use regex::Regex;
 use serde_json::{Value, json};
@@ -6,8 +6,11 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
-use crate::updater::framework::{Framework, Package};
-use crate::updater::traits::PackageUpdater;
+use crate::{
+    result::Result,
+    updater::framework::{Framework, Package},
+    updater::traits::PackageUpdater,
+};
 
 /// Node.js package updater supporting npm, yarn, and pnpm
 pub struct NodeUpdater {}
@@ -307,8 +310,10 @@ impl NodeUpdater {
 
         let file = File::open(&lock_path)?;
         let reader = BufReader::new(file);
-        let mut lines: Vec<String> =
-            reader.lines().collect::<Result<_, _>>()?;
+        let mut lines: Vec<String> = reader
+            .lines()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| eyre!("Failed to read lines: {}", e))?;
 
         // Regex to match package entries like "package@^1.0.0:"
         let package_regex = Regex::new(r#"^"?([^@"]+)@[^"]*"?:$"#)?;
@@ -377,8 +382,10 @@ impl NodeUpdater {
 
         let file = File::open(&lock_path)?;
         let reader = BufReader::new(file);
-        let mut lines: Vec<String> =
-            reader.lines().collect::<Result<_, _>>()?;
+        let mut lines: Vec<String> = reader
+            .lines()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| eyre!("Failed to read lines: {}", e))?;
 
         // Regex to match package entries like "package@^1.0.0:"
         let package_regex = Regex::new(r#"^"?([^@"]+)@[^"]*"?:$"#)?;

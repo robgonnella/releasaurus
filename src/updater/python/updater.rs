@@ -1,14 +1,16 @@
 //! Python updater for handling Python projects with various build systems and
 //! package managers
-use color_eyre::eyre::Result;
 use log::*;
 use std::path::Path;
 
-use crate::updater::framework::{Framework, Package};
-use crate::updater::python::pyproject::PyProject;
-use crate::updater::python::setupcfg::SetupCfg;
-use crate::updater::python::setuppy::SetupPy;
-use crate::updater::traits::PackageUpdater;
+use crate::{
+    result::Result,
+    updater::framework::{Framework, Package},
+    updater::python::pyproject::PyProject,
+    updater::python::setupcfg::SetupCfg,
+    updater::python::setuppy::SetupPy,
+    updater::traits::PackageUpdater,
+};
 
 /// Python updater - handles various Python packaging formats and build systems
 pub struct PythonUpdater {

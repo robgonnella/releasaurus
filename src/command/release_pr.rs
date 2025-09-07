@@ -1,4 +1,4 @@
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::ContextCompat;
 use log::*;
 use std::collections::HashMap;
 
@@ -13,6 +13,7 @@ use crate::{
         types::{CreatePrRequest, GetPrRequest, UpdatePrRequest},
     },
     repo::Repository,
+    result::Result,
     updater::manager::UpdaterManager,
 };
 

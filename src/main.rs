@@ -1,5 +1,4 @@
 use clap::Parser;
-use color_eyre::eyre::Result;
 
 mod analyzer;
 mod cli;
@@ -7,7 +6,10 @@ mod command;
 mod config;
 mod forge;
 mod repo;
+mod result;
 mod updater;
+
+use crate::result::Result;
 
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {

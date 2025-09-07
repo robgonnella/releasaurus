@@ -1,5 +1,4 @@
 //! Defines execution function for the release command
-use color_eyre::eyre::Result;
 use log::*;
 
 use crate::{
@@ -9,6 +8,7 @@ use crate::{
     config,
     forge::{config::TAGGED_LABEL, traits::Forge, types::ReleasePullRequest},
     repo::Repository,
+    result::Result,
 };
 
 pub fn execute(args: &cli::Args) -> Result<()> {

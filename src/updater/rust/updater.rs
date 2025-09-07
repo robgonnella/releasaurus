@@ -1,13 +1,16 @@
 //! Cargo updater for handling rust projects
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::ContextCompat;
 use log::*;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::Path;
 use toml_edit::{DocumentMut, value};
 
-use crate::updater::framework::{Framework, Package};
-use crate::updater::traits::PackageUpdater;
+use crate::{
+    result::Result,
+    updater::framework::{Framework, Package},
+    updater::traits::PackageUpdater,
+};
 
 pub struct CargoUpdater {}
 
