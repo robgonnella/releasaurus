@@ -87,25 +87,7 @@ fn process_packages(
                 "✓ Package update completed successfully: {} of {} packages updated",
                 stats.updated_packages, stats.total_packages
             );
-
-            // Log detected frameworks for transparency
-            if !stats.frameworks_detected.is_empty() {
-                info!(
-                    "Detected frameworks: {:?}",
-                    stats.frameworks_detected.keys().collect::<Vec<_>>()
-                );
-            }
-
-            // Report any warnings that occurred during the update process
-            if !stats.warnings.is_empty() {
-                warn!(
-                    "Update completed with {} warning(s):",
-                    stats.warnings.len()
-                );
-                for warning in &stats.warnings {
-                    warn!("  → {}", warning);
-                }
-            }
+            debug!("{stats}");
         }
         Err(e) => {
             warn!("Failed to update package manifest files: {}", e);
@@ -163,7 +145,7 @@ fn create_pr_content(
     }
 
     for (name, info) in manifest {
-        info!(
+        debug!(
             "\n\n{}\n  current_version: {:?}\n  next_version: {:?}\n  projected_release_version: {:?}",
             name, info.current_version, info.next_version, info.next_version,
         );
