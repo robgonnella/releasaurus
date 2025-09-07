@@ -27,7 +27,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let forge = remote.get_forge()?;
 
     let (repo, tmp_dir) = common::setup_repository(forge.as_ref())?;
-    let cli_config = common::load_configuration()?;
+    let cli_config = common::load_configuration(tmp_dir.path())?;
 
     let release_branch =
         common::setup_release_branch(&repo, DEFAULT_PR_BRANCH_PREFIX)?;
