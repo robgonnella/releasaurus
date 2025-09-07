@@ -1,4 +1,3 @@
-use color_eyre::eyre::Result;
 use gitlab::api::Query;
 use octocrab::{Octocrab, params};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -14,6 +13,7 @@ use crate::{
     cli,
     forge::{config::RemoteConfig, traits::Forge, types::ReleasePullRequest},
     repo,
+    result::Result,
 };
 
 #[derive(Debug, Serialize)]

@@ -1,5 +1,5 @@
 //! Facilitates interaction with a local git repository
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::eyre;
 use git2::{Oid, RemoteCallbacks};
 use log::*;
 use regex::Regex;
@@ -7,7 +7,7 @@ use reqwest::Url;
 use secrecy::ExposeSecret;
 use std::path::Path;
 
-use crate::forge::config::RemoteConfig;
+use crate::{forge::config::RemoteConfig, result::Result};
 
 const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
 

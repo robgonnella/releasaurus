@@ -1,6 +1,4 @@
 //! Common functionality shared between release commands
-
-use color_eyre::eyre::Result;
 use log::*;
 use std::path::Path;
 use tempfile::TempDir;
@@ -10,6 +8,7 @@ use crate::{
     config,
     forge::{config::RemoteConfig, traits::Forge, types::PrLabelsRequest},
     repo::{Repository, StartingPoint},
+    result::Result,
 };
 
 /// Sets up a temporary repository for command execution

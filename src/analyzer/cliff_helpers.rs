@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::eyre;
 use glob::Pattern;
 use log::*;
 use regex::{Regex, RegexBuilder};
@@ -9,7 +9,7 @@ static RELEASE_NOTES_START_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"#\s\[.*\]\(.*\)\s-\s\d{4}-\d{2}-\d{2}").unwrap()
 });
 
-use crate::analyzer::config::AnalyzerConfig;
+use crate::{analyzer::config::AnalyzerConfig, result::Result};
 
 pub fn process_package_path(
     repo_path: &str,

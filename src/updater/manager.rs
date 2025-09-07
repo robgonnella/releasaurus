@@ -1,17 +1,18 @@
 //! UpdaterManager - High-level entry point for language-agnostic package updates
+use color_eyre::eyre::{ContextCompat, WrapErr};
+use log::{debug, info, warn};
+use std::collections::HashMap;
+use std::path::Path;
 
 use crate::{
     analyzer::types::Output,
     config::CliConfig,
+    result::Result,
     updater::{
         detection::manager::DetectionManager,
         framework::{Framework, Package},
     },
 };
-use color_eyre::eyre::{ContextCompat, Result, WrapErr};
-use log::{debug, info, warn};
-use std::collections::HashMap;
-use std::path::Path;
 
 /// Statistics about the update operation
 #[derive(Debug, Default, Clone)]

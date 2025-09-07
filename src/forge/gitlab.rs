@@ -1,5 +1,5 @@
 //! Implements the Forge trait for Gitlab
-use color_eyre::eyre::{Result as EyreResult, eyre};
+use color_eyre::eyre::eyre;
 use gitlab::{
     Gitlab as GitlabClient,
     api::{
@@ -18,12 +18,16 @@ use log::*;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
-use crate::forge::{
-    config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
-    traits::Forge,
-    types::{
-        CreatePrRequest, PrLabelsRequest, ReleasePullRequest, UpdatePrRequest,
+use crate::{
+    forge::{
+        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        traits::Forge,
+        types::{
+            CreatePrRequest, PrLabelsRequest, ReleasePullRequest,
+            UpdatePrRequest,
+        },
     },
+    result::Result,
 };
 
 #[derive(Debug, Deserialize)]
@@ -46,7 +50,7 @@ pub struct Gitlab {
 }
 
 impl Gitlab {
-    pub fn new(config: RemoteConfig) -> EyreResult<Self> {
+    pub fn new(config: RemoteConfig) -> Result<Self> {
         let project_id = config.path.clone();
 
         let token = config.token.expose_secret();
@@ -61,7 +65,7 @@ impl Gitlab {
         })
     }
 
-    fn get_repo_labels(&self) -> EyreResult<Vec<LabelInfo>> {
+    fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
         let endpoint = Labels::builder().project(&self.project_id).build()?;
 
         let labels: Vec<LabelInfo> = endpoint.query(&self.gl)?;
@@ -69,7 +73,7 @@ impl Gitlab {
         Ok(labels)
     }
 
-    fn create_label(&self, label_name: String) -> EyreResult<LabelInfo> {
+    fn create_label(&self, label_name: String) -> Result<LabelInfo> {
         let endpoint = CreateLabel::builder()
             .project(&self.project_id)
             .name(label_name)
@@ -91,7 +95,7 @@ impl Forge for Gitlab {
     fn get_open_release_pr(
         &self,
         req: super::types::GetPrRequest,
-    ) -> EyreResult<Option<ReleasePullRequest>> {
+    ) -> Result<Option<ReleasePullRequest>> {
         // Create the merge requests query to find open MRs
         // targeting the base branch
         let endpoint = MergeRequests::builder()
@@ -102,7 +106,7 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the query to get matching merge requests
-        let result: Result<
+        let result: std::result::Result<
             Vec<MergeRequestInfo>,
             gitlab::api::ApiError<gitlab::RestError>,
         > = endpoint.query(&self.gl);
@@ -142,7 +146,7 @@ impl Forge for Gitlab {
         }
     }
 
-    fn get_merged_release_pr(&self) -> EyreResult<Option<ReleasePullRequest>> {
+    fn get_merged_release_pr(&self) -> Result<Option<ReleasePullRequest>> {
         info!("looking for closed release prs with pending label");
 
         // Search for closed merge requests with the pending label
@@ -194,10 +198,7 @@ impl Forge for Gitlab {
         }))
     }
 
-    fn create_pr(
-        &self,
-        req: CreatePrRequest,
-    ) -> EyreResult<ReleasePullRequest> {
+    fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest> {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(&self.project_id)
@@ -216,7 +217,7 @@ impl Forge for Gitlab {
         })
     }
 
-    fn update_pr(&self, req: UpdatePrRequest) -> EyreResult<()> {
+    fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         // Update the merge request
         let endpoint = EditMergeRequest::builder()
             .project(&self.project_id)
@@ -231,10 +232,7 @@ impl Forge for Gitlab {
         Ok(())
     }
 
-    fn replace_pr_labels(
-        &self,
-        req: PrLabelsRequest,
-    ) -> color_eyre::eyre::Result<()> {
+    fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         let all_labels = self.get_repo_labels()?;
 
         let mut labels = vec![];
@@ -261,12 +259,7 @@ impl Forge for Gitlab {
         Ok(())
     }
 
-    fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> EyreResult<()> {
+    fn create_release(&self, tag: &str, sha: &str, notes: &str) -> Result<()> {
         // Create the release
         let endpoint = CreateRelease::builder()
             .project(&self.project_id)

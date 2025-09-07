@@ -1,5 +1,5 @@
 //! Implements the Forge trait for Gitea
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::eyre;
 use log::*;
 use reqwest::{
     Url,
@@ -9,13 +9,16 @@ use reqwest::{
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
-use crate::forge::{
-    config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
-    traits::Forge,
-    types::{
-        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
-        UpdatePrRequest,
+use crate::{
+    forge::{
+        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        traits::Forge,
+        types::{
+            CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+            UpdatePrRequest,
+        },
     },
+    result::Result,
 };
 
 #[derive(Debug, Default, Serialize)]
