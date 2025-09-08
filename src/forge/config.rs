@@ -20,7 +20,7 @@ pub struct RemoteConfig {
     pub scheme: String,
     /// The owner of the remote repo
     pub owner: String,
-    /// The repo path i.e. <group>/<repo>
+    /// The repo path i.e. `<group>/<repo>`
     pub repo: String,
     /// The full path to the repo i.e. /org/group/owner/repo
     pub path: String,
