@@ -1,4 +1,4 @@
-//! A git-cliff implementation of a changelog [`Generator`]
+//! A git-cliff implementation of a changelog
 use color_eyre::eyre::ContextCompat;
 use indexmap::IndexMap;
 use log::*;

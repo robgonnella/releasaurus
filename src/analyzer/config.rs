@@ -2,7 +2,7 @@
 
 use crate::repo::StartingPoint;
 
-/// The default body value for [`ChangelogConfig`]
+/// The default body value for [`AnalyzerConfig`]
 pub const DEFAULT_BODY: &str = r#"{% if version -%}
     # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
@@ -26,6 +26,8 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
 {% endfor %}
  "#;
 
+pub const DEFAULT_FOOTER: &str = "Built by Releasaurus 🦕";
+
 #[derive(Debug, Clone)]
 pub struct AnalyzerConfig {
     /// Path to cloned repository
@@ -44,7 +46,6 @@ pub struct AnalyzerConfig {
     ///
     /// default: [`None`]
     pub footer: Option<String>,
-    /// [`PackageConfig`]
     /// Optional prefix to use for the package
     pub tag_prefix: Option<String>,
     /// The base url for commit links
@@ -65,7 +66,7 @@ impl Default for AnalyzerConfig {
             package_relative_path: ".".into(),
             body: DEFAULT_BODY.into(),
             header: None,
-            footer: None,
+            footer: Some(DEFAULT_FOOTER.into()),
             tag_prefix: None,
             starting_point: None,
             commit_link_base_url: "".into(),

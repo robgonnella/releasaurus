@@ -41,11 +41,6 @@ pub fn execute(args: &cli::Args) -> Result<()> {
         return Ok(());
     }
 
-    if args.dry_run {
-        info!("dry-run: skipping remote update");
-        return Ok(());
-    }
-
     create_or_update_pr(
         &pr_content.title,
         &pr_content.body.join("\n"),

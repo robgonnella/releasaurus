@@ -17,7 +17,6 @@ fn github_e2e_test() {
     let args = Args {
         command: Command::ReleasePR,
         debug: true,
-        dry_run: false,
         github_repo: "https://github.com/robgonnella/test-repo".into(),
         github_token: token,
         gitea_repo: "".into(),
