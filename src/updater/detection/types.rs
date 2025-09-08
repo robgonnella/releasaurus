@@ -13,13 +13,13 @@ pub struct FrameworkDetection {
 
 /// Detection patterns for different frameworks
 #[derive(Clone)]
-pub struct DetectionPattern {
+pub struct DetectionPattern<'a> {
     /// Primary manifest files that indicate this framework
-    pub manifest_files: Vec<&'static str>,
+    pub manifest_files: Vec<&'a str>,
     /// Secondary files that support the detection
-    pub support_files: Vec<&'static str>,
+    pub support_files: Vec<&'a str>,
     /// Content patterns to look for in manifest files
-    pub content_patterns: Vec<&'static str>,
+    pub content_patterns: Vec<&'a str>,
     /// Minimum confidence score for this pattern
     pub base_confidence: f32,
 }

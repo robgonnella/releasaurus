@@ -12,6 +12,8 @@ use crate::updater::php::detector::PhpDetector;
 use crate::updater::php::updater::PhpUpdater;
 use crate::updater::python::detector::PythonDetector;
 use crate::updater::python::updater::PythonUpdater;
+use crate::updater::ruby::detector::RubyDetector;
+use crate::updater::ruby::updater::RubyUpdater;
 use crate::updater::rust::detector::RustDetector;
 use crate::updater::rust::updater::CargoUpdater;
 use crate::updater::traits::PackageUpdater;
@@ -29,6 +31,8 @@ pub enum Framework {
     Php,
     /// Java with Maven/Gradle
     Java,
+    /// Ruby with Bundler/Gems
+    Ruby,
     #[default]
     /// Generic framework with custom handling
     Generic,
@@ -42,6 +46,7 @@ impl Framework {
             Box::new(NodeDetector::new()),
             Box::new(PhpDetector::new()),
             Box::new(JavaDetector::new()),
+            Box::new(RubyDetector::new()),
         ];
 
         DetectionManager::new(root_path, detectors)
@@ -54,6 +59,7 @@ impl Framework {
             Framework::Python => "python",
             Framework::Php => "php",
             Framework::Java => "java",
+            Framework::Ruby => "ruby",
             Framework::Generic => "unknown",
         }
     }
@@ -65,6 +71,7 @@ impl Framework {
             Framework::Python => Box::new(PythonUpdater::new()),
             Framework::Php => Box::new(PhpUpdater::new()),
             Framework::Java => Box::new(JavaUpdater::new()),
+            Framework::Ruby => Box::new(RubyUpdater::new()),
             Framework::Generic => Box::new(GenericUpdater::new()),
         }
     }
@@ -375,5 +382,97 @@ mod tests {
         // Both should have proper indentation (newlines and spaces)
         assert!(node_content.contains("\n"));
         assert!(php_content.contains("\n"));
+    }
+
+    #[test]
+    fn test_ruby_detection_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path();
+
+        // Create a basic Ruby gem project
+        fs::write(
+            path.join("Gemfile"),
+            r#"source 'https://rubygems.org'
+
+gem 'rspec'
+gem 'rake'"#,
+        )
+        .unwrap();
+
+        fs::write(
+            path.join("my_gem.gemspec"),
+            r#"Gem::Specification.new do |spec|
+  spec.name = "my_gem"
+  spec.version = "1.0.0"
+  spec.authors = ["Developer"]
+  spec.summary = "A Ruby gem"
+end"#,
+        )
+        .unwrap();
+
+        fs::create_dir_all(path.join("lib")).unwrap();
+
+        // Test detection using the Framework's detection manager
+        let detection_manager =
+            Framework::detection_manager(path.to_path_buf());
+        let detection_result = detection_manager.detect_framework(".").unwrap();
+
+        assert!(matches!(detection_result.framework, Framework::Ruby));
+        assert!(detection_result.confidence > 0.8);
+        assert!(
+            detection_result
+                .evidence
+                .contains(&"found Gemfile".to_string())
+        );
+    }
+
+    #[test]
+    fn test_ruby_updater_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let root_path = temp_dir.path();
+        let package_dir = root_path.join("ruby-gem");
+        fs::create_dir_all(&package_dir).unwrap();
+
+        // Create initial Ruby gem structure
+        fs::write(
+            package_dir.join("Gemfile"),
+            r#"source 'https://rubygems.org'
+gemspec"#,
+        )
+        .unwrap();
+
+        fs::write(
+            package_dir.join("my_gem.gemspec"),
+            r#"Gem::Specification.new do |spec|
+  spec.name = "my_gem"
+  spec.version = "1.5.0"
+  spec.authors = ["Developer"]
+  spec.email = ["dev@example.com"]
+  spec.summary = "A test Ruby gem"
+  spec.description = "A longer description"
+  spec.homepage = "https://github.com/user/my_gem"
+  spec.license = "MIT"
+end"#,
+        )
+        .unwrap();
+
+        // Create package with Ruby framework
+        let package = Package::new(
+            "my_gem".to_string(),
+            package_dir.to_str().unwrap().to_string(),
+            Version {
+                tag: "v2.0.0".to_string(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+            },
+            Framework::Ruby,
+        );
+
+        // Get the Ruby updater from framework and update
+        let updater = Framework::Ruby.updater();
+        let result = updater.update(root_path, vec![package]);
+        assert!(result.is_ok());
+
+        // Note: The Ruby updater currently doesn't modify files (placeholder implementation)
+        // When fully implemented, this would verify version updates in gemspec files
     }
 }
