@@ -1,0 +1,8 @@
+[book]
+authors = ["Rob Gonnella"]
+language = "en"
+src = "src"
+title = "Releasaurus"
+
+[build]
+build-dir = "build"
