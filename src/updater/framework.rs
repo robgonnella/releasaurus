@@ -6,6 +6,8 @@ use crate::updater::detection::traits::FrameworkDetector;
 use crate::updater::generic::updater::GenericUpdater;
 use crate::updater::node::detector::NodeDetector;
 use crate::updater::node::updater::NodeUpdater;
+use crate::updater::php::detector::PhpDetector;
+use crate::updater::php::updater::PhpUpdater;
 use crate::updater::python::detector::PythonDetector;
 use crate::updater::python::updater::PythonUpdater;
 use crate::updater::rust::detector::RustDetector;
@@ -21,6 +23,8 @@ pub enum Framework {
     Node,
     /// Python with pip/setuptools/poetry
     Python,
+    /// PHP with Composer
+    Php,
     #[default]
     /// Generic framework with custom handling
     Generic,
@@ -32,6 +36,7 @@ impl Framework {
             Box::new(RustDetector::new()),
             Box::new(PythonDetector::new()),
             Box::new(NodeDetector::new()),
+            Box::new(PhpDetector::new()),
         ];
 
         DetectionManager::new(root_path, detectors)
@@ -42,6 +47,7 @@ impl Framework {
             Framework::Rust => "rust",
             Framework::Node => "node",
             Framework::Python => "python",
+            Framework::Php => "php",
             Framework::Generic => "unknown",
         }
     }
@@ -51,6 +57,7 @@ impl Framework {
             Framework::Rust => Box::new(CargoUpdater::new()),
             Framework::Node => Box::new(NodeUpdater::new()),
             Framework::Python => Box::new(PythonUpdater::new()),
+            Framework::Php => Box::new(PhpUpdater::new()),
             Framework::Generic => Box::new(GenericUpdater::new()),
         }
     }
@@ -88,5 +95,61 @@ impl Package {
     /// Get the framework type as a string
     pub fn framework_name(&self) -> &str {
         self.framework.name()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_php_detection_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path();
+
+        // Create a basic PHP project with composer.json
+        fs::write(
+            path.join("composer.json"),
+            r#"{
+    "name": "test/php-project",
+    "version": "1.0.0",
+    "require": {
+        "php": ">=8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Test\\": "src/"
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        fs::create_dir_all(path.join("src")).unwrap();
+
+        // Use the detection manager to detect the framework
+        let detection_manager =
+            Framework::detection_manager(path.to_path_buf());
+        let detection_result = detection_manager.detect_framework(".").unwrap();
+
+        // Verify PHP is detected
+        assert!(matches!(detection_result.framework, Framework::Php));
+        assert!(detection_result.confidence > 0.8);
+        assert!(
+            detection_result
+                .evidence
+                .contains(&"found composer.json".to_string())
+        );
+    }
+
+    #[test]
+    fn test_framework_names() {
+        assert_eq!(Framework::Rust.name(), "rust");
+        assert_eq!(Framework::Node.name(), "node");
+        assert_eq!(Framework::Python.name(), "python");
+        assert_eq!(Framework::Php.name(), "php");
+        assert_eq!(Framework::Generic.name(), "unknown");
     }
 }
