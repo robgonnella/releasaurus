@@ -152,4 +152,54 @@ mod tests {
         assert_eq!(Framework::Php.name(), "php");
         assert_eq!(Framework::Generic.name(), "unknown");
     }
+
+    #[test]
+    fn test_php_updater_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let root_path = temp_dir.path();
+        let package_dir = root_path.join("php-lib");
+        fs::create_dir_all(&package_dir).unwrap();
+
+        // Create initial composer.json
+        fs::write(
+            package_dir.join("composer.json"),
+            r#"{
+    "name": "vendor/test-lib",
+    "version": "1.5.0",
+    "type": "library",
+    "require": {
+        "php": ">=8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Vendor\\TestLib\\": "src/"
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        // Create package with PHP framework
+        let package = Package::new(
+            "vendor/test-lib".to_string(),
+            package_dir.to_str().unwrap().to_string(),
+            Version {
+                tag: "v2.0.0".to_string(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+            },
+            Framework::Php,
+        );
+
+        // Get the PHP updater from framework and update
+        let updater = Framework::Php.updater();
+        let result = updater.update(root_path, vec![package]);
+        assert!(result.is_ok());
+
+        // Verify the version was updated
+        let updated_content =
+            fs::read_to_string(package_dir.join("composer.json")).unwrap();
+        assert!(updated_content.contains("\"version\": \"2.0.0\""));
+        assert!(updated_content.contains("\"name\": \"vendor/test-lib\""));
+        assert!(updated_content.contains("\"php\": \">=8.0\""));
+    }
 }
