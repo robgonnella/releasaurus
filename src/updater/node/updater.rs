@@ -51,6 +51,13 @@ impl NodeUpdater {
                 if let Some((_, other_package)) =
                     other_packages.iter().find(|(n, _)| n == key)
                 {
+                    // Skip workspace dependencies
+                    if let Some(version_str) = value.as_str()
+                        && version_str.starts_with("workspace:")
+                    {
+                        continue;
+                    }
+
                     *value =
                         json!(other_package.next_version.semver.to_string());
                 }
@@ -1444,5 +1451,186 @@ other-dep@^2.0.0:
         let yarn_lock_content =
             fs::read_to_string(temp_dir.path().join("yarn.lock")).unwrap();
         assert!(yarn_lock_content.contains("version \"2.0.0\""));
+    }
+
+    #[test]
+    fn test_workspace_dependencies_not_updated() {
+        let temp_dir = TempDir::new().unwrap();
+        let root_path = temp_dir.path();
+
+        // Create package A with workspace dependencies
+        let pkg_a_path = root_path.join("packages/pkg-a");
+        fs::create_dir_all(&pkg_a_path).unwrap();
+        fs::write(
+            pkg_a_path.join("package.json"),
+            r#"{
+  "name": "pkg-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "pkg-b": "workspace:*",
+    "pkg-c": "workspace:^1.0.0",
+    "external-dep": "^2.0.0"
+  },
+  "devDependencies": {
+    "pkg-d": "workspace:~1.0.0"
+  }
+}"#,
+        )
+        .unwrap();
+
+        // Create package B that will be updated
+        let pkg_b_path = root_path.join("packages/pkg-b");
+        fs::create_dir_all(&pkg_b_path).unwrap();
+        fs::write(
+            pkg_b_path.join("package.json"),
+            r#"{
+  "name": "pkg-b",
+  "version": "1.0.0"
+}"#,
+        )
+        .unwrap();
+
+        let packages = vec![
+            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "2.0.0"),
+            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        let updater = NodeUpdater::new();
+        updater.update(root_path, packages).unwrap();
+
+        // Check that workspace dependencies were NOT updated
+        let pkg_a_content =
+            fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
+
+        // Workspace dependencies should remain unchanged
+        assert!(pkg_a_content.contains("\"pkg-b\": \"workspace:*\""));
+        assert!(pkg_a_content.contains("\"pkg-c\": \"workspace:^1.0.0\""));
+        assert!(pkg_a_content.contains("\"pkg-d\": \"workspace:~1.0.0\""));
+
+        // External dependency should remain unchanged
+        assert!(pkg_a_content.contains("\"external-dep\": \"^2.0.0\""));
+
+        // Package A's version should be updated
+        assert!(pkg_a_content.contains("\"version\": \"2.0.0\""));
+
+        // Check that pkg-b version was updated
+        let pkg_b_content =
+            fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
+        assert!(pkg_b_content.contains("\"version\": \"2.1.0\""));
+    }
+
+    #[test]
+    fn test_mixed_workspace_and_regular_dependencies() {
+        let temp_dir = TempDir::new().unwrap();
+        let root_path = temp_dir.path();
+
+        // Create package A
+        let pkg_a_path = root_path.join("pkg-a");
+        fs::create_dir_all(&pkg_a_path).unwrap();
+        fs::write(
+            pkg_a_path.join("package.json"),
+            r#"{
+  "name": "pkg-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "pkg-b": "workspace:*",
+    "pkg-c": "1.0.0"
+  }
+}"#,
+        )
+        .unwrap();
+
+        // Create package B (workspace dependency)
+        let pkg_b_path = root_path.join("pkg-b");
+        fs::create_dir_all(&pkg_b_path).unwrap();
+        fs::write(
+            pkg_b_path.join("package.json"),
+            r#"{
+  "name": "pkg-b",
+  "version": "1.0.0"
+}"#,
+        )
+        .unwrap();
+
+        // Create package C (regular dependency that should be updated)
+        let pkg_c_path = root_path.join("pkg-c");
+        fs::create_dir_all(&pkg_c_path).unwrap();
+        fs::write(
+            pkg_c_path.join("package.json"),
+            r#"{
+  "name": "pkg-c",
+  "version": "1.0.0"
+}"#,
+        )
+        .unwrap();
+
+        let packages = vec![
+            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "1.5.0"),
+            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "2.0.0"),
+            create_test_package("pkg-c", pkg_c_path.to_str().unwrap(), "2.1.0"),
+        ];
+
+        let updater = NodeUpdater::new();
+        updater.update(root_path, packages).unwrap();
+
+        let pkg_a_content =
+            fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
+
+        // Workspace dependency should NOT be updated
+        assert!(pkg_a_content.contains("\"pkg-b\": \"workspace:*\""));
+
+        // Regular dependency should be updated to new version
+        assert!(pkg_a_content.contains("\"pkg-c\": \"2.1.0\""));
+
+        // Package A version should be updated
+        assert!(pkg_a_content.contains("\"version\": \"1.5.0\""));
+    }
+
+    #[test]
+    fn test_various_workspace_protocols() {
+        let temp_dir = TempDir::new().unwrap();
+        let root_path = temp_dir.path();
+
+        let pkg_path = root_path.join("package");
+        fs::create_dir_all(&pkg_path).unwrap();
+        fs::write(
+            pkg_path.join("package.json"),
+            r#"{
+  "name": "test-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "dep1": "workspace:*",
+    "dep2": "workspace:^",
+    "dep3": "workspace:~",
+    "dep4": "workspace:^1.2.3",
+    "dep5": "workspace:~1.2.3",
+    "dep6": "workspace:1.2.3"
+  }
+}"#,
+        )
+        .unwrap();
+
+        let packages = vec![create_test_package(
+            "test-package",
+            pkg_path.to_str().unwrap(),
+            "2.0.0",
+        )];
+
+        let updater = NodeUpdater::new();
+        updater.update(root_path, packages).unwrap();
+
+        let updated_content =
+            fs::read_to_string(pkg_path.join("package.json")).unwrap();
+
+        // All workspace protocols should be preserved
+        assert!(updated_content.contains("\"dep1\": \"workspace:*\""));
+        assert!(updated_content.contains("\"dep2\": \"workspace:^\""));
+        assert!(updated_content.contains("\"dep3\": \"workspace:~\""));
+        assert!(updated_content.contains("\"dep4\": \"workspace:^1.2.3\""));
+        assert!(updated_content.contains("\"dep5\": \"workspace:~1.2.3\""));
+        assert!(updated_content.contains("\"dep6\": \"workspace:1.2.3\""));
+
+        // Package version should be updated
+        assert!(updated_content.contains("\"version\": \"2.0.0\""));
     }
 }
