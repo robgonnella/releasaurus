@@ -158,6 +158,8 @@ impl UpdaterManager {
                     self.detection_manager.detect_framework(package_path)?;
 
                 let package_name = self.derive_package_name(package_path);
+                let package_path =
+                    self.root_path.join(package_path).display().to_string();
 
                 let package = Package::new(
                     package_name.clone(),
