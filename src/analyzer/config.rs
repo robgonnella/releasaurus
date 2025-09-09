@@ -1,5 +1,7 @@
 //! Configuration used to implement changelog traits
 
+use crate::repo::StartingPoint;
+
 /// The default body value for [`ChangelogConfig`]
 pub const DEFAULT_BODY: &str = r#"{% if version -%}
     # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -50,7 +52,7 @@ pub struct AnalyzerConfig {
     pub release_link_base_url: String,
     /// Only process since commits since provided commit sha
     /// (tagged_release_commit, tagged_release_commit_parent)
-    pub starting_point: Option<(String, String)>,
+    pub starting_point: Option<StartingPoint>,
 }
 
 impl Default for AnalyzerConfig {
