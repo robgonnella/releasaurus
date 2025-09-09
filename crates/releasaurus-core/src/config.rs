@@ -8,18 +8,22 @@ const DEFAULT_BODY: &str = r#"{% if version -%}
 {% else -%}
     # [unreleased]
 {% endif -%}
-{% for group, commits in commits | group_by(attribute="group") %}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
       {% if commit.breaking -%}
         {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }}
+        {% if commit.body -%}
         > {{ commit.body }}
+        {% endif -%}
+        {% if commit.breaking_description -%}
         > {{ commit.breaking_description }}
+        {% endif -%}
       {% else -%}
-        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first -}}
       {% endif -%}
-    {% endfor -%}
-{% endfor %}
+    {% endfor %}
+{% endfor -%}
  "#;
 
 /// Changelog Configuration allowing you to customize changelog output format
