@@ -9,7 +9,7 @@ static RELEASE_NOTES_START_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"#\s\[.*\]\(.*\)\s-\s\d{4}-\d{2}-\d{2}").unwrap()
 });
 
-use crate::processor::config::ChangelogConfig;
+use crate::analyzer::config::AnalyzerConfig;
 
 pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
     info!("processing package path: {package_path}");
@@ -44,28 +44,28 @@ pub fn process_package_path(package_path: &str) -> Result<Vec<Pattern>> {
 
 pub fn set_config_basic_settings(
     cliff_config: &mut git_cliff_core::config::Config,
-    changelog_config: &ChangelogConfig,
+    analyzer_config: &AnalyzerConfig,
 ) -> Result<()> {
-    cliff_config.changelog.body = changelog_config.body.clone();
-    cliff_config.changelog.header = changelog_config.header.clone();
-    cliff_config.changelog.footer = changelog_config.footer.clone();
+    cliff_config.changelog.body = analyzer_config.body.clone();
+    cliff_config.changelog.header = analyzer_config.header.clone();
+    cliff_config.changelog.footer = analyzer_config.footer.clone();
     cliff_config.changelog.trim = true;
     cliff_config.git.conventional_commits = true;
     cliff_config.git.filter_unconventional = false;
     cliff_config.git.protect_breaking_commits = true;
     cliff_config.git.require_conventional = false;
     cliff_config.git.include_paths =
-        process_package_path(&changelog_config.package_path)?;
+        process_package_path(&analyzer_config.package_path)?;
     Ok(())
 }
 
 pub fn set_config_tag_settings(
     cliff_config: &mut git_cliff_core::config::Config,
-    changelog_config: &ChangelogConfig,
+    analyzer_config: &AnalyzerConfig,
 ) -> Result<()> {
     let mut tag_prefix = "v".to_string();
 
-    if let Some(prefix) = changelog_config.tag_prefix.clone() {
+    if let Some(prefix) = analyzer_config.tag_prefix.clone() {
         tag_prefix = prefix;
     }
 
@@ -122,12 +122,12 @@ pub fn set_config_commit_parsers(
 }
 
 pub fn get_cliff_config(
-    changelog_config: ChangelogConfig,
+    analyzer_config: AnalyzerConfig,
 ) -> Result<git_cliff_core::config::Config> {
     let mut cliff_config = git_cliff_core::embed::EmbeddedConfig::parse()?;
 
-    set_config_basic_settings(&mut cliff_config, &changelog_config)?;
-    set_config_tag_settings(&mut cliff_config, &changelog_config)?;
+    set_config_basic_settings(&mut cliff_config, &analyzer_config)?;
+    set_config_tag_settings(&mut cliff_config, &analyzer_config)?;
     set_config_commit_parsers(&mut cliff_config)?;
 
     Ok(cliff_config)
@@ -277,10 +277,10 @@ mod tests {
         let mut cliff_config =
             git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
 
-        let changelog_config = ChangelogConfig::default();
+        let analyzer_config = AnalyzerConfig::default();
 
         let result =
-            set_config_tag_settings(&mut cliff_config, &changelog_config);
+            set_config_tag_settings(&mut cliff_config, &analyzer_config);
 
         assert!(result.is_ok(), "failed to set config tag settings");
 
@@ -298,13 +298,13 @@ mod tests {
         let mut cliff_config =
             git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
 
-        let changelog_config = ChangelogConfig {
+        let analyzer_config = AnalyzerConfig {
             tag_prefix: Some(prefix),
-            ..ChangelogConfig::default()
+            ..AnalyzerConfig::default()
         };
 
         let result =
-            set_config_tag_settings(&mut cliff_config, &changelog_config);
+            set_config_tag_settings(&mut cliff_config, &analyzer_config);
 
         assert!(result.is_ok(), "failed to set config tag settings");
 

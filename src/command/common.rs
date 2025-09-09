@@ -6,9 +6,9 @@ use std::{env, path::Path};
 use tempfile::TempDir;
 
 use crate::{
+    analyzer::config::AnalyzerConfig,
     config,
     forge::{config::RemoteConfig, traits::Forge, types::PrLabelsRequest},
-    processor::config::ChangelogConfig,
     repo::Repository,
 };
 
@@ -61,8 +61,8 @@ pub fn create_changelog_config(
     cli_config: &config::CliConfig,
     remote_config: &RemoteConfig,
     starting_sha: Option<String>,
-) -> ChangelogConfig {
-    ChangelogConfig {
+) -> AnalyzerConfig {
+    AnalyzerConfig {
         body: cli_config.changelog.body.clone(),
         commit_link_base_url: remote_config.commit_link_base_url.clone(),
         footer: cli_config.changelog.footer.clone(),

@@ -3,11 +3,11 @@ use color_eyre::eyre::{ContextCompat, Result};
 use log::*;
 
 use crate::{
+    analyzer::{cliff::CliffAnalyzer, types::ProjectedRelease},
     cli,
     command::common,
     config,
     forge::{config::TAGGED_LABEL, traits::Forge, types::ReleasePullRequest},
-    processor::{cliff::CliffProcessor, types::ProjectedRelease},
     repo::Repository,
 };
 
@@ -90,8 +90,8 @@ fn create_package_release(
         starting_sha,
     );
 
-    let changelog = CliffProcessor::new(changelog_config)?;
-    let output = changelog.process_repository()?;
+    let analyzer = CliffAnalyzer::new(changelog_config)?;
+    let output = analyzer.process_repository()?;
 
     if let Some(next_version) = output.next_version
         && let Some(projected_release) = output.projected_release

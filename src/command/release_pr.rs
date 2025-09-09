@@ -3,6 +3,7 @@ use log::*;
 use std::collections::HashMap;
 
 use crate::{
+    analyzer::{cliff::CliffAnalyzer, types::Output},
     cli,
     command::common,
     config,
@@ -11,7 +12,6 @@ use crate::{
         traits::Forge,
         types::{CreatePrRequest, GetPrRequest, UpdatePrRequest},
     },
-    processor::{cliff::CliffProcessor, types::Output},
     repo::Repository,
 };
 
@@ -93,8 +93,8 @@ fn process_single_package(
         starting_sha,
     );
 
-    let processor = CliffProcessor::new(changelog_config)?;
-    processor.write_changelog()
+    let analyzer = CliffAnalyzer::new(changelog_config)?;
+    analyzer.write_changelog()
 }
 
 fn create_pr_content(
