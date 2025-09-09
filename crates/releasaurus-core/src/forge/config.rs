@@ -1,8 +1,13 @@
+use color_eyre::eyre::Result;
+use secrecy::SecretString;
+
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
-use secrecy::SecretString;
+use crate::forge::{
+    gitea::Gitea, github::Github, gitlab::Gitlab, traits::Forge,
+};
 
 #[derive(Debug, Clone)]
 /// Remote Repository configuration
@@ -45,4 +50,23 @@ pub enum Remote {
     Github(RemoteConfig),
     Gitlab(RemoteConfig),
     Gitea(RemoteConfig),
+}
+
+impl Remote {
+    pub fn get_forge(&self) -> Result<Box<dyn Forge>> {
+        match self {
+            Remote::Github(config) => {
+                let forge = Github::new(config.clone())?;
+                Ok(Box::new(forge))
+            }
+            Remote::Gitlab(config) => {
+                let forge = Gitlab::new(config.clone())?;
+                Ok(Box::new(forge))
+            }
+            Remote::Gitea(config) => {
+                let forge = Gitea::new(config.clone())?;
+                Ok(Box::new(forge))
+            }
+        }
+    }
 }
