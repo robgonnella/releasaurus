@@ -1,14 +1,15 @@
 //! Traits related to remote git forges
 use std::any::Any;
 
-use color_eyre::eyre::Result;
-
-use crate::forge::{
-    config::RemoteConfig,
-    types::{
-        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
-        UpdatePrRequest,
+use crate::{
+    forge::{
+        config::RemoteConfig,
+        types::{
+            CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+            UpdatePrRequest,
+        },
     },
+    result::Result,
 };
 
 pub trait Forge: Any {

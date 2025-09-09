@@ -1,9 +1,8 @@
-use color_eyre::eyre::Result;
 use log::*;
 use serde::Deserialize;
 use std::{fs, path::Path};
 
-use crate::analyzer::config::DEFAULT_BODY;
+use crate::{analyzer::config::DEFAULT_BODY, result::Result};
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 

@@ -1,5 +1,4 @@
 //! Configuration used implement various forges
-use color_eyre::eyre::Result;
 use secrecy::SecretString;
 
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
@@ -7,8 +6,9 @@ pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
-use crate::forge::{
-    gitea::Gitea, github::Github, gitlab::Gitlab, traits::Forge,
+use crate::{
+    forge::{gitea::Gitea, github::Github, gitlab::Gitlab, traits::Forge},
+    result::Result,
 };
 
 #[derive(Debug, Clone)]

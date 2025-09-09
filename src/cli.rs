@@ -1,11 +1,14 @@
 //! Defines the command line flags and sub-commands available on this cli
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{ContextCompat, Result, eyre};
+use color_eyre::eyre::{ContextCompat, eyre};
 use git_url_parse::GitUrl;
 use secrecy::SecretString;
 use std::env;
 
-use crate::forge::config::{Remote, RemoteConfig};
+use crate::{
+    forge::config::{Remote, RemoteConfig},
+    result::Result,
+};
 
 /// Program to manage releases! Easily generate changelogs and release PRs
 #[derive(Parser, Debug)]

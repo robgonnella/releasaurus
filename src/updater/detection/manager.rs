@@ -1,10 +1,13 @@
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::Context;
 use log::*;
 use std::path::{Path, PathBuf};
 
-use crate::updater::{
-    detection::{traits::FrameworkDetector, types::FrameworkDetection},
-    framework::Framework,
+use crate::{
+    result::Result,
+    updater::{
+        detection::{traits::FrameworkDetector, types::FrameworkDetection},
+        framework::Framework,
+    },
 };
 
 pub struct DetectionManager {

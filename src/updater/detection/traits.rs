@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use color_eyre::eyre::Result;
-
-use crate::updater::detection::types::FrameworkDetection;
+use crate::{result::Result, updater::detection::types::FrameworkDetection};
 
 pub trait FrameworkDetector {
     fn name(&self) -> &str;

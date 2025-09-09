@@ -1,4 +1,3 @@
-use color_eyre::eyre::Result;
 use log::*;
 use regex::Regex;
 use std::{
@@ -8,7 +7,7 @@ use std::{
     sync::LazyLock,
 };
 
-use crate::updater::framework::Package;
+use crate::{result::Result, updater::framework::Package};
 
 static VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?m)^(\s*version\s*=\s*[\"']?[\w\.\-\+]+[\"']?)"#).unwrap()

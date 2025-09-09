@@ -1,5 +1,5 @@
 //! Implements the Forge trait for Github
-use color_eyre::eyre::{Report, Result, eyre};
+use color_eyre::eyre::{Report, eyre};
 use log::*;
 use octocrab::{
     Octocrab,
@@ -7,13 +7,16 @@ use octocrab::{
 };
 use tokio::runtime::Runtime;
 
-use crate::forge::{
-    config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
-    traits::Forge,
-    types::{
-        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
-        UpdatePrRequest,
+use crate::{
+    forge::{
+        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        traits::Forge,
+        types::{
+            CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+            UpdatePrRequest,
+        },
     },
+    result::Result,
 };
 
 pub struct Github {
