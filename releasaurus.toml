@@ -1,0 +1,11 @@
+[[packages]]
+name = "cli"
+path = "crates/releasaurus"
+
+[[packages]]
+name = "core"
+path = "crates/releasaurus-core"
+
+[[packages]]
+name = "main"
+path = "."
