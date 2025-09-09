@@ -5,12 +5,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use secrecy::ExposeSecret;
 use serde::Serialize;
 use std::{
-    env,
-    fs::OpenOptions,
-    io::Write,
-    path::Path,
-    sync::{Mutex, Once},
-    thread,
+    fs::OpenOptions, io::Write, path::PathBuf, sync::Once, thread,
     time::Duration,
 };
 use tempfile::TempDir;
@@ -28,7 +23,6 @@ struct MergeData {
     delete_branch_after_merge: bool,
 }
 
-static MUTEX: Mutex<i64> = Mutex::new(1);
 static INIT: Once = Once::new();
 
 fn initialize_logger() {
@@ -47,14 +41,6 @@ fn initialize_logger() {
     });
 }
 
-pub fn switch_current_directory<F: Fn()>(dir: &Path, closure: F) -> Result<()> {
-    let lock = MUTEX.lock().unwrap();
-    env::set_current_dir(dir)?;
-    closure();
-    drop(lock);
-    Ok(())
-}
-
 pub fn init(
     args: &cli::Args,
 ) -> Result<(Box<dyn Forge>, repo::Repository, TempDir)> {
@@ -67,7 +53,7 @@ pub fn init(
     Ok((forge, repository, tmp))
 }
 
-pub fn overwrite_file(file_path: &str, content: &str) -> Result<()> {
+pub fn overwrite_file(file_path: PathBuf, content: &str) -> Result<()> {
     let mut file = OpenOptions::new()
         .create(true)
         .truncate(true)

@@ -21,7 +21,7 @@ use crate::{
 pub struct CliffAnalyzer {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
-    path: String,
+    package_path: PathBuf,
     starting_point: Option<StartingPoint>,
     commit_link_base_url: String,
     release_link_base_url: String,
@@ -30,17 +30,18 @@ pub struct CliffAnalyzer {
 impl CliffAnalyzer {
     /// Returns new instance based on provided configs
     pub fn new(config: AnalyzerConfig) -> Result<Self> {
-        let path = config.package_path.clone();
+        let repo_path = Path::new(&config.repo_path).to_path_buf();
+        let package_path = repo_path.join(&config.package_path);
         let starting_point = config.starting_point.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
-        let repo = git_cliff_core::repo::Repository::init(PathBuf::from("."))?;
+        let repo = git_cliff_core::repo::Repository::init(repo_path)?;
 
         Ok(Self {
             config: Box::new(cliff_config),
             repo,
-            path,
+            package_path,
             starting_point,
             commit_link_base_url,
             release_link_base_url,
@@ -146,7 +147,10 @@ impl CliffAnalyzer {
     }
 
     pub fn process_repository(&self) -> Result<Output> {
-        info!("processing repository for package: {}", self.path);
+        info!(
+            "processing repository for package: {}",
+            self.package_path.display()
+        );
 
         let (releases, current_version) = self.get_repo_releases()?;
 
@@ -202,7 +206,7 @@ impl CliffAnalyzer {
                 changelog.releases.last().wrap_err("no releases found")?;
             projected_release = Some(ProjectedRelease {
                 tag: next_version.clone().unwrap_or("".into()),
-                path: self.path.clone(),
+                path: self.package_path.display().to_string(),
                 sha: last_release.commit_id.clone().unwrap_or("".into()),
                 notes,
             });
@@ -218,8 +222,7 @@ impl CliffAnalyzer {
 
     pub fn write_changelog(&self) -> Result<Output> {
         let output = self.process_repository()?;
-        let package_dir = Path::new(self.path.as_str());
-        let file_path = package_dir.join("CHANGELOG.md");
+        let file_path = self.package_path.join("CHANGELOG.md");
 
         let mut existing_content = String::from("");
 

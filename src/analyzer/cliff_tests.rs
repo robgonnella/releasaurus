@@ -1,4 +1,4 @@
-use std::{env, fs, process::Command, thread, time::Duration};
+use std::{fs, process::Command, thread, time::Duration};
 
 use tempfile::TempDir;
 
@@ -107,9 +107,6 @@ impl TestContext {
         let result = self.add_commit(args.clone());
         assert!(result.is_ok());
 
-        let result = env::set_current_dir(self.tmp_dir.path());
-        assert!(result.is_ok());
-
         Ok(())
     }
 }
@@ -117,11 +114,15 @@ impl TestContext {
 #[test]
 fn process_git_repository() {
     let tmp_dir = TempDir::new().unwrap();
+    let tmp_dir_path_str = tmp_dir.path().display().to_string();
     let context = TestContext::new(tmp_dir);
     let result = context.setup_repo();
     assert!(result.is_ok(), "failed to setup test repo");
 
-    let config = AnalyzerConfig::default();
+    let config = AnalyzerConfig {
+        repo_path: tmp_dir_path_str,
+        ..AnalyzerConfig::default()
+    };
     let result = CliffAnalyzer::new(config);
     assert!(result.is_ok(), "failed to create changelog instance");
 

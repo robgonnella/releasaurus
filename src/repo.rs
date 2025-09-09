@@ -219,4 +219,14 @@ impl Repository {
             .workdir()
             .ok_or_else(|| eyre!("Repository has no working directory"))
     }
+
+    pub fn workdir_as_str(&self) -> &str {
+        if let Some(w) = self.repo.workdir()
+            && let Some(p) = w.to_str()
+        {
+            return p;
+        }
+
+        "."
+    }
 }
