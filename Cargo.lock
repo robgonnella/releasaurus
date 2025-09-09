@@ -1856,6 +1856,7 @@ dependencies = [
  "indexmap",
  "log",
  "regex",
+ "secrecy",
  "semver",
  "serde",
  "tempfile",

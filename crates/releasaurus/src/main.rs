@@ -5,13 +5,13 @@ use releasaurus_core::{
         git_cliff::GitCliffChangelog,
         traits::{CurrentVersion, Generator, NextVersion},
     },
-    config::Config,
+    config::{Config, SinglePackageConfig},
 };
 use std::fs;
 
 fn initialize_logger(debug: bool) {
     let filter = if debug {
-        simplelog::LevelFilter::Trace
+        simplelog::LevelFilter::Debug
     } else {
         simplelog::LevelFilter::Info
     };
@@ -39,15 +39,19 @@ fn main() -> Result<()> {
 
     let config = load_config()?;
 
-    for p in config.packages {
-        let changelog_config = config.changelog.clone();
-        let changelog = GitCliffChangelog::new(changelog_config, p.clone())?;
+    for entry in config.packages.iter().enumerate() {
+        let single_package_config =
+            SinglePackageConfig::from_config_index(config.clone(), entry.0);
+        let changelog = GitCliffChangelog::new(single_package_config.clone())?;
         let output = changelog.generate()?;
         let current_version = changelog.current_version();
         let next_version = changelog.next_version();
         let is_breaking = changelog.next_is_breaking()?;
 
-        info!("=============={}==============", p.name);
+        info!(
+            "=============={}==============",
+            single_package_config.package.name
+        );
         println!("{output}");
         println!("current_version: {:#?}", current_version);
         println!("next_version: {:#?}", next_version);
