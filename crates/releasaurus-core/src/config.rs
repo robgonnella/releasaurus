@@ -2,6 +2,10 @@
 use secrecy::SecretString;
 use serde::Deserialize;
 
+pub const GITHUB_DEFAULT_HOST: &str = "github.com";
+pub const GITLAB_DEFAULT_HOST: &str = "gitlab.com";
+pub const BITBUCKET_DEFAULT_HOST: &str = "bitbucket.org";
+
 /// The default body value for [`ChangelogConfig`]
 const DEFAULT_BODY: &str = r#"{% if version -%}
     # [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -12,7 +16,7 @@ const DEFAULT_BODY: &str = r#"{% if version -%}
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
       {% if commit.breaking -%}
-        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }}
+        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }} {% if commit.extra and commit.extra.link %}[_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.extra.link }}){% endif %}
         {% if commit.body -%}
         > {{ commit.body }}
         {% endif -%}
@@ -20,7 +24,7 @@ const DEFAULT_BODY: &str = r#"{% if version -%}
         > {{ commit.breaking_description }}
         {% endif -%}
       {% else -%}
-        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first -}}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} {% if commit.extra and commit.extra.link %}[_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.extra.link }}){% endif -%}
       {% endif -%}
     {% endfor %}
 {% endfor -%}
@@ -82,13 +86,25 @@ impl Default for PackageConfig {
 
 /// Remote Repository configuration
 #[derive(Debug, Clone, Deserialize)]
-pub struct Remote {
+pub struct RemoteConfig {
     /// The owner of the remote repo
     pub owner: String,
     /// The repo path i.e. <group>/<repo>
     pub repo: String,
     /// The access token for the remote repo
     pub token: SecretString,
+    /// Optional host for the remote
+    /// defaults to community version hosts i.e. github.com, gitlab.com etc
+    pub host: Option<String>,
+}
+
+/// Represents the valid types of remotes
+#[derive(Debug, Clone)]
+pub enum Remote {
+    Github(RemoteConfig),
+    Gitlab(RemoteConfig),
+    Gitea(RemoteConfig),
+    BitBucket(RemoteConfig),
 }
 
 /// Represents configuration for a single package which includes global
@@ -99,14 +115,8 @@ pub struct SinglePackageConfig {
     pub changelog: ChangelogConfig,
     /// [`PackageConfig`]
     pub package: PackageConfig,
-    /// gitlab [`Option<Remote>`]
-    pub gitlab: Option<Remote>,
-    /// github [`Option<Remote>`]
-    pub github: Option<Remote>,
-    /// bitbucket [`Option<Remote>`]
-    pub bitbucket: Option<Remote>,
-    /// gitea [`Option<Remote>`]
-    pub gitea: Option<Remote>,
+    ///  The enabled [`Remote`] for this package
+    pub remote: Option<Remote>,
 }
 
 /// Complete configuration for the core
@@ -119,13 +129,13 @@ pub struct Config {
     #[serde(rename = "package")]
     pub packages: Vec<PackageConfig>,
     /// gitlab [`Option<Remote>`]
-    pub gitlab: Option<Remote>,
+    pub gitlab: Option<RemoteConfig>,
     /// github [`Option<Remote>`]
-    pub github: Option<Remote>,
+    pub github: Option<RemoteConfig>,
     /// bitbucket [`Option<Remote>`]
-    pub bitbucket: Option<Remote>,
+    pub bitbucket: Option<RemoteConfig>,
     /// gitea [`Option<Remote>`]
-    pub gitea: Option<Remote>,
+    pub gitea: Option<RemoteConfig>,
     // used to make this an iterator for SinglePackageConfigs
     next_pkg: usize,
 }
@@ -160,25 +170,156 @@ impl Iterator for Config {
             return None;
         }
 
+        let mut remote: Option<Remote> = None;
+
+        if let Some(conf) = self.github.clone() {
+            let mut remote_config = conf.clone();
+            remote_config.host = Some(
+                remote_config
+                    .host
+                    .unwrap_or(GITHUB_DEFAULT_HOST.to_string()),
+            );
+            remote = Some(Remote::Github(remote_config));
+        } else if let Some(conf) = self.gitlab.clone() {
+            let mut remote_config = conf.clone();
+            remote_config.host = Some(
+                remote_config
+                    .host
+                    .unwrap_or(GITLAB_DEFAULT_HOST.to_string()),
+            );
+            remote = Some(Remote::Gitlab(remote_config));
+        } else if let Some(conf) = self.gitea.clone() {
+            remote = Some(Remote::Gitea(conf));
+        } else if let Some(conf) = self.bitbucket.clone() {
+            let mut remote_config = conf.clone();
+            remote_config.host = Some(
+                remote_config
+                    .host
+                    .unwrap_or(BITBUCKET_DEFAULT_HOST.to_string()),
+            );
+            remote = Some(Remote::BitBucket(remote_config));
+        }
+
         self.next_pkg += 1;
         Some(SinglePackageConfig {
             changelog: self.changelog.clone(),
             package: self.packages[idx].clone(),
-            github: self.github.clone(),
-            gitlab: self.gitlab.clone(),
-            gitea: self.gitea.clone(),
-            bitbucket: self.bitbucket.clone(),
+            remote,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::*;
 
     #[test]
     fn loads_defaults() {
         let config = Config::default();
         assert!(!config.changelog.body.is_empty())
+    }
+
+    #[test]
+    fn iterates_to_single_package_config() {
+        let config = Config::default();
+        for c in config.into_iter() {
+            assert!(!c.changelog.body.is_empty());
+            assert!(!c.package.path.is_empty());
+            assert!(c.remote.is_none());
+        }
+    }
+
+    #[test]
+    fn defaults_remote_host_for_github() {
+        let config = Config {
+            github: Some(RemoteConfig {
+                host: None,
+                owner: "owner".to_string(),
+                repo: "repo".to_string(),
+                token: Secret::new("secret".to_string()),
+            }),
+            ..Config::default()
+        };
+
+        for c in config {
+            assert!(!c.changelog.body.is_empty());
+            assert!(!c.package.path.is_empty());
+            let remote = c.remote.unwrap();
+            assert!(matches!(remote, Remote::Github(_)));
+            if let Remote::Github(conf) = remote {
+                assert_eq!(conf.host, Some("github.com".to_string()));
+            }
+        }
+    }
+
+    #[test]
+    fn defaults_remote_host_for_gitlab() {
+        let config = Config {
+            gitlab: Some(RemoteConfig {
+                host: None,
+                owner: "owner".to_string(),
+                repo: "repo".to_string(),
+                token: Secret::new("secret".to_string()),
+            }),
+            ..Config::default()
+        };
+
+        for c in config {
+            assert!(!c.changelog.body.is_empty());
+            assert!(!c.package.path.is_empty());
+            let remote = c.remote.unwrap();
+            assert!(matches!(remote, Remote::Gitlab(_)));
+            if let Remote::Gitlab(conf) = remote {
+                assert_eq!(conf.host, Some("gitlab.com".to_string()));
+            }
+        }
+    }
+
+    #[test]
+    fn does_not_default_remote_host_for_gitea() {
+        let config = Config {
+            gitea: Some(RemoteConfig {
+                host: None,
+                owner: "owner".to_string(),
+                repo: "repo".to_string(),
+                token: Secret::new("secret".to_string()),
+            }),
+            ..Config::default()
+        };
+
+        for c in config {
+            assert!(!c.changelog.body.is_empty());
+            assert!(!c.package.path.is_empty());
+            let remote = c.remote.unwrap();
+            assert!(matches!(remote, Remote::Gitea(_)));
+            if let Remote::Gitea(conf) = remote {
+                assert_eq!(conf.host, None);
+            }
+        }
+    }
+
+    #[test]
+    fn defaults_remote_host_for_bitbucket() {
+        let config = Config {
+            bitbucket: Some(RemoteConfig {
+                host: None,
+                owner: "owner".to_string(),
+                repo: "repo".to_string(),
+                token: Secret::new("secret".to_string()),
+            }),
+            ..Config::default()
+        };
+
+        for c in config {
+            assert!(!c.changelog.body.is_empty());
+            assert!(!c.package.path.is_empty());
+            let remote = c.remote.unwrap();
+            assert!(matches!(remote, Remote::BitBucket(_)));
+            if let Remote::BitBucket(conf) = remote {
+                assert_eq!(conf.host, Some("bitbucket.org".to_string()));
+            }
+        }
     }
 }
