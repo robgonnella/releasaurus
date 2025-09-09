@@ -14,8 +14,8 @@ use std::{
 use crate::{
     changelog::traits::{Generator, Output, Writer},
     config::{
-        BITBUCKET_DEFAULT_HOST, GITHUB_DEFAULT_HOST, GITLAB_DEFAULT_HOST,
-        Remote, SinglePackageConfig,
+        GITEA_DEFAULT_BASE_URL, GITHUB_DEFAULT_BASE_URL,
+        GITLAB_DEFAULT_BASE_URL, Remote, SinglePackageConfig,
     },
 };
 
@@ -71,6 +71,7 @@ fn get_cliff_config(
             cliff_config.remote.github.repo = remote_config.repo;
             cliff_config.remote.github.token =
                 Some(remote_config.token.clone());
+            cliff_config.remote.github.api_url = remote_config.base_url;
             cliff_config.remote.github.is_custom = true;
         }
         Some(Remote::Gitlab(remote_config)) => {
@@ -78,20 +79,15 @@ fn get_cliff_config(
             cliff_config.remote.gitlab.repo = remote_config.repo;
             cliff_config.remote.gitlab.token =
                 Some(remote_config.token.clone());
+            cliff_config.remote.gitlab.api_url = remote_config.base_url;
             cliff_config.remote.gitlab.is_custom = true;
         }
         Some(Remote::Gitea(remote_config)) => {
             cliff_config.remote.gitea.owner = remote_config.owner;
             cliff_config.remote.gitea.repo = remote_config.repo;
             cliff_config.remote.gitea.token = Some(remote_config.token.clone());
+            cliff_config.remote.gitea.api_url = remote_config.base_url;
             cliff_config.remote.gitea.is_custom = true;
-        }
-        Some(Remote::BitBucket(remote_config)) => {
-            cliff_config.remote.bitbucket.owner = remote_config.owner;
-            cliff_config.remote.bitbucket.repo = remote_config.repo;
-            cliff_config.remote.bitbucket.token =
-                Some(remote_config.token.clone());
-            cliff_config.remote.bitbucket.is_custom = true;
         }
         _ => {}
     }
@@ -149,29 +145,28 @@ fn get_cliff_config(
 fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
     match remote {
         Remote::Github(config) => format!(
-            "https://{}/{}/{}/commit/{}",
-            config.host.unwrap_or(String::from(GITHUB_DEFAULT_HOST)),
+            "{}/{}/{}/commit/{}",
+            config
+                .base_url
+                .unwrap_or(String::from(GITHUB_DEFAULT_BASE_URL)),
             config.owner,
             config.repo,
             commit_id
         ),
         Remote::Gitlab(config) => format!(
-            "https://{}/{}/{}/commit/{}",
-            config.host.unwrap_or(String::from(GITLAB_DEFAULT_HOST)),
+            "{}/{}/{}/commit/{}",
+            config
+                .base_url
+                .unwrap_or(String::from(GITLAB_DEFAULT_BASE_URL)),
             config.owner,
             config.repo,
             commit_id
         ),
         Remote::Gitea(config) => format!(
-            "https://{}/{}/{}/commit/{}",
-            config.host.unwrap_or(String::from("gitea.example.com")),
-            config.owner,
-            config.repo,
-            commit_id
-        ),
-        Remote::BitBucket(config) => format!(
-            "https://{}/{}/{}/commit/{}",
-            config.host.unwrap_or(String::from(BITBUCKET_DEFAULT_HOST)),
+            "{}/{}/{}/commit/{}",
+            config
+                .base_url
+                .unwrap_or(String::from(GITEA_DEFAULT_BASE_URL)),
             config.owner,
             config.repo,
             commit_id
@@ -182,29 +177,28 @@ fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
 fn get_version_link_for_remote(remote: Remote, tag: String) -> String {
     match remote {
         Remote::Github(config) => format!(
-            "https://{}/{}/{}/releases/tag/{}",
-            config.host.unwrap_or(String::from(GITHUB_DEFAULT_HOST)),
+            "{}/{}/{}/releases/tag/{}",
+            config
+                .base_url
+                .unwrap_or(String::from(GITHUB_DEFAULT_BASE_URL)),
             config.owner,
             config.repo,
             tag
         ),
         Remote::Gitlab(config) => format!(
-            "https://{}/{}/{}/releases/{}",
-            config.host.unwrap_or(String::from(GITLAB_DEFAULT_HOST)),
+            "{}/{}/{}/releases/{}",
+            config
+                .base_url
+                .unwrap_or(String::from(GITLAB_DEFAULT_BASE_URL)),
             config.owner,
             config.repo,
             tag
         ),
         Remote::Gitea(config) => format!(
-            "https://{}/{}/{}/releases/{}",
-            config.host.unwrap_or(String::from("gitea.example.com")),
-            config.owner,
-            config.repo,
-            tag
-        ),
-        Remote::BitBucket(config) => format!(
-            "https://{}/{}/{}/commits/tag/{}",
-            config.host.unwrap_or(String::from(BITBUCKET_DEFAULT_HOST)),
+            "{}/{}/{}/releases/{}",
+            config
+                .base_url
+                .unwrap_or(String::from("https://gitea.example.com")),
             config.owner,
             config.repo,
             tag

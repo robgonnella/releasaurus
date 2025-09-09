@@ -59,7 +59,7 @@ fn main() -> Result<()> {
 
     let config = load_config()?;
 
-    for package_config in config.into_iter() {
+    for package_config in config {
         let name = package_config.package.name.clone();
         let changelog = GitCliffChangelog::new(package_config)?;
         let output = changelog.write()?;
