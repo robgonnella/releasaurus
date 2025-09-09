@@ -129,21 +129,19 @@ fn process_git_repository() {
     let result = changelog.write();
     assert!(result.is_ok(), "failed to write to file");
 
-    let result = changelog.current_version();
-    assert!(result.is_some(), "failed to get current version");
-    let current = result.unwrap();
+    let output = result.unwrap();
 
-    let result = changelog.next_version();
-    assert!(result.is_some(), "failed to get next version");
-    let next = result.unwrap();
+    assert!(!output.log.is_empty(), "output.log should not be empty");
 
-    let result = changelog.next_is_breaking();
-    assert!(result.is_ok(), "failed to get is_breaking");
-    let is_breaking = result.unwrap();
+    assert!(output.current_version.is_some());
+    let current_version = output.current_version.unwrap();
+    assert_eq!(current_version, "v0.2.1", "current version does not match");
 
-    assert_eq!(current, "v0.2.1", "current version does not match");
-    assert_eq!(next, "v1.0.0", "next version does not match");
-    assert!(is_breaking, "is_breaking should be true");
+    assert!(output.next_version.is_some());
+    let next_version = output.next_version.unwrap();
+    assert_eq!(next_version, "v1.0.0", "next version does not match");
+
+    assert!(output.is_breaking, "is_breaking should be true");
 
     let file_path = format!("{}/CHANGELOG.md", context.path().display());
 
