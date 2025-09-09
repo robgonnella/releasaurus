@@ -1,3 +1,21 @@
+# [0.3.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.1) - 2025-09-09
+
+### 🐛 Bug Fixes
+
+- Refactors and fixes issue in rust updater [_(1d00566f)_](https://github.com/robgonnella/releasaurus/commit/1d00566f0548a59d9f5303ad0d23a961c0b2145f)
+
+- Fixes issue in github gh-pages workflow [_(a433525a)_](https://github.com/robgonnella/releasaurus/commit/a433525a5dbf25a9fcd69f70895171feb8fb039f)
+
+- Fixes issue in changelog header and footer [_(dac15b29)_](https://github.com/robgonnella/releasaurus/commit/dac15b291e4c8f0a0310c6eb05c0746eedd6aafb)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- Adds footer tags to changelog [_(6a068812)_](https://github.com/robgonnella/releasaurus/commit/6a06881245db95683539da9a369bc73cecacb016)
+
+- Fixes issue with cargo cache step [_(8d3d8768)_](https://github.com/robgonnella/releasaurus/commit/8d3d8768c0b920879ad1e31ba1f1479ec5afb922)
+
+
 # [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-09
 
 ### 🚀 Features
