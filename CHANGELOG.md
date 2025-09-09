@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.0) - 2025-09-09
+
+### 🚀 Features
+
+- Adds publish jobs for crate and docker image [_(a1c187fc)_](https://github.com/robgonnella/releasaurus/commit/a1c187fccf863ec057ad3c1527a78f2f275b1a71)
+
+
 # [0.3.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.3) - 2025-09-09
 
 ### ⚙️ Miscellaneous Tasks
