@@ -1,3 +1,96 @@
+# [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-09
+
+### 🚀 Features
+
+- Adds stubs for updater framework (#41) [_(62b3db7e)_](https://github.com/robgonnella/releasaurus/commit/62b3db7ea8c07ccb8401255720f55f7285644028)
+
+- Implements rust updater (#44) [_(7ee38f2a)_](https://github.com/robgonnella/releasaurus/commit/7ee38f2a57d1578f9774217af3509ae35bdfe72e)
+
+- Implements rust Cargo.lock file updates (#46) [_(f336d0bc)_](https://github.com/robgonnella/releasaurus/commit/f336d0bc6109ccb321f3ed4573324b0526da2a79)
+
+- Adds initial implementation for node updater (#47) [_(11f0996a)_](https://github.com/robgonnella/releasaurus/commit/11f0996a9ea68625ebb8c1d79c54d0c64d7f2011)
+
+- Fully implements node updater (#48) [_(0da7b558)_](https://github.com/robgonnella/releasaurus/commit/0da7b5581950c7691c61ad469bc06068d7a5f387)
+
+- Adss initial implementation for python updater [_(e1880e22)_](https://github.com/robgonnella/releasaurus/commit/e1880e22b52bc91e93785216cb4a682d5126e3ff)
+
+- Adds support for setup.cfg in python updater (#53) [_(558a8c77)_](https://github.com/robgonnella/releasaurus/commit/558a8c77c794ff7f2b76e756ad186486a377ddd8)
+
+- Adds setup.py updater implementation (#55) [_(5e6f5cc5)_](https://github.com/robgonnella/releasaurus/commit/5e6f5cc5d75d08b2ee9269464dff0d805163e93d)
+
+- Adds initial php detector (#57) [_(bf769971)_](https://github.com/robgonnella/releasaurus/commit/bf769971167e142a5b54b34c3a332f1fcb06d1fe)
+
+- Adds basic java detector [_(c619c7c6)_](https://github.com/robgonnella/releasaurus/commit/c619c7c63f912893ff8508f75ab3ef7d88d094e2)
+
+- Implements java updater (#60) [_(eafe66fa)_](https://github.com/robgonnella/releasaurus/commit/eafe66fac86f34cda98b4d84641fa5a3b8b1ba59)
+
+- Implements ruby detector (#61) [_(df95a893)_](https://github.com/robgonnella/releasaurus/commit/df95a893ddea8fe308eff17b5878bede3ab078cb)
+
+- Implements ruby updater (#62) [_(7fcade17)_](https://github.com/robgonnella/releasaurus/commit/7fcade17070b50a99b53b7f2c094bcf28f499419)
+
+
+### 💼 Other
+
+- Implement php updater (#58)
+
+* feat: implements php updater
+
+* feat: preserve formatting in node updater [_(7914122e)_](https://github.com/robgonnella/releasaurus/commit/7914122ef493ea4b288e4e819620d788b9e3f132)
+
+
+### 🐛 Bug Fixes
+
+- Fixes issue with package path in updaters [_(e5fc606f)_](https://github.com/robgonnella/releasaurus/commit/e5fc606fb7704a0bc00958eecbc3ad2969dc05a1)
+
+- Fixes issue in processing repository paths (#54) [_(1dff5a38)_](https://github.com/robgonnella/releasaurus/commit/1dff5a38bbec2c552ea9b3914eba096bf734786e)
+
+- Handles workspace links in node monorepos (#59) [_(b396bea7)_](https://github.com/robgonnella/releasaurus/commit/b396bea77243b2b8987b2734459e3408a7cb36a2)
+
+- Fixes issues with header and footer not working (#64) [_(4cbacb8c)_](https://github.com/robgonnella/releasaurus/commit/4cbacb8cc38d78e4486a1b72edf5b624a41cb325)
+
+
+### 📚 Documentation
+
+- Adds documentation as mdbook (#65) [_(0447a4d7)_](https://github.com/robgonnella/releasaurus/commit/0447a4d704b5a254cac9bc1759bff1edf8b519a3)
+
+
+### 🚜 Refactor
+
+- Simplify updater framework (#42) [_(62dac299)_](https://github.com/robgonnella/releasaurus/commit/62dac2992e5bfaea241327566c97298f434c9943)
+
+- Minor refactor to rust updater [_(a59effa4)_](https://github.com/robgonnella/releasaurus/commit/a59effa408e2a5b315dab8bb18f4539c83815560)
+
+- Removes the need to switch to repo dir [_(c2762e98)_](https://github.com/robgonnella/releasaurus/commit/c2762e9829b9581a5096baa06bc57544bb1d9232)
+
+- Removes support for lockFileVersion 1 in node updater [_(90f6a59f)_](https://github.com/robgonnella/releasaurus/commit/90f6a59f9cd3b15dd7e9112030ea7a15a89e2368)
+
+- Removes support pnpm-lockfile.yaml updates [_(76ed1dbe)_](https://github.com/robgonnella/releasaurus/commit/76ed1dbe6f1500d847af97c7a11315dca18e348b)
+
+
+### 🧪 Testing
+
+- Fix e2e tests [_(46981994)_](https://github.com/robgonnella/releasaurus/commit/4698199402f0532c711c9ddd4fc36f414ecb7e6d)
+
+- Adds unit tests for rust updater (#45) [_(64876014)_](https://github.com/robgonnella/releasaurus/commit/6487601416f25fd8e2448c69668bd5f425ecb746)
+
+- Adds test for python setuptools detection [_(c2106ee7)_](https://github.com/robgonnella/releasaurus/commit/c2106ee74f28641d7df68cb9ee489b8f8c1431dc)
+
+
+### ⚙️ Miscellaneous Tasks
+
+- Show more info when e2e tests fail [_(1806ca13)_](https://github.com/robgonnella/releasaurus/commit/1806ca135ab3a1a51e135bf64753b41be54b3288)
+
+- Minor update to some logging [_(14559f48)_](https://github.com/robgonnella/releasaurus/commit/14559f4819acb284ec64a28bfcef7abe7fdee776)
+
+- Use custom internal Result everywhere (#56) [_(49429ace)_](https://github.com/robgonnella/releasaurus/commit/49429ace50c7f257a5f1ccbaaea29901eb0e9573)
+
+- Adds thorough doc comments (#63) [_(bf6bd583)_](https://github.com/robgonnella/releasaurus/commit/bf6bd5835be374951fdb6e30129754ca40775597)
+
+- Adds licenses and updates mdbook docs [_(e1c7f710)_](https://github.com/robgonnella/releasaurus/commit/e1c7f71051c6bc1e142ace2e64f2f54ba00a8cea)
+
+- Adds workflow to publish docs [_(afd0195e)_](https://github.com/robgonnella/releasaurus/commit/afd0195e78529354b5e793c5661f97f8fe04702d)
+
+
 # [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-02
 
 ### 🚀 Features
@@ -173,3 +266,6 @@ later if we want to include support for this forge
 - Move release_pr command to mod directory [_(4e5a90b6)_](https://github.com/robgonnella/releasaurus/commit/4e5a90b6f2f91e97b1dc06648fef4f59b4909bff)
 
 
+
+---
+Generated by Releasaurus 🦕
