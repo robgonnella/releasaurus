@@ -5,7 +5,7 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::path::Path;
 
-use crate::changelog::config::{ChangelogConfig, Remote};
+use crate::{changelog::config::ChangelogConfig, config::Remote};
 
 pub fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
     let path = Path::new(package_path.as_str());
