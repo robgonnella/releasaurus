@@ -37,6 +37,6 @@ fn main() -> Result<()> {
     initialize_logger(cli_args.debug)?;
 
     match cli_args.command {
-        cli::Command::ReleasePR => command::release_pr(&cli_args),
+        cli::Command::ReleasePR => command::release_pr::execute(&cli_args),
     }
 }
