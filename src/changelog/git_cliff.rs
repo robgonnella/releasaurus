@@ -151,7 +151,7 @@ impl Generator for GitCliffChangelog {
         let out = String::from_utf8(bytes)?;
 
         Ok(Output {
-            log: out,
+            changelog: out,
             current_version,
             next_version,
         })
@@ -171,7 +171,7 @@ impl Writer for GitCliffChangelog {
             .truncate(true) // Truncate the file to 0 length if it already exists
             .open(file_path)?;
 
-        file.write_all(output.log.as_bytes())?;
+        file.write_all(output.changelog.as_bytes())?;
 
         Ok(output)
     }
