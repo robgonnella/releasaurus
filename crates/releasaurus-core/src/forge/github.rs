@@ -15,16 +15,31 @@ use crate::{
 
 pub struct Github {
     config: RemoteConfig,
+    base_uri: String,
     rt: Runtime,
 }
 
 impl Github {
     pub fn new(config: RemoteConfig) -> Result<Self> {
+        let base_uri = format!("{}://{}", config.scheme, config.host);
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
 
-        Ok(Self { config, rt })
+        Ok(Self {
+            config,
+            base_uri,
+            rt,
+        })
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn new_instance(&self) -> octocrab::Result<Octocrab> {
+        let token = self.config.token.expose_secret().clone();
+        let builder = Octocrab::builder()
+            .personal_token(token)
+            .base_uri(self.base_uri.clone())?;
+        builder.build()
     }
 
     async fn get_pr_by_number(&self, pr_number: u64) -> Result<PullRequest> {
@@ -39,8 +54,7 @@ impl Github {
 impl Forge for Github {
     fn get_pr(&self, req: GetPrRequest) -> Result<Option<u64>> {
         let prs = self.rt.block_on(async {
-            let token = self.config.token.expose_secret().clone();
-            let octocrab = Octocrab::builder().personal_token(token).build()?;
+            let octocrab = self.new_instance()?;
 
             let handler = octocrab
                 .pulls(self.config.owner.clone(), self.config.repo.clone());
@@ -62,8 +76,7 @@ impl Forge for Github {
 
     fn create_pr(&self, req: CreatePrRequest) -> Result<u64> {
         self.rt.block_on(async {
-            let token = self.config.token.expose_secret().clone();
-            let octocrab = Octocrab::builder().personal_token(token).build()?;
+            let octocrab = self.new_instance()?;
 
             let handler = octocrab
                 .pulls(self.config.owner.clone(), self.config.repo.clone());
@@ -80,8 +93,7 @@ impl Forge for Github {
 
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         self.rt.block_on(async {
-            let token = self.config.token.expose_secret().clone();
-            let octocrab = Octocrab::builder().personal_token(token).build()?;
+            let octocrab = self.new_instance()?;
 
             let pr_handler = octocrab
                 .pulls(self.config.owner.clone(), self.config.repo.clone());
@@ -98,8 +110,7 @@ impl Forge for Github {
 
     fn add_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         self.rt.block_on(async {
-            let token = self.config.token.expose_secret().clone();
-            let octocrab = Octocrab::builder().personal_token(token).build()?;
+            let octocrab = self.new_instance()?;
             let pr = self.get_pr_by_number(req.pr_number).await?;
 
             let mut labels = vec![];
@@ -123,8 +134,7 @@ impl Forge for Github {
 
     fn remove_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         self.rt.block_on(async {
-            let token = self.config.token.expose_secret().clone();
-            let octocrab = Octocrab::builder().personal_token(token).build()?;
+            let octocrab = self.new_instance()?;
             let pr = self.get_pr_by_number(req.pr_number).await?;
 
             if let Some(pr_labels) = pr.labels {
