@@ -205,7 +205,7 @@ requests = "^2.25.0"
 
         let updated_content =
             fs::read_to_string(package_path.join("pyproject.toml")).unwrap();
-        println!("Updated content: {}", updated_content);
+
         assert!(updated_content.contains("version = \"2.0.0\""));
         assert!(!updated_content.contains("version = \"0.5.0\""));
     }
