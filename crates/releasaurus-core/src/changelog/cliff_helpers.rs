@@ -165,37 +165,19 @@ pub fn get_cliff_config(
     Ok(cliff_config)
 }
 
-pub fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
+pub fn get_commit_link_base_for_remote(remote: Remote) -> String {
     match remote {
-        Remote::Github(config) => format!(
-            "{}/{}/{}/commit/{}",
-            config.link_base_url, config.owner, config.repo, commit_id
-        ),
-        Remote::Gitlab(config) => format!(
-            "{}/{}/{}/commit/{}",
-            config.link_base_url, config.owner, config.repo, commit_id
-        ),
-        Remote::Gitea(config) => format!(
-            "{}/{}/{}/commit/{}",
-            config.link_base_url, config.owner, config.repo, commit_id
-        ),
+        Remote::Github(config) => config.commit_link_base_url,
+        Remote::Gitlab(config) => config.commit_link_base_url,
+        Remote::Gitea(config) => config.commit_link_base_url,
     }
 }
 
-pub fn get_version_link_for_remote(remote: Remote, tag: String) -> String {
+pub fn get_release_link_base_for_remote(remote: Remote) -> String {
     match remote {
-        Remote::Github(config) => format!(
-            "{}/{}/{}/releases/tag/{}",
-            config.link_base_url, config.owner, config.repo, tag
-        ),
-        Remote::Gitlab(config) => format!(
-            "{}/{}/{}/releases/{}",
-            config.link_base_url, config.owner, config.repo, tag
-        ),
-        Remote::Gitea(config) => format!(
-            "{}/{}/{}/releases/{}",
-            config.link_base_url, config.owner, config.repo, tag
-        ),
+        Remote::Github(config) => config.release_link_base_url,
+        Remote::Gitlab(config) => config.release_link_base_url,
+        Remote::Gitea(config) => config.release_link_base_url,
     }
 }
 
@@ -203,24 +185,9 @@ pub fn update_release_with_commit(
     repo_path: String,
     release: &mut git_cliff_core::release::Release,
     git_commit: &git2::Commit,
-    remote: Remote,
 ) {
     // create git_cliff commit from git2 commit
-    let mut commit = git_cliff_core::commit::Commit::from(git_commit);
-
-    // add extra link properties for remote
-    let mut commit_extra = Map::new();
-
-    commit_extra.insert(
-        "link".to_string(),
-        Value::String(get_commit_link_for_remote(
-            remote.clone(),
-            commit.id.clone(),
-        )),
-    );
-
-    commit.extra = Some(Value::Object(commit_extra));
-
+    let commit = git_cliff_core::commit::Commit::from(git_commit);
     let commit_id = commit.id.to_string();
     // add commit to release
     release.commits.push(commit);
@@ -251,19 +218,24 @@ pub fn process_tag_for_release(
     Some(tag.name.to_string())
 }
 
-pub fn add_version_link_and_commit_range_to_release(
+pub fn add_link_base_and_commit_range_to_release(
     release: &mut git_cliff_core::release::Release,
     remote: Remote,
 ) {
-    // add extra version_link property
-    if let Some(version) = release.version.clone() {
-        let mut release_extra = Map::new();
-        release_extra.insert(
-            "version_link".to_string(),
-            Value::String(get_version_link_for_remote(remote, version)),
-        );
-        release.extra = Some(Value::Object(release_extra));
-    }
+    // add extra link properties
+    let mut release_extra = Map::new();
+
+    release_extra.insert(
+        "release_link_base".to_string(),
+        Value::String(get_release_link_base_for_remote(remote.clone())),
+    );
+
+    release_extra.insert(
+        "commit_link_base".to_string(),
+        Value::String(get_commit_link_base_for_remote(remote)),
+    );
+
+    release.extra = Some(Value::Object(release_extra));
 
     // Set the commit ranges for all releases
     if !release.commits.is_empty() {

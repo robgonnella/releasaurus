@@ -121,10 +121,17 @@ fn get_github_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from github repo"))?;
 
+    let commit_link_base_url =
+        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
+
+    let release_link_base_url =
+        format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name);
+
     Ok(Remote::Github(RemoteConfig {
         owner,
         repo: parsed.name,
-        link_base_url,
+        commit_link_base_url,
+        release_link_base_url,
         api_url,
         token: Secret::new(token),
     }))
@@ -168,10 +175,17 @@ fn get_gitlab_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from gitlab repo"))?;
 
+    let commit_link_base_url =
+        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
+
+    let release_link_base_url =
+        format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
+
     Ok(Remote::Gitlab(RemoteConfig {
         owner,
         repo: parsed.name,
-        link_base_url,
+        commit_link_base_url,
+        release_link_base_url,
         api_url,
         token: Secret::new(token),
     }))
@@ -215,10 +229,17 @@ fn get_gitea_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
+    let commit_link_base_url =
+        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
+
+    let release_link_base_url =
+        format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
+
     Ok(Remote::Gitea(RemoteConfig {
         owner,
         repo: parsed.name,
-        link_base_url,
+        commit_link_base_url,
+        release_link_base_url,
         api_url,
         token: Secret::new(token),
     }))
