@@ -1,3 +1,10 @@
+# [0.3.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.2) - 2025-09-09
+
+### 🐛 Bug Fixes
+
+- Fixes issue with publishing to gh-pages [_(d2a175ce)_](https://github.com/robgonnella/releasaurus/commit/d2a175ce7580f7f0dc6ef3d93f0040a728874b48)
+
+
 # [0.3.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.1) - 2025-09-09
 
 ### 🐛 Bug Fixes
