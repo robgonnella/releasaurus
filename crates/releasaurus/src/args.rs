@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{Result, eyre};
 use git_url_parse::GitUrl;
-use releasaurus_core::config::{Remote, RemoteConfig};
+use releasaurus_core::forge::config::{Remote, RemoteConfig};
 use secrecy::Secret;
 use std::env;
 
@@ -33,12 +33,6 @@ pub struct Cli {
     /// Gitea access token
     pub gitea_token: String,
 
-    #[arg(long, default_value = None, global = true)]
-    /// Optional Api url to use for remote. You should set this if you
-    /// are using a non-community based forge like github or gitlab enterprise,
-    /// or self-hosted gitea
-    pub api_url: Option<String>,
-
     #[arg(long, default_value_t = false, global = true)]
     /// Enables debug logs
     pub debug: bool,
@@ -54,12 +48,11 @@ pub enum Commands {
 }
 
 impl Cli {
-    pub fn get_remote(&self) -> Result<Remote> {
+    pub fn get_remote(&self) -> Result<(Remote, RemoteConfig)> {
         if !self.github_repo.is_empty() {
             return get_github_remote(
                 self.github_repo.clone(),
                 self.github_token.clone(),
-                self.api_url.clone(),
             );
         }
 
@@ -67,7 +60,6 @@ impl Cli {
             return get_gitlab_remote(
                 self.gitlab_repo.clone(),
                 self.gitlab_token.clone(),
-                self.api_url.clone(),
             );
         }
 
@@ -75,7 +67,6 @@ impl Cli {
             return get_gitea_remote(
                 self.gitea_repo.clone(),
                 self.gitea_token.clone(),
-                self.api_url.clone(),
             );
         }
 
@@ -96,8 +87,7 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 fn get_github_remote(
     github_repo: String,
     github_token: String,
-    api_url: Option<String>,
-) -> Result<Remote> {
+) -> Result<(Remote, RemoteConfig)> {
     let parsed = GitUrl::parse(github_repo.as_str())?;
 
     validate_scheme(parsed.scheme)?;
@@ -136,23 +126,23 @@ fn get_github_remote(
     let release_link_base_url =
         format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name);
 
-    Ok(Remote::Github(RemoteConfig {
+    let remote_config = RemoteConfig {
         host,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        api_url,
         token: Secret::new(token),
-    }))
+    };
+
+    Ok((Remote::Github(remote_config.clone()), remote_config))
 }
 
 fn get_gitlab_remote(
     gitlab_repo: String,
     gitlab_token: String,
-    api_url: Option<String>,
-) -> Result<Remote> {
+) -> Result<(Remote, RemoteConfig)> {
     let parsed = GitUrl::parse(gitlab_repo.as_str())?;
 
     validate_scheme(parsed.scheme)?;
@@ -191,23 +181,23 @@ fn get_gitlab_remote(
     let release_link_base_url =
         format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
 
-    Ok(Remote::Gitlab(RemoteConfig {
+    let remote_config = RemoteConfig {
         host,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        api_url,
         token: Secret::new(token),
-    }))
+    };
+
+    Ok((Remote::Gitlab(remote_config.clone()), remote_config))
 }
 
 fn get_gitea_remote(
     gitea_repo: String,
     gitea_token: String,
-    api_url: Option<String>,
-) -> Result<Remote> {
+) -> Result<(Remote, RemoteConfig)> {
     let parsed = GitUrl::parse(gitea_repo.as_str())?;
 
     validate_scheme(parsed.scheme)?;
@@ -246,16 +236,17 @@ fn get_gitea_remote(
     let release_link_base_url =
         format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
 
-    Ok(Remote::Gitea(RemoteConfig {
+    let remote_config = RemoteConfig {
         host,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
         release_link_base_url,
-        api_url,
         token: Secret::new(token),
-    }))
+    };
+
+    Ok((Remote::Gitea(remote_config.clone()), remote_config))
 }
 
 #[cfg(test)]
@@ -276,7 +267,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote, Remote::Github(_)));
+        assert!(matches!(remote.0, Remote::Github(_)));
     }
 
     #[test]
@@ -293,7 +284,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote, Remote::Gitlab(_)));
+        assert!(matches!(remote.0, Remote::Gitlab(_)));
     }
 
     #[test]
@@ -310,7 +301,7 @@ mod tests {
 
         let remote = result.unwrap();
 
-        assert!(matches!(remote, Remote::Gitea(_)));
+        assert!(matches!(remote.0, Remote::Gitea(_)));
     }
 
     #[test]

@@ -7,14 +7,10 @@ use reqwest::{
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use crate::forge::{
     config::RemoteConfig,
-    forge::{
-        traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
-        },
-    },
+    traits::Forge,
+    types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
 };
 
 #[derive(Debug, Default, Serialize)]
