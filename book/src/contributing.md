@@ -1,6 +1,8 @@
 # Contributing
 
-Welcome to Releasaurus! We appreciate your interest in contributing to making software releases effortless for everyone. This guide will help you get started with contributing to the project, whether you're fixing bugs, adding features, improving documentation, or helping with community support.
+We appreciate your interest in contributing to Releasaurus! This guide will help
+you get started with contributing to the project, whether you're fixing bugs,
+adding features, improving documentation, or helping with community support.
 
 ## Ways to Contribute
 
@@ -310,126 +312,20 @@ cargo test updater::rust
 cargo test -- --nocapture
 ```
 
-#### Integration Tests
+#### E2E Tests
+
+These tests can be found in [./src/command/tests](../../src/command/tests)
 
 ```bash
-# Run integration tests (requires test tokens)
-cargo test --test integration
+# Run e2e tests (requires test tokens)
+cargo test --features _internal_e2e_tests
 
 # Run specific integration test
-cargo test --test integration test_github_workflow
-```
-
-#### End-to-End Tests
-
-```bash
-# Run e2e tests with special feature flag
-cargo test --features _internal_e2e_tests
+cargo test --features _internal_e2e_tests github_e2e_test
 
 # These tests create actual repositories and releases
 # Use with caution and dedicated test accounts
 ```
-
-### Writing Tests
-
-#### Unit Test Example
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_version_update() {
-        let temp_dir = TempDir::new().unwrap();
-        let cargo_file = temp_dir.path().join("Cargo.toml");
-
-        std::fs::write(&cargo_file, r#"
-[package]
-name = "test"
-version = "1.0.0"
-"#).unwrap();
-
-        let updater = CargoUpdater::new();
-        let result = updater.update_version(&cargo_file, "1.1.0");
-
-        assert!(result.is_ok());
-
-        let content = std::fs::read_to_string(&cargo_file).unwrap();
-        assert!(content.contains(r#"version = "1.1.0""#));
-    }
-}
-```
-
-#### Integration Test Example
-
-```rust
-#[tokio::test]
-#[ignore] // Only run with --ignored flag
-async fn test_github_integration() {
-    let token = std::env::var("GITHUB_TOKEN")
-        .expect("GITHUB_TOKEN required for integration tests");
-
-    let client = GitHubClient::new(/* config with test repo */);
-
-    // Test API functionality
-    let result = client.create_pull_request(&test_pr).await;
-    assert!(result.is_ok());
-
-    // Clean up test data
-    // ...
-}
-```
-
-### Test Data Management
-
-Create test fixtures in the `tests/fixtures` directory:
-
-```
-tests/
-├── fixtures/
-│   ├── rust-project/
-│   │   ├── Cargo.toml
-│   │   └── src/main.rs
-│   ├── node-project/
-│   │   ├── package.json
-│   │   └── index.js
-│   └── multi-package/
-│       ├── releasaurus.toml
-│       ├── frontend/package.json
-│       └── backend/Cargo.toml
-└── integration/
-    ├── github_tests.rs
-    └── gitlab_tests.rs
-```
-
-## Documentation Contributions
-
-### Documentation Structure
-
-The documentation is built with [mdBook](https://rust-lang.github.io/mdBook/):
-
-```bash
-# Install mdBook
-cargo install mdbook
-
-# Serve documentation locally
-cd book
-mdbook serve
-
-# Build documentation
-mdbook build
-```
-
-### Writing Documentation
-
-#### Style Guidelines
-
-- Use clear, concise language
-- Include practical examples
-- Add code snippets for complex concepts
-- Test all code examples
 
 #### Commit Messages
 
@@ -490,24 +386,11 @@ Any additional context or screenshots.
 
 ## Code of Conduct
 
-### Our Standards
-
-- **Be respectful**: Treat everyone with respect and kindness
-- **Be inclusive**: Welcome people of all backgrounds and experience levels
-- **Be constructive**: Provide helpful feedback and suggestions
-- **Be patient**: Remember that everyone is learning
-- **Be collaborative**: Work together toward common goals
-
-### Unacceptable Behavior
-
-- Harassment, discrimination, or offensive comments
-- Personal attacks or trolling
-- Spam or off-topic discussions
-- Sharing private information without permission
+This repository adheres the [Rust Code of Conduct]
 
 ### Reporting
 
-Report any unacceptable behavior to the project maintainers. All reports will be handled confidentially.
+Report any unacceptable behavior to the project maintainers.
 
 ## Community and Communication
 
@@ -524,20 +407,6 @@ Report any unacceptable behavior to the project maintainers. All reports will be
 - **Ask Questions**: Create a discussion or issue
 - **Debug Mode**: Use `--debug` for troubleshooting
 
-### Contributor Recognition
-
-Contributors are recognized through:
-
-- Changelog entries for significant contributions
-- Contributor list in repository
-- Social media acknowledgments for major features
-
-## Questions?
-
-Don't hesitate to ask questions! We're here to help:
-
-- **General questions**: GitHub Discussions
-- **Specific issues**: GitHub Issues
-- **Code questions**: Comments in pull requests
-
 Thank you for contributing to Releasaurus!
+
+[Rust Code of Conduct]: https://www.rust-lang.org/policies/code-of-conduct
