@@ -169,15 +169,15 @@ pub fn get_commit_link_for_remote(remote: Remote, commit_id: String) -> String {
     match remote {
         Remote::Github(config) => format!(
             "{}/{}/{}/commit/{}",
-            config.base_url, config.owner, config.repo, commit_id
+            config.link_base_url, config.owner, config.repo, commit_id
         ),
         Remote::Gitlab(config) => format!(
             "{}/{}/{}/commit/{}",
-            config.base_url, config.owner, config.repo, commit_id
+            config.link_base_url, config.owner, config.repo, commit_id
         ),
         Remote::Gitea(config) => format!(
             "{}/{}/{}/commit/{}",
-            config.base_url, config.owner, config.repo, commit_id
+            config.link_base_url, config.owner, config.repo, commit_id
         ),
     }
 }
@@ -186,15 +186,15 @@ pub fn get_version_link_for_remote(remote: Remote, tag: String) -> String {
     match remote {
         Remote::Github(config) => format!(
             "{}/{}/{}/releases/tag/{}",
-            config.base_url, config.owner, config.repo, tag
+            config.link_base_url, config.owner, config.repo, tag
         ),
         Remote::Gitlab(config) => format!(
             "{}/{}/{}/releases/{}",
-            config.base_url, config.owner, config.repo, tag
+            config.link_base_url, config.owner, config.repo, tag
         ),
         Remote::Gitea(config) => format!(
             "{}/{}/{}/releases/{}",
-            config.base_url, config.owner, config.repo, tag
+            config.link_base_url, config.owner, config.repo, tag
         ),
     }
 }

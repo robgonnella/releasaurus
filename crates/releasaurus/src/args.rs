@@ -111,7 +111,11 @@ fn get_github_remote(
         .host
         .ok_or(eyre!("unable to parse host from github repo"))?;
 
-    let base_url = format!("{}://{}", parsed.scheme, host);
+    let mut link_base_url = format!("https://{}", host);
+
+    if let git_url_parse::Scheme::Http = parsed.scheme {
+        link_base_url = format!("http://{}", host);
+    }
 
     let owner = parsed
         .owner
@@ -120,7 +124,7 @@ fn get_github_remote(
     Ok(Remote::Github(RemoteConfig {
         owner,
         repo: parsed.name,
-        base_url,
+        link_base_url,
         api_url,
         token: Secret::new(token),
     }))
@@ -154,7 +158,11 @@ fn get_gitlab_remote(
         .host
         .ok_or(eyre!("unable to parse host from gitlab repo"))?;
 
-    let base_url = format!("{}://{}", parsed.scheme, host);
+    let mut link_base_url = format!("https://{}", host);
+
+    if let git_url_parse::Scheme::Http = parsed.scheme {
+        link_base_url = format!("http://{}", host);
+    }
 
     let owner = parsed
         .owner
@@ -163,7 +171,7 @@ fn get_gitlab_remote(
     Ok(Remote::Gitlab(RemoteConfig {
         owner,
         repo: parsed.name,
-        base_url,
+        link_base_url,
         api_url,
         token: Secret::new(token),
     }))
@@ -197,7 +205,11 @@ fn get_gitea_remote(
         .host
         .ok_or(eyre!("unable to parse host from gitea repo"))?;
 
-    let base_url = format!("{}://{}", parsed.scheme, host);
+    let mut link_base_url = format!("https://{}", host);
+
+    if let git_url_parse::Scheme::Http = parsed.scheme {
+        link_base_url = format!("http://{}", host);
+    }
 
     let owner = parsed
         .owner
@@ -206,7 +218,7 @@ fn get_gitea_remote(
     Ok(Remote::Gitea(RemoteConfig {
         owner,
         repo: parsed.name,
-        base_url,
+        link_base_url,
         api_url,
         token: Secret::new(token),
     }))
