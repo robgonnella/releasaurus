@@ -1,3 +1,14 @@
+# [0.3.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.3) - 2025-09-09
+
+### ⚙️ Miscellaneous Tasks
+
+- Ignore mdbook build again [_(3e26c4b4)_](https://github.com/robgonnella/releasaurus/commit/3e26c4b457215ec8aa375ff1f5923188c98b239e)
+
+- Adds basic README.md [_(04668c7e)_](https://github.com/robgonnella/releasaurus/commit/04668c7e0daf963f60ad781ae0d7fb8759659335)
+
+- Adds basic CONTRIBUTING.md [_(b8cdaa92)_](https://github.com/robgonnella/releasaurus/commit/b8cdaa924a97841c3ae9705cd0d898cc39ca5306)
+
+
 # [0.3.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.2) - 2025-09-09
 
 ### 🐛 Bug Fixes
