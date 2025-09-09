@@ -12,7 +12,7 @@ use crate::{
 
 #[test]
 fn gitea_e2e_test() {
-    let token = env::var("GITEA_TOKEN").unwrap();
+    let token = env::var("GT_TEST_TOKEN").unwrap();
 
     let args = Args {
         command: Command::ReleasePR,

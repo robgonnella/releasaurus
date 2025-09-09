@@ -12,7 +12,7 @@ use crate::{
 
 #[test]
 fn gitlab_e2e_test() {
-    let token = env::var("GITLAB_TOKEN").unwrap();
+    let token = env::var("GL_TEST_TOKEN").unwrap();
 
     let args = Args {
         command: Command::ReleasePR,
