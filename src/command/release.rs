@@ -25,7 +25,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
     let merged_pr = merged_pr.unwrap();
 
-    let cli_config = common::load_configuration()?;
+    let cli_config = common::load_configuration(tmp_dir.path())?;
 
     let releases = process_packages_for_release(
         &repo,

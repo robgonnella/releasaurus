@@ -32,7 +32,7 @@ pub struct AnalyzerConfig {
     /// default "."
     pub repo_path: String,
     /// Path to the package directory within repository
-    pub package_path: String,
+    pub package_relative_path: String,
     /// [Tera](https://github.com/Keats/tera) template string allowing you
     /// to modify the format of the generated changelog.
     pub body: String,
@@ -62,7 +62,7 @@ impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
             repo_path: ".".into(),
-            package_path: ".".into(),
+            package_relative_path: ".".into(),
             body: DEFAULT_BODY.into(),
             header: None,
             footer: None,

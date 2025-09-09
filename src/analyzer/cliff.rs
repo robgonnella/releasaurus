@@ -21,7 +21,7 @@ use crate::{
 pub struct CliffAnalyzer {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
-    package_path: PathBuf,
+    package_full_path: PathBuf,
     starting_point: Option<StartingPoint>,
     commit_link_base_url: String,
     release_link_base_url: String,
@@ -31,7 +31,7 @@ impl CliffAnalyzer {
     /// Returns new instance based on provided configs
     pub fn new(config: AnalyzerConfig) -> Result<Self> {
         let repo_path = Path::new(&config.repo_path).to_path_buf();
-        let package_path = repo_path.join(&config.package_path);
+        let package_full_path = repo_path.join(&config.package_relative_path);
         let starting_point = config.starting_point.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
@@ -41,7 +41,7 @@ impl CliffAnalyzer {
         Ok(Self {
             config: Box::new(cliff_config),
             repo,
-            package_path,
+            package_full_path,
             starting_point,
             commit_link_base_url,
             release_link_base_url,
@@ -149,7 +149,7 @@ impl CliffAnalyzer {
     pub fn process_repository(&self) -> Result<Output> {
         info!(
             "processing repository for package: {}",
-            self.package_path.display()
+            self.package_full_path.display()
         );
 
         let (releases, current_version) = self.get_repo_releases()?;
@@ -206,7 +206,7 @@ impl CliffAnalyzer {
                 changelog.releases.last().wrap_err("no releases found")?;
             projected_release = Some(ProjectedRelease {
                 tag: next_version.clone().unwrap_or("".into()),
-                path: self.package_path.display().to_string(),
+                path: self.package_full_path.display().to_string(),
                 sha: last_release.commit_id.clone().unwrap_or("".into()),
                 notes,
             });
@@ -222,7 +222,7 @@ impl CliffAnalyzer {
 
     pub fn write_changelog(&self) -> Result<Output> {
         let output = self.process_repository()?;
-        let file_path = self.package_path.join("CHANGELOG.md");
+        let file_path = self.package_full_path.join("CHANGELOG.md");
 
         let mut existing_content = String::from("");
 
