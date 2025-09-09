@@ -1,0 +1,1731 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Releasaurus</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Releasaurus</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p><strong>Releasaurus</strong> 🦕 is a comprehensive release automation tool that streamlines the software release process across multiple programming languages and Git forge platforms. Designed with simplicity and flexibility in mind, Releasaurus works out-of-the-box with little to no configuration while providing powerful customization options for advanced use cases.</p>
+<h2 id="what-is-releasaurus"><a class="header" href="#what-is-releasaurus">What is Releasaurus?</a></h2>
+<p>Releasaurus automates the entire release workflow, from version detection and changelog generation to creating pull requests and publishing releases. It intelligently detects your project's language and framework, automatically handles version updates across multiple file types, and seamlessly integrates with your preferred Git hosting platform.</p>
+<h2 id="key-features"><a class="header" href="#key-features">Key Features</a></h2>
+<h3 id="-zero-configuration-start"><a class="header" href="#-zero-configuration-start">🚀 <strong>Zero Configuration Start</strong></a></h3>
+<p>Get started immediately without complex setup files or extensive configuration. Releasaurus intelligently detects your project structure and applies sensible defaults.</p>
+<h3 id="-intelligent-detection"><a class="header" href="#-intelligent-detection">🔍 <strong>Intelligent Detection</strong></a></h3>
+<p>Automatically detects your project's programming language, framework, and version files. No manual specification required for most common project structures.</p>
+<h3 id="-multi-platform-support"><a class="header" href="#-multi-platform-support">🌍 <strong>Multi-Platform Support</strong></a></h3>
+<p>Works with GitHub, GitLab, and Gitea—whether hosted or self-hosted instances. One tool for all your repositories, regardless of where they're hosted.</p>
+<h3 id="-remote-repository-operations"><a class="header" href="#-remote-repository-operations">📁 <strong>Remote Repository Operations</strong></a></h3>
+<p>Works from any directory by automatically cloning repositories to temporary locations for analysis. No need to navigate to project directories or maintain local checkouts—just point at any repository URL.</p>
+<h3 id="-multi-language-support"><a class="header" href="#-multi-language-support">📦 <strong>Multi-Language Support</strong></a></h3>
+<p>Native support for:</p>
+<ul>
+<li><strong>Rust</strong> (Cargo.toml)</li>
+<li><strong>Node.js</strong> (package.json, package-lock.json)</li>
+<li><strong>Python</strong> (pyproject.toml, setup.py, requirements files)</li>
+<li><strong>Java</strong> (Maven pom.xml, Gradle build files)</li>
+<li><strong>PHP</strong> (composer.json)</li>
+<li><strong>Ruby</strong> (Gemfile, .gemspec files)</li>
+<li><strong>Generic</strong> projects (changelog and tagging only - no version file updates)</li>
+</ul>
+<h3 id="-smart-changelog-generation"><a class="header" href="#-smart-changelog-generation">📝 <strong>Smart Changelog Generation</strong></a></h3>
+<p>Powered by <a href="https://git-cliff.org/">git-cliff</a>, automatically generates beautiful changelogs from your commit history with conventional commit support.</p>
+<h3 id="-monorepo-ready"><a class="header" href="#-monorepo-ready">🏢 <strong>Monorepo Ready</strong></a></h3>
+<p>Handle multiple independently-versioned packages within a single repository with per-package configuration and release cycles.</p>
+<h3 id="-flexible-configuration"><a class="header" href="#-flexible-configuration">🔧 <strong>Flexible Configuration</strong></a></h3>
+<p>While it works great with defaults, customize every aspect of the release process through an optional <code>releasaurus.toml</code> configuration file.</p>
+<h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
+<p>Releasaurus follows a simple two-step release process:</p>
+<ol>
+<li>
+<p><strong><code>releasaurus release-pr</code></strong> - Analyzes your commits, determines the next version, updates version files, generates a changelog, and creates a pull request for review.</p>
+</li>
+<li>
+<p><strong><code>releasaurus release</code></strong> - After the release PR is merged, creates a Git tag and publishes the release to your forge platform.</p>
+</li>
+</ol>
+<p>This workflow provides a safety net through pull request reviews while automating all the tedious version management tasks.</p>
+<h2 id="why-another-release-tool"><a class="header" href="#why-another-release-tool">Why Another Release Tool?</a></h2>
+<p>Releasaurus was inspired by excellent tools like <a href="https://git-cliff.org/">git-cliff</a>, <a href="https://github.com/googleapis/release-please">release-please</a>, and <a href="https://release-plz.ieni.dev/">release-plz</a>, each of which excels in their specific domain. However, we identified key limitations that Releasaurus addresses:</p>
+<ul>
+<li><strong>release-please</strong> only works with GitHub, limiting teams using other platforms</li>
+<li><strong>release-plz</strong> focuses exclusively on Rust projects</li>
+<li>Existing tools often require extensive configuration for non-standard projects</li>
+</ul>
+<p>Releasaurus brings together the best ideas from these tools while providing:</p>
+<ul>
+<li><strong>Universal platform support</strong> - GitHub, GitLab, and Gitea</li>
+<li><strong>Multi-language support</strong> - Works with any programming language or framework</li>
+<li><strong>Minimal configuration</strong> - Intelligent defaults that work immediately</li>
+<li><strong>Consistent experience</strong> - Same workflow regardless of language or platform</li>
+</ul>
+<h2 id="credit-and-inspiration"><a class="header" href="#credit-and-inspiration">Credit and Inspiration</a></h2>
+<p>We gratefully acknowledge the inspiration and foundation provided by:</p>
+<ul>
+<li><strong><a href="https://git-cliff.org/">git-cliff</a></strong> - For excellent changelog generation capabilities that we integrate directly</li>
+<li><strong><a href="https://github.com/googleapis/release-please">release-please</a></strong> - For pioneering the release-PR workflow pattern</li>
+<li><strong><a href="https://release-plz.ieni.dev/">release-plz</a></strong> - For demonstrating effective Rust ecosystem integration</li>
+</ul>
+<p>Releasaurus builds upon these proven concepts while extending support to a broader ecosystem of languages, frameworks, and platforms.</p>
+<h2 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h2>
+<p>Ready to automate your releases? Head over to the <a href="./installation.html">Installation</a> guide to get started, or jump straight into the <a href="./quick-start.html">Quick Start</a> tutorial to see Releasaurus in action.</p>
+<p>Whether you're maintaining a single-language project or a complex monorepo, Releasaurus adapts to your workflow while maintaining the reliability and safety that production releases demand.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This guide covers different methods to install Releasaurus on your system.</p>
+<h2 id="system-requirements"><a class="header" href="#system-requirements">System Requirements</a></h2>
+<ul>
+<li><strong>Operating System</strong>: Linux, macOS, or Windows</li>
+<li><strong>Git</strong>: Version 2.0 or higher</li>
+<li><strong>Internet Access</strong>: Required for API calls to Git forge platforms</li>
+</ul>
+<h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
+<h3 id="option-1-install-from-cratesio-recommended"><a class="header" href="#option-1-install-from-cratesio-recommended">Option 1: Install from Crates.io (Recommended)</a></h3>
+<p>The easiest way to install Releasaurus is using Cargo, Rust's package manager:</p>
+<pre><code class="language-bash">cargo install releasaurus
+</code></pre>
+<p>This will download, compile, and install the latest stable version of Releasaurus. The binary will be available in your <code>$HOME/.cargo/bin</code> directory, which should be in your system's PATH.</p>
+<h3 id="option-2-download-pre-built-binaries"><a class="header" href="#option-2-download-pre-built-binaries">Option 2: Download Pre-built Binaries</a></h3>
+<p>Coming soon...</p>
+<h3 id="option-3-build-from-source"><a class="header" href="#option-3-build-from-source">Option 3: Build from Source</a></h3>
+<p>If you prefer to build from source or need the latest development features:</p>
+<h4 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h4>
+<ul>
+<li><a href="https://rustup.rs/">Rust</a> 1.70 or higher</li>
+<li>Git</li>
+</ul>
+<h4 id="build-steps"><a class="header" href="#build-steps">Build Steps</a></h4>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/your-username/releasaurus.git
+cd releasaurus
+
+# Build and install
+cargo install --path .
+</code></pre>
+<p>This will build the project in release mode and install it to your Cargo bin directory.</p>
+<h2 id="verify-installation"><a class="header" href="#verify-installation">Verify Installation</a></h2>
+<p>After installation, verify that Releasaurus is working correctly:</p>
+<pre><code class="language-bash">releasaurus --help
+</code></pre>
+<p>You should see the help output with available commands and options.</p>
+<p>Check the installed version:</p>
+<pre><code class="language-bash">releasaurus --version
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<p>Now that you have Releasaurus installed, head over to the <a href="./quick-start.html">Quick Start</a> guide to learn how to use it with your first project, or check out the <a href="./basic-configuration.html">Basic Configuration</a> if you want to customize the default behavior.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<p>This guide will get you up and running with Releasaurus in just a few minutes. We'll walk through releasing a simple project to demonstrate the core workflow.</p>
+<h2 id="prerequisites-1"><a class="header" href="#prerequisites-1">Prerequisites</a></h2>
+<p>Before starting, ensure you have:</p>
+<ol>
+<li><strong>Releasaurus installed</strong> - See <a href="./installation.html">Installation</a> if you haven't already</li>
+<li><strong>A Git repository</strong> with some commits to release</li>
+<li><strong>Access token</strong> for your Git forge platform (GitHub, GitLab, or Gitea)</li>
+<li><strong>Push access</strong> to your repository</li>
+</ol>
+<h2 id="step-1-prepare-your-access-token"><a class="header" href="#step-1-prepare-your-access-token">Step 1: Prepare Your Access Token</a></h2>
+<p>Releasaurus needs an access token to create pull requests and releases on your behalf.</p>
+<h3 id="github"><a class="header" href="#github">GitHub</a></h3>
+<ol>
+<li>Go to <a href="https://github.com/settings/tokens">GitHub Settings → Personal Access Tokens</a></li>
+<li>Generate a new token with these scopes:
+<ul>
+<li><code>repo</code> (for private repositories)</li>
+<li><code>public_repo</code> (for public repositories)</li>
+</ul>
+</li>
+</ol>
+<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
+<ol>
+<li>Go to <a href="https://gitlab.com/-/profile/personal_access_tokens">GitLab User Settings → Access Tokens</a></li>
+<li>Create a token with these scopes:
+<ul>
+<li><code>api</code></li>
+<li><code>read_repository</code></li>
+<li><code>write_repository</code></li>
+</ul>
+</li>
+</ol>
+<h3 id="gitea"><a class="header" href="#gitea">Gitea</a></h3>
+<ol>
+<li>Go to your Gitea instance → User Settings → Applications</li>
+<li>Generate a new token with repository read/write permissions</li>
+</ol>
+<h2 id="step-2-identify-your-project-repository"><a class="header" href="#step-2-identify-your-project-repository">Step 2: Identify Your Project Repository</a></h2>
+<p>You can run Releasaurus from any directory - it automatically clones your repository to a temporary location for analysis and updates. You just need the repository URL and appropriate access permissions.</p>
+<p>Releasaurus works with any project structure and automatically detects:</p>
+<ul>
+<li><strong>Rust</strong>: Projects with <code>Cargo.toml</code></li>
+<li><strong>Node.js</strong>: Projects with <code>package.json</code></li>
+<li><strong>Python</strong>: Projects with <code>pyproject.toml</code>, <code>setup.py</code>, or <code>setup.cfg</code></li>
+<li><strong>Java</strong>: Projects with <code>pom.xml</code> or <code>build.gradle</code></li>
+<li><strong>PHP</strong>: Projects with <code>composer.json</code></li>
+<li><strong>Ruby</strong>: Projects with <code>Gemfile</code> or <code>.gemspec</code> files</li>
+</ul>
+<h2 id="step-3-create-a-release-pr"><a class="header" href="#step-3-create-a-release-pr">Step 3: Create a Release PR</a></h2>
+<p><strong>Important</strong>: You can run this command from any directory. Releasaurus will automatically clone your repository to analyze it and create the release PR.</p>
+<p>Run the release-pr command with your repository information:</p>
+<pre><code class="language-bash"># GitHub example
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --github-token "ghp_your_token_here"
+
+# GitLab example
+releasaurus release-pr \
+  --gitlab-repo "https://gitlab.com/owner/repo" \
+  --gitlab-token "glpat_your_token_here"
+
+# Gitea example
+releasaurus release-pr \
+  --gitea-repo "https://git.example.com/owner/repo" \
+  --gitea-token "your_token_here"
+</code></pre>
+<p>This command will:</p>
+<ol>
+<li><strong>Analyze your commits</strong> since the last release using conventional commit patterns</li>
+<li><strong>Determine the next version</strong> based on the changes (patch, minor, or major)</li>
+<li><strong>Update version files</strong> in your project automatically</li>
+<li><strong>Generate a changelog</strong> from your commit history</li>
+<li><strong>Create a pull request</strong> with all the changes ready for review</li>
+</ol>
+<h2 id="step-4-review-and-merge"><a class="header" href="#step-4-review-and-merge">Step 4: Review and Merge</a></h2>
+<p>The release PR is created in your repository regardless of where you ran the command from.</p>
+<ol>
+<li><strong>Review the pull request</strong> that was created</li>
+<li><strong>Check the changelog</strong> and version updates</li>
+<li><strong>Make any necessary adjustments</strong> by pushing additional commits to the PR branch</li>
+<li><strong>Merge the pull request</strong> when you're satisfied</li>
+</ol>
+<h2 id="step-5-publish-the-release"><a class="header" href="#step-5-publish-the-release">Step 5: Publish the Release</a></h2>
+<p>After merging the release PR, publish the actual release:</p>
+<pre><code class="language-bash"># Use the same platform and credentials as before
+releasaurus release \
+  --github-repo "https://github.com/owner/repo" \
+  --github-token "ghp_your_token_here"
+</code></pre>
+<p>This will:</p>
+<ol>
+<li><strong>Create a Git tag</strong> for the new version</li>
+<li><strong>Push the tag</strong> to your repository</li>
+<li><strong>Create a release</strong> on your forge platform with the generated changelog</li>
+</ol>
+<h2 id="environment-variables-alternative"><a class="header" href="#environment-variables-alternative">Environment Variables (Alternative)</a></h2>
+<p>Instead of passing tokens as command-line arguments, you can use environment variables:</p>
+<pre><code class="language-bash"># Set your token
+export GITHUB_TOKEN="ghp_your_token_here"
+# or
+export GITLAB_TOKEN="glpat_your_token_here"
+# or
+export GITEA_TOKEN="your_token_here"
+
+# Then run commands without --*-token flags
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release --github-repo "https://github.com/owner/repo"
+</code></pre>
+<h2 id="what-just-happened"><a class="header" href="#what-just-happened">What Just Happened?</a></h2>
+<p>Congratulations! You've just completed a full release cycle with Releasaurus:</p>
+<ol>
+<li>✅ <strong>Automated version detection</strong> - No manual version bumping</li>
+<li>✅ <strong>Automatic file updates</strong> - All version files updated consistently</li>
+<li>✅ <strong>Generated changelog</strong> - Beautiful changelog from your commit history</li>
+<li>✅ <strong>Safe review process</strong> - Changes reviewed via pull request</li>
+<li>✅ <strong>Published release</strong> - Tagged and published to your forge platform</li>
+</ol>
+<h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
+<p>This quick start used all defaults, but Releasaurus is highly customizable:</p>
+<ul>
+<li><strong><a href="./configuration.html">Configuration</a></strong> - Customization options and advanced setup</li>
+<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
+</ul>
+<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
+<h3 id="workflow-integration"><a class="header" href="#workflow-integration">Workflow Integration</a></h3>
+<p>Many teams integrate Releasaurus into their development workflow:</p>
+<pre><code class="language-bash"># 1. Develop and commit using conventional commits (in your project directory)
+git commit -m "feat: add user authentication"
+git commit -m "fix: resolve login validation issue"
+git commit -m "docs: update API documentation"
+
+# 2. When ready to release (can be run from anywhere)
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# 3. Review, merge, then publish (can be run from anywhere)
+releasaurus release --github-repo "https://github.com/owner/repo"
+</code></pre>
+<h3 id="debug-mode"><a class="header" href="#debug-mode">Debug Mode</a></h3>
+<p>If something isn't working as expected, enable debug logging:</p>
+<pre><code class="language-bash">releasaurus release-pr --debug \
+  --github-repo "https://github.com/owner/repo"
+</code></pre>
+<p>This provides detailed information about detection logic, API calls, and file operations.</p>
+<p>Ready to dive deeper? Check out the <a href="./commands.html">Commands</a> section for detailed information about all available options and features.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="basic-configuration"><a class="header" href="#basic-configuration">Basic Configuration</a></h1>
+<p>Releasaurus is designed to work out-of-the-box with zero configuration for most projects. However, you may want to customize certain aspects of the release process, such as changelog formatting or handling multiple packages within a single repository.</p>
+<h2 id="do-you-need-configuration"><a class="header" href="#do-you-need-configuration">Do You Need Configuration?</a></h2>
+<h3 id="you-dont-need-configuration-if"><a class="header" href="#you-dont-need-configuration-if">You DON'T need configuration if:</a></h3>
+<ul>
+<li>You have a single package/project in your repository</li>
+<li>You're happy with the default changelog format</li>
+<li>You're happy with the default tag prefix "v" i.e. <code>v1.0.0</code>, <code>v2.1.0</code></li>
+<li>You're using standard project structures for supported languages</li>
+</ul>
+<h3 id="you-do-need-configuration-if"><a class="header" href="#you-do-need-configuration-if">You DO need configuration if:</a></h3>
+<ul>
+<li>You want custom changelog templates or formatting</li>
+<li>You have multiple packages in one repository (monorepo)</li>
+<li>You want custom prefixed tags (like <code>cli-v1.0.0</code> or <code>api-v1.0.0</code>)</li>
+<li>You need to customize the release process for your team's workflow</li>
+</ul>
+<h2 id="creating-your-first-configuration"><a class="header" href="#creating-your-first-configuration">Creating Your First Configuration</a></h2>
+<p>If you need configuration, create a file called <code>releasaurus.toml</code> in your project's root directory:</p>
+<pre><code>my-project/
+├── releasaurus.toml    # ← Create this file
+├── src/
+├── README.md
+└── ...
+</code></pre>
+<h2 id="basic-configuration-examples"><a class="header" href="#basic-configuration-examples">Basic Configuration Examples</a></h2>
+<h3 id="adding-tag-prefixes"><a class="header" href="#adding-tag-prefixes">Adding Tag Prefixes</a></h3>
+<p>The most common customization is adding a prefix to your Git tags:</p>
+<pre><code class="language-toml"># releasaurus.toml
+[[package]]
+path = "."
+tag_prefix = "v"
+</code></pre>
+<p>This creates tags like <code>v1.0.0</code>, <code>v1.1.0</code>, <code>v2.0.0</code> instead of <code>1.0.0</code>, <code>1.1.0</code>, <code>2.0.0</code>.</p>
+<h3 id="custom-changelog-header"><a class="header" href="#custom-changelog-header">Custom Changelog Header</a></h3>
+<p>Add a custom header to your changelogs:</p>
+<pre><code class="language-toml"># releasaurus.toml
+[changelog]
+header = "# MyProject Changelog\n\nAll notable changes to MyProject are documented here.\n"
+
+[[package]]
+path = "."
+tag_prefix = "v"
+</code></pre>
+<h3 id="simple-multi-package-setup"><a class="header" href="#simple-multi-package-setup">Simple Multi-Package Setup</a></h3>
+<p>For a repository with multiple independently-versioned components:</p>
+<pre><code class="language-toml"># releasaurus.toml
+[[package]]
+path = "./frontend"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+tag_prefix = "backend-v"
+</code></pre>
+<p>This allows you to release the frontend and backend independently, with tags like:</p>
+<ul>
+<li><code>frontend-v1.0.0</code>, <code>frontend-v1.1.0</code></li>
+<li><code>backend-v1.0.0</code>, <code>backend-v2.0.0</code></li>
+</ul>
+<h2 id="configuration-file-structure"><a class="header" href="#configuration-file-structure">Configuration File Structure</a></h2>
+<p>The configuration file has two main sections:</p>
+<h3 id="changelog-section-optional"><a class="header" href="#changelog-section-optional"><code>[changelog]</code> Section (Optional)</a></h3>
+<p>Controls how changelogs are generated:</p>
+<pre><code class="language-toml">[changelog]
+header = "Custom header text"    # Optional
+footer = "Custom footer text"    # Optional
+# body template is also available for advanced users
+</code></pre>
+<h3 id="package-sections-required"><a class="header" href="#package-sections-required"><code>[[package]]</code> Sections (Required)</a></h3>
+<p>Defines packages in your repository. You can have multiple <code>[[package]]</code> sections:</p>
+<pre><code class="language-toml">[[package]]
+path = "."              # Required: path to package
+tag_prefix = "v"        # Optional: tag prefix
+
+[[package]]
+path = "./other-package"
+tag_prefix = "other-v"
+</code></pre>
+<h2 id="common-patterns-1"><a class="header" href="#common-patterns-1">Common Patterns</a></h2>
+<h3 id="standard-single-project"><a class="header" href="#standard-single-project">Standard Single Project</a></h3>
+<pre><code class="language-toml"># Most common setup
+[[package]]
+path = "."
+tag_prefix = "v"
+</code></pre>
+<h3 id="workspace-with-shared-tag-prefix"><a class="header" href="#workspace-with-shared-tag-prefix">Workspace with Shared Tag Prefix</a></h3>
+<pre><code class="language-toml"># All packages use same prefix style
+[[package]]
+path = "./app"
+tag_prefix = "v"
+
+[[package]]
+path = "./lib"
+tag_prefix = "v"
+</code></pre>
+<h3 id="clear-component-separation"><a class="header" href="#clear-component-separation">Clear Component Separation</a></h3>
+<pre><code class="language-toml"># Different prefix for each component
+[[package]]
+path = "./web-app"
+tag_prefix = "web-"
+
+[[package]]
+path = "./mobile-app"
+tag_prefix = "mobile-"
+
+[[package]]
+path = "./shared-lib"
+tag_prefix = "lib-"
+</code></pre>
+<h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
+<p>After creating your configuration file:</p>
+<ol>
+<li><strong>Validate syntax</strong>: Run any Releasaurus command with <code>--debug</code> to check for configuration errors</li>
+<li><strong>Review output</strong>: Check that tag names and changelog format match your expectations</li>
+</ol>
+<p>Example validation:</p>
+<pre><code class="language-bash"># This will load and validate your configuration
+releasaurus release-pr --github-repo "https://github.com/owner/repo" --debug
+</code></pre>
+<p>If there are configuration errors, you'll see clear error messages explaining what needs to be fixed.</p>
+<h2 id="configuration-loading"><a class="header" href="#configuration-loading">Configuration Loading</a></h2>
+<p>Releasaurus looks for <code>releasaurus.toml</code> in your project root. If found:</p>
+<ul>
+<li>✅ Your configuration is loaded and used</li>
+<li>❌ Any errors will stop execution with helpful messages</li>
+</ul>
+<p>If not found:</p>
+<ul>
+<li>✅ Default configuration is used automatically</li>
+<li>✅ Everything works with sensible defaults</li>
+</ul>
+<h2 id="default-values"><a class="header" href="#default-values">Default Values</a></h2>
+<p>When you don't specify values, these defaults are used:</p>
+<pre><code class="language-toml"># Implicit defaults (you don't need to write these)
+[changelog]
+body = "{% if version -%}
+    # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    # [unreleased]
+{% endif -%}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+      {% if commit.breaking -%}
+        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id }})
+        {% if commit.body -%}
+        &gt; {{ commit.body }}
+        {% endif -%}
+        {% if commit.breaking_description -%}
+        &gt; {{ commit.breaking_description }}
+        {% endif -%}
+      {% else -%}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id -}})
+      {% endif -%}
+    {% endfor %}
+{% endfor %}"
+footer = "Generated by Releasaurus 🦕"
+
+[[package]]
+path = "."
+tag_prefix = "v"
+</code></pre>
+<h2 id="environment-specific-configuration"><a class="header" href="#environment-specific-configuration">Environment-Specific Configuration</a></h2>
+<p>While the configuration file handles project settings, environment-specific settings use environment variables:</p>
+<pre><code class="language-bash"># Authentication tokens
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+export GITLAB_TOKEN="glpat_xxxxxxxxxxxx"
+export GITEA_TOKEN="xxxxxxxxxxxx"
+</code></pre>
+<p>These don't go in the configuration file for security reasons.</p>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<p>If you're having trouble with configuration:</p>
+<ol>
+<li><strong>Use debug mode</strong>: Add <code>--debug</code> to see detailed configuration loading</li>
+<li><strong>Start simple</strong>: Begin with just tag prefixes, add complexity gradually</li>
+<li><strong>Check examples</strong>: Review the patterns above for similar use cases</li>
+<li><strong>Validate early</strong>: Test configuration changes before committing</li>
+</ol>
+<h2 id="next-steps-2"><a class="header" href="#next-steps-2">Next Steps</a></h2>
+<p>Once you have basic configuration working:</p>
+<ul>
+<li><strong><a href="./configuration.html">Configuration</a></strong> - Complete configuration reference</li>
+<li><strong><a href="./commands.html">Commands</a></strong> - Using Releasaurus with your configuration</li>
+</ul>
+<p>Remember: start simple and add complexity as needed. The basic patterns above handle most common requirements, and you can always enhance your configuration as your project evolves.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
+<p>Releasaurus provides two main commands that work together to create a safe, reviewable release process. This two-stage approach ensures that all changes are reviewed before publication while automating the tedious aspects of version management and changelog generation.</p>
+<p><strong>Important</strong>: Releasaurus operates on remote repositories by automatically cloning them to temporary directories for analysis. You can run these commands from any location - you don't need to navigate to or have a local checkout of your project.</p>
+<h2 id="command-overview"><a class="header" href="#command-overview">Command Overview</a></h2>
+<h3 id="release-pr"><a class="header" href="#release-pr"><code>release-pr</code></a></h3>
+<p><strong>Purpose</strong>: Analyze commits, update versions, generate changelog, and create a pull request</p>
+<p>This command does the heavy lifting of release preparation:</p>
+<ul>
+<li>Analyzes commits since the last release</li>
+<li>Determines the appropriate version bump (patch, minor, major)</li>
+<li>Updates version files across your project</li>
+<li>Generates a changelog from commit history</li>
+<li>Creates a pull request with all changes</li>
+</ul>
+<h3 id="release"><a class="header" href="#release"><code>release</code></a></h3>
+<p><strong>Purpose</strong>: Create tags and publish the release after PR approval</p>
+<p>This command finalizes the release:</p>
+<ul>
+<li>Validates that you're on a release commit</li>
+<li>Creates a Git tag for the new version</li>
+<li>Pushes the tag to the remote repository</li>
+<li>Creates a release on your forge platform</li>
+</ul>
+<h2 id="basic-usage-pattern"><a class="header" href="#basic-usage-pattern">Basic Usage Pattern</a></h2>
+<p>The typical Releasaurus workflow follows this pattern (can be run from any directory):</p>
+<pre><code class="language-bash"># Step 1: Create release preparation PR (run from anywhere)
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# Step 2: Review and merge the PR (done via web interface)
+
+# Step 3: Publish the release (run from anywhere)
+releasaurus release --github-repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Note</strong>: These commands work by cloning your repository to a temporary directory, analyzing the project structure, making necessary changes, and pushing updates back to the remote. You don't need to be in your project directory or have a local checkout.</p>
+<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
+<p>All commands support these global options:</p>
+<h3 id="platform-selection"><a class="header" href="#platform-selection">Platform Selection</a></h3>
+<p>Choose your Git forge platform by specifying the repository URL:</p>
+<pre><code class="language-bash"># GitHub
+--github-repo "https://github.com/owner/repository"
+
+# GitLab
+--gitlab-repo "https://gitlab.com/group/project"
+
+# Gitea (or Forgejo)
+--gitea-repo "https://git.example.com/owner/repo"
+</code></pre>
+<h3 id="authentication"><a class="header" href="#authentication">Authentication</a></h3>
+<p>Provide access tokens for API authentication:</p>
+<pre><code class="language-bash"># Via command line
+--github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+--gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+--gitea-token "xxxxxxxxxxxxxxxxxx"
+
+# Via environment variables (recommended)
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
+export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
+</code></pre>
+<h3 id="debug-logging"><a class="header" href="#debug-logging">Debug Logging</a></h3>
+<p>Enable detailed logging for troubleshooting:</p>
+<pre><code class="language-bash">--debug
+</code></pre>
+<p>This provides verbose output including:</p>
+<ul>
+<li>Project detection logic</li>
+<li>File modification details</li>
+<li>API request/response information</li>
+<li>Git operations and status</li>
+</ul>
+<h2 id="platform-specific-examples"><a class="header" href="#platform-specific-examples">Platform-Specific Examples</a></h2>
+<h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
+<pre><code class="language-bash"># With explicit token
+releasaurus release-pr \
+  --github-repo "https://github.com/myorg/myproject" \
+  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+
+# With environment variable
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+releasaurus release-pr --github-repo "https://github.com/myorg/myproject"
+</code></pre>
+<h3 id="gitlab-1"><a class="header" href="#gitlab-1">GitLab</a></h3>
+<pre><code class="language-bash"># GitLab.com
+releasaurus release-pr \
+  --gitlab-repo "https://gitlab.com/mygroup/myproject" \
+  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+
+# Self-hosted GitLab
+releasaurus release-pr \
+  --gitlab-repo "https://gitlab.company.com/team/project" \
+  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+</code></pre>
+<h3 id="gitea-1"><a class="header" href="#gitea-1">Gitea</a></h3>
+<pre><code class="language-bash"># Self-hosted Gitea
+releasaurus release-pr \
+  --gitea-repo "https://git.company.com/team/project" \
+  --gitea-token "xxxxxxxxxxxxxxxxxx"
+
+# Works with Forgejo too
+releasaurus release-pr \
+  --gitea-repo "https://forgejo.example.com/org/repo" \
+  --gitea-token "xxxxxxxxxxxxxxxxxx"
+</code></pre>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<p>For security and convenience, use environment variables instead of command-line tokens:</p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>GITHUB_TOKEN</code></td><td>GitHub personal access token</td><td><code>ghp_xxxxxxxxxxxxxxxxxxxx</code></td></tr>
+<tr><td><code>GITLAB_TOKEN</code></td><td>GitLab personal/project access token</td><td><code>glpat_xxxxxxxxxxxxxxxxxxxx</code></td></tr>
+<tr><td><code>GITEA_TOKEN</code></td><td>Gitea/Forgejo access token</td><td><code>xxxxxxxxxxxxxxxxxx</code></td></tr>
+</tbody></table>
+</div>
+<p>When environment variables are set, you can omit the <code>--*-token</code> flags:</p>
+<pre><code class="language-bash"># Set once
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+
+# Use in multiple commands
+releasaurus release-pr --github-repo "https://github.com/org/repo1"
+releasaurus release-pr --github-repo "https://github.com/org/repo2"
+</code></pre>
+<h2 id="help-and-documentation"><a class="header" href="#help-and-documentation">Help and Documentation</a></h2>
+<p>Get help for any command:</p>
+<pre><code class="language-bash"># General help
+releasaurus --help
+
+# Command-specific help
+releasaurus release-pr --help
+releasaurus release --help
+
+# Version information
+releasaurus --version
+</code></pre>
+<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
+<p>For integration and automation:</p>
+<ul>
+<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="supported-languages--frameworks"><a class="header" href="#supported-languages--frameworks">Supported Languages &amp; Frameworks</a></h1>
+<p>Releasaurus provides native support for a wide range of programming languages and frameworks. The tool automatically detects your project's language and framework, then handles version updates across all relevant files without requiring manual configuration.</p>
+<h2 id="automatic-detection"><a class="header" href="#automatic-detection">Automatic Detection</a></h2>
+<p>When you run Releasaurus, it automatically scans your project directory to identify:</p>
+<ol>
+<li><strong>Primary language/framework</strong> based on manifest files</li>
+<li><strong>Version files</strong> that need updating</li>
+<li><strong>Project structure</strong> and dependencies</li>
+<li><strong>Release patterns</strong> appropriate for your ecosystem</li>
+</ol>
+<p>This detection happens transparently—you don't need to specify your project type or configure file patterns.</p>
+<h2 id="detection-priority"><a class="header" href="#detection-priority">Detection Priority</a></h2>
+<p>When multiple language indicators are present, Releasaurus uses this priority order:</p>
+<ol>
+<li><strong>Rust</strong> - <code>Cargo.toml</code> presence</li>
+<li><strong>Python</strong> - <code>pyproject.toml</code>, <code>setup.py</code>, or <code>setup.cfg</code></li>
+<li><strong>Node.js</strong> - <code>package.json</code> presence</li>
+<li><strong>PHP</strong> - <code>composer.json</code> presence</li>
+<li><strong>Java</strong> - <code>pom.xml</code> or <code>build.gradle*</code> files</li>
+<li><strong>Ruby</strong> - <code>Gemfile</code> or <code>*.gemspec</code> files</li>
+<li><strong>Generic</strong> - Custom patterns or unrecognized projects</li>
+</ol>
+<h2 id="supported-languages"><a class="header" href="#supported-languages">Supported Languages</a></h2>
+<h3 id="rust"><a class="header" href="#rust">Rust</a></h3>
+<p><strong>Detection Files</strong>: <code>Cargo.toml</code>
+<strong>Updated Files</strong>: <code>Cargo.toml</code>, <code>Cargo.lock</code> (if present)</p>
+<p>Rust projects using Cargo for dependency management and packaging. Supports both library and binary crates, workspace configurations, and dependency version updates.</p>
+<p><strong>Example Project Structure</strong>:</p>
+<pre><code>my-rust-project/
+├── Cargo.toml          # ← Version updated here
+├── Cargo.lock          # ← Automatically updated
+├── src/
+│   └── lib.rs
+└── README.md
+</code></pre>
+<h3 id="nodejs"><a class="header" href="#nodejs">Node.js</a></h3>
+<p><strong>Detection Files</strong>: <code>package.json</code>
+<strong>Updated Files</strong>: <code>package.json</code>, <code>package-lock.json</code>, <code>yarn.lock</code>, <code>pnpm-lock.yaml</code></p>
+<p>JavaScript and TypeScript projects using npm, Yarn, or pnpm package managers. Supports monorepos, workspaces, and dependency updates.</p>
+<p><strong>Example Project Structure</strong>:</p>
+<pre><code>my-node-project/
+├── package.json        # ← Version updated here
+├── package-lock.json   # ← Automatically updated
+├── src/
+│   └── index.js
+└── README.md
+</code></pre>
+<h3 id="python"><a class="header" href="#python">Python</a></h3>
+<p><strong>Detection Files</strong>: <code>pyproject.toml</code>, <code>setup.py</code>, <code>setup.cfg</code>
+<strong>Updated Files</strong>: <code>pyproject.toml</code>, <code>setup.py</code>, <code>setup.cfg</code>, <code>__init__.py</code>, <code>requirements*.txt</code></p>
+<p>Python projects using modern packaging standards (PEP 518/517) or legacy setuptools. Supports Poetry, setuptools, and custom version patterns.</p>
+<p><strong>Example Project Structure</strong>:</p>
+<pre><code>my-python-project/
+├── pyproject.toml      # ← Primary version location
+├── requirements.txt    # ← Version references updated
+├── src/
+│   └── my_package/
+│       └── __init__.py # ← Version string updated
+└── README.md
+</code></pre>
+<h3 id="java"><a class="header" href="#java">Java</a></h3>
+<p><strong>Detection Files</strong>: <code>pom.xml</code>, <code>build.gradle</code>, <code>build.gradle.kts</code>
+<strong>Updated Files</strong>: Maven POMs, Gradle build files, version properties</p>
+<p>Java projects using Maven or Gradle build systems. Supports multi-module projects, parent POMs, and version property management.</p>
+<p><strong>Example Maven Project</strong>:</p>
+<pre><code>my-java-project/
+├── pom.xml             # ← Version updated here
+├── src/
+│   └── main/java/
+└── README.md
+</code></pre>
+<p><strong>Example Gradle Project</strong>:</p>
+<pre><code>my-gradle-project/
+├── build.gradle        # ← Version updated here
+├── gradle.properties   # ← Version properties updated
+├── src/
+│   └── main/java/
+└── README.md
+</code></pre>
+<h3 id="php"><a class="header" href="#php">PHP</a></h3>
+<p><strong>Detection Files</strong>: <code>composer.json</code>
+<strong>Updated Files</strong>: <code>composer.json</code>, <code>composer.lock</code> (regenerated)</p>
+<p>PHP projects using Composer for dependency management. Supports packages, applications, and dependency constraint updates.</p>
+<p><strong>Example Project Structure</strong>:</p>
+<pre><code>my-php-project/
+├── composer.json       # ← Version updated here
+├── composer.lock       # ← Automatically updated
+├── src/
+│   └── MyClass.php
+└── README.md
+</code></pre>
+<h3 id="ruby"><a class="header" href="#ruby">Ruby</a></h3>
+<p><strong>Detection Files</strong>: <code>Gemfile</code>, <code>*.gemspec</code>
+<strong>Updated Files</strong>: Gemspec files, version files, Gemfile dependencies</p>
+<p>Ruby projects using Bundler and RubyGems. Supports gems, applications, and version constant management.</p>
+<p><strong>Example Gem Project</strong>:</p>
+<pre><code>my-ruby-gem/
+├── my_gem.gemspec      # ← Version updated here
+├── Gemfile
+├── lib/
+│   └── my_gem/
+│       └── version.rb  # ← Version constant updated
+└── README.md
+</code></pre>
+<h3 id="generic-projects"><a class="header" href="#generic-projects">Generic Projects</a></h3>
+<p><strong>Detection</strong>: Fallback when no specific language is detected</p>
+<p>Right now anything that falls back to "Generic" will only receive changelog
+updates and tagging. Any specific version manifests will be left untouched.
+In the future we will support the configuration of generic manifest files
+that can be updated via regex-able version properties.</p>
+<h2 id="framework-specific-features"><a class="header" href="#framework-specific-features">Framework-Specific Features</a></h2>
+<h3 id="version-file-detection"><a class="header" href="#version-file-detection">Version File Detection</a></h3>
+<p>Each language ecosystem has different conventions for where version information is stored:</p>
+<ul>
+<li><strong>Rust</strong>: Single source of truth in <code>Cargo.toml</code></li>
+<li><strong>Node.js</strong>: Primary in <code>package.json</code>, locks updated automatically</li>
+<li><strong>Python</strong>: Multiple possible locations (pyproject.toml, setup.py, <strong>init</strong>.py)</li>
+<li><strong>Java</strong>: Maven coordinates or Gradle version properties</li>
+<li><strong>PHP</strong>: Composer metadata with semantic versioning</li>
+<li><strong>Ruby</strong>: Gemspec version specifications</li>
+</ul>
+<h3 id="dependency-updates"><a class="header" href="#dependency-updates">Dependency Updates</a></h3>
+<p>Some frameworks support updating dependency versions during releases:</p>
+<ul>
+<li><strong>Node.js</strong>: Updates lock files and can bump dependencies</li>
+<li><strong>Rust</strong>: Updates Cargo.lock automatically</li>
+<li><strong>PHP</strong>: Regenerates composer.lock with new constraints</li>
+<li><strong>Python</strong>: Can update version pins in requirements files</li>
+</ul>
+<h3 id="build-system-integration"><a class="header" href="#build-system-integration">Build System Integration</a></h3>
+<p>Releasaurus integrates with various build systems:</p>
+<ul>
+<li><strong>Cargo</strong> (Rust): Workspace and crate management</li>
+<li><strong>npm/yarn/pnpm</strong> (Node.js): Workspace and package management</li>
+<li><strong>Poetry/setuptools</strong> (Python): Build backend integration</li>
+<li><strong>Maven/Gradle</strong> (Java): Multi-module project support</li>
+<li><strong>Bundler</strong> (Ruby): Gem dependency management</li>
+</ul>
+<h2 id="multi-language-projects"><a class="header" href="#multi-language-projects">Multi-Language Projects</a></h2>
+<p>For projects that use multiple languages, Releasaurus can handle them in several ways:</p>
+<ol>
+<li><strong>Primary Language Detection</strong>: Uses the highest-priority language found</li>
+<li><strong>Multi-Package Configuration</strong>: Define separate packages for each language</li>
+<li><strong>Generic Fallback</strong>: Use generic patterns for unsupported combinations</li>
+</ol>
+<p>Example multi-language project configuration:</p>
+<pre><code class="language-toml"># releasaurus.toml
+[[package]]
+path = "./backend"      # Rust API
+tag_prefix = "api-v"
+
+[[package]]
+path = "./frontend"     # Node.js frontend
+tag_prefix = "ui-v"
+
+[[package]]
+path = "./scripts"      # Python utilities
+tag_prefix = "scripts-v"
+</code></pre>
+<h2 id="adding-new-languages"><a class="header" href="#adding-new-languages">Adding New Languages</a></h2>
+<p>Releasaurus is designed to be extensible. Each language implementation includes:</p>
+<ul>
+<li><strong>Detector</strong>: Identifies if the language is present</li>
+<li><strong>Updater</strong>: Handles version file modifications</li>
+<li><strong>Framework Integration</strong>: Language-specific patterns and conventions</li>
+</ul>
+<p>See the <a href="./contributing.html">Contributing</a> guide for information about adding support for new languages and frameworks.</p>
+<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
+<ul>
+<li>Refer to the language-specific sections above for detailed information about supported features</li>
+<li>Explore <a href="./configuration.html">Configuration</a> for customization options</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="git-forge-platforms"><a class="header" href="#git-forge-platforms">Git Forge Platforms</a></h1>
+<p>Releasaurus provides unified support for multiple Git forge platforms, allowing you to use the same workflow regardless of where your repositories are hosted. Whether you're using GitHub, GitLab, Gitea, or self-hosted instances, Releasaurus adapts seamlessly to your platform's API and conventions.</p>
+<h2 id="supported-platforms"><a class="header" href="#supported-platforms">Supported Platforms</a></h2>
+<h3 id="github-2"><a class="header" href="#github-2">GitHub</a></h3>
+<p><strong>Authentication</strong>:</p>
+<ul>
+<li>Personal Access Tokens (classic)</li>
+<li>Fine-grained Personal Access Tokens</li>
+<li>Environment variable: <code>GITHUB_TOKEN</code></li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash">releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release --github-repo "https://github.com/owner/repo"
+</code></pre>
+<h3 id="gitlab-2"><a class="header" href="#gitlab-2">GitLab</a></h3>
+<p><strong>Authentication</strong>:</p>
+<ul>
+<li>Personal Access Tokens</li>
+<li>Environment variable: <code>GITLAB_TOKEN</code></li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash"># GitLab.com
+releasaurus release-pr --gitlab-repo "https://gitlab.com/group/project"
+
+# Self-hosted GitLab
+releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
+</code></pre>
+<h3 id="gitea-2"><a class="header" href="#gitea-2">Gitea</a></h3>
+<p><strong>Authentication</strong>:</p>
+<ul>
+<li>Access Tokens</li>
+<li>Environment variable: <code>GITEA_TOKEN</code></li>
+</ul>
+<p><strong>Example Usage</strong>:</p>
+<pre><code class="language-bash">releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
+releasaurus release --gitea-repo "https://git.company.com/team/project"
+</code></pre>
+<h2 id="authentication-methods"><a class="header" href="#authentication-methods">Authentication Methods</a></h2>
+<p>All platforms use token-based authentication for security and API access:</p>
+<h3 id="command-line-tokens"><a class="header" href="#command-line-tokens">Command-Line Tokens</a></h3>
+<p>Pass tokens directly as command-line arguments:</p>
+<pre><code class="language-bash"># GitHub
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+
+# GitLab
+releasaurus release-pr \
+  --gitlab-repo "https://gitlab.com/owner/repo" \
+  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+
+# Gitea
+releasaurus release-pr \
+  --gitea-repo "https://git.example.com/owner/repo" \
+  --gitea-token "xxxxxxxxxxxxxxxxxx"
+</code></pre>
+<h3 id="environment-variables-1"><a class="header" href="#environment-variables-1">Environment Variables</a></h3>
+<p>Store tokens in environment variables for security and convenience:</p>
+<pre><code class="language-bash"># Set tokens
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
+export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
+
+# Use without --*-token flags
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr --gitlab-repo "https://gitlab.com/owner/repo"
+releasaurus release-pr --gitea-repo "https://git.example.com/owner/repo"
+</code></pre>
+<h3 id="url-formats"><a class="header" href="#url-formats">URL Formats</a></h3>
+<p>Always use complete HTTP / HTTPS URLs for repository specification:</p>
+<pre><code class="language-bash"># Correct formats
+--github-repo "https://github.com/owner/repo"
+--gitlab-repo "https://gitlab.com/group/subgroup/project"
+--gitea-repo "https://git.example.com/organization/repository"
+
+# Incorrect formats (won't work)
+--github-repo "github.com/owner/repo"           # Missing protocol
+--github-repo "git@github.com:owner/repo.git"  # SSH format not supported
+</code></pre>
+<h2 id="next-steps-5"><a class="header" href="#next-steps-5">Next Steps</a></h2>
+<ul>
+<li>Refer to the platform-specific sections above for detailed information about supported features</li>
+<li>Check <a href="./troubleshooting.html">Troubleshooting</a> for common issues</li>
+</ul>
+<p>The unified forge platform support in Releasaurus means you can focus on your release process rather than platform-specific differences, enabling consistent workflows across your entire organization's repositories.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Releasaurus works great out-of-the-box with zero configuration, but provides extensive customization options through an optional <code>releasaurus.toml</code> configuration file. This file allows you to customize changelog generation, define multiple packages within a repository, and fine-tune the release process to match your project's specific needs.</p>
+<h2 id="configuration-file-location"><a class="header" href="#configuration-file-location">Configuration File Location</a></h2>
+<p>Releasaurus looks for a <code>releasaurus.toml</code> file in your project's root directory. If no configuration file is found, sensible defaults are used that work for most single-package repositories.</p>
+<pre><code>my-project/
+├── releasaurus.toml    # ← Configuration file (optional)
+├── src/
+├── README.md
+└── ...
+</code></pre>
+<h2 id="configuration-structure"><a class="header" href="#configuration-structure">Configuration Structure</a></h2>
+<p>The configuration file uses TOML format with two main sections:</p>
+<ul>
+<li><strong><code>[changelog]</code></strong> - Customizes changelog generation and formatting</li>
+<li><strong><code>[[package]]</code></strong> - Defines packages within the repository (can have multiple)</li>
+</ul>
+<h2 id="default-configuration"><a class="header" href="#default-configuration">Default Configuration</a></h2>
+<p>This is the default configuration that is used if there is no specific user
+defined configuration provided.</p>
+<pre><code class="language-toml"># releasaurus.toml using default changelog body configuration
+
+[changelog]
+header = ""
+body = "{% if version -%}
+    # [{{ version | trim_start_matches(pat="v") }}]({{ extra.release_link_base }}/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    # [unreleased]
+{% endif -%}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+      {% if commit.breaking -%}
+        {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id }})
+        {% if commit.body -%}
+        &gt; {{ commit.body }}
+        {% endif -%}
+        {% if commit.breaking_description -%}
+        &gt; {{ commit.breaking_description }}
+        {% endif -%}
+      {% else -%}
+        - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message | upper_first }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ extra.commit_link_base }}/{{ commit.id -}})
+      {% endif -%}
+    {% endfor %}
+{% endfor %}"
+footer = "Generated by Releasaurus 🦕"
+
+[[package]]
+path = "."
+tag_prefix = "v"
+</code></pre>
+<h2 id="changelog-configuration"><a class="header" href="#changelog-configuration">Changelog Configuration</a></h2>
+<p>The <code>[changelog]</code> section allows you to customize how changelogs are generated using <a href="https://keats.github.io/tera/">Tera</a> templating engine.</p>
+<h3 id="available-templates"><a class="header" href="#available-templates">Available Templates</a></h3>
+<h4 id="body-required"><a class="header" href="#body-required"><code>body</code> (Required)</a></h4>
+<p>The main changelog content template. This defines how each release section is formatted.</p>
+<h4 id="header-optional"><a class="header" href="#header-optional"><code>header</code> (Optional)</a></h4>
+<p>Static content to prepended to the top of the changelog.</p>
+<h4 id="footer-optional"><a class="header" href="#footer-optional"><code>footer</code> (Optional)</a></h4>
+<p>Static content to append to the bottom of the changelog.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-toml">[changelog]
+header = "# Changelog"
+footer = "Company footer"
+</code></pre>
+<h3 id="monorepo-with-multiple-packages"><a class="header" href="#monorepo-with-multiple-packages">Monorepo with Multiple Packages</a></h3>
+<pre><code class="language-toml"># Frontend package
+[[package]]
+path = "./apps/frontend"
+tag_prefix = "frontend-v"
+
+# Backend API
+[[package]]
+path = "./apps/api"
+tag_prefix = "api-v"
+
+# Shared library
+[[package]]
+path = "./packages/shared"
+tag_prefix = "shared-v"
+
+# CLI tool
+[[package]]
+path = "./packages/cli"
+tag_prefix = "cli-v"
+</code></pre>
+<h2 id="next-steps-6"><a class="header" href="#next-steps-6">Next Steps</a></h2>
+<ul>
+<li>Check <a href="./environment-variables.html">Environment Variables</a> for runtime configuration options</li>
+<li>Review <a href="./troubleshooting.html">Troubleshooting</a> for common configuration issues</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="environment-variables-2"><a class="header" href="#environment-variables-2">Environment Variables</a></h1>
+<p>Environment variables provide a secure and flexible way to configure Releasaurus without hardcoding sensitive information or platform-specific settings. This reference covers all supported environment variables and their usage patterns.</p>
+<h2 id="authentication-tokens"><a class="header" href="#authentication-tokens">Authentication Tokens</a></h2>
+<h3 id="primary-token-variables"><a class="header" href="#primary-token-variables">Primary Token Variables</a></h3>
+<h4 id="github_token"><a class="header" href="#github_token"><code>GITHUB_TOKEN</code></a></h4>
+<p><strong>Purpose</strong>: Authentication token for GitHub API access</p>
+<p><strong>Required Scopes</strong>:</p>
+<ul>
+<li><code>repo</code> (for private repositories)</li>
+<li><code>public_repo</code> (for public repositories)</li>
+<li><code>write:packages</code> (if publishing packages)</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
+</code></pre>
+<p><strong>Usage</strong>:</p>
+<pre><code class="language-bash"># With environment variable set
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# Without environment variable (less secure)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+</code></pre>
+<h4 id="gitlab_token"><a class="header" href="#gitlab_token"><code>GITLAB_TOKEN</code></a></h4>
+<p><strong>Purpose</strong>: Authentication token for GitLab API access</p>
+<p><strong>Required Scopes</strong>:</p>
+<ul>
+<li><code>api</code> (full API access)</li>
+<li><code>read_repository</code> (repository read access)</li>
+<li><code>write_repository</code> (repository write access)</li>
+</ul>
+<p><strong>Token Types</strong>:</p>
+<ul>
+<li>Personal Access Tokens</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
+</code></pre>
+<p><strong>Usage</strong>:</p>
+<pre><code class="language-bash"># GitLab.com
+releasaurus release-pr --gitlab-repo "https://gitlab.com/group/project"
+
+# Self-hosted GitLab
+releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
+</code></pre>
+<h4 id="gitea_token"><a class="header" href="#gitea_token"><code>GITEA_TOKEN</code></a></h4>
+<p><strong>Purpose</strong>: Authentication token for Gitea/Forge API access</p>
+<p><strong>Required Permissions</strong>:</p>
+<ul>
+<li>Repository read/write access</li>
+<li>Issue/PR management permissions</li>
+</ul>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
+</code></pre>
+<p><strong>Usage</strong>:</p>
+<pre><code class="language-bash"># Self-hosted Gitea
+releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
+
+# Forgejo instance
+releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
+</code></pre>
+<h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
+<ul>
+<li><strong><a href="./basic-configuration.html">Basic Configuration</a></strong> - Configuration file setup</li>
+<li><strong><a href="./troubleshooting.html#authentication-issues">Troubleshooting</a></strong> - Resolving environment issues</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="why-releasaurus"><a class="header" href="#why-releasaurus">Why Releasaurus?</a></h1>
+<p>The software development landscape is rich with release automation tools, each solving specific problems within their domains. So why create another one? Releasaurus was born from real-world frustrations with existing tools and a vision for what release automation could be: <strong>universal, intelligent, and effortless</strong>.</p>
+<h2 id="the-release-automation-challenge"><a class="header" href="#the-release-automation-challenge">The Release Automation Challenge</a></h2>
+<p>Modern software development involves complex release processes that traditionally require significant manual effort:</p>
+<ul>
+<li><strong>Version Management</strong>: Updating version numbers across multiple files and formats</li>
+<li><strong>Changelog Generation</strong>: Creating meaningful release notes from commit history</li>
+<li><strong>Platform Integration</strong>: Working with different Git forge APIs (GitHub, GitLab, Gitea)</li>
+<li><strong>Multi-Language Support</strong>: Handling different packaging systems and conventions</li>
+<li><strong>Review Workflows</strong>: Ensuring releases go through proper review processes</li>
+<li><strong>Consistency</strong>: Maintaining uniform practices across projects and teams</li>
+</ul>
+<p>While several excellent tools address parts of this challenge, none provided a complete, universal solution that works seamlessly across all environments.</p>
+<h2 id="the-existing-landscape"><a class="header" href="#the-existing-landscape">The Existing Landscape</a></h2>
+<p>Before Releasaurus, developers had to choose between specialized tools, each with significant limitations:</p>
+<h3 id="release-please-github-only-excellence"><a class="header" href="#release-please-github-only-excellence">release-please: GitHub-Only Excellence</a></h3>
+<p><a href="https://github.com/googleapis/release-please">release-please</a> pioneered the release-PR workflow and remains excellent for GitHub-centric organizations. However:</p>
+<ul>
+<li><strong>Platform Lock-in</strong>: Only works with GitHub, excluding GitLab and Gitea users</li>
+</ul>
+<h3 id="release-plz-rust-ecosystem-specialist"><a class="header" href="#release-plz-rust-ecosystem-specialist">release-plz: Rust Ecosystem Specialist</a></h3>
+<p><a href="https://release-plz.ieni.dev/">release-plz</a> provides outstanding Rust support with deep Cargo integration. But:</p>
+<ul>
+<li><strong>Single Language</strong>: Only supports Rust projects</li>
+<li><strong>Ecosystem Specific</strong>: Designed exclusively for the Rust/Cargo ecosystem</li>
+</ul>
+<h3 id="git-cliff-powerful-but-manual"><a class="header" href="#git-cliff-powerful-but-manual">git-cliff: Powerful but Manual</a></h3>
+<p><a href="https://git-cliff.org/">git-cliff</a> excels at changelog generation with extensive customization. However:</p>
+<ul>
+<li><strong>Changelog Only</strong>: Doesn't handle version updates or release automation</li>
+<li><strong>Manual Process</strong>: Requires additional tooling for complete release workflows</li>
+<li><strong>No Platform Integration</strong>: Doesn't create releases or pull requests</li>
+</ul>
+<h2 id="releasaurus"><a class="header" href="#releasaurus">Releasaurus</a></h2>
+<p>Releasaurus was designed to combine the best aspects of existing tools while eliminating their limitations. Our core principles:</p>
+<h3 id="-universal-platform-support"><a class="header" href="#-universal-platform-support">🌍 Universal Platform Support</a></h3>
+<p><strong>Problem</strong>: Teams using GitLab, Gitea, or mixed environments were left behind by GitHub-only tools.</p>
+<p><strong>Solution</strong>: First-class support for GitHub, GitLab, and Gitea with identical workflows across all platforms. Whether your repositories are hosted on github.com, self-hosted GitLab, or Gitea instances, Releasaurus works seamlessly.</p>
+<pre><code class="language-bash"># Same workflow, different platforms
+releasaurus release-pr --github-repo "https://github.com/team/project"
+releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/project"
+releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
+</code></pre>
+<h3 id="-intelligent-zero-configuration"><a class="header" href="#-intelligent-zero-configuration">🔍 Intelligent Zero-Configuration</a></h3>
+<p><strong>Problem</strong>: Complex setup requirements create barriers to adoption and maintenance overhead.</p>
+<p><strong>Solution</strong>: Intelligent detection that works immediately without configuration files, setup scripts, or complex onboarding. Releasaurus analyzes your project structure and applies appropriate conventions automatically.</p>
+<ul>
+<li><strong>Language Detection</strong>: Automatically identifies Rust, Node.js, Python, Java, PHP, Ruby, or generic projects</li>
+<li><strong>Version File Discovery</strong>: Finds and updates all relevant version files for supported languages (generic projects receive changelog and tagging only)</li>
+<li><strong>Framework Integration</strong>: Adapts to your project's specific packaging and build systems</li>
+<li><strong>Sensible Defaults</strong>: Provides beautiful changelogs and workflows out-of-the-box</li>
+</ul>
+<h3 id="-multi-language-native-support"><a class="header" href="#-multi-language-native-support">🚀 Multi-Language Native Support</a></h3>
+<p><strong>Problem</strong>: Polyglot projects and organizations needed different tools for different languages.</p>
+<p><strong>Solution</strong>: Native support for major programming languages with deep understanding of each ecosystem's manifest files</p>
+<div class="table-wrapper"><table><thead><tr><th>Language</th><th>Package Files</th><th>Lock Files</th></tr></thead><tbody>
+<tr><td><strong>Rust</strong></td><td><code>Cargo.toml</code></td><td><code>Cargo.lock</code></td></tr>
+<tr><td><strong>Node.js</strong></td><td><code>package.json</code></td><td><code>package-lock.json</code>, <code>yarn.lock</code></td></tr>
+<tr><td><strong>Python</strong></td><td><code>pyproject.toml</code>, <code>setup.py</code></td><td>Various</td></tr>
+<tr><td><strong>Java</strong></td><td><code>pom.xml</code>, <code>build.gradle</code></td><td>Maven/Gradle locks</td></tr>
+<tr><td><strong>PHP</strong></td><td><code>composer.json</code></td><td><code>composer.lock</code></td></tr>
+<tr><td><strong>Ruby</strong></td><td><code>*.gemspec</code>, <code>Gemfile</code></td><td><code>Gemfile.lock</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="the-philosophy"><a class="header" href="#the-philosophy">The Philosophy</a></h2>
+<p>Releasaurus embodies several key philosophical principles:</p>
+<h3 id="intelligent-automation-over-configuration"><a class="header" href="#intelligent-automation-over-configuration">Intelligent Automation Over Configuration</a></h3>
+<p>Rather than requiring users to specify every detail, Releasaurus makes
+intelligent decisions based on project analysis. Configuration is available for
+customization, but not required for effectiveness.</p>
+<h3 id="universal-over-specialized"><a class="header" href="#universal-over-specialized">Universal Over Specialized</a></h3>
+<p>While specialized tools excel in narrow domains, Releasaurus prioritizes
+universal applicability. This enables consistent workflows across diverse
+projects and teams.</p>
+<h3 id="simplicity-over-features"><a class="header" href="#simplicity-over-features">Simplicity Over Features</a></h3>
+<p>Every feature must justify its existence by solving a real problem without
+adding unnecessary complexity. Power users have customization options, but they
+don't interfere with simple use cases.</p>
+<h2 id="credit-to-existing-projects"><a class="header" href="#credit-to-existing-projects">Credit to existing projects</a></h2>
+<p>Releasaurus wouldn't exist without the pioneering work of existing tools:</p>
+<ul>
+<li><strong><a href="https://git-cliff.org/">git-cliff</a></strong></li>
+<li><strong><a href="https://github.com/googleapis/release-please">release-please</a></strong></li>
+<li><strong><a href="https://release-plz.ieni.dev/">release-plz</a></strong></li>
+</ul>
+<p>We're grateful for these tools and the problems they solved. Releasaurus builds
+upon their innovations while addressing the gaps that remained.</p>
+<h2 id="when-to-choose-releasaurus"><a class="header" href="#when-to-choose-releasaurus">When to Choose Releasaurus</a></h2>
+<p><strong>Choose Releasaurus if you:</strong></p>
+<ul>
+<li>Work with multiple programming languages or frameworks</li>
+<li>Use GitLab, Gitea, or mixed Git hosting platforms</li>
+<li>Want release automation that works immediately without complex setup</li>
+<li>Need consistent workflows across diverse projects</li>
+<li>Value safety and review processes in your release workflow</li>
+<li>Want to minimize time spent on release mechanics</li>
+</ul>
+<p><strong>Consider alternatives if you:</strong></p>
+<ul>
+<li>Are deeply committed to GitHub-only workflows and love release-please</li>
+<li>Need features specific to a single language ecosystem</li>
+<li>Require extensive customization beyond what templates provide</li>
+<li>Have unique release requirements not covered by conventional patterns</li>
+</ul>
+<h2 id="the-future"><a class="header" href="#the-future">The Future</a></h2>
+<p>Releasaurus continues to evolve based on real-world usage and community
+feedback. Our roadmap includes:</p>
+<ul>
+<li><strong>Additional Language Support</strong>: Expanding to more programming languages and frameworks</li>
+<li><strong>Enhanced CI/CD Integration</strong>: Deeper integration with popular CI/CD platforms</li>
+<li><strong>Advanced Monorepo Features</strong>: More sophisticated dependency and release coordination</li>
+<li><strong>Custom Workflow Support</strong>: Extensibility for unique release requirements</li>
+</ul>
+<p>But our core mission remains constant: making software releases effortless,
+safe, and universal.</p>
+<h2 id="getting-started-1"><a class="header" href="#getting-started-1">Getting Started</a></h2>
+<p>Ready to experience effortless releases? The <a href="./quick-start.html">Quick Start</a>
+guide will have you releasing software in minutes, not hours. Or dive into
+the <a href="./installation.html">Installation</a> instructions to get Releasaurus set up in
+your environment.</p>
+<p>Remember: great software deserves great releases. Let Releasaurus handle the
+mechanics so you can focus on building amazing things. 🦕</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="comparison-with-other-tools"><a class="header" href="#comparison-with-other-tools">Comparison with Other Tools</a></h1>
+<p>The release automation ecosystem includes several excellent tools, each with unique strengths and target audiences. This comparison helps you understand where Releasaurus fits in the landscape and when you might choose it over alternatives.</p>
+<h2 id="quick-comparison-table"><a class="header" href="#quick-comparison-table">Quick Comparison Table</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Tool</th><th>Platforms</th><th>Languages</th><th>Config Required</th><th>Process</th><th>Best For</th></tr></thead><tbody>
+<tr><td><strong>Releasaurus</strong></td><td>GitHub, GitLab, Gitea</td><td>Rust, Node.js, Python, Java, PHP, Ruby, Generic (limited)</td><td>Optional</td><td>Release PR → Publish</td><td>Universal, multi-platform, zero-config</td></tr>
+<tr><td><strong>release-please</strong></td><td>GitHub only</td><td>Many (via plugins)</td><td>Required for most</td><td>Release PR → Publish</td><td>GitHub-only orgs</td></tr>
+<tr><td><strong>release-plz</strong></td><td>GitHub, crates.io</td><td>Rust only</td><td>Minimal</td><td>Release PR → Publish</td><td>Rust projects, Cargo ecosystems</td></tr>
+<tr><td><strong>git-cliff</strong></td><td>Any Git host</td><td>Language agnostic</td><td>Required</td><td>Manual changelog</td><td>Changelog generation only</td></tr>
+<tr><td><strong>semantic-release</strong></td><td>GitHub, GitLab, npm</td><td>JavaScript-focused</td><td>Required</td><td>Direct publish</td><td>Node.js projects, automated releases</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
+<p>We appreciate your interest in contributing to Releasaurus! This guide will help
+you get started with contributing to the project, whether you're fixing bugs,
+adding features, improving documentation, or helping with community support.</p>
+<h2 id="ways-to-contribute"><a class="header" href="#ways-to-contribute">Ways to Contribute</a></h2>
+<h3 id="-bug-reports"><a class="header" href="#-bug-reports">🐛 Bug Reports</a></h3>
+<ul>
+<li>Report bugs and issues you encounter</li>
+<li>Provide detailed reproduction steps</li>
+<li>Share your environment details</li>
+</ul>
+<h3 id="-feature-requests"><a class="header" href="#-feature-requests">💡 Feature Requests</a></h3>
+<ul>
+<li>Suggest new language/framework support</li>
+<li>Propose workflow improvements</li>
+<li>Request platform integrations</li>
+</ul>
+<h3 id="-code-contributions"><a class="header" href="#-code-contributions">🔧 Code Contributions</a></h3>
+<ul>
+<li>Fix bugs and implement features</li>
+<li>Add support for new languages</li>
+<li>Improve performance and reliability</li>
+</ul>
+<h3 id="-documentation"><a class="header" href="#-documentation">📚 Documentation</a></h3>
+<ul>
+<li>Improve existing documentation</li>
+<li>Add examples and tutorials</li>
+<li>Translate documentation</li>
+</ul>
+<h3 id="-testing"><a class="header" href="#-testing">🎯 Testing</a></h3>
+<ul>
+<li>Write and improve tests</li>
+<li>Test on different platforms</li>
+<li>Validate new features</li>
+</ul>
+<h3 id="-community-support"><a class="header" href="#-community-support">💬 Community Support</a></h3>
+<ul>
+<li>Help other users in discussions</li>
+<li>Answer questions in issues</li>
+<li>Share your experience and best practices</li>
+</ul>
+<h2 id="development-environment-setup"><a class="header" href="#development-environment-setup">Development Environment Setup</a></h2>
+<h3 id="prerequisites-2"><a class="header" href="#prerequisites-2">Prerequisites</a></h3>
+<ul>
+<li><strong>Rust</strong>: 1.70 or higher (<a href="https://rustup.rs/">Install Rust</a>)</li>
+<li><strong>Git</strong>: For version control</li>
+<li><strong>A supported platform</strong>: GitHub, GitLab, or Gitea account for testing</li>
+</ul>
+<h3 id="getting-started-2"><a class="header" href="#getting-started-2">Getting Started</a></h3>
+<ol>
+<li>
+<p><strong>Fork and Clone</strong></p>
+<pre><code class="language-bash"># Fork the repository on GitHub
+git clone https://github.com/your-username/releasaurus.git
+cd releasaurus
+</code></pre>
+</li>
+<li>
+<p><strong>Install Dependencies</strong></p>
+<pre><code class="language-bash"># Install Rust dependencies
+cargo build
+
+# Install development tools
+cargo install cargo-watch
+cargo install cargo-nextest  # Optional: faster test runner
+</code></pre>
+</li>
+<li>
+<p><strong>Set Up Testing Environment</strong></p>
+<pre><code class="language-bash"># Create test tokens (with minimal permissions)
+export GITHUB_TOKEN="ghp_test_token_here"
+export GITLAB_TOKEN="glpat_test_token_here"
+export GITEA_TOKEN="test_token_here"
+
+# Run tests
+cargo test
+</code></pre>
+</li>
+<li>
+<p><strong>Verify Installation</strong></p>
+<pre><code class="language-bash"># Build and test the binary
+cargo build --release
+./target/release/releasaurus --help
+</code></pre>
+</li>
+</ol>
+<h3 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h3>
+<pre><code>releasaurus/
+├── src/
+│   ├── analyzer/         # Commit analysis and changelog generation
+│   ├── command/          # CLI command implementations
+│   ├── config.rs         # Configuration file handling
+│   ├── forge/            # Git forge platform integrations
+│   │   ├── github.rs     # GitHub API client
+│   │   ├── gitlab.rs     # GitLab API client
+│   │   └── gitea.rs      # Gitea API client
+│   ├── repo.rs           # Git repository operations
+│   ├── updater/          # Version file update logic
+│   │   ├── rust.rs       # Rust/Cargo support
+│   │   ├── node.rs       # Node.js support
+│   │   ├── python.rs     # Python support
+│   │   └── ...           # Other language implementations
+│   └── main.rs           # Application entry point
+├── tests/                # Integration tests
+├── book/                 # Documentation (mdBook)
+├── Cargo.toml            # Rust project configuration
+└── README.md
+</code></pre>
+<h2 id="code-contribution-guidelines"><a class="header" href="#code-contribution-guidelines">Code Contribution Guidelines</a></h2>
+<h3 id="coding-standards"><a class="header" href="#coding-standards">Coding Standards</a></h3>
+<h4 id="rust-style"><a class="header" href="#rust-style">Rust Style</a></h4>
+<ul>
+<li>Use <code>cargo fmt</code> for consistent formatting</li>
+<li>Use <code>cargo clippy</code> for linting</li>
+<li>Write comprehensive documentation comments</li>
+</ul>
+<h4 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Use the project's Result type
+use crate::result::Result;
+
+// Provide context for errors
+fn update_version_file(path: &amp;Path) -&gt; Result&lt;()&gt; {
+    fs::write(path, content)
+        .with_context(|| format!("Failed to write version file: {}", path.display()))?;
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="adding-language-support"><a class="header" href="#adding-language-support">Adding Language Support</a></h3>
+<p>To add support for a new programming language:</p>
+<ol>
+<li>
+<p><strong>Create Language Module</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/updater/newlang.rs
+use crate::updater::traits::PackageUpdater;
+
+pub struct NewLangUpdater;
+
+impl PackageUpdater for NewLangUpdater {
+    fn update(&amp;self, root_path: &amp;Path, packages: Vec&lt;Package&gt;) -&gt; Result&lt;()&gt; {
+        // Implementation
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+<li>
+<p><strong>Add Detection Logic</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/updater/detection/newlang.rs
+use crate::updater::detection::traits::FrameworkDetector;
+
+pub struct NewLangDetector;
+
+impl FrameworkDetector for NewLangDetector {
+  fn detect(&amp;self, path: &amp;Path) -&gt; Result&lt;FrameworkDetection&gt; {
+      let pattern = DetectionPattern {
+          manifest_files: vec!["&lt;some_manifest_file&gt;"],
+          support_files: vec!["&lt;some_support_file&gt;", "&lt;another_support_file&gt;"],
+          content_patterns: vec![
+              "[package]",
+              "[workspace]",
+              "[dependencies]",
+          ],
+          base_confidence: 0.8,
+      };
+
+      DetectionHelper::analyze_with_pattern(
+          path,
+          pattern.clone(),
+          |support_evidence| FrameworkDetection {
+              framework: Framework::NewLang,
+              confidence: DetectionHelper::calculate_confidence(
+                  &amp;pattern,
+                  &amp;support_evidence,
+              ),
+              evidence: support_evidence,
+          },
+      )
+  }
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+<li>
+<p><strong>Register in Framework System</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/updater/framework.rs
+pub enum Framework {
+    // ... existing frameworks
+    NewLang,
+}
+
+impl Framework {
+    pub fn detection_manager(root_path: PathBuf) -&gt; DetectionManager {
+        let detectors: Vec&lt;Box&lt;dyn FrameworkDetector&gt;&gt; = vec![
+            // ... existing detectors
+            Box::new(NewLangDetector::new()),
+        ];
+        DetectionManager::new(root_path, detectors)
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+<li>
+<p><strong>Add Tests</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_newlang_detection() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path();
+
+        // Create test files
+        std::fs::write(path.join("package.newlang"), "version = \"1.0.0\"").unwrap();
+
+        let detector = NewLangDetector::new();
+        let result = detector.detect(path);
+
+        assert!(matches!(result, DetectionResult::Detected { .. }));
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+</ol>
+<h3 id="adding-forge-platform-support"><a class="header" href="#adding-forge-platform-support">Adding Forge Platform Support</a></h3>
+<p>To add support for a new Git forge platform:</p>
+<ol>
+<li>
+<p><strong>Create Platform Module</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/forge/newforge.rs
+use crate::forge::traits::ForgeClient;
+use crate::forge::types::{PullRequest, Release};
+
+pub struct NewForgeClient {
+    config: RemoteConfig,
+    client: reqwest::Client,
+}
+
+#[async_trait]
+impl ForgeClient for NewForgeClient {
+    async fn create_pull_request(&amp;self, pr: &amp;PullRequest) -&gt; Result&lt;String&gt; {
+        // Implementation
+    }
+
+    async fn create_release(&amp;self, release: &amp;Release) -&gt; Result&lt;String&gt; {
+        // Implementation
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+<li>
+<p><strong>Add CLI Integration</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/cli.rs
+pub struct Args {
+    // ... existing fields
+
+    #[arg(long, default_value = "", global = true)]
+    /// NewForge repository URL
+    pub newforge_repo: String,
+
+    #[arg(long, default_value = "", global = true)]
+    /// NewForge authentication token
+    pub newforge_token: String,
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+<li>
+<p><strong>Update Command Logic</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/command/common.rs
+pub fn determine_forge_client(args: &amp;Args) -&gt; Result&lt;Box&lt;dyn ForgeClient&gt;&gt; {
+    if !args.newforge_repo.is_empty() {
+        return Ok(Box::new(NewForgeClient::new(/* config */)?));
+    }
+    // ... existing logic
+}
+<span class="boring">}</span></code></pre></pre>
+</li>
+</ol>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<h3 id="test-categories"><a class="header" href="#test-categories">Test Categories</a></h3>
+<h4 id="unit-tests"><a class="header" href="#unit-tests">Unit Tests</a></h4>
+<pre><code class="language-bash"># Run all unit tests
+cargo test
+
+# Run tests for specific module
+cargo test updater::rust
+
+# Run with output
+cargo test -- --nocapture
+</code></pre>
+<h4 id="e2e-tests"><a class="header" href="#e2e-tests">E2E Tests</a></h4>
+<p>These tests can be found in <a href="../../src/command/tests">./src/command/tests</a></p>
+<pre><code class="language-bash"># Run e2e tests (requires test tokens)
+cargo test --features _internal_e2e_tests
+
+# Run specific integration test
+cargo test --features _internal_e2e_tests github_e2e_test
+
+# These tests create actual repositories and releases
+# Use with caution and dedicated test accounts
+</code></pre>
+<h4 id="commit-messages"><a class="header" href="#commit-messages">Commit Messages</a></h4>
+<p>Follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>:</p>
+<pre><code class="language-bash"># Features
+feat: add support for Go projects
+feat(forge): add Codeberg integration
+
+# Bug fixes
+fix: resolve GitHub API rate limiting
+fix(updater): handle malformed package.json files
+
+# Documentation
+docs: add troubleshooting guide for Windows
+docs(config): clarify multi-package setup
+
+# Tests
+test: add integration tests for GitLab
+test(updater): improve Python detection tests
+
+# Chores
+chore: update dependencies
+chore(ci): add automated security scanning
+</code></pre>
+<h4 id="pull-request-description-template"><a class="header" href="#pull-request-description-template">Pull Request Description Template</a></h4>
+<pre><code class="language-markdown">## Description
+
+Brief description of changes.
+
+## Type of Change
+
+- [ ] Bug fix (non-breaking change fixing an issue)
+- [ ] New feature (non-breaking change adding functionality)
+- [ ] Breaking change (fix or feature causing existing functionality to change)
+- [ ] Documentation update
+
+## Testing
+
+- [ ] Unit tests pass
+- [ ] Integration tests pass (if applicable)
+- [ ] Manual testing completed
+- [ ] Documentation tested (if applicable)
+
+## Related Issues
+
+Fixes #123
+Relates to #456
+
+## Additional Notes
+
+Any additional context or screenshots.
+</code></pre>
+<h2 id="code-of-conduct"><a class="header" href="#code-of-conduct">Code of Conduct</a></h2>
+<p>This repository adheres the <a href="https://www.rust-lang.org/policies/code-of-conduct">Rust Code of Conduct</a></p>
+<h3 id="reporting"><a class="header" href="#reporting">Reporting</a></h3>
+<p>Report any unacceptable behavior to the project maintainers.</p>
+<h2 id="community-and-communication"><a class="header" href="#community-and-communication">Community and Communication</a></h2>
+<h3 id="channels"><a class="header" href="#channels">Channels</a></h3>
+<ul>
+<li><strong>GitHub Issues</strong>: Bug reports and feature requests</li>
+<li><strong>GitHub Discussions</strong>: General questions and community support</li>
+<li><strong>Pull Requests</strong>: Code review and collaboration</li>
+</ul>
+<h3 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h3>
+<ul>
+<li><strong>Documentation</strong>: Start with this book</li>
+<li><strong>Search Issues</strong>: Check if your question has been asked</li>
+<li><strong>Ask Questions</strong>: Create a discussion or issue</li>
+<li><strong>Debug Mode</strong>: Use <code>--debug</code> for troubleshooting</li>
+</ul>
+<p>Thank you for contributing to Releasaurus!</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>
