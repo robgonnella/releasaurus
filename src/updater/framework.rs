@@ -15,7 +15,7 @@ use crate::updater::python::updater::PythonUpdater;
 use crate::updater::ruby::detector::RubyDetector;
 use crate::updater::ruby::updater::RubyUpdater;
 use crate::updater::rust::detector::RustDetector;
-use crate::updater::rust::updater::CargoUpdater;
+use crate::updater::rust::updater::RustUpdater;
 use crate::updater::traits::PackageUpdater;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -66,7 +66,7 @@ impl Framework {
 
     pub fn updater(&self) -> Box<dyn PackageUpdater> {
         match self {
-            Framework::Rust => Box::new(CargoUpdater::new()),
+            Framework::Rust => Box::new(RustUpdater::new()),
             Framework::Node => Box::new(NodeUpdater::new()),
             Framework::Python => Box::new(PythonUpdater::new()),
             Framework::Php => Box::new(PhpUpdater::new()),
