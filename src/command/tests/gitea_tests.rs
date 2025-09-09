@@ -17,7 +17,6 @@ fn gitea_e2e_test() {
     let args = Args {
         command: Command::ReleasePR,
         debug: true,
-        dry_run: false,
         github_repo: "".into(),
         github_token: "".into(),
         gitea_repo: "https://gitea.com/rgon/test-repo".into(),
