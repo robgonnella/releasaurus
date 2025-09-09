@@ -8,12 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{
-    changelog::{
-        cliff_helpers,
-        traits::{Generator, Output, Writer},
-    },
-    config::{Remote, SinglePackageConfig},
+use crate::changelog::{
+    cliff_helpers,
+    config::{ChangelogConfig, Remote},
+    traits::{Generator, Output, Writer},
 };
 
 /// Represents a git-cliff implementation of [`Generator`], [`CurrentVersion`],
@@ -22,12 +20,12 @@ pub struct GitCliffChangelog {
     config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     path: String,
-    remote: Option<Remote>,
+    remote: Remote,
 }
 
 impl GitCliffChangelog {
     /// Returns new instance based on provided configs
-    pub fn new(config: SinglePackageConfig) -> Result<Self> {
+    pub fn new(config: ChangelogConfig) -> Result<Self> {
         let path = config.package.path.clone();
         let remote = config.remote.clone();
         let cliff_config = cliff_helpers::get_cliff_config(config)?;
