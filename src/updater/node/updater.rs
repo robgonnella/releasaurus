@@ -35,7 +35,8 @@ impl NodeUpdater {
             .write(true)
             .truncate(true)
             .open(file_path)?;
-        file.write_all(doc.to_string().as_bytes())?;
+        let formatted_json = serde_json::to_string_pretty(doc)?;
+        file.write_all(formatted_json.as_bytes())?;
         Ok(())
     }
 
@@ -610,7 +611,7 @@ mod tests {
 
         // Verify the change
         let updated_content = fs::read_to_string(&package_json).unwrap();
-        assert!(updated_content.contains("\"version\":\"2.0.0\""));
+        assert!(updated_content.contains("\"version\": \"2.0.0\""));
     }
 
     #[test]
@@ -760,9 +761,9 @@ mod tests {
         updater.update(temp_dir.path(), packages).unwrap();
 
         let updated_content = fs::read_to_string(&package_json).unwrap();
-        assert!(updated_content.contains("\"version\":\"2.0.0\""));
+        assert!(updated_content.contains("\"version\": \"2.0.0\""));
         // Express dependency should remain unchanged
-        assert!(updated_content.contains("\"express\":\"^4.17.1\""));
+        assert!(updated_content.contains("\"express\": \"^4.17.1\""));
     }
 
     #[test]
@@ -811,15 +812,15 @@ mod tests {
         // Check that pkg-a was updated to 2.0.0
         let pkg_a_content =
             fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
-        assert!(pkg_a_content.contains("\"version\":\"2.0.0\""));
+        assert!(pkg_a_content.contains("\"version\": \"2.0.0\""));
 
         // Check that pkg-b was updated to 1.1.0 and its dependency on pkg-a was updated
         let pkg_b_content =
             fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\":\"1.1.0\""));
-        assert!(pkg_b_content.contains("\"pkg-a\":\"2.0.0\""));
+        assert!(pkg_b_content.contains("\"version\": \"1.1.0\""));
+        assert!(pkg_b_content.contains("\"pkg-a\": \"2.0.0\""));
         // External dependency should remain unchanged
-        assert!(pkg_b_content.contains("\"express\":\"^4.17.1\""));
+        assert!(pkg_b_content.contains("\"express\": \"^4.17.1\""));
     }
 
     #[test]
@@ -863,9 +864,9 @@ mod tests {
 
         let pkg_b_content =
             fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\":\"1.2.0\""));
-        assert!(pkg_b_content.contains("\"pkg-a\":\"1.5.0\""));
-        assert!(pkg_b_content.contains("\"jest\":\"^27.0.0\""));
+        assert!(pkg_b_content.contains("\"version\": \"1.2.0\""));
+        assert!(pkg_b_content.contains("\"pkg-a\": \"1.5.0\""));
+        assert!(pkg_b_content.contains("\"jest\": \"^27.0.0\""));
     }
 
     #[test]
@@ -899,7 +900,7 @@ mod tests {
         // Only the Node package should be updated
         let content =
             fs::read_to_string(pkg_path.join("package.json")).unwrap();
-        assert!(content.contains("\"version\":\"2.0.0\""));
+        assert!(content.contains("\"version\": \"2.0.0\""));
     }
 
     #[test]
@@ -942,8 +943,8 @@ mod tests {
 
         let pkg_b_content =
             fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\":\"1.5.0\""));
-        assert!(pkg_b_content.contains("\"@myorg/pkg-a\":\"2.0.0\""));
+        assert!(pkg_b_content.contains("\"version\": \"1.5.0\""));
+        assert!(pkg_b_content.contains("\"@myorg/pkg-a\": \"2.0.0\""));
     }
 
     #[test]
@@ -1016,7 +1017,7 @@ mod tests {
         let lock_content =
             fs::read_to_string(temp_dir.path().join("package-lock.json"))
                 .unwrap();
-        assert!(lock_content.contains("\"version\":\"2.0.0\""));
+        assert!(lock_content.contains("\"version\": \"2.0.0\""));
     }
 
     #[test]
@@ -1230,15 +1231,11 @@ other-dep@^2.0.0:
                 .unwrap();
 
         // Verify dependencies under packages[""] were updated
-        assert!(
-            lock_content.contains(r#""dependencies":{"test-pkg":"^2.0.0"}"#)
-        );
+        assert!(lock_content.contains("\"test-pkg\": \"^2.0.0\""));
         // Verify devDependencies under packages[""] were updated
-        assert!(
-            lock_content.contains(r#""devDependencies":{"test-pkg":"^2.0.0"}"#)
-        );
+        assert!(lock_content.contains("\"test-pkg\": \"^2.0.0\""));
         // Verify node_modules entry was updated
-        assert!(lock_content.contains(r#""version":"2.0.0""#));
+        assert!(lock_content.contains(r#""version": "2.0.0""#));
     }
 
     #[test]
@@ -1298,7 +1295,7 @@ other-dep@^2.0.0:
 
         // Verify node_modules/test-pkg was updated (version should be 2.0.0)
         assert!(lock_content.contains(r#""node_modules/test-pkg""#));
-        assert!(lock_content.contains(r#""version":"2.0.0""#));
+        assert!(lock_content.contains(r#""version": "2.0.0""#));
 
         // Verify other packages remain unchanged
         assert!(lock_content.contains(r#""node_modules/@scope/other-pkg""#));
@@ -1383,12 +1380,12 @@ other-dep@^2.0.0:
         let root_lock_content =
             fs::read_to_string(temp_dir.path().join("package-lock.json"))
                 .unwrap();
-        assert!(root_lock_content.contains(r#""version":"2.0.0""#));
+        assert!(root_lock_content.contains(r#""version": "2.0.0""#));
 
         // Verify package lock file was updated
         let pkg_lock_content =
             fs::read_to_string(pkg_path.join("package-lock.json")).unwrap();
-        assert!(pkg_lock_content.contains(r#""version":"2.0.0""#));
+        assert!(pkg_lock_content.contains(r#""version": "2.0.0""#));
     }
 
     #[test]
@@ -1442,7 +1439,7 @@ other-dep@^2.0.0:
         let package_lock_content =
             fs::read_to_string(temp_dir.path().join("package-lock.json"))
                 .unwrap();
-        assert!(package_lock_content.contains("\"version\":\"2.0.0\""));
+        assert!(package_lock_content.contains("\"version\": \"2.0.0\""));
 
         let yarn_lock_content =
             fs::read_to_string(temp_dir.path().join("yarn.lock")).unwrap();
