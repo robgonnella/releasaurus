@@ -7,11 +7,13 @@ use std::path::Path;
 use crate::updater::framework::{Framework, Package};
 use crate::updater::python::pyproject::PyProject;
 use crate::updater::python::setupcfg::SetupCfg;
+use crate::updater::python::setuppy::SetupPy;
 use crate::updater::traits::PackageUpdater;
 
 /// Python updater - handles various Python packaging formats and build systems
 pub struct PythonUpdater {
     pyproject: PyProject,
+    setuppy: SetupPy,
     setupcfg: SetupCfg,
 }
 
@@ -20,6 +22,7 @@ impl PythonUpdater {
     pub fn new() -> Self {
         Self {
             pyproject: PyProject::new(),
+            setuppy: SetupPy::new(),
             setupcfg: SetupCfg::new(),
         }
     }
@@ -39,6 +42,7 @@ impl PackageUpdater for PythonUpdater {
         );
 
         self.pyproject.process_packages(&python_packages)?;
+        self.setuppy.process_packages(&python_packages)?;
         self.setupcfg.process_packages(&python_packages)?;
 
         Ok(())
