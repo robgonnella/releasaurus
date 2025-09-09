@@ -9,5 +9,5 @@ test-unit *args:
 
 test-integration *args:
     cargo llvm-cov \
-      --features forge-tests \
+      --features _internal_e2e_tests \
       --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" {{args}}

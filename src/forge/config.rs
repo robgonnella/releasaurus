@@ -4,6 +4,7 @@ use secrecy::SecretString;
 
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
+pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::forge::{

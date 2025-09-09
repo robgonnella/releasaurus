@@ -1,6 +1,6 @@
 //! Facilitates interaction with a local git repository
 use color_eyre::eyre::{Result, eyre};
-use git2::RemoteCallbacks;
+use git2::{Oid, RemoteCallbacks};
 use log::*;
 use regex::Regex;
 use reqwest::Url;
@@ -172,15 +172,35 @@ impl Repository {
         Ok(())
     }
 
-    // pub fn tag_current_head(&self, tag: &str) -> Result<()> {
-    //     let head = self.repo.head()?;
-    //     let oid = head
-    //         .target()
-    //         .ok_or(eyre!("failed to find current head oid"))?;
-    //     let commit = self.repo.find_commit(oid)?;
-    //     let tagger = git2::Signature::now("Releasaurus", "rele@saurs.com")?;
-    //     self.repo
-    //         .tag(tag, commit.as_object(), &tagger, tag, false)?;
-    //     Ok(())
-    // }
+    pub fn tag_commit(&self, tag: &str, commit_str: &str) -> Result<()> {
+        let config = self.repo.config()?.snapshot()?;
+        let user = config.get_str("user.name")?;
+        let email = config.get_str("user.email")?;
+
+        let oid = Oid::from_str(commit_str)?;
+        let commit = self.repo.find_commit(oid)?;
+        let tagger = git2::Signature::now(user, email)?;
+
+        self.repo
+            .tag(tag, commit.as_object(), &tagger, tag, false)?;
+
+        Ok(())
+    }
+
+    pub fn push_tag_to_default_branch(&self, tag: &str) -> Result<()> {
+        // setup callbacks for authentication
+        let config = self.repo.config()?.snapshot()?;
+        let user = config.get_str("user.name")?;
+        let token = self.config.token.expose_secret().to_string();
+        let callbacks = get_auth_callbacks(user.into(), token.clone());
+        let mut push_opts = git2::PushOptions::default();
+        push_opts.remote_callbacks(callbacks);
+
+        let mut remote = self.repo.find_remote(DEFAULT_UPSTREAM_REMOTE)?;
+
+        let ref_spec = format!("refs/tags/{tag}");
+        remote.push(&[ref_spec], Some(&mut push_opts))?;
+
+        Ok(())
+    }
 }
