@@ -6,6 +6,10 @@ pub trait Generator {
     fn generate(&self) -> Result<String>;
 }
 
+pub trait Writer {
+    fn write(&self) -> Result<()>;
+}
+
 /// Defines the ability to return current version of package
 pub trait CurrentVersion {
     fn current_version(&self) -> Option<String>;
