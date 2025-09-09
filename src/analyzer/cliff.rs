@@ -226,8 +226,6 @@ impl CliffAnalyzer {
 
         let content = format!("{}{}", output.changelog, existing_content);
 
-        println!("{content}");
-
         file.write_all(content.as_bytes())?;
 
         Ok(output)
