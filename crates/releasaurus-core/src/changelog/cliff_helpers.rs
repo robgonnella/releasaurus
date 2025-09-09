@@ -20,10 +20,7 @@ pub fn process_package_path(package_path: String) -> Result<Vec<Pattern>> {
     let mut package_path = package_path;
 
     // include paths only work on with globs
-    if package_path.ends_with("*") {
-        // if the path provided ends in * return as is
-        debug!("using package path {package_path}")
-    } else if package_path.ends_with("/") {
+    if package_path.ends_with("/") {
         // otherwise if ends in "/" return modified with glob
         package_path = format!("{package_path}**/*").to_string();
         debug!("modified package_path to include glob: {package_path}")
@@ -61,10 +58,12 @@ pub fn set_config_tag_settings(
     changelog_config: &ChangelogConfig,
 ) -> Result<()> {
     let mut tag_prefix = "v".to_string();
+
     if !changelog_config.package.name.is_empty() {
         tag_prefix = format!("{}-v", changelog_config.package.name);
         info!("set tag prefix for package name: {tag_prefix}");
     }
+
     if let Some(prefix) = changelog_config.package.tag_prefix.clone() {
         tag_prefix = prefix;
         info!("set tag prefix to provided option: {tag_prefix}");
@@ -196,5 +195,132 @@ pub fn add_link_base_and_commit_range_to_release(
             release.commits.first().unwrap(),
             release.commits.last().unwrap(),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::changelog::config::PackageConfig;
+
+    use super::*;
+
+    #[test]
+    fn errors_for_invalid_package_path() {
+        let package_path = "./file.rs";
+        let result = process_package_path(package_path.into());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn processes_valid_package_path_with_slash() {
+        let package_path = "./";
+
+        let expected_pattern = Pattern::new("./**/*").unwrap();
+
+        let result = process_package_path(package_path.into());
+
+        assert!(
+            result.is_ok(),
+            "failed to process package path for valid directory"
+        );
+
+        let patterns = result.unwrap();
+
+        assert_eq!(patterns[0], expected_pattern)
+    }
+
+    #[test]
+    fn processes_valid_package_path_without_slash() {
+        let package_path = ".";
+
+        let expected_pattern = Pattern::new("./**/*").unwrap();
+
+        let result = process_package_path(package_path.into());
+
+        assert!(
+            result.is_ok(),
+            "failed to process package path for valid directory"
+        );
+
+        let patterns = result.unwrap();
+
+        assert_eq!(patterns[0], expected_pattern)
+    }
+
+    #[test]
+    fn set_config_tag_settings_uses_default() {
+        let mut cliff_config =
+            git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
+
+        let changelog_config = ChangelogConfig::default();
+
+        let result =
+            set_config_tag_settings(&mut cliff_config, &changelog_config);
+
+        assert!(result.is_ok(), "failed to set config tag settings");
+
+        assert!(cliff_config.git.tag_pattern.is_some());
+
+        let tag_pattern = cliff_config.git.tag_pattern.unwrap();
+
+        assert!(tag_pattern.is_match("v1.0.0"));
+    }
+
+    #[test]
+    fn set_config_tag_settings_uses_package_name() {
+        let package_name = "test".to_string();
+
+        let mut cliff_config =
+            git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
+
+        let changelog_config = ChangelogConfig {
+            package: PackageConfig {
+                name: package_name,
+                ..PackageConfig::default()
+            },
+            ..ChangelogConfig::default()
+        };
+
+        let result =
+            set_config_tag_settings(&mut cliff_config, &changelog_config);
+
+        assert!(result.is_ok(), "failed to set config tag settings");
+
+        assert!(cliff_config.git.tag_pattern.is_some());
+
+        let tag_pattern = cliff_config.git.tag_pattern.unwrap();
+
+        assert!(!tag_pattern.is_match("v1.0.0"));
+        assert!(tag_pattern.is_match("test-v1.0.0"));
+    }
+
+    #[test]
+    fn set_config_tag_settings_uses_prefix_option() {
+        let prefix = "prefix".to_string();
+
+        let mut cliff_config =
+            git_cliff_core::embed::EmbeddedConfig::parse().unwrap();
+
+        let changelog_config = ChangelogConfig {
+            package: PackageConfig {
+                name: "test".into(),
+                tag_prefix: Some(prefix),
+                ..PackageConfig::default()
+            },
+            ..ChangelogConfig::default()
+        };
+
+        let result =
+            set_config_tag_settings(&mut cliff_config, &changelog_config);
+
+        assert!(result.is_ok(), "failed to set config tag settings");
+
+        assert!(cliff_config.git.tag_pattern.is_some());
+
+        let tag_pattern = cliff_config.git.tag_pattern.unwrap();
+
+        assert!(!tag_pattern.is_match("v1.0.0"));
+        assert!(!tag_pattern.is_match("test-v1.0.0"));
+        assert!(tag_pattern.is_match("prefix-v1.0.0"));
     }
 }

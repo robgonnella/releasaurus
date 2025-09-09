@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::Result;
 use gitlab::{
     Gitlab as GitlabClient,
     api::{
@@ -49,29 +49,22 @@ impl Gitlab {
     }
 
     fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
-        let endpoint = Labels::builder()
-            .project(&self.project_id)
-            .build()
-            .wrap_err("failed to build labels request")?;
+        let endpoint = Labels::builder().project(&self.project_id).build()?;
 
-        let labels: Vec<LabelInfo> = endpoint
-            .query(&self.gl)
-            .wrap_err("failed to query project labels")?;
+        let labels: Vec<LabelInfo> = endpoint.query(&self.gl)?;
 
         Ok(labels)
     }
 
     fn create_label(&self, label_name: String) -> Result<LabelInfo> {
         let endpoint = CreateLabel::builder()
+            .project(&self.project_id)
             .name(label_name)
-            .color(DEFAULT_LABEL_COLOR)
+            .color(format!("#{}", DEFAULT_LABEL_COLOR))
             .description("".to_string())
-            .build()
-            .wrap_err("failed to build label endpoint")?;
+            .build()?;
 
-        let label: LabelInfo = endpoint
-            .query(&self.gl)
-            .wrap_err("failed to create label")?;
+        let label: LabelInfo = endpoint.query(&self.gl)?;
 
         Ok(label)
     }
@@ -89,13 +82,10 @@ impl Forge for Gitlab {
             .state(MergeRequestState::Opened)
             .source_branch(&req.head_branch)
             .target_branch(&req.base_branch)
-            .build()
-            .wrap_err("failed to build merge request query")?;
+            .build()?;
 
         // Execute the query to get matching merge requests
-        let merge_requests: Vec<MergeRequestInfo> = endpoint
-            .query(&self.gl)
-            .wrap_err("failed to query merge requests")?;
+        let merge_requests: Vec<MergeRequestInfo> = endpoint.query(&self.gl)?;
 
         // Return the first matching merge request's IID
         // (should only be one for a given branch)
@@ -110,13 +100,10 @@ impl Forge for Gitlab {
             .target_branch(&req.base_branch)
             .title(&req.title)
             .description(&req.body)
-            .build()
-            .wrap_err("failed to build create merge request")?;
+            .build()?;
 
         // Execute the creation
-        let response: MergeRequestInfo = endpoint
-            .query(&self.gl)
-            .wrap_err("Failed to create merge request")?;
+        let response: MergeRequestInfo = endpoint.query(&self.gl)?;
 
         Ok(response.iid)
     }
@@ -127,13 +114,10 @@ impl Forge for Gitlab {
             .project(&self.project_id)
             .merge_request(req.pr_number)
             .description(&req.body)
-            .build()
-            .wrap_err("failed to build edit merge request")?;
+            .build()?;
 
         // Execute the update using ignore since we don't need the response
-        ignore(endpoint)
-            .query(&self.gl)
-            .wrap_err("Failed to update merge request")?;
+        ignore(endpoint).query(&self.gl)?;
 
         Ok(())
     }
@@ -143,6 +127,7 @@ impl Forge for Gitlab {
         req: PrLabelsRequest,
     ) -> color_eyre::eyre::Result<()> {
         let all_labels = self.get_repo_labels()?;
+
         let mut labels = vec![];
 
         for name in req.labels {
@@ -159,13 +144,10 @@ impl Forge for Gitlab {
             .project(&self.project_id)
             .merge_request(req.pr_number)
             .labels(labels.iter())
-            .build()
-            .wrap_err("failed to build edit merge request for labels")?;
+            .build()?;
 
         // Execute the update
-        ignore(endpoint)
-            .query(&self.gl)
-            .wrap_err("failed to add labels to merge request")?;
+        ignore(endpoint).query(&self.gl)?;
 
         Ok(())
     }
