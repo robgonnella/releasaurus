@@ -5,8 +5,20 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::{path::Path, sync::LazyLock};
 
-static RELEASE_NOTES_START_LINE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"#\s\[.*\]\(.*\)\s-\s\d{4}-\d{2}-\d{2}").unwrap()
+pub static BODY_END_TAG: &str = "<!--releasaurus_body_end-->";
+pub static HEADER_END_TAG: &str = "<!--releasaurus_header_end-->";
+pub static FOOTER_END_TAG: &str = "<!--releasaurus_footer_end-->";
+
+pub static BODY_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(format!(r"(?ms){}", BODY_END_TAG).as_str()).unwrap()
+});
+
+pub static HEADER_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(format!(r"(?ms){}", HEADER_END_TAG).as_str()).unwrap()
+});
+
+pub static FOOTER_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(format!(r"(?ms){}", FOOTER_END_TAG).as_str()).unwrap()
 });
 
 use crate::{analyzer::config::AnalyzerConfig, result::Result};
@@ -51,9 +63,16 @@ pub fn set_config_basic_settings(
     cliff_config: &mut git_cliff_core::config::Config,
     analyzer_config: &AnalyzerConfig,
 ) -> Result<()> {
-    cliff_config.changelog.body = analyzer_config.body.clone();
-    cliff_config.changelog.header = analyzer_config.header.clone();
-    cliff_config.changelog.footer = analyzer_config.footer.clone();
+    cliff_config.changelog.body =
+        format!("{}{}\n", analyzer_config.body.clone(), BODY_END_TAG);
+    if let Some(header) = analyzer_config.header.clone() {
+        cliff_config.changelog.header =
+            Some(format!("{}{}\n", header, HEADER_END_TAG));
+    }
+    if let Some(footer) = analyzer_config.footer.clone() {
+        cliff_config.changelog.footer =
+            Some(format!("{}{}\n", footer, FOOTER_END_TAG));
+    }
     cliff_config.changelog.trim = true;
     cliff_config.git.conventional_commits = true;
     cliff_config.git.filter_unconventional = false;
@@ -224,21 +243,51 @@ pub fn add_link_base_and_commit_range_to_release(
     }
 }
 
-pub fn parse_projected_release_notes(changelog: &str) -> String {
-    let notes: Vec<&str> = RELEASE_NOTES_START_LINE
-        .split(changelog.trim())
-        .map(|c| c.trim())
-        .collect();
-    notes[1].to_string()
+pub fn replace_header(changelog: &str, header: Option<String>) -> String {
+    if header.is_none() {
+        return changelog.to_string();
+    }
+
+    let new_header = format!("{}\n---", header.unwrap());
+
+    let header_re =
+        Regex::new(format!(r"(?ms)(?<header>.*{})", HEADER_END_TAG).as_str());
+
+    if let Ok(rgx) = header_re
+        && let Some(captures) = rgx.captures(changelog)
+        && let Some(_header_value) = captures.name("header")
+    {
+        return rgx.replace_all(changelog, new_header).to_string();
+    }
+
+    format!("{}\n{}", new_header, changelog)
 }
 
-pub fn strip_trailing_previous_release(changelog: &str) -> String {
-    let starting_flag = Regex::new(r"(?m)^#\s").unwrap();
-    let stripped: Vec<&str> = starting_flag
-        .splitn(changelog.trim(), 3)
-        .map(|c| c.trim())
-        .collect();
-    format!("# {}\n\n", stripped[1])
+pub fn replace_footer(changelog: &str, footer: Option<String>) -> String {
+    if footer.is_none() {
+        return changelog.to_string();
+    }
+
+    let new_footer = format!("---\n{}", footer.unwrap());
+
+    let footer_re =
+        Regex::new(format!(r"(?ms)(?<footer>.*{})", FOOTER_END_TAG).as_str());
+
+    if let Ok(rgx) = footer_re
+        && let Some(captures) = rgx.captures(changelog)
+        && let Some(_foooter_value) = captures.name("footer")
+    {
+        return rgx.replace_all(changelog, new_footer).to_string();
+    }
+
+    format!("{}\n{}", changelog, new_footer)
+}
+
+pub fn replace_all_internal_markers(changelog: &str) -> String {
+    let stripped = BODY_END_REGEX.replace_all(changelog, "");
+    let stripped = HEADER_END_REGEX.replace_all(&stripped, "");
+    let stripped = FOOTER_END_REGEX.replace_all(&stripped, "");
+    stripped.to_string()
 }
 
 #[cfg(test)]

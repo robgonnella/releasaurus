@@ -158,7 +158,7 @@ fn create_pr_content(
 
             // create the drop down
             let drop_down = format!(
-                "{start_tag}<summary>{}</summary>{}</details>",
+                "{start_tag}<summary>{}</summary>\n\n{}</details>",
                 version.semver, notes
             );
 

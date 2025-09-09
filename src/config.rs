@@ -36,7 +36,10 @@ use log::*;
 use serde::Deserialize;
 use std::{fs, path::Path};
 
-use crate::{analyzer::config::DEFAULT_BODY, result::Result};
+use crate::{
+    analyzer::config::{DEFAULT_BODY, DEFAULT_FOOTER},
+    result::Result,
+};
 
 /// Default configuration filename that Releasaurus looks for in the project root.
 ///
@@ -108,9 +111,9 @@ pub struct CliChangelogConfig {
 impl Default for CliChangelogConfig {
     fn default() -> Self {
         Self {
-            body: DEFAULT_BODY.to_string(),
+            body: DEFAULT_BODY.into(),
             header: None,
-            footer: None,
+            footer: Some(DEFAULT_FOOTER.into()),
         }
     }
 }

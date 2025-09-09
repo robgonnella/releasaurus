@@ -2,6 +2,7 @@
 use color_eyre::eyre::ContextCompat;
 use indexmap::IndexMap;
 use log::*;
+use regex::Regex;
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Read, Write},
@@ -20,7 +21,8 @@ use crate::{
 
 /// Represents a git-cliff implementation of a repository analyzer
 pub struct CliffAnalyzer {
-    config: Box<git_cliff_core::config::Config>,
+    analyzer_config: AnalyzerConfig,
+    cliff_config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     package_full_path: PathBuf,
     starting_point: Option<StartingPoint>,
@@ -36,11 +38,12 @@ impl CliffAnalyzer {
         let starting_point = config.starting_point.clone();
         let commit_link_base_url = config.commit_link_base_url.clone();
         let release_link_base_url = config.release_link_base_url.clone();
-        let cliff_config = cliff_helpers::get_cliff_config(config)?;
+        let cliff_config = cliff_helpers::get_cliff_config(config.clone())?;
         let repo = git_cliff_core::repo::Repository::init(repo_path)?;
 
         Ok(Self {
-            config: Box::new(cliff_config),
+            analyzer_config: config,
+            cliff_config: Box::new(cliff_config),
             repo,
             package_full_path,
             starting_point,
@@ -82,7 +85,7 @@ impl CliffAnalyzer {
                     release,
                     git_commit,
                     tag,
-                    self.config.git.tag_pattern.clone(),
+                    self.cliff_config.git.tag_pattern.clone(),
                 )
             {
                 // reset and get ready to process next release by adding a new
@@ -122,7 +125,8 @@ impl CliffAnalyzer {
     ) -> Result<(Vec<git_cliff_core::release::Release<'a>>, Option<String>)>
     {
         let tags =
-            self.repo.tags(&self.config.git.tag_pattern, false, false)?;
+            self.repo
+                .tags(&self.cliff_config.git.tag_pattern, false, false)?;
 
         // use the parent of last release as starting point
         let start = self
@@ -138,13 +142,34 @@ impl CliffAnalyzer {
         // if option is None
         let commits = self.repo.commits(
             range,
-            Some(self.config.git.include_paths.clone()),
+            Some(self.cliff_config.git.include_paths.clone()),
             None,
             false,
         )?;
 
         // process and return the releases for this repo
         self.process_commits(commits, tags)
+    }
+
+    fn get_notes_for_latest_release(&self, changelog: &str) -> String {
+        let stripped: Vec<&str> =
+            cliff_helpers::BODY_END_REGEX.splitn(changelog, 2).collect();
+
+        let notes = stripped[0].to_string();
+
+        let header_re = Regex::new(
+            format!(r"(?ms)(?<header>.*{})", cliff_helpers::HEADER_END_TAG)
+                .as_str(),
+        );
+
+        if let Ok(rgx) = header_re
+            && let Some(captures) = rgx.captures(changelog)
+            && let Some(_header_value) = captures.name("header")
+        {
+            return rgx.replace_all(&notes, "").to_string();
+        }
+
+        notes
     }
 
     pub fn process_repository(&self) -> Result<Output> {
@@ -157,7 +182,7 @@ impl CliffAnalyzer {
 
         let mut current: Option<Version> = None;
         if let Some(tag) = current_version
-            && let Some(pattern) = self.config.git.tag_pattern.clone()
+            && let Some(pattern) = self.cliff_config.git.tag_pattern.clone()
         {
             let stripped = pattern.replace(&tag, "").to_string();
             let semver_version = semver::Version::parse(&stripped)?;
@@ -169,7 +194,7 @@ impl CliffAnalyzer {
 
         let mut changelog = git_cliff_core::changelog::Changelog::new(
             releases,
-            &self.config,
+            &self.cliff_config,
             None,
         )?;
 
@@ -183,13 +208,16 @@ impl CliffAnalyzer {
         let mut out = String::from_utf8(bytes)?;
 
         if self.starting_point.is_some() {
-            out = cliff_helpers::strip_trailing_previous_release(&out);
+            // removes trailing release artifact that resulted from using
+            // the parent commit of the previous release tag during commit
+            // analysis
+            out = self.get_notes_for_latest_release(&out);
         }
 
         let mut next: Option<Version> = None;
 
         if let Some(tag) = next_version.clone()
-            && let Some(pattern) = self.config.git.tag_pattern.clone()
+            && let Some(pattern) = self.cliff_config.git.tag_pattern.clone()
         {
             let stripped = pattern.replace(&tag, "").to_string();
             let semver_version = semver::Version::parse(&stripped)?;
@@ -202,7 +230,7 @@ impl CliffAnalyzer {
         let mut projected_release = None;
 
         if next_version.is_some() {
-            let notes = cliff_helpers::parse_projected_release_notes(&out);
+            let notes = self.get_notes_for_latest_release(&out);
             let last_release =
                 changelog.releases.last().wrap_err("no releases found")?;
             projected_release = Some(ProjectedRelease {
@@ -249,7 +277,19 @@ impl CliffAnalyzer {
             .truncate(true)
             .open(file_path.clone())?;
 
-        let content = format!("{}{}", output.changelog, existing_content);
+        let mut content = format!("{}{}", output.changelog, existing_content);
+
+        content = cliff_helpers::replace_header(
+            &content,
+            self.analyzer_config.header.clone(),
+        );
+
+        content = cliff_helpers::replace_footer(
+            &content,
+            self.analyzer_config.footer.clone(),
+        );
+
+        content = cliff_helpers::replace_all_internal_markers(&content);
 
         file.write_all(content.as_bytes())?;
 
