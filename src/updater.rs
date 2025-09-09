@@ -1,6 +1,7 @@
 mod detection;
 mod framework;
 mod generic;
+mod java;
 pub mod manager;
 mod node;
 mod php;
