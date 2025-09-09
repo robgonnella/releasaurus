@@ -13,6 +13,7 @@ use crate::{
         types::{CreatePrRequest, GetPrRequest, UpdatePrRequest},
     },
     repo::Repository,
+    updater::manager::UpdaterManager,
 };
 
 struct PrContent {
@@ -71,6 +72,52 @@ fn process_packages(
         manifest.insert(package.path.clone(), output);
     }
 
+    // Update package manifest files (Cargo.toml, package.json, setup.py, etc.)
+    // with the new versions using the language-agnostic updater system.
+    // This step ensures that package files are updated consistently across
+    // different programming languages and package managers.
+    info!(
+        "Updating package manifest files with new versions across all detected frameworks"
+    );
+    let mut updater_manager = UpdaterManager::new(repo.workdir()?);
+
+    match updater_manager.update_packages(&manifest, cli_config) {
+        Ok(stats) => {
+            info!(
+                "✓ Package update completed successfully: {} of {} packages updated",
+                stats.updated_packages, stats.total_packages
+            );
+
+            // Log detected frameworks for transparency
+            if !stats.frameworks_detected.is_empty() {
+                info!(
+                    "Detected frameworks: {:?}",
+                    stats.frameworks_detected.keys().collect::<Vec<_>>()
+                );
+            }
+
+            // Report any warnings that occurred during the update process
+            if !stats.warnings.is_empty() {
+                warn!(
+                    "Update completed with {} warning(s):",
+                    stats.warnings.len()
+                );
+                for warning in &stats.warnings {
+                    warn!("  → {}", warning);
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Failed to update package manifest files: {}", e);
+            warn!(
+                "Continuing with PR creation - changelog generation was successful"
+            );
+            // Continue with PR creation even if file updates fail since the core
+            // functionality (changelog generation and version detection) worked.
+            // The PR will still be created with the correct changelog content.
+        }
+    }
+
     Ok(manifest)
 }
 
@@ -122,7 +169,7 @@ fn create_pr_content(
 
         // only keep packages that have releasable commits
         if let Some(version) = info.next_version {
-            info!("{name} is releasable: next version: {version}");
+            info!("{name} is releasable: next version: {}", version.semver);
             releasable = true;
 
             let notes = info
@@ -132,14 +179,14 @@ fn create_pr_content(
 
             // create the drop down
             let drop_down = format!(
-                "{start_tag}<summary>{version}</summary>{}</details>",
-                notes
+                "{start_tag}<summary>{}</summary>{}</details>",
+                version.semver, notes
             );
 
             body.push(drop_down);
 
             if include_title_version {
-                title = format!("{} {}", title, version)
+                title = format!("{} {}", title, version.semver)
             }
         }
     }

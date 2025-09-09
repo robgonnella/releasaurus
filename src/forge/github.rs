@@ -105,7 +105,7 @@ impl Forge for Github {
                   r"No merged release PRs with the label {} found. Nothing to release",
                   PENDING_LABEL
               );
-                return Ok::<Option<ReleasePullRequest>, Report>(None);
+                return Ok(None);
             }
 
             if issues.items.len() > 1 {

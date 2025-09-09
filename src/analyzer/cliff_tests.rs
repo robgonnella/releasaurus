@@ -138,11 +138,14 @@ fn process_git_repository() {
 
     assert!(output.current_version.is_some());
     let current_version = output.current_version.unwrap();
-    assert_eq!(current_version, "v0.2.1", "current version does not match");
+    assert_eq!(
+        current_version.tag, "v0.2.1",
+        "current version does not match"
+    );
 
     assert!(output.next_version.is_some());
     let next_version = output.next_version.unwrap();
-    assert_eq!(next_version, "v1.0.0", "next version does not match");
+    assert_eq!(next_version.tag, "v1.0.0", "next version does not match");
 
     let file_path = format!("{}/CHANGELOG.md", context.path().display());
 
