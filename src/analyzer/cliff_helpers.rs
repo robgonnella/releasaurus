@@ -5,20 +5,32 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::{path::Path, sync::LazyLock};
 
-pub static BODY_END_TAG: &str = "<!--releasaurus_body_end-->";
+pub static HEADER_START_TAG: &str = "<!--releasaurus_header_start-->";
 pub static HEADER_END_TAG: &str = "<!--releasaurus_header_end-->";
+
+pub static BODY_END_TAG: &str = "<!--releasaurus_body_end-->";
+
+pub static FOOTER_START_TAG: &str = "<!--releasaurus_footer_start-->";
 pub static FOOTER_END_TAG: &str = "<!--releasaurus_footer_end-->";
 
+pub static HEADER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        format!("(?ms)(?<header>{HEADER_START_TAG}.*{HEADER_END_TAG})")
+            .as_str(),
+    )
+    .unwrap()
+});
+
 pub static BODY_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(format!(r"(?ms){}", BODY_END_TAG).as_str()).unwrap()
+    Regex::new(format!(r"(?ms){BODY_END_TAG}").as_str()).unwrap()
 });
 
-pub static HEADER_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(format!(r"(?ms){}", HEADER_END_TAG).as_str()).unwrap()
-});
-
-pub static FOOTER_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(format!(r"(?ms){}", FOOTER_END_TAG).as_str()).unwrap()
+pub static FOOTER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        format!("(?ms)(?<footer>{FOOTER_START_TAG}.*{FOOTER_END_TAG})")
+            .as_str(),
+    )
+    .unwrap()
 });
 
 use crate::{analyzer::config::AnalyzerConfig, result::Result};
@@ -65,14 +77,10 @@ pub fn set_config_basic_settings(
 ) -> Result<()> {
     cliff_config.changelog.body =
         format!("{}{}\n", analyzer_config.body.clone(), BODY_END_TAG);
-    if let Some(header) = analyzer_config.header.clone() {
-        cliff_config.changelog.header =
-            Some(format!("{}{}\n", header, HEADER_END_TAG));
-    }
-    if let Some(footer) = analyzer_config.footer.clone() {
-        cliff_config.changelog.footer =
-            Some(format!("{}{}\n", footer, FOOTER_END_TAG));
-    }
+    // set cliff config header and footer to None since we handle these
+    // separately within releasaurus
+    cliff_config.changelog.header = None;
+    cliff_config.changelog.footer = None;
     cliff_config.changelog.trim = true;
     cliff_config.git.conventional_commits = true;
     cliff_config.git.filter_unconventional = false;
@@ -248,19 +256,18 @@ pub fn replace_header(changelog: &str, header: Option<String>) -> String {
         return changelog.to_string();
     }
 
-    let new_header = format!("{}\n---", header.unwrap());
+    let new_header = format!(
+        "{HEADER_START_TAG}\n{}\n---\n{HEADER_END_TAG}",
+        header.unwrap()
+    );
 
-    let header_re =
-        Regex::new(format!(r"(?ms)(?<header>.*{})", HEADER_END_TAG).as_str());
-
-    if let Ok(rgx) = header_re
-        && let Some(captures) = rgx.captures(changelog)
+    if let Some(captures) = HEADER_REGEX.captures(changelog)
         && let Some(_header_value) = captures.name("header")
     {
-        return rgx.replace_all(changelog, new_header).to_string();
+        return HEADER_REGEX.replace_all(changelog, new_header).to_string();
     }
 
-    format!("{}\n{}", new_header, changelog)
+    format!("{new_header}\n{changelog}")
 }
 
 pub fn replace_footer(changelog: &str, footer: Option<String>) -> String {
@@ -268,25 +275,22 @@ pub fn replace_footer(changelog: &str, footer: Option<String>) -> String {
         return changelog.to_string();
     }
 
-    let new_footer = format!("---\n{}", footer.unwrap());
+    let new_footer = format!(
+        "{FOOTER_START_TAG}\n---\n{}\n{FOOTER_END_TAG}",
+        footer.unwrap()
+    );
 
-    let footer_re =
-        Regex::new(format!(r"(?ms)(?<footer>.*{})", FOOTER_END_TAG).as_str());
-
-    if let Ok(rgx) = footer_re
-        && let Some(captures) = rgx.captures(changelog)
+    if let Some(captures) = FOOTER_REGEX.captures(changelog)
         && let Some(_foooter_value) = captures.name("footer")
     {
-        return rgx.replace_all(changelog, new_footer).to_string();
+        return FOOTER_REGEX.replace_all(changelog, new_footer).to_string();
     }
 
-    format!("{}\n{}", changelog, new_footer)
+    format!("{changelog}\n{new_footer}")
 }
 
-pub fn replace_all_internal_markers(changelog: &str) -> String {
+pub fn strip_internal_body_marker(changelog: &str) -> String {
     let stripped = BODY_END_REGEX.replace_all(changelog, "");
-    let stripped = HEADER_END_REGEX.replace_all(&stripped, "");
-    let stripped = FOOTER_END_REGEX.replace_all(&stripped, "");
     stripped.to_string()
 }
 

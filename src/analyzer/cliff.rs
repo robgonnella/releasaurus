@@ -289,7 +289,7 @@ impl CliffAnalyzer {
             self.analyzer_config.footer.clone(),
         );
 
-        content = cliff_helpers::replace_all_internal_markers(&content);
+        content = cliff_helpers::strip_internal_body_marker(&content);
 
         file.write_all(content.as_bytes())?;
 
