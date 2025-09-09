@@ -44,11 +44,11 @@ pub struct Cli {
     pub debug: bool,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     /// Analyzes commits and creates or updates a release PR
     ReleasePR,
 }
