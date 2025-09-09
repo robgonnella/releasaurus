@@ -1,8 +1,9 @@
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Context, Result};
 use gitlab::{
     Gitlab as GitlabClient,
     api::{
         Query, ignore,
+        merge_requests::MergeRequestState,
         projects::merge_requests::{
             CreateMergeRequest, EditMergeRequest, MergeRequest, MergeRequests,
         },
@@ -35,20 +36,11 @@ impl Gitlab {
             .project(self.project_id.clone())
             .merge_request(iid)
             .build()
-            .map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to build get merge request: {}",
-                    e
-                )
-            })?;
+            .wrap_err("failed to build get merge request")?;
 
-        let mr: MergeRequestInfo =
-            get_endpoint.query(&self.gl).map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to get current merge request: {}",
-                    e
-                )
-            })?;
+        let mr: MergeRequestInfo = get_endpoint
+            .query(&self.gl)
+            .wrap_err("failed to get current merge request")?;
 
         Ok(mr)
     }
@@ -62,35 +54,24 @@ struct MergeRequestInfo {
 }
 
 impl Forge for Gitlab {
-    /// Get a merge request for the given base branch.
-    ///
-    /// Searches for open merge requests targeting the specified base branch
-    /// and returns the IID (internal ID) of the most recent one, if any exists.
-    ///
-    /// # Arguments
-    /// * `req` - Contains the base_branch to search for merge requests targeting it
-    ///
-    /// # Returns
-    /// * `Ok(Some(iid))` - The IID of the most recent open merge request targeting the branch
-    /// * `Ok(None)` - No open merge requests found targeting the branch
-    /// * `Err(_)` - API error occurred during the search
-    fn get_pr(
+    fn get_pr_number(
         &self,
         req: super::types::GetPrRequest,
     ) -> color_eyre::eyre::Result<Option<u64>> {
-        // Create the merge requests query to find open MRs targeting the base branch
+        // Create the merge requests query to find open MRs
+        // targeting the base branch
         let endpoint = MergeRequests::builder()
             .project(self.project_id.clone())
-            .state(gitlab::api::projects::merge_requests::MergeRequestState::Opened)
+            .state(MergeRequestState::Opened)
+            .source_branch(&req.head_branch)
             .target_branch(&req.base_branch)
             .build()
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to build merge request query: {}", e))?;
+            .wrap_err("failed to build merge request query")?;
 
         // Execute the query to get matching merge requests
-        let merge_requests: Vec<MergeRequestInfo> =
-            endpoint.query(&self.gl).map_err(|e| {
-                color_eyre::eyre::eyre!("Failed to query merge requests: {}", e)
-            })?;
+        let merge_requests: Vec<MergeRequestInfo> = endpoint
+            .query(&self.gl)
+            .wrap_err("failed to query merge requests")?;
 
         // Return the first matching merge request's IID
         // (should only be one for a given branch)
@@ -109,18 +90,12 @@ impl Forge for Gitlab {
             .title(&req.title)
             .description(&req.body)
             .build()
-            .map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to build create merge request: {}",
-                    e
-                )
-            })?;
+            .wrap_err("failed to build create merge request")?;
 
         // Execute the creation
-        let response: MergeRequestInfo =
-            endpoint.query(&self.gl).map_err(|e| {
-                color_eyre::eyre::eyre!("Failed to create merge request: {}", e)
-            })?;
+        let response: MergeRequestInfo = endpoint
+            .query(&self.gl)
+            .wrap_err("Failed to create merge request")?;
 
         Ok(response.iid)
     }
@@ -135,17 +110,12 @@ impl Forge for Gitlab {
             .merge_request(req.pr_number)
             .description(&req.body)
             .build()
-            .map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to build edit merge request: {}",
-                    e
-                )
-            })?;
+            .wrap_err("failed to build edit merge request")?;
 
         // Execute the update using ignore since we don't need the response
-        ignore(endpoint).query(&self.gl).map_err(|e| {
-            color_eyre::eyre::eyre!("Failed to update merge request: {}", e)
-        })?;
+        ignore(endpoint)
+            .query(&self.gl)
+            .wrap_err("Failed to update merge request")?;
 
         Ok(())
     }
@@ -171,20 +141,12 @@ impl Forge for Gitlab {
             .merge_request(req.pr_number)
             .labels(all_labels.iter().map(|s| s.as_str()))
             .build()
-            .map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to build edit merge request for labels: {}",
-                    e
-                )
-            })?;
+            .wrap_err("failed to build edit merge request for labels")?;
 
         // Execute the update
-        ignore(endpoint).query(&self.gl).map_err(|e| {
-            color_eyre::eyre::eyre!(
-                "Failed to add labels to merge request: {}",
-                e
-            )
-        })?;
+        ignore(endpoint)
+            .query(&self.gl)
+            .wrap_err("failed to add labels to merge request")?;
 
         Ok(())
     }
@@ -210,20 +172,12 @@ impl Forge for Gitlab {
             .merge_request(req.pr_number)
             .labels(remaining_labels.iter().map(|s| s.as_str()))
             .build()
-            .map_err(|e| {
-                color_eyre::eyre::eyre!(
-                    "Failed to build edit merge request for label removal: {}",
-                    e
-                )
-            })?;
+            .wrap_err("failed to build edit merge request for label removal")?;
 
         // Execute the update
-        ignore(endpoint).query(&self.gl).map_err(|e| {
-            color_eyre::eyre::eyre!(
-                "Failed to remove labels from merge request: {}",
-                e
-            )
-        })?;
+        ignore(endpoint)
+            .query(&self.gl)
+            .wrap_err("failed to remove labels from merge request")?;
 
         Ok(())
     }
