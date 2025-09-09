@@ -2,6 +2,12 @@
 name = "releasaurus"
 version = "0.1.0"
 edition = "2024"
+description = "A comprehensive release automation tool that streamlines the software release process across multiple programming languages and forge platforms"
+repository = "https://github.com/robgonnella/releasaurus"
+homepage = "https://github.com/robgonnella/releasaurus"
+license  = "MIT OR Apache-2.0"
+keywords = ["release", "semver", "conventional", "commits", "changelog"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "releasaurus"
