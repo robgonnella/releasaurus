@@ -1,3 +1,4 @@
+//! Defines execution function for the release command
 use color_eyre::eyre::Result;
 
 use crate::cli;

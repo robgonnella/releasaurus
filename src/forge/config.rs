@@ -1,3 +1,4 @@
+//! Configuration used implement various forges
 use color_eyre::eyre::Result;
 use secrecy::SecretString;
 

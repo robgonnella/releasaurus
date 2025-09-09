@@ -1,3 +1,4 @@
+//! Defines the command line flags and sub-commands available on this cli
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::{ContextCompat, Result, eyre};
 use git_url_parse::GitUrl;

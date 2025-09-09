@@ -1,4 +1,4 @@
-//! Configuration for releasaurus-core
+//! Configuration used to implement changelog traits
 
 /// The default body value for [`ChangelogConfig`]
 pub const DEFAULT_BODY: &str = r#"{% if version -%}
@@ -25,30 +25,9 @@ pub const DEFAULT_BODY: &str = r#"{% if version -%}
  "#;
 
 #[derive(Debug, Clone)]
-/// Package configuration specifying which packages to track as separate
-/// releases in this repository
-pub struct PackageConfig {
-    /// The name of the package. This can be an arbitrary name but it's common
-    /// for it to match the directory name of the package
-    pub name: String,
-    /// Path to a valid directory for the package
-    pub path: String,
-    /// Optional prefix to use for the package
-    pub tag_prefix: Option<String>,
-}
-
-impl Default for PackageConfig {
-    fn default() -> Self {
-        Self {
-            name: "".to_string(),
-            path: ".".to_string(),
-            tag_prefix: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct ChangelogConfig {
+    /// Path to the package directory
+    pub package_path: String,
     /// [Tera](https://github.com/Keats/tera) template string allowing you
     /// to modify the format of the generated changelog.
     pub body: String,
@@ -61,7 +40,8 @@ pub struct ChangelogConfig {
     /// default: [`None`]
     pub footer: Option<String>,
     /// [`PackageConfig`]
-    pub package: PackageConfig,
+    /// Optional prefix to use for the package
+    pub tag_prefix: Option<String>,
     /// The base url for commit links
     /// Used to display commit links in changelog
     pub commit_link_base_url: String,
@@ -73,12 +53,13 @@ pub struct ChangelogConfig {
 impl Default for ChangelogConfig {
     fn default() -> Self {
         Self {
+            package_path: ".".to_string(),
             body: DEFAULT_BODY.to_string(),
             header: None,
             footer: None,
-            package: PackageConfig::default(),
-            commit_link_base_url: "".to_string(),
-            release_link_base_url: "".to_string(),
+            tag_prefix: None,
+            commit_link_base_url: "".into(),
+            release_link_base_url: "".into(),
         }
     }
 }

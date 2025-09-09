@@ -3,7 +3,7 @@ use log::*;
 use serde::Deserialize;
 use std::fs;
 
-use crate::changelog::config::DEFAULT_BODY;
+use crate::processor::config::DEFAULT_BODY;
 
 const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
@@ -40,9 +40,6 @@ impl Default for CliChangelogConfig {
 /// Package configuration specifying which packages to track as separate
 /// releases in this repository
 pub struct CliPackageConfig {
-    /// The name of the package. This can be an arbitrary name but it's common
-    /// for it to match the directory name of the package
-    pub name: String,
     /// Path to a valid directory for the package
     pub path: String,
     /// Optional prefix to use for the package
@@ -52,7 +49,6 @@ pub struct CliPackageConfig {
 impl Default for CliPackageConfig {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
             path: ".".to_string(),
             tag_prefix: None,
         }
@@ -68,8 +64,6 @@ pub struct CliConfig {
     /// [`Vec<PackageConfig>`]
     #[serde(rename = "package")]
     pub packages: Vec<CliPackageConfig>,
-    // used to make this an iterator for [`ChangelogConfig`]
-    next_pkg: usize,
 }
 
 impl Default for CliConfig {
@@ -77,40 +71,7 @@ impl Default for CliConfig {
         Self {
             changelog: CliChangelogConfig::default(),
             packages: vec![CliPackageConfig::default()],
-            next_pkg: 0,
         }
-    }
-}
-
-/// Represents the config for a single package within a repo
-pub struct CliSinglePackageConfig {
-    /// The global changelog config shared across all packages in this repo
-    pub changelog: CliChangelogConfig,
-    /// The specific package config for one package in this repo
-    pub package: CliPackageConfig,
-}
-
-// Implement iterator on ValidatedCliConfig allowing use to generate
-// ChangelogConfig in a loop. This makes it easier to share common parts of the
-// config, like changelog format and remote repo config, across all packages
-impl Iterator for CliConfig {
-    type Item = CliSinglePackageConfig;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.next_pkg;
-
-        if idx >= self.packages.len() {
-            return None;
-        }
-
-        let package = self.packages[idx].clone();
-
-        self.next_pkg += 1;
-
-        Some(CliSinglePackageConfig {
-            changelog: self.changelog.clone(),
-            package,
-        })
     }
 }
 
@@ -162,41 +123,13 @@ mod tests {
     }
 
     #[test]
-    fn iterates_to_single_package_config() {
-        let config = CliConfig {
-            packages: vec![
-                CliPackageConfig {
-                    name: "1".to_string(),
-                    path: "path1".to_string(),
-                    tag_prefix: Some("p1".to_string()),
-                },
-                CliPackageConfig {
-                    name: "2".to_string(),
-                    path: "path2".to_string(),
-                    tag_prefix: Some("p2".to_string()),
-                },
-            ],
-            ..CliConfig::default()
-        };
-        let mut count = 0;
-        for c in config.into_iter() {
-            count += 1;
-            assert!(!c.changelog.body.is_empty());
-            assert_eq!(c.package.name, format!("{count}"));
-            assert_eq!(c.package.path, format!("path{count}"));
-            assert_eq!(c.package.tag_prefix, Some(format!("p{count}")));
-        }
-    }
-
-    #[test]
     fn loads_config_file() {
         let tmp = TempDir::new().unwrap();
 
         switch_current_directory(tmp.path(), || {
             let content = r#"
 [[package]]
-name = "test"
-path = "."
+path = "./some/path"
 "#;
 
             fs::write(tmp.path().join(DEFAULT_CONFIG_FILE), content.as_bytes())
@@ -209,8 +142,8 @@ path = "."
 
             assert_eq!(config.packages.len(), 1, "packages length should be 1");
             assert_eq!(
-                config.packages[0].name, "test",
-                "package name should be \"test\""
+                config.packages[0].path, "./some/path",
+                "packages path should be ./some/path"
             );
         })
         .unwrap();
@@ -226,10 +159,6 @@ path = "."
 
             let config = result.unwrap();
             assert_eq!(config.packages.len(), 1, "packages length should be 1");
-            assert_eq!(
-                config.packages[0].name, "",
-                "package name should be \"\""
-            );
             assert_eq!(
                 config.packages[0].path, ".",
                 "package path should be \".\""
