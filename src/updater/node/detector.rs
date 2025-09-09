@@ -1,3 +1,4 @@
+use color_eyre::eyre::Result;
 use std::path::Path;
 
 use crate::updater::{
@@ -6,8 +7,7 @@ use crate::updater::{
         traits::FrameworkDetector,
         types::{DetectionPattern, FrameworkDetection},
     },
-    framework::{Framework, Language},
-    node::types::NodeMetadata,
+    framework::Framework,
 };
 
 pub struct NodeDetector {}
@@ -23,10 +23,7 @@ impl FrameworkDetector for NodeDetector {
         "node"
     }
 
-    fn detect(
-        &self,
-        path: &Path,
-    ) -> color_eyre::eyre::Result<FrameworkDetection> {
+    fn detect(&self, path: &Path) -> Result<FrameworkDetection> {
         let pattern = DetectionPattern {
             manifest_files: vec!["package.json"],
             support_files: vec![
@@ -42,44 +39,13 @@ impl FrameworkDetector for NodeDetector {
         DetectionHelper::analyze_with_pattern(
             path,
             pattern.clone(),
-            |manifest_content, support_evidence| {
-                let is_monorepo = manifest_content.contains("\"workspaces\":")
-                    || path.join("lerna.json").exists()
-                    || manifest_content.contains("\"nx\":");
-
-                let monorepo_root = if is_monorepo {
-                    Some(path.to_path_buf())
-                } else {
-                    None
-                };
-
-                // Detect package manager
-                let package_manager = if path.join("pnpm-lock.yaml").exists() {
-                    "pnpm".to_string()
-                } else if path.join("yarn.lock").exists() {
-                    "yarn".to_string()
-                } else {
-                    "npm".to_string()
-                };
-
-                let metadata = NodeMetadata {
-                    is_monorepo,
-                    monorepo_root,
-                    package_manager,
-                };
-
-                FrameworkDetection {
-                    framework: Framework::Node(Language {
-                        name: self.name().into(),
-                        manifest_path: path.join("package.json"),
-                        metadata,
-                    }),
-                    confidence: DetectionHelper::calculate_confidence(
-                        &pattern,
-                        &support_evidence,
-                    ),
-                    evidence: support_evidence,
-                }
+            |support_evidence| FrameworkDetection {
+                framework: Framework::Node,
+                confidence: DetectionHelper::calculate_confidence(
+                    &pattern,
+                    &support_evidence,
+                ),
+                evidence: support_evidence,
             },
         )
     }
@@ -118,15 +84,10 @@ mod tests {
         let detector = NodeDetector::new();
         let detection = detector.detect(path).unwrap();
 
-        match detection.framework {
-            Framework::Node(lang) => {
-                assert!(!lang.metadata.is_monorepo);
-                assert_eq!(lang.metadata.package_manager, "npm");
-            }
-            _ => panic!("Expected Node framework"),
-        }
+        assert!(matches!(detection.framework, Framework::Node));
 
         assert!(detection.confidence > 0.7);
+
         assert!(
             detection
                 .evidence

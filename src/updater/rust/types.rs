@@ -46,6 +46,7 @@ pub enum DependencyType {
 // use crate::updater::types::LocalDependency;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Rust-specific framework metadata
 pub struct RustMetadata {
     /// Whether this is a Cargo workspace
@@ -57,6 +58,7 @@ pub struct RustMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Rust-specific package metadata
 pub struct RustPackageMetadata {
     /// Whether this package is a workspace member

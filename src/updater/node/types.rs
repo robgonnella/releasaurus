@@ -22,6 +22,7 @@ pub enum DependencyType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Node.js-specific framework metadata
 pub struct NodeMetadata {
     /// Whether this is a monorepo (workspaces/lerna)
@@ -33,6 +34,7 @@ pub struct NodeMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(unused)]
 /// Node.js-specific package metadata
 pub struct NodePackageMetadata {
     /// Whether this package is part of a monorepo

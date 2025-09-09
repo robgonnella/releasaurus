@@ -1,4 +1,5 @@
 use color_eyre::eyre::Result;
+use std::path::Path;
 
 use crate::updater::{framework::Package, traits::PackageUpdater};
 
@@ -11,7 +12,7 @@ impl GenericUpdater {
 }
 
 impl PackageUpdater for GenericUpdater {
-    fn update(&self, _packages: Vec<Package>) -> Result<()> {
+    fn update(&self, _root_path: &Path, _packages: Vec<Package>) -> Result<()> {
         // nothing to do for generic updater
         Ok(())
     }
