@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{ContextCompat, Result, eyre};
 use git_url_parse::GitUrl;
 use secrecy::SecretString;
 use std::env;
@@ -111,6 +111,12 @@ fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
+    let project_path = parsed
+        .path
+        .strip_prefix("/")
+        .wrap_err("failed to process project path")?
+        .to_string();
+
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
@@ -124,6 +130,7 @@ fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
+        path: project_path,
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
@@ -163,6 +170,12 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
+    let project_path = parsed
+        .path
+        .strip_prefix("/")
+        .wrap_err("failed to process project path")?
+        .to_string();
+
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
@@ -176,6 +189,7 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
+        path: project_path,
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
@@ -215,6 +229,12 @@ fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
+    let project_path = parsed
+        .path
+        .strip_prefix("/")
+        .wrap_err("failed to process project path")?
+        .to_string();
+
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
@@ -228,6 +248,7 @@ fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
+        path: project_path,
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
