@@ -44,8 +44,7 @@ impl Github {
 
     async fn get_pr_by_number(&self, pr_number: u64) -> Result<PullRequest> {
         let octocrab = octocrab::instance();
-        let handler =
-            octocrab.pulls(self.config.owner.clone(), self.config.repo.clone());
+        let handler = octocrab.pulls(&self.config.owner, &self.config.repo);
         let pr = handler.get(pr_number).await?;
         Ok(pr)
     }
@@ -56,8 +55,7 @@ impl Forge for Github {
         let prs = self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
-            let handler = octocrab
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let handler = octocrab.pulls(&self.config.owner, &self.config.repo);
 
             handler
                 .list()
@@ -79,8 +77,7 @@ impl Forge for Github {
         self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
-            let handler = octocrab
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let handler = octocrab.pulls(&self.config.owner, &self.config.repo);
 
             let pr = handler
                 .create(req.title, req.base_branch, req.target_branch)
@@ -96,8 +93,8 @@ impl Forge for Github {
         self.rt.block_on(async {
             let octocrab = self.new_instance()?;
 
-            let pr_handler = octocrab
-                .pulls(self.config.owner.clone(), self.config.repo.clone());
+            let pr_handler =
+                octocrab.pulls(&self.config.owner, &self.config.repo);
 
             pr_handler
                 .update(req.pr_number)
@@ -124,8 +121,8 @@ impl Forge for Github {
 
             labels.extend(req.labels);
 
-            let issue_handler = octocrab
-                .issues(self.config.owner.clone(), self.config.repo.clone());
+            let issue_handler =
+                octocrab.issues(&self.config.owner, &self.config.repo);
 
             issue_handler.add_labels(req.pr_number, &labels).await?;
 
