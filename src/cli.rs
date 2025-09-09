@@ -50,6 +50,8 @@ pub struct Args {
 pub enum Command {
     /// Analyzes commits and creates or updates a release PR
     ReleasePR,
+    /// Processes tags release commit and creates Release in configured forge
+    Release,
 }
 
 impl Args {

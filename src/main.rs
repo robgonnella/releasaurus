@@ -38,5 +38,6 @@ fn main() -> Result<()> {
 
     match cli_args.command {
         cli::Command::ReleasePR => command::release_pr::execute(&cli_args),
+        cli::Command::Release => command::release::execute(&cli_args),
     }
 }

@@ -19,12 +19,19 @@ use serde::Deserialize;
 use crate::forge::{
     config::{DEFAULT_LABEL_COLOR, RemoteConfig},
     traits::Forge,
-    types::{CreatePrRequest, PrLabelsRequest, UpdatePrRequest},
+    types::{
+        CreatePrRequest, PrLabelsRequest, ReleasePullRequest, UpdatePrRequest,
+    },
+    util::parse_pr_body,
 };
 
 #[derive(Debug, Deserialize)]
 struct MergeRequestInfo {
     iid: u64,
+    sha: String,
+    title: String,
+    description: String,
+    labels: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,10 +88,10 @@ impl Forge for Gitlab {
         &self.config
     }
 
-    fn get_pr_number(
+    fn get_open_release_pr(
         &self,
         req: super::types::GetPrRequest,
-    ) -> EyreResult<Option<u64>> {
+    ) -> EyreResult<Option<ReleasePullRequest>> {
         // Create the merge requests query to find open MRs
         // targeting the base branch
         let endpoint = MergeRequests::builder()
@@ -105,8 +112,23 @@ impl Forge for Gitlab {
             Ok(merge_requests) => {
                 // Return the first matching merge request's IID
                 // (should only be one for a given branch)
-                let result = merge_requests.first().map(|mr| mr.iid);
-                Ok(result)
+                let first = merge_requests.first();
+
+                if first.is_none() {
+                    return Ok(None);
+                }
+
+                let merge_request = first.unwrap();
+                let releases = parse_pr_body(&merge_request.description)?;
+
+                Ok(Some(ReleasePullRequest {
+                    number: merge_request.iid,
+                    sha: merge_request.sha.clone(),
+                    title: merge_request.title.clone(),
+                    body: merge_request.description.clone(),
+                    labels: merge_request.labels.clone(),
+                    releases,
+                }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == reqwest::StatusCode::NOT_FOUND {
@@ -125,7 +147,10 @@ impl Forge for Gitlab {
         }
     }
 
-    fn create_pr(&self, req: CreatePrRequest) -> EyreResult<u64> {
+    fn create_pr(
+        &self,
+        req: CreatePrRequest,
+    ) -> EyreResult<ReleasePullRequest> {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(&self.project_id)
@@ -136,9 +161,17 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the creation
-        let response: MergeRequestInfo = endpoint.query(&self.gl)?;
+        let merge_request: MergeRequestInfo = endpoint.query(&self.gl)?;
+        let releases = parse_pr_body(&merge_request.description)?;
 
-        Ok(response.iid)
+        Ok(ReleasePullRequest {
+            number: merge_request.iid,
+            sha: merge_request.sha.clone(),
+            title: merge_request.title.clone(),
+            body: merge_request.description.clone(),
+            labels: merge_request.labels.clone(),
+            releases,
+        })
     }
 
     fn update_pr(&self, req: UpdatePrRequest) -> EyreResult<()> {
@@ -146,6 +179,7 @@ impl Forge for Gitlab {
         let endpoint = EditMergeRequest::builder()
             .project(&self.project_id)
             .merge_request(req.pr_number)
+            .title(&req.title)
             .description(&req.body)
             .build()?;
 

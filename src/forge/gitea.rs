@@ -10,7 +10,11 @@ use serde::{Deserialize, Serialize};
 use crate::forge::{
     config::{DEFAULT_LABEL_COLOR, RemoteConfig},
     traits::Forge,
-    types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
+    types::{
+        CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
+        UpdatePrRequest,
+    },
+    util::parse_pr_body,
 };
 
 #[derive(Debug, Default, Serialize)]
@@ -30,8 +34,17 @@ pub struct Label {
 }
 
 #[derive(Debug, Deserialize)]
+struct PullRequestHead {
+    sha: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct PullRequest {
     number: u64,
+    title: String,
+    body: String,
+    labels: Vec<Label>,
+    head: PullRequestHead,
 }
 
 #[derive(Debug, Serialize)]
@@ -44,6 +57,7 @@ struct CreatePull {
 
 #[derive(Debug, Serialize)]
 struct UpdatePullBody {
+    title: String,
     body: String,
 }
 
@@ -119,18 +133,38 @@ impl Forge for Gitea {
         &self.config
     }
 
-    fn get_pr_number(&self, req: GetPrRequest) -> Result<Option<u64>> {
+    fn get_open_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<ReleasePullRequest>> {
         let pulls_url = self.base_url.join(
-            format!("pulls/{}/{}", req.base_branch, req.head_branch).as_str(),
+            format!("pulls/{}/{}?state=open", req.base_branch, req.head_branch)
+                .as_str(),
         )?;
         let request = self.client.get(pulls_url).build()?;
         let response = self.client.execute(request)?;
         let result = response.error_for_status()?;
         let pr: PullRequest = result.json()?;
-        Ok(Some(pr.number))
+
+        let labels = pr
+            .labels
+            .iter()
+            .map(|l| l.name.clone())
+            .collect::<Vec<String>>();
+
+        let releases = parse_pr_body(&pr.body)?;
+
+        Ok(Some(ReleasePullRequest {
+            number: pr.number,
+            sha: pr.head.sha,
+            title: pr.title,
+            body: pr.body.clone(),
+            labels,
+            releases,
+        }))
     }
 
-    fn create_pr(&self, req: CreatePrRequest) -> Result<u64> {
+    fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest> {
         let data = CreatePull {
             title: req.title,
             body: req.body,
@@ -142,11 +176,27 @@ impl Forge for Gitea {
         let response = self.client.execute(request)?;
         let result = response.error_for_status()?;
         let pr: PullRequest = result.json()?;
-        Ok(pr.number)
+        let releases = parse_pr_body(&pr.body)?;
+
+        Ok(ReleasePullRequest {
+            number: pr.number,
+            sha: pr.head.sha,
+            title: pr.title,
+            body: pr.body.clone(),
+            labels: pr
+                .labels
+                .iter()
+                .map(|l| l.name.clone())
+                .collect::<Vec<String>>(),
+            releases,
+        })
     }
 
     fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        let data = UpdatePullBody { body: req.body };
+        let data = UpdatePullBody {
+            title: req.title,
+            body: req.body,
+        };
         let pulls_url = self
             .base_url
             .join(format!("pulls/{}", req.pr_number).as_str())?;
