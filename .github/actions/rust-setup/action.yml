@@ -11,4 +11,3 @@ runs:
     - name: install cargo-insta
       shell: bash
       run: cargo install cargo-insta
-    - uses: Swatinem/rust-cache@v2
