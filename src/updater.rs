@@ -6,5 +6,6 @@ pub mod manager;
 mod node;
 mod php;
 mod python;
+mod ruby;
 mod rust;
 mod traits;
