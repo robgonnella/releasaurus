@@ -96,7 +96,12 @@ pub struct RemoteConfig {
     /// Optional base_url for the remote
     /// defaults to community version urls
     /// i.e. https://github.com, https://gitlab.com, https://gitea.com
+    /// This is mainly used for links displayed in changelog
     pub base_url: Option<String>,
+    /// Optional api_url for the remote
+    /// defaults to community version urls
+    /// If you're updating base_url you should be updating this field as well
+    pub api_url: Option<String>,
 }
 
 /// Represents the valid types of remotes
@@ -231,6 +236,7 @@ mod tests {
         let config = Config {
             github: Some(RemoteConfig {
                 base_url: None,
+                api_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -248,6 +254,7 @@ mod tests {
                     conf.base_url,
                     Some(GITHUB_DEFAULT_BASE_URL.to_string())
                 );
+                assert!(conf.api_url.is_none());
             }
         }
     }
@@ -257,6 +264,7 @@ mod tests {
         let config = Config {
             gitlab: Some(RemoteConfig {
                 base_url: None,
+                api_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -274,6 +282,7 @@ mod tests {
                     conf.base_url,
                     Some(GITLAB_DEFAULT_BASE_URL.to_string())
                 );
+                assert!(conf.api_url.is_none());
             }
         }
     }
@@ -283,6 +292,7 @@ mod tests {
         let config = Config {
             gitea: Some(RemoteConfig {
                 base_url: None,
+                api_url: None,
                 owner: "owner".to_string(),
                 repo: "repo".to_string(),
                 token: Secret::new("secret".to_string()),
@@ -300,6 +310,7 @@ mod tests {
                     conf.base_url,
                     Some(GITEA_DEFAULT_BASE_URL.to_string())
                 );
+                assert!(conf.api_url.is_none());
             }
         }
     }
