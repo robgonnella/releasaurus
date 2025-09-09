@@ -4,15 +4,15 @@ all:
 test *args:
   cargo test {{args}}
 
-test-unit:
+test-unit *args:
     cargo llvm-cov \
         --lib \
         --bins \
         --workspace \
-        --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)(tests\/)"
+        --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)(tests\/)" {{args}}
 
-test-integration:
-    cargo test --test '*'
+test-integration *args:
+    cargo test --test '*' {{args}}
 
 test-all-cov *args:
   cargo llvm-cov \
