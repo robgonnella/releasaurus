@@ -84,13 +84,13 @@ fn process_single_package(
 
     common::log_package_processing(&package.path, &tag_prefix);
 
-    let starting_sha = repo.get_latest_tagged_starting_point(&tag_prefix)?;
+    let starting_point = repo.get_latest_tagged_starting_point(&tag_prefix)?;
 
     let changelog_config = common::create_changelog_config(
         package,
         cli_config,
         remote_config,
-        starting_sha,
+        starting_point,
     );
 
     let analyzer = CliffAnalyzer::new(changelog_config)?;
