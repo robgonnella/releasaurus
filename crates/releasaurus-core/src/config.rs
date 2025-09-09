@@ -63,8 +63,6 @@ pub struct PackageConfig {
     /// Path to a valid directory for the package
     pub path: String,
     /// Optional prefix to use for the package
-    ///
-    /// default: <name>-v
     pub tag_prefix: Option<String>,
 }
 
@@ -73,7 +71,7 @@ impl Default for PackageConfig {
         Self {
             name: "".to_string(),
             path: ".".to_string(),
-            tag_prefix: Some("v".to_string()),
+            tag_prefix: None,
         }
     }
 }
