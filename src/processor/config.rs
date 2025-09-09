@@ -48,6 +48,8 @@ pub struct ChangelogConfig {
     /// The base url for release links
     /// Used to display release links in changelog
     pub release_link_base_url: String,
+    /// Only process since commits since provided commit sha
+    pub since_commit: Option<String>,
 }
 
 impl Default for ChangelogConfig {
@@ -58,6 +60,7 @@ impl Default for ChangelogConfig {
             header: None,
             footer: None,
             tag_prefix: None,
+            since_commit: None,
             commit_link_base_url: "".into(),
             release_link_base_url: "".into(),
         }
