@@ -1817,9 +1817,9 @@ dependencies = [
 
 [[package]]
 name = "octocrab"
-version = "0.41.2"
+version = "0.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2dfd11f6efbd39491d71a3864496f0b6f45e2d01b73b26c55d631c4e0dafaef"
+checksum = "86996964f8b721067b6ed238aa0ccee56ecad6ee5e714468aa567992d05d2b91"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1852,6 +1852,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "url",
+ "web-time",
 ]
 
 [[package]]
@@ -2303,7 +2304,7 @@ dependencies = [
  "log",
  "paris",
  "releasaurus-core",
- "secrecy 0.8.0",
+ "secrecy 0.10.3",
  "serde",
  "simplelog",
  "toml",
@@ -2323,7 +2324,7 @@ dependencies = [
  "octocrab",
  "regex",
  "reqwest",
- "secrecy 0.8.0",
+ "secrecy 0.10.3",
  "semver",
  "serde",
  "serde_json",
@@ -3558,6 +3559,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
+ "serde",
  "wasm-bindgen",
 ]
 

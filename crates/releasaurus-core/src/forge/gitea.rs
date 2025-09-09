@@ -8,7 +8,7 @@ use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
 use crate::forge::{
-    config::RemoteConfig,
+    config::{DEFAULT_LABEL_COLOR, RemoteConfig},
     traits::Forge,
     types::{CreatePrRequest, GetPrRequest, PrLabelsRequest, UpdatePrRequest},
 };
@@ -83,17 +83,6 @@ impl Gitea {
         Ok(Gitea { client, base_url })
     }
 
-    fn get_pr_labels(&self, pr_number: u64) -> Result<Vec<Label>> {
-        let labels_url = self
-            .base_url
-            .join(format!("issues/{}/labels", pr_number).as_str())?;
-        let request = self.client.get(labels_url).build()?;
-        let response = self.client.execute(request)?;
-        let result = response.error_for_status()?;
-        let labels: Vec<Label> = result.json()?;
-        Ok(labels)
-    }
-
     fn get_all_labels(&self) -> Result<Vec<Label>> {
         let labels_url = self.base_url.join("labels")?;
         let request = self.client.get(labels_url).build()?;
@@ -110,7 +99,7 @@ impl Gitea {
             .post(labels_url)
             .json(&CreateLabel {
                 name: label_name,
-                color: "00aabb".to_string(),
+                color: DEFAULT_LABEL_COLOR.to_string(),
             })
             .build()?;
         let response = self.client.execute(request)?;
@@ -158,15 +147,10 @@ impl Forge for Gitea {
         Ok(())
     }
 
-    fn add_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
+    fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         let all_labels = self.get_all_labels()?;
-        let pr_labels = self.get_pr_labels(req.pr_number)?;
 
         let mut labels = vec![];
-
-        for label in pr_labels {
-            labels.push(label.id)
-        }
 
         for name in req.labels {
             if let Some(label) = all_labels.iter().find(|l| l.name == name) {
@@ -176,28 +160,6 @@ impl Forge for Gitea {
                 labels.push(label.id);
             }
         }
-
-        let data = UpdatePullLabels { labels };
-
-        let labels_url = self
-            .base_url
-            .join(format!("issues/{}/labels", req.pr_number).as_str())?;
-
-        let request = self.client.put(labels_url).json(&data).build()?;
-        let response = self.client.execute(request)?;
-        response.error_for_status()?;
-
-        Ok(())
-    }
-
-    fn remove_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        let pr_labels = self.get_pr_labels(req.pr_number)?;
-
-        let labels = pr_labels
-            .into_iter()
-            .filter(|l| !req.labels.contains(&l.name))
-            .map(|l| l.id)
-            .collect::<Vec<u64>>();
 
         let data = UpdatePullLabels { labels };
 
