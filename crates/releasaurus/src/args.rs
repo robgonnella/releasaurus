@@ -83,12 +83,25 @@ impl Cli {
     }
 }
 
+fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
+    match scheme {
+        git_url_parse::Scheme::Http => Ok(()),
+        git_url_parse::Scheme::Https => Ok(()),
+        _ => Err(eyre!(
+            "only http and https schemes are supported for repo urls"
+        )),
+    }
+}
+
 fn get_github_remote(
     github_repo: String,
     github_token: String,
     api_url: Option<String>,
 ) -> Result<Remote> {
     let parsed = GitUrl::parse(github_repo.as_str())?;
+
+    validate_scheme(parsed.scheme)?;
+
     let mut token = github_token;
 
     if token.is_empty()
@@ -115,13 +128,7 @@ fn get_github_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
-    let mut scheme = "https".to_string();
-
-    if let git_url_parse::Scheme::Http = parsed.scheme {
-        scheme = "http".to_string();
-    }
-
-    let link_base_url = format!("{}://{}", scheme, host);
+    let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
         format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
@@ -131,7 +138,7 @@ fn get_github_remote(
 
     Ok(Remote::Github(RemoteConfig {
         host,
-        scheme,
+        scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
@@ -147,6 +154,9 @@ fn get_gitlab_remote(
     api_url: Option<String>,
 ) -> Result<Remote> {
     let parsed = GitUrl::parse(gitlab_repo.as_str())?;
+
+    validate_scheme(parsed.scheme)?;
+
     let mut token = gitlab_token;
 
     if token.is_empty()
@@ -173,13 +183,7 @@ fn get_gitlab_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
-    let mut scheme = "https".to_string();
-
-    if let git_url_parse::Scheme::Http = parsed.scheme {
-        scheme = "http".to_string();
-    }
-
-    let link_base_url = format!("{}://{}", scheme, host);
+    let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
         format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
@@ -189,7 +193,7 @@ fn get_gitlab_remote(
 
     Ok(Remote::Gitlab(RemoteConfig {
         host,
-        scheme,
+        scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
@@ -205,6 +209,9 @@ fn get_gitea_remote(
     api_url: Option<String>,
 ) -> Result<Remote> {
     let parsed = GitUrl::parse(gitea_repo.as_str())?;
+
+    validate_scheme(parsed.scheme)?;
+
     let mut token = gitea_token;
 
     if token.is_empty()
@@ -231,13 +238,7 @@ fn get_gitea_remote(
         .owner
         .ok_or(eyre!("unable to parse owner from gitea repo"))?;
 
-    let mut scheme = "https".to_string();
-
-    if let git_url_parse::Scheme::Http = parsed.scheme {
-        scheme = "http".to_string();
-    }
-
-    let link_base_url = format!("{}://{}", scheme, host);
+    let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let commit_link_base_url =
         format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
@@ -247,7 +248,7 @@ fn get_gitea_remote(
 
     Ok(Remote::Gitea(RemoteConfig {
         host,
-        scheme,
+        scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
         commit_link_base_url,
@@ -298,7 +299,7 @@ mod tests {
     #[test]
     fn gets_gitea_remote() {
         let mut cli_config = Cli::parse();
-        let repo = "https://gitea.com/gitea_owner/gitea_repo".to_string();
+        let repo = "http://gitea.com/gitea_owner/gitea_repo".to_string();
         let token = "gitea_token".to_string();
 
         cli_config.gitea_repo = repo;
@@ -310,5 +311,18 @@ mod tests {
         let remote = result.unwrap();
 
         assert!(matches!(remote, Remote::Gitea(_)));
+    }
+
+    #[test]
+    fn only_supports_http_and_https_schemes() {
+        let mut cli_config = Cli::parse();
+        let repo = "git@gitea.com:gitea_owner/gitea_repo".to_string();
+        let token = "gitea_token".to_string();
+
+        cli_config.gitea_repo = repo;
+        cli_config.gitea_token = token;
+
+        let result = cli_config.get_remote();
+        assert!(result.is_err());
     }
 }

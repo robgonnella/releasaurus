@@ -6,8 +6,8 @@ pub struct GetPrRequest {
 
 #[derive(Debug)]
 pub struct CreatePrRequest {
+    pub head_branch: String,
     pub base_branch: String,
-    pub target_branch: String,
     pub title: String,
     pub body: String,
 }
