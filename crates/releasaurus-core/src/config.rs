@@ -86,31 +86,13 @@ pub struct Remote {
     pub token: SecretString,
 }
 
-/// Complete configuration for the core
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct Config {
-    /// [`ChangelogConfig`]
-    pub changelog: ChangelogConfig,
-    /// [`Vec<PackageConfig>`]
-    pub packages: Vec<PackageConfig>,
-    /// gitlab [`Remote`]
-    pub gitlab: Option<Remote>,
-    // not supported yet
-    // pub github: Remote,
-    // pub bitbucket: Remote,
-    // pub gitea: Remote,
-}
-
-/// Represents a single package config
-/// This is what is passed to the changelog generator. Each package
-/// defined in the config file will be looped over and SinglePackageConfig
-/// will be used to generate the changelog for each.
-#[derive(Debug, Default, Clone)]
+/// Represents configuration for a single package which includes global
+/// config, like changelog and remotes, common to all packages
+#[derive(Debug, Clone, Default)]
 pub struct SinglePackageConfig {
     /// [`ChangelogConfig`]
     pub changelog: ChangelogConfig,
-    /// [`Vec<PackageConfig>`]
+    /// [`PackageConfig`]
     pub package: PackageConfig,
     /// gitlab [`Remote`]
     pub gitlab: Option<Remote>,
@@ -120,15 +102,22 @@ pub struct SinglePackageConfig {
     // pub gitea: Remote,
 }
 
-impl SinglePackageConfig {
-    /// Creates and instance using a specific package index from parent config
-    pub fn from_config_index(config: Config, idx: usize) -> Self {
-        Self {
-            changelog: config.changelog.clone(),
-            package: config.packages[idx].clone(),
-            gitlab: config.gitlab.clone(),
-        }
-    }
+/// Complete configuration for the core
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Config {
+    /// [`ChangelogConfig`]
+    pub changelog: ChangelogConfig,
+    /// [`Vec<PackageConfig>`]
+    pub package: Vec<PackageConfig>,
+    /// gitlab [`Remote`]
+    pub gitlab: Option<Remote>,
+    // not supported yet
+    // pub github: Remote,
+    // pub bitbucket: Remote,
+    // pub gitea: Remote,
+    // used to make this an iterator for SinglePackageConfigs
+    next_pkg: usize,
 }
 
 impl Default for Config {
@@ -137,10 +126,33 @@ impl Default for Config {
         let chglg = ChangelogConfig::default();
 
         Self {
-            packages: pkgs,
+            package: pkgs,
             changelog: chglg,
             gitlab: None,
+            next_pkg: 0,
         }
+    }
+}
+
+// Implement iterator on Config allowing use to generate SinglePackageConfig
+// in a loop. This makes it easier to share common parts of the config, like
+// changelog format and remote repo config, across all packages
+impl Iterator for Config {
+    type Item = SinglePackageConfig;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.next_pkg;
+
+        if idx >= self.package.len() {
+            return None;
+        }
+
+        self.next_pkg += 1;
+        Some(SinglePackageConfig {
+            changelog: self.changelog.clone(),
+            package: self.package[idx].clone(),
+            gitlab: self.gitlab.clone(),
+        })
     }
 }
 
