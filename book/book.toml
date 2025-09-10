@@ -6,3 +6,6 @@ title = "Releasaurus"
 
 [build]
 build-dir = "build"
+
+[output.html]
+git-repository-url = "https://github.com/robgonnella/releasaurus"
