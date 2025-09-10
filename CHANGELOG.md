@@ -1,3 +1,10 @@
+# [0.2.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.1) - 2025-09-10
+
+### 🐛 Bug Fixes
+
+- Adds missing dependencies to docker build [_(86310337)_](https://github.com/robgonnella/releasaurus/commit/86310337aee8df9b65d41658e2c15b7e4ce8b73c)
+
+
 # [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-10
 
 ### 🚀 Features
