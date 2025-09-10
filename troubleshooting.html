@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Commands - Releasaurus</title>
+        <title>Troubleshooting - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -178,189 +178,140 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
-<p>Releasaurus provides two main commands that work together to create a safe, reviewable release process. This two-stage approach ensures that all changes are reviewed before publication while automating the tedious aspects of version management and changelog generation.</p>
-<p><strong>Important</strong>: Releasaurus operates on remote repositories by automatically cloning them to temporary directories for analysis. You can run these commands from any location - you don't need to navigate to or have a local checkout of your project.</p>
-<h2 id="command-overview"><a class="header" href="#command-overview">Command Overview</a></h2>
-<h3 id="release-pr"><a class="header" href="#release-pr"><code>release-pr</code></a></h3>
-<p><strong>Purpose</strong>: Analyze commits, update versions, generate changelog, and create a pull request</p>
-<p>This command does the heavy lifting of release preparation:</p>
+                        <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>This guide helps you diagnose and resolve common issues when using Releasaurus.
+If you encounter problems not covered here, please check the <a href="https://github.com/robgonnella/releasaurus/issues">GitHub issues</a> or create a new one.</p>
+<h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
+<h3 id="clone-depth-problems"><a class="header" href="#clone-depth-problems">Clone Depth Problems</a></h3>
+<h4 id="issue-not-enough-commit-history-found"><a class="header" href="#issue-not-enough-commit-history-found">Issue: "Not enough commit history found"</a></h4>
+<p><strong>Symptoms</strong>:</p>
 <ul>
-<li>Analyzes commits since the last release</li>
-<li>Determines the appropriate version bump (patch, minor, major)</li>
-<li>Updates version files across your project</li>
-<li>Generates a changelog from commit history</li>
-<li>Creates a pull request with all changes</li>
+<li>Releasaurus can't determine the next version</li>
+<li>Error messages about missing previous releases</li>
+<li>Empty or incomplete changelog generation</li>
 </ul>
-<h3 id="release"><a class="header" href="#release"><code>release</code></a></h3>
-<p><strong>Purpose</strong>: Create tags and publish the release after PR approval</p>
-<p>This command finalizes the release:</p>
+<p><strong>Cause</strong>: The default clone depth (250 commits) doesn't include enough history
+for analysis.</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Option 1: Increase clone depth
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 500
+
+# Option 2: Clone full history
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+</code></pre>
+<h4 id="issue-clone-operation-is-too-slow"><a class="header" href="#issue-clone-operation-is-too-slow">Issue: Clone operation is too slow</a></h4>
+<p><strong>Symptoms</strong>:</p>
 <ul>
-<li>Validates that you're on a release commit</li>
-<li>Creates a Git tag for the new version</li>
-<li>Pushes the tag to the remote repository</li>
-<li>Creates a release on your forge platform</li>
+<li>Long wait times during repository cloning</li>
+<li>Timeouts in CI/CD environments</li>
+<li>High bandwidth usage</li>
 </ul>
-<h2 id="basic-usage-pattern"><a class="header" href="#basic-usage-pattern">Basic Usage Pattern</a></h2>
-<p>The typical Releasaurus workflow follows this pattern (can be run from any directory):</p>
-<pre><code class="language-bash"># Step 1: Create release preparation PR (run from anywhere)
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-
-# Step 2: Review and merge the PR (done via web interface)
-
-# Step 3: Publish the release (run from anywhere)
-releasaurus release --github-repo "https://github.com/owner/repo"
-</code></pre>
-<p><strong>Note</strong>: These commands work by cloning your repository to a temporary directory, analyzing the project structure, making necessary changes, and pushing updates back to the remote. You don't need to be in your project directory or have a local checkout.</p>
-<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
-<p>All commands support these global options:</p>
-<h3 id="platform-selection"><a class="header" href="#platform-selection">Platform Selection</a></h3>
-<p>Choose your Git forge platform by specifying the repository URL:</p>
-<pre><code class="language-bash"># GitHub
---github-repo "https://github.com/owner/repository"
-
-# GitLab
---gitlab-repo "https://gitlab.com/group/project"
-
-# Gitea (or Forgejo)
---gitea-repo "https://git.example.com/owner/repo"
-</code></pre>
-<h3 id="authentication"><a class="header" href="#authentication">Authentication</a></h3>
-<p>Provide access tokens for API authentication:</p>
-<pre><code class="language-bash"># Via command line
---github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
---gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
---gitea-token "xxxxxxxxxxxxxxxxxx"
-
-# Via environment variables (recommended)
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
-export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
-</code></pre>
-<h3 id="debug-logging"><a class="header" href="#debug-logging">Debug Logging</a></h3>
-<p>Enable detailed logging for troubleshooting:</p>
-<pre><code class="language-bash">--debug
-</code></pre>
-<p>This provides verbose output including:</p>
-<ul>
-<li>Project detection logic</li>
-<li>File modification details</li>
-<li>API request/response information</li>
-<li>Git operations and status</li>
-</ul>
-<h3 id="clone-depth-control"><a class="header" href="#clone-depth-control">Clone Depth Control</a></h3>
-<p>Control how much git history is cloned during repository operations:</p>
-<pre><code class="language-bash">--clone-depth 100    # Clone only the last 100 commits
---clone-depth 0      # Clone full history (all commits)
-</code></pre>
-<p><strong>Default</strong>: 250 commits</p>
-<p>The clone depth feature helps optimize performance by limiting the amount of git history downloaded during repository analysis. This is particularly useful for:</p>
-<ul>
-<li><strong>Large repositories</strong> with extensive commit histories</li>
-<li><strong>CI/CD environments</strong> where bandwidth and storage are limited</li>
-<li><strong>Repositories with non-linear history</strong> where full clones can be very large</li>
-</ul>
-<p><strong>When to adjust clone depth</strong>:</p>
-<ul>
-<li><strong>Increase the depth</strong> if Releasaurus can't find enough commit history to
-properly determine version changes</li>
-<li><strong>Set to 0 (full clone)</strong> if you need complete history analysis or are
-working with complex branching patterns</li>
-<li><strong>Decrease the depth</strong> for faster operations on repositories where recent
-history is sufficient</li>
-</ul>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash"># Quick analysis with minimal history
+<p><strong>Cause</strong>: Repository has extensive history or large binary files.</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Reduce clone depth for faster operations
 releasaurus release-pr \
   --github-repo "https://github.com/owner/repo" \
   --clone-depth 50
 
-# Full history analysis
+# For CI/CD environments
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 25
+</code></pre>
+<h4 id="issue-could-not-find-any-releases-despite-having-tags"><a class="header" href="#issue-could-not-find-any-releases-despite-having-tags">Issue: "Could not find any releases" despite having tags</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Repository has existing tags/releases</li>
+<li>Releasaurus acts like it's the first release</li>
+<li>Version numbers don't follow expected sequence</li>
+</ul>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Clone depth is too shallow to reach previous release tags.</li>
+<li>Configured tag prefixes don't match existing tags</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<ul>
+<li>Set larger clone depth to ensure last tag is included</li>
+</ul>
+<pre><code class="language-bash"># Ensure full history is available
 releasaurus release-pr \
   --github-repo "https://github.com/owner/repo" \
   --clone-depth 0
-
-# Balanced approach (default)
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo"
-  # Uses default clone-depth of 250
 </code></pre>
-<h2 id="platform-specific-examples"><a class="header" href="#platform-specific-examples">Platform-Specific Examples</a></h2>
-<h3 id="github"><a class="header" href="#github">GitHub</a></h3>
-<pre><code class="language-bash"># With explicit token
-releasaurus release-pr \
-  --github-repo "https://github.com/myorg/myproject" \
-  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
-
-# With environment variable
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-releasaurus release-pr --github-repo "https://github.com/myorg/myproject"
-</code></pre>
-<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
-<pre><code class="language-bash"># GitLab.com
-releasaurus release-pr \
-  --gitlab-repo "https://gitlab.com/mygroup/myproject" \
-  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
-
-# Self-hosted GitLab
-releasaurus release-pr \
-  --gitlab-repo "https://gitlab.company.com/team/project" \
-  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
-</code></pre>
-<h3 id="gitea"><a class="header" href="#gitea">Gitea</a></h3>
-<pre><code class="language-bash"># Self-hosted Gitea
-releasaurus release-pr \
-  --gitea-repo "https://git.company.com/team/project" \
-  --gitea-token "xxxxxxxxxxxxxxxxxx"
-
-# Works with Forgejo too
-releasaurus release-pr \
-  --gitea-repo "https://forgejo.example.com/org/repo" \
-  --gitea-token "xxxxxxxxxxxxxxxxxx"
-</code></pre>
-<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
-<p>For security and convenience, use environment variables instead of command-line tokens:</p>
-<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Description</th><th>Example</th></tr></thead><tbody>
-<tr><td><code>GITHUB_TOKEN</code></td><td>GitHub personal access token</td><td><code>ghp_xxxxxxxxxxxxxxxxxxxx</code></td></tr>
-<tr><td><code>GITLAB_TOKEN</code></td><td>GitLab personal/project access token</td><td><code>glpat_xxxxxxxxxxxxxxxxxxxx</code></td></tr>
-<tr><td><code>GITEA_TOKEN</code></td><td>Gitea/Forgejo access token</td><td><code>xxxxxxxxxxxxxxxxxx</code></td></tr>
-</tbody></table>
-</div>
-<p>When environment variables are set, you can omit the <code>--*-token</code> flags:</p>
-<pre><code class="language-bash"># Set once
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-
-# Use in multiple commands
-releasaurus release-pr --github-repo "https://github.com/org/repo1"
-releasaurus release-pr --github-repo "https://github.com/org/repo2"
-</code></pre>
-<h2 id="help-and-documentation"><a class="header" href="#help-and-documentation">Help and Documentation</a></h2>
-<p>Get help for any command:</p>
-<pre><code class="language-bash"># General help
-releasaurus --help
-
-# Command-specific help
-releasaurus release-pr --help
-releasaurus release --help
-
-# Version information
-releasaurus --version
-</code></pre>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<p>For integration and automation:</p>
 <ul>
-<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
+<li>Ensure configured tag prefixes in <code>releasaurus.toml</code> match existing tag
+patterns</li>
 </ul>
+<h3 id="authentication-issues"><a class="header" href="#authentication-issues">Authentication Issues</a></h3>
+<h4 id="issue-authentication-failed-or-401-unauthorized"><a class="header" href="#issue-authentication-failed-or-401-unauthorized">Issue: "Authentication failed" or "401 Unauthorized"</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Cannot access repository</li>
+<li>API calls fail with authentication errors</li>
+<li>Permission denied messages</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ul>
+<li><strong>Check token scopes</strong> - Ensure your token has required permissions:</li>
+</ul>
+<h4 id="issue-repository-not-found-with-valid-repository"><a class="header" href="#issue-repository-not-found-with-valid-repository">Issue: "Repository not found" with valid repository</a></h4>
+<p><strong>Cause</strong>: Token doesn't have access to the repository or repository URL is
+incorrect.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Verify repository URL</strong>:</p>
+<pre><code class="language-bash"># Correct format examples
+--github-repo "https://github.com/owner/repository"
+--gitlab-repo "https://gitlab.com/group/project"
+--gitea-repo "https://gitea.example.com/owner/repo"
+</code></pre>
+</li>
+<li>
+<p><strong>Check repository access</strong> - Ensure your token's associated account has
+appropriate permissions.</p>
+</li>
+</ol>
+<h2 id="debug-mode"><a class="header" href="#debug-mode">Debug Mode</a></h2>
+<p>When troubleshooting any issue, enable debug mode for detailed information:</p>
+<pre><code class="language-bash">releasaurus release-pr --debug \
+  --github-repo "https://github.com/owner/repo"
+</code></pre>
+<h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
+<p>If you're still experiencing issues:</p>
+<ol>
+<li><strong>Check existing issues</strong>: <a href="https://github.com/robgonnella/releasaurus/issues">GitHub Issues</a></li>
+<li><strong>Create a new issue</strong> with:
+<ul>
+<li>Debug output (remove sensitive information)</li>
+<li>Repository type and structure</li>
+<li>Command used</li>
+<li>Expected vs actual behavior</li>
+</ul>
+</li>
+<li><strong>Include environment details</strong>:
+<ul>
+<li>Operating system</li>
+<li>Releasaurus version (<code>releasaurus --version</code>)</li>
+<li>Git version (<code>git --version</code>)</li>
+</ul>
+</li>
+</ol>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="basic-configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="supported-languages.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -370,11 +321,11 @@ releasaurus --version
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="basic-configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="supported-languages.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

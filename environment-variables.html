@@ -241,8 +241,22 @@ releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
 # Forgejo instance
 releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
 </code></pre>
+<h2 id="command-line-options-vs-environment-variables"><a class="header" href="#command-line-options-vs-environment-variables">Command-Line Options vs Environment Variables</a></h2>
+<p>While this page focuses on environment variables, note that some configuration
+options are provided via command-line flags rather than environment variables.</p>
+<h3 id="performance-options"><a class="header" href="#performance-options">Performance Options</a></h3>
+<p><strong>Clone Depth</strong>: Controls how much git history is downloaded during repository
+operations.</p>
+<pre><code class="language-bash"># Command-line option (not an environment variable)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 100
+</code></pre>
+<p>For detailed information about clone depth and other command-line options, see
+the <a href="./commands.html#clone-depth-control">Commands</a> section.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
+<li><strong><a href="./commands.html">Commands</a></strong> - Command-line options and usage patterns</li>
 <li><strong><a href="./basic-configuration.html">Basic Configuration</a></strong> - Configuration file setup</li>
 <li><strong><a href="./troubleshooting.html#authentication-issues">Troubleshooting</a></strong> - Resolving environment issues</li>
 </ul>

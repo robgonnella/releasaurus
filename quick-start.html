@@ -287,6 +287,26 @@ export GITEA_TOKEN="your_token_here"
 releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 </code></pre>
+<h2 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h2>
+<p>For large repositories or slow network connections, you can control how much git
+history is downloaded:</p>
+<pre><code class="language-bash"># Clone only recent history (faster)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 100
+
+# Clone full history (slower but comprehensive)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+</code></pre>
+<p>The default clone depth is 250 commits, which works well for most repositories.
+Adjust this if:</p>
+<ul>
+<li><strong>Your repository is very large</strong> - Use a smaller depth like <code>--clone-depth 50</code></li>
+<li><strong>Releasaurus can't find enough history</strong> - Use <code>--clone-depth 0</code> for full history</li>
+<li><strong>You're in a CI/CD environment</strong> - Use a smaller depth for faster builds</li>
+</ul>
 <h2 id="what-just-happened"><a class="header" href="#what-just-happened">What Just Happened?</a></h2>
 <p>Congratulations! You've just completed a full release cycle with Releasaurus:</p>
 <ol>

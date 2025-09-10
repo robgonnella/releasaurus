@@ -258,7 +258,9 @@
 <p>The easiest way to install Releasaurus is using Cargo, Rust's package manager:</p>
 <pre><code class="language-bash">cargo install releasaurus
 </code></pre>
-<p>This will download, compile, and install the latest stable version of Releasaurus. The binary will be available in your <code>$HOME/.cargo/bin</code> directory, which should be in your system's PATH.</p>
+<p>This will download, compile, and install the latest stable version of
+Releasaurus. The binary will be available in your <code>$HOME/.cargo/bin</code> directory,
+which should be in your system's PATH.</p>
 <h3 id="option-2-download-pre-built-binaries"><a class="header" href="#option-2-download-pre-built-binaries">Option 2: Download Pre-built Binaries</a></h3>
 <p>Coming soon...</p>
 <h3 id="option-3-build-from-source"><a class="header" href="#option-3-build-from-source">Option 3: Build from Source</a></h3>
@@ -277,6 +279,17 @@ cd releasaurus
 cargo install --path .
 </code></pre>
 <p>This will build the project in release mode and install it to your Cargo bin directory.</p>
+<h3 id="option-4-using-docker"><a class="header" href="#option-4-using-docker">Option 4: Using Docker</a></h3>
+<p>If you prefer to use Docker, you can pull and run the official Releasaurus
+Docker image:</p>
+<h4 id="pull-the-docker-image"><a class="header" href="#pull-the-docker-image">Pull the Docker Image</a></h4>
+<pre><code class="language-bash">docker pull rgonnella/releasaurus:latest
+</code></pre>
+<h4 id="run-releasaurus-with-docker"><a class="header" href="#run-releasaurus-with-docker">Run Releasaurus with Docker</a></h4>
+<p>You can run Releasaurus directly using Docker.</p>
+<pre><code class="language-bash"># Run from your project directory
+docker run --rm rgonnella/releasaurus:latest --help
+</code></pre>
 <h2 id="verify-installation"><a class="header" href="#verify-installation">Verify Installation</a></h2>
 <p>After installation, verify that Releasaurus is working correctly:</p>
 <pre><code class="language-bash">releasaurus --help
@@ -396,6 +409,26 @@ export GITEA_TOKEN="your_token_here"
 releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 </code></pre>
+<h2 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h2>
+<p>For large repositories or slow network connections, you can control how much git
+history is downloaded:</p>
+<pre><code class="language-bash"># Clone only recent history (faster)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 100
+
+# Clone full history (slower but comprehensive)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+</code></pre>
+<p>The default clone depth is 250 commits, which works well for most repositories.
+Adjust this if:</p>
+<ul>
+<li><strong>Your repository is very large</strong> - Use a smaller depth like <code>--clone-depth 50</code></li>
+<li><strong>Releasaurus can't find enough history</strong> - Use <code>--clone-depth 0</code> for full history</li>
+<li><strong>You're in a CI/CD environment</strong> - Use a smaller depth for faster builds</li>
+</ul>
 <h2 id="what-just-happened"><a class="header" href="#what-just-happened">What Just Happened?</a></h2>
 <p>Congratulations! You've just completed a full release cycle with Releasaurus:</p>
 <ol>
@@ -688,6 +721,43 @@ export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 <li>API request/response information</li>
 <li>Git operations and status</li>
 </ul>
+<h3 id="clone-depth-control"><a class="header" href="#clone-depth-control">Clone Depth Control</a></h3>
+<p>Control how much git history is cloned during repository operations:</p>
+<pre><code class="language-bash">--clone-depth 100    # Clone only the last 100 commits
+--clone-depth 0      # Clone full history (all commits)
+</code></pre>
+<p><strong>Default</strong>: 250 commits</p>
+<p>The clone depth feature helps optimize performance by limiting the amount of git history downloaded during repository analysis. This is particularly useful for:</p>
+<ul>
+<li><strong>Large repositories</strong> with extensive commit histories</li>
+<li><strong>CI/CD environments</strong> where bandwidth and storage are limited</li>
+<li><strong>Repositories with non-linear history</strong> where full clones can be very large</li>
+</ul>
+<p><strong>When to adjust clone depth</strong>:</p>
+<ul>
+<li><strong>Increase the depth</strong> if Releasaurus can't find enough commit history to
+properly determine version changes</li>
+<li><strong>Set to 0 (full clone)</strong> if you need complete history analysis or are
+working with complex branching patterns</li>
+<li><strong>Decrease the depth</strong> for faster operations on repositories where recent
+history is sufficient</li>
+</ul>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash"># Quick analysis with minimal history
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 50
+
+# Full history analysis
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+
+# Balanced approach (default)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo"
+  # Uses default clone-depth of 250
+</code></pre>
 <h2 id="platform-specific-examples"><a class="header" href="#platform-specific-examples">Platform-Specific Examples</a></h2>
 <h3 id="github-1"><a class="header" href="#github-1">GitHub</a></h3>
 <pre><code class="language-bash"># With explicit token
@@ -754,6 +824,130 @@ releasaurus --version
 <ul>
 <li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>This guide helps you diagnose and resolve common issues when using Releasaurus.
+If you encounter problems not covered here, please check the <a href="https://github.com/robgonnella/releasaurus/issues">GitHub issues</a> or create a new one.</p>
+<h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
+<h3 id="clone-depth-problems"><a class="header" href="#clone-depth-problems">Clone Depth Problems</a></h3>
+<h4 id="issue-not-enough-commit-history-found"><a class="header" href="#issue-not-enough-commit-history-found">Issue: "Not enough commit history found"</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Releasaurus can't determine the next version</li>
+<li>Error messages about missing previous releases</li>
+<li>Empty or incomplete changelog generation</li>
+</ul>
+<p><strong>Cause</strong>: The default clone depth (250 commits) doesn't include enough history
+for analysis.</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Option 1: Increase clone depth
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 500
+
+# Option 2: Clone full history
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+</code></pre>
+<h4 id="issue-clone-operation-is-too-slow"><a class="header" href="#issue-clone-operation-is-too-slow">Issue: Clone operation is too slow</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Long wait times during repository cloning</li>
+<li>Timeouts in CI/CD environments</li>
+<li>High bandwidth usage</li>
+</ul>
+<p><strong>Cause</strong>: Repository has extensive history or large binary files.</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Reduce clone depth for faster operations
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 50
+
+# For CI/CD environments
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 25
+</code></pre>
+<h4 id="issue-could-not-find-any-releases-despite-having-tags"><a class="header" href="#issue-could-not-find-any-releases-despite-having-tags">Issue: "Could not find any releases" despite having tags</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Repository has existing tags/releases</li>
+<li>Releasaurus acts like it's the first release</li>
+<li>Version numbers don't follow expected sequence</li>
+</ul>
+<p><strong>Causes</strong>:</p>
+<ul>
+<li>Clone depth is too shallow to reach previous release tags.</li>
+<li>Configured tag prefixes don't match existing tags</li>
+</ul>
+<p><strong>Solution</strong>:</p>
+<ul>
+<li>Set larger clone depth to ensure last tag is included</li>
+</ul>
+<pre><code class="language-bash"># Ensure full history is available
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+</code></pre>
+<ul>
+<li>Ensure configured tag prefixes in <code>releasaurus.toml</code> match existing tag
+patterns</li>
+</ul>
+<h3 id="authentication-issues"><a class="header" href="#authentication-issues">Authentication Issues</a></h3>
+<h4 id="issue-authentication-failed-or-401-unauthorized"><a class="header" href="#issue-authentication-failed-or-401-unauthorized">Issue: "Authentication failed" or "401 Unauthorized"</a></h4>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Cannot access repository</li>
+<li>API calls fail with authentication errors</li>
+<li>Permission denied messages</li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<ul>
+<li><strong>Check token scopes</strong> - Ensure your token has required permissions:</li>
+</ul>
+<h4 id="issue-repository-not-found-with-valid-repository"><a class="header" href="#issue-repository-not-found-with-valid-repository">Issue: "Repository not found" with valid repository</a></h4>
+<p><strong>Cause</strong>: Token doesn't have access to the repository or repository URL is
+incorrect.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Verify repository URL</strong>:</p>
+<pre><code class="language-bash"># Correct format examples
+--github-repo "https://github.com/owner/repository"
+--gitlab-repo "https://gitlab.com/group/project"
+--gitea-repo "https://gitea.example.com/owner/repo"
+</code></pre>
+</li>
+<li>
+<p><strong>Check repository access</strong> - Ensure your token's associated account has
+appropriate permissions.</p>
+</li>
+</ol>
+<h2 id="debug-mode-1"><a class="header" href="#debug-mode-1">Debug Mode</a></h2>
+<p>When troubleshooting any issue, enable debug mode for detailed information:</p>
+<pre><code class="language-bash">releasaurus release-pr --debug \
+  --github-repo "https://github.com/owner/repo"
+</code></pre>
+<h2 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h2>
+<p>If you're still experiencing issues:</p>
+<ol>
+<li><strong>Check existing issues</strong>: <a href="https://github.com/robgonnella/releasaurus/issues">GitHub Issues</a></li>
+<li><strong>Create a new issue</strong> with:
+<ul>
+<li>Debug output (remove sensitive information)</li>
+<li>Repository type and structure</li>
+<li>Command used</li>
+<li>Expected vs actual behavior</li>
+</ul>
+</li>
+<li><strong>Include environment details</strong>:
+<ul>
+<li>Operating system</li>
+<li>Releasaurus version (<code>releasaurus --version</code>)</li>
+<li>Git version (<code>git --version</code>)</li>
+</ul>
+</li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="supported-languages--frameworks"><a class="header" href="#supported-languages--frameworks">Supported Languages &amp; Frameworks</a></h1>
 <p>Releasaurus provides native support for a wide range of programming languages and frameworks. The tool automatically detects your project's language and framework, then handles version updates across all relevant files without requiring manual configuration.</p>
 <h2 id="automatic-detection"><a class="header" href="#automatic-detection">Automatic Detection</a></h2>
@@ -1164,8 +1358,22 @@ releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
 # Forgejo instance
 releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
 </code></pre>
+<h2 id="command-line-options-vs-environment-variables"><a class="header" href="#command-line-options-vs-environment-variables">Command-Line Options vs Environment Variables</a></h2>
+<p>While this page focuses on environment variables, note that some configuration
+options are provided via command-line flags rather than environment variables.</p>
+<h3 id="performance-options"><a class="header" href="#performance-options">Performance Options</a></h3>
+<p><strong>Clone Depth</strong>: Controls how much git history is downloaded during repository
+operations.</p>
+<pre><code class="language-bash"># Command-line option (not an environment variable)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 100
+</code></pre>
+<p>For detailed information about clone depth and other command-line options, see
+the <a href="./commands.html#clone-depth-control">Commands</a> section.</p>
 <h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
 <ul>
+<li><strong><a href="./commands.html">Commands</a></strong> - Command-line options and usage patterns</li>
 <li><strong><a href="./basic-configuration.html">Basic Configuration</a></strong> - Configuration file setup</li>
 <li><strong><a href="./troubleshooting.html#authentication-issues">Troubleshooting</a></strong> - Resolving environment issues</li>
 </ul>
@@ -1678,7 +1886,7 @@ Any additional context or screenshots.
 <li><strong>GitHub Discussions</strong>: General questions and community support</li>
 <li><strong>Pull Requests</strong>: Code review and collaboration</li>
 </ul>
-<h3 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h3>
+<h3 id="getting-help-2"><a class="header" href="#getting-help-2">Getting Help</a></h3>
 <ul>
 <li><strong>Documentation</strong>: Start with this book</li>
 <li><strong>Search Issues</strong>: Check if your question has been asked</li>
