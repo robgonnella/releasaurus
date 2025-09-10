@@ -42,6 +42,9 @@ fn github_e2e_test() {
 
     execute_release_pr(&args).unwrap();
 
+    // sleep to ensure time for created PR with label to be queryable
+    thread::sleep(Duration::from_millis(2000));
+
     let req = GetPrRequest {
         base_branch: "main".into(),
         head_branch: "releasaurus-release--main".into(),
