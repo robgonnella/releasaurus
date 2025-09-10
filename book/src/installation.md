@@ -18,7 +18,9 @@ The easiest way to install Releasaurus is using Cargo, Rust's package manager:
 cargo install releasaurus
 ```
 
-This will download, compile, and install the latest stable version of Releasaurus. The binary will be available in your `$HOME/.cargo/bin` directory, which should be in your system's PATH.
+This will download, compile, and install the latest stable version of
+Releasaurus. The binary will be available in your `$HOME/.cargo/bin` directory,
+which should be in your system's PATH.
 
 ### Option 2: Download Pre-built Binaries
 
@@ -45,6 +47,26 @@ cargo install --path .
 ```
 
 This will build the project in release mode and install it to your Cargo bin directory.
+
+### Option 4: Using Docker
+
+If you prefer to use Docker, you can pull and run the official Releasaurus
+Docker image:
+
+#### Pull the Docker Image
+
+```bash
+docker pull rgonnella/releasaurus:latest
+```
+
+#### Run Releasaurus with Docker
+
+You can run Releasaurus directly using Docker.
+
+```bash
+# Run from your project directory
+docker run --rm rgonnella/releasaurus:latest --help
+```
 
 ## Verify Installation
 
