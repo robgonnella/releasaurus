@@ -1,5 +1,5 @@
 use nanoid::nanoid;
-use std::env;
+use std::{env, thread, time::Duration};
 
 use crate::{
     cli::{Args, Command},
@@ -68,6 +68,9 @@ fn gitlab_e2e_test() {
     let pr = forge.get_open_release_pr(req).unwrap().unwrap();
 
     common::merge_gitlab_release_pr(pr, forge.config()).unwrap();
+
+    // sleep to ensure time for merged PR with label to be queryable
+    thread::sleep(Duration::from_millis(2000));
 
     execute_release(&args).unwrap();
 
