@@ -59,7 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.repository.fork == false && github.ref_name == github.event.repository.default_branch
     concurrency:
-      group: integration-tests
+      group: e2e-tests
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
