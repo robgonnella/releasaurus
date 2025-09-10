@@ -1,3 +1,15 @@
+# [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-10
+
+### 🚀 Features
+
+- Adds option to configure clone depth (#74) [_(5c86f065)_](https://github.com/robgonnella/releasaurus/commit/5c86f06594e065fbbeb77efe22c69ab29c9d8c16)
+
+
+### 🐛 Bug Fixes
+
+- Skip chore and ci commits [_(61fa42b1)_](https://github.com/robgonnella/releasaurus/commit/61fa42b13b507901ea91ca651fe9456ead1def68)
+
+
 # [0.1.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.1) - 2025-09-10
 
 ### 🐛 Bug Fixes
