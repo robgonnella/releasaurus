@@ -26,11 +26,11 @@ jobs:
         run: |
           cargo run -- release \
             --github-repo ${{ github.server_url }}/${{ github.repository }} \
-            --github-token ${{ github.token }} \
+            --github-token ${{ secrets.GH_TEST_TOKEN }} \
             --debug
       - name: release-pr
         run: |
           cargo run -- release-pr \
             --github-repo ${{ github.server_url }}/${{ github.repository }} \
-            --github-token ${{ github.token }} \
+            --github-token ${{ secrets.GH_TEST_TOKEN }} \
             --debug
