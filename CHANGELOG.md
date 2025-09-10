@@ -1,3 +1,14 @@
+# [0.1.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.1) - 2025-09-10
+
+### 🐛 Bug Fixes
+
+- Adds repo url to mdbook [_(e5d45848)_](https://github.com/robgonnella/releasaurus/commit/e5d458487b571bc4821fc919d396266a7b49434f)
+
+- Update homepage in Cargo.toml [_(9fb67c3b)_](https://github.com/robgonnella/releasaurus/commit/9fb67c3b0b344aff21969d34f7c909c10633f713)
+
+- Fixes docker publish job [_(dacdc151)_](https://github.com/robgonnella/releasaurus/commit/dacdc15113ad14b540ce74334b769b917cd7ba63)
+
+
 # [0.1.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.0) - 2025-09-09
 
 ### 🚀 Features
