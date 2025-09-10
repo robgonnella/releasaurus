@@ -166,7 +166,11 @@ impl Repository {
     ///
     /// After cloning, the default "origin" remote is renamed to "upstream" to
     /// follow conventional fork-based workflow naming.
-    pub fn new(local_path: &Path, config: RemoteConfig) -> Result<Self> {
+    pub fn new(
+        local_path: &Path,
+        clone_depth: u64,
+        config: RemoteConfig,
+    ) -> Result<Self> {
         let repo_url =
             format!("{}://{}/{}", config.scheme, config.host, config.path);
 
@@ -178,13 +182,15 @@ impl Repository {
         // setup callbacks for authentication
         let callbacks = get_auth_callbacks(user.into(), token.clone());
 
-        // Sets a maximum depth of 250 commits when cloning to prevent cloning
+        // Sets a maximum depth commits when cloning to prevent cloning
         // thousands of commits. This is one of the reasons this project works
         // best on repos that enforce linear commit histories. If we tried
         // a depth of 250 on something like torvalds/linux repo we would get
         // many thousands of commits due to the non-linear history of that repo
         let mut fetch_options = git2::FetchOptions::new();
-        fetch_options.depth(250);
+        if clone_depth > 0 {
+            fetch_options.depth(clone_depth as i32);
+        }
         fetch_options.remote_callbacks(callbacks);
 
         let mut builder = git2::build::RepoBuilder::new();

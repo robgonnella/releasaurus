@@ -95,6 +95,51 @@ This provides verbose output including:
 - API request/response information
 - Git operations and status
 
+### Clone Depth Control
+
+Control how much git history is cloned during repository operations:
+
+```bash
+--clone-depth 100    # Clone only the last 100 commits
+--clone-depth 0      # Clone full history (all commits)
+```
+
+**Default**: 250 commits
+
+The clone depth feature helps optimize performance by limiting the amount of git history downloaded during repository analysis. This is particularly useful for:
+
+- **Large repositories** with extensive commit histories
+- **CI/CD environments** where bandwidth and storage are limited
+- **Repositories with non-linear history** where full clones can be very large
+
+**When to adjust clone depth**:
+
+- **Increase the depth** if Releasaurus can't find enough commit history to
+  properly determine version changes
+- **Set to 0 (full clone)** if you need complete history analysis or are
+  working with complex branching patterns
+- **Decrease the depth** for faster operations on repositories where recent
+  history is sufficient
+
+**Examples**:
+
+```bash
+# Quick analysis with minimal history
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 50
+
+# Full history analysis
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+
+# Balanced approach (default)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo"
+  # Uses default clone-depth of 250
+```
+
 ## Platform-Specific Examples
 
 ### GitHub

@@ -17,6 +17,7 @@ fn gitlab_e2e_test() {
     let args = Args {
         command: Command::ReleasePR,
         debug: true,
+        clone_depth: 0,
         github_repo: "".into(),
         github_token: "".into(),
         gitea_repo: "".into(),

@@ -20,7 +20,10 @@ use crate::{
 ///
 /// Returns both the Repository instance and the TempDir handle.
 /// The TempDir must be kept alive to prevent premature cleanup.
-pub fn setup_repository(forge: &dyn Forge) -> Result<(Repository, TempDir)> {
+pub fn setup_repository(
+    clone_depth: u64,
+    forge: &dyn Forge,
+) -> Result<(Repository, TempDir)> {
     let remote_config = forge.config();
     let tmp_dir = TempDir::new()?;
 
@@ -30,7 +33,8 @@ pub fn setup_repository(forge: &dyn Forge) -> Result<(Repository, TempDir)> {
         tmp_dir.path().display()
     );
 
-    let repo = Repository::new(tmp_dir.path(), remote_config.clone())?;
+    let repo =
+        Repository::new(tmp_dir.path(), clone_depth, remote_config.clone())?;
 
     Ok((repo, tmp_dir))
 }

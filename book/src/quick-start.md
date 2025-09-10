@@ -122,6 +122,30 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 ```
 
+## Performance Considerations
+
+For large repositories or slow network connections, you can control how much git
+history is downloaded:
+
+```bash
+# Clone only recent history (faster)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 100
+
+# Clone full history (slower but comprehensive)
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --clone-depth 0
+```
+
+The default clone depth is 250 commits, which works well for most repositories.
+Adjust this if:
+
+- **Your repository is very large** - Use a smaller depth like `--clone-depth 50`
+- **Releasaurus can't find enough history** - Use `--clone-depth 0` for full history
+- **You're in a CI/CD environment** - Use a smaller depth for faster builds
+
 ## What Just Happened?
 
 Congratulations! You've just completed a full release cycle with Releasaurus:
