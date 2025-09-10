@@ -41,6 +41,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     }
 
     publish_releases(forge.as_ref(), &repo, &releases)?;
+
     common::update_pr_labels(
         forge.as_ref(),
         merged_pr.number,
