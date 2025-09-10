@@ -125,9 +125,15 @@ pub fn set_config_commit_parsers(
         if let Some(ref group) = parser.group
             && group_number_re.is_match(group)
         {
+            if group == "<!-- 7 -->⚙️ Miscellaneous Tasks" {
+                parser.skip = Some(true);
+            }
+
             group_id += 1;
+
             let new_group =
                 group_number_re.replace(group, format!("{group_id} -"));
+
             parser.group = Some(new_group.to_string());
         }
     }
