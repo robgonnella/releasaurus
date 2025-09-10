@@ -30,7 +30,7 @@ fn github_e2e_test() {
 
     let id = nanoid!();
 
-    let msg = format!("feat({}): my fancy feature", id);
+    let msg = format!("feat({id}): my fancy feature");
 
     common::overwrite_file(tmp.path().join("README.md"), &msg).unwrap();
 

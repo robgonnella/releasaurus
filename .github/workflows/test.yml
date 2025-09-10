@@ -39,7 +39,6 @@ jobs:
 
   test-unit:
     runs-on: ubuntu-latest
-    if: github.event.repository.fork == true || github.ref_name != github.event.repository.default_branch
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
@@ -55,7 +54,7 @@ jobs:
           git config --global init.defaultBranch main
           cargo llvm-cov --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
 
-  test-all:
+  test-e2e:
     runs-on: ubuntu-latest
     if: github.event.repository.fork == false && github.ref_name == github.event.repository.default_branch
     concurrency:
@@ -73,7 +72,8 @@ jobs:
         run: |
           git config --global user.name "github-ci"
           git config --global user.email "github-ci@ci.com"
-          git config --global init.defaultBranch main
-          cargo llvm-cov \
+          cargo test \
             --features _internal_e2e_tests \
-            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
+            github_e2e_test \
+            gitlab_e2e_test \
+            gitea_e2e_test
