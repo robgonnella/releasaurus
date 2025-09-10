@@ -43,8 +43,7 @@ fn gitlab_e2e_test() {
     repo.commit(&service1_msg).unwrap();
 
     let service2_msg = format!(
-        "feat(service-2)!: my fancy feature {}\n\nBREAKING CHANGE: Adds a feature but breaks compatibility",
-        id
+        "feat(service-2)!: my fancy feature {id}\n\nBREAKING CHANGE: Adds a feature but breaks compatibility"
     );
 
     common::overwrite_file(
