@@ -11,6 +11,7 @@
 # User Guide
 
 - [Commands](./commands.md)
+- [Troubleshooting](./troubleshooting.md)
 - [Supported Languages & Frameworks](./supported-languages.md)
 - [Git Forge Platforms](./forge-platforms.md)
 

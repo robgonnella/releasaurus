@@ -14,7 +14,8 @@ use crate::{
 pub fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
-    let (repo, tmp_dir) = common::setup_repository(forge.as_ref())?;
+    let (repo, tmp_dir) =
+        common::setup_repository(args.clone_depth, forge.as_ref())?;
 
     let merged_pr = forge.get_merged_release_pr()?;
 

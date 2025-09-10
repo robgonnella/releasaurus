@@ -107,6 +107,12 @@ pub struct Args {
     /// The token must have repository read/write permissions.
     pub gitea_token: String,
 
+    #[arg(long, default_value = "250", global = true)]
+    /// Sets the clone depth
+    ///
+    /// Use 0 to clone all history
+    pub clone_depth: u64,
+
     #[arg(long, default_value_t = false, global = true)]
     /// Enable debug-level logging output.
     ///
@@ -478,6 +484,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            clone_depth: 0,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: "".into(),
@@ -503,6 +510,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            clone_depth: 0,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: repo,
@@ -528,6 +536,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            clone_depth: 0,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
@@ -553,6 +562,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            clone_depth: 0,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),

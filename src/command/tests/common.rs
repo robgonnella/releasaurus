@@ -49,7 +49,7 @@ pub fn init(
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
     let config = forge.config().to_owned();
-    let repository = repo::Repository::new(tmp.path(), config)?;
+    let repository = repo::Repository::new(tmp.path(), 0, config)?;
     Ok((forge, repository, tmp))
 }
 
