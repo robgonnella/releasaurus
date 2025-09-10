@@ -1,0 +1,32 @@
+name: release
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  releasaurus:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+      - uses: Swatinem/rust-cache@v2
+      - name: release
+        run: |
+          cargo run -- release \
+            --github-repo ${{ github.server_url }}/${{ github.repository }} \
+            --github-token ${{ github.token }} \
+            --debug
+      - name: release-pr
+        run: |
+          cargo run -- release-pr \
+            --github-repo ${{ github.server_url }}/${{ github.repository }} \
+            --github-token ${{ github.token }} \
+            --debug
