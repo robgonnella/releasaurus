@@ -20,9 +20,22 @@ Automatically detects your project's programming language, framework, and versio
 
 Works with GitHub, GitLab, and Gitea—whether hosted or self-hosted instances. One tool for all your repositories, regardless of where they're hosted.
 
+### 🤖 **CI/CD Integration**
+
+Complete automation through official integrations:
+
+- **GitHub Actions**: [robgonnella/releasaurus-action]
+- **GitLab CI/CD**: [releasaurus-component]
+- **Gitea Actions**: [releasaurus-gitea-action]
+
+Automatically create release PRs on push and publish releases when merged—no
+manual intervention required.
+
 ### 📁 **Remote Repository Operations**
 
-Works from any directory by automatically cloning repositories to temporary locations for analysis. No need to navigate to project directories or maintain local checkouts—just point at any repository URL.
+Works from any directory by automatically cloning repositories to temporary
+locations for analysis. No need to navigate to project directories or maintain
+local checkouts—just point at any repository URL.
 
 ### 📦 **Multi-Language Support**
 
@@ -88,3 +101,7 @@ Releasaurus builds upon these proven concepts while extending support to a broad
 Ready to automate your releases? Head over to the [Installation](./installation.md) guide to get started, or jump straight into the [Quick Start](./quick-start.md) tutorial to see Releasaurus in action.
 
 Whether you're maintaining a single-language project or a complex monorepo, Releasaurus adapts to your workflow while maintaining the reliability and safety that production releases demand.
+
+[robgonnella/releasaurus-action]: https://github.com/robgonnella/releasaurus-action
+[releasaurus-component]: https://gitlab.com/rgon/releasaurus-component
+[releasaurus-gitea-action]: https://gitea.com/rgon/releasaurus-gitea-action

@@ -193,4 +193,90 @@ releasaurus release-pr --debug \
 
 This provides detailed information about detection logic, API calls, and file operations.
 
+### Automation with CI/CD
+
+While the manual workflow above works great, you can fully automate your
+releases using CI/CD platforms:
+
+#### GitHub Actions
+
+The official [robgonnella/releasaurus-action] automatically creates release PRs
+when you push to your main branch and publishes releases when those PRs are
+merged. See full action [documentation][robgonnella/releasaurus-action] for all
+available options.
+
+Create `.github/workflows/release.yml` in your repository:
+
+```yaml
+name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: robgonnella/releasaurus-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+With this setup, your releases become completely hands-off:
+
+1. **Push commits** using conventional commit format to your main branch
+2. **GitHub Action automatically creates** a release PR with version updates and changelog
+3. **Review and merge** the PR when ready
+4. **GitHub Action automatically publishes** the release with tags and release notes
+
+#### GitLab CI/CD
+
+For GitLab projects, use the official [releasaurus-component] that integrates
+seamlessly with GitLab CI/CD pipelines. Create `.gitlab-ci.yml` in your
+repository:
+
+```yaml
+include:
+  - component: gitlab.com/rgon/releasaurus-component/releasaurus@~latest
+```
+
+See the [GitLab CI/CD](./gitlab-ci.md) integration guide for complete setup
+instructions.
+
+#### Gitea Actions
+
+For Gitea repositories, use the official [releasaurus-gitea-action] that
+integrates seamlessly with Gitea Actions workflows. Create
+`.gitea/workflows/release.yml` in your repository:
+
+```yaml
+name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Run Releasaurus
+        uses: https://gitea.com/rgon/releasaurus-gitea-action@v1
+```
+
+See the [Gitea Actions](./gitea-actions.md) integration guide for complete setup
+instructions.
+
 Ready to dive deeper? Check out the [Commands](./commands.md) section for detailed information about all available options and features.
+
+[robgonnella/releasaurus-action]: https://github.com/robgonnella/releasaurus-action
+[releasaurus-component]: https://gitlab.com/rgon/releasaurus-component
+[releasaurus-gitea-action]: https://gitea.com/rgon/releasaurus-gitea-action

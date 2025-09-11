@@ -11,6 +11,9 @@
 # User Guide
 
 - [Commands](./commands.md)
+- [GitHub Actions](./github-actions.md)
+- [GitLab CI/CD](./gitlab-ci.md)
+- [Gitea Actions](./gitea-actions.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Supported Languages & Frameworks](./supported-languages.md)
 - [Git Forge Platforms](./forge-platforms.md)
