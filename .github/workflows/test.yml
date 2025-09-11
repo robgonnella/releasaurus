@@ -15,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build --release
 
@@ -24,7 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: lint
         run: cargo clippy --all-targets --all-features
 
@@ -33,7 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: fmt
         run: cargo fmt --all --check
 
@@ -42,7 +39,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: test
         env:
           GH_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
@@ -63,7 +59,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: test
         env:
           GH_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}

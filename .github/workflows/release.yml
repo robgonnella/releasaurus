@@ -17,7 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
-      - uses: Swatinem/rust-cache@v2
       - name: set git user
         run: |
           git config --global user.name "ReleasaurusCI"
