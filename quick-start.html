@@ -342,6 +342,71 @@ releasaurus release --github-repo "https://github.com/owner/repo"
   --github-repo "https://github.com/owner/repo"
 </code></pre>
 <p>This provides detailed information about detection logic, API calls, and file operations.</p>
+<h3 id="automation-with-cicd"><a class="header" href="#automation-with-cicd">Automation with CI/CD</a></h3>
+<p>While the manual workflow above works great, you can fully automate your
+releases using CI/CD platforms:</p>
+<h4 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h4>
+<p>The official <a href="https://github.com/robgonnella/releasaurus-action">robgonnella/releasaurus-action</a> automatically creates release PRs
+when you push to your main branch and publishes releases when those PRs are
+merged. See full action <a href="https://github.com/robgonnella/releasaurus-action">documentation</a> for all
+available options.</p>
+<p>Create <code>.github/workflows/release.yml</code> in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: robgonnella/releasaurus-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+</code></pre>
+<p>With this setup, your releases become completely hands-off:</p>
+<ol>
+<li><strong>Push commits</strong> using conventional commit format to your main branch</li>
+<li><strong>GitHub Action automatically creates</strong> a release PR with version updates and changelog</li>
+<li><strong>Review and merge</strong> the PR when ready</li>
+<li><strong>GitHub Action automatically publishes</strong> the release with tags and release notes</li>
+</ol>
+<h4 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h4>
+<p>For GitLab projects, use the official <a href="https://gitlab.com/rgon/releasaurus-component">releasaurus-component</a> that integrates
+seamlessly with GitLab CI/CD pipelines. Create <code>.gitlab-ci.yml</code> in your
+repository:</p>
+<pre><code class="language-yaml">include:
+  - component: gitlab.com/rgon/releasaurus-component/releasaurus@~latest
+</code></pre>
+<p>See the <a href="./gitlab-ci.html">GitLab CI/CD</a> integration guide for complete setup
+instructions.</p>
+<h4 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h4>
+<p>For Gitea repositories, use the official <a href="https://gitea.com/rgon/releasaurus-gitea-action">releasaurus-gitea-action</a> that
+integrates seamlessly with Gitea Actions workflows. Create
+<code>.gitea/workflows/release.yml</code> in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Run Releasaurus
+        uses: https://gitea.com/rgon/releasaurus-gitea-action@v1
+</code></pre>
+<p>See the <a href="./gitea-actions.html">Gitea Actions</a> integration guide for complete setup
+instructions.</p>
 <p>Ready to dive deeper? Check out the <a href="./commands.html">Commands</a> section for detailed information about all available options and features.</p>
 
                     </main>

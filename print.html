@@ -190,8 +190,19 @@
 <p>Automatically detects your project's programming language, framework, and version files. No manual specification required for most common project structures.</p>
 <h3 id="-multi-platform-support"><a class="header" href="#-multi-platform-support">🌍 <strong>Multi-Platform Support</strong></a></h3>
 <p>Works with GitHub, GitLab, and Gitea—whether hosted or self-hosted instances. One tool for all your repositories, regardless of where they're hosted.</p>
+<h3 id="-cicd-integration"><a class="header" href="#-cicd-integration">🤖 <strong>CI/CD Integration</strong></a></h3>
+<p>Complete automation through official integrations:</p>
+<ul>
+<li><strong>GitHub Actions</strong>: <a href="https://github.com/robgonnella/releasaurus-action">robgonnella/releasaurus-action</a></li>
+<li><strong>GitLab CI/CD</strong>: <a href="https://gitlab.com/rgon/releasaurus-component">releasaurus-component</a></li>
+<li><strong>Gitea Actions</strong>: <a href="https://gitea.com/rgon/releasaurus-gitea-action">releasaurus-gitea-action</a></li>
+</ul>
+<p>Automatically create release PRs on push and publish releases when merged—no
+manual intervention required.</p>
 <h3 id="-remote-repository-operations"><a class="header" href="#-remote-repository-operations">📁 <strong>Remote Repository Operations</strong></a></h3>
-<p>Works from any directory by automatically cloning repositories to temporary locations for analysis. No need to navigate to project directories or maintain local checkouts—just point at any repository URL.</p>
+<p>Works from any directory by automatically cloning repositories to temporary
+locations for analysis. No need to navigate to project directories or maintain
+local checkouts—just point at any repository URL.</p>
 <h3 id="-multi-language-support"><a class="header" href="#-multi-language-support">📦 <strong>Multi-Language Support</strong></a></h3>
 <p>Native support for:</p>
 <ul>
@@ -464,6 +475,71 @@ releasaurus release --github-repo "https://github.com/owner/repo"
   --github-repo "https://github.com/owner/repo"
 </code></pre>
 <p>This provides detailed information about detection logic, API calls, and file operations.</p>
+<h3 id="automation-with-cicd"><a class="header" href="#automation-with-cicd">Automation with CI/CD</a></h3>
+<p>While the manual workflow above works great, you can fully automate your
+releases using CI/CD platforms:</p>
+<h4 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h4>
+<p>The official <a href="https://github.com/robgonnella/releasaurus-action">robgonnella/releasaurus-action</a> automatically creates release PRs
+when you push to your main branch and publishes releases when those PRs are
+merged. See full action <a href="https://github.com/robgonnella/releasaurus-action">documentation</a> for all
+available options.</p>
+<p>Create <code>.github/workflows/release.yml</code> in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: robgonnella/releasaurus-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+</code></pre>
+<p>With this setup, your releases become completely hands-off:</p>
+<ol>
+<li><strong>Push commits</strong> using conventional commit format to your main branch</li>
+<li><strong>GitHub Action automatically creates</strong> a release PR with version updates and changelog</li>
+<li><strong>Review and merge</strong> the PR when ready</li>
+<li><strong>GitHub Action automatically publishes</strong> the release with tags and release notes</li>
+</ol>
+<h4 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h4>
+<p>For GitLab projects, use the official <a href="https://gitlab.com/rgon/releasaurus-component">releasaurus-component</a> that integrates
+seamlessly with GitLab CI/CD pipelines. Create <code>.gitlab-ci.yml</code> in your
+repository:</p>
+<pre><code class="language-yaml">include:
+  - component: gitlab.com/rgon/releasaurus-component/releasaurus@~latest
+</code></pre>
+<p>See the <a href="./gitlab-ci.html">GitLab CI/CD</a> integration guide for complete setup
+instructions.</p>
+<h4 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h4>
+<p>For Gitea repositories, use the official <a href="https://gitea.com/rgon/releasaurus-gitea-action">releasaurus-gitea-action</a> that
+integrates seamlessly with Gitea Actions workflows. Create
+<code>.gitea/workflows/release.yml</code> in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Run Releasaurus
+        uses: https://gitea.com/rgon/releasaurus-gitea-action@v1
+</code></pre>
+<p>See the <a href="./gitea-actions.html">Gitea Actions</a> integration guide for complete setup
+instructions.</p>
 <p>Ready to dive deeper? Check out the <a href="./commands.html">Commands</a> section for detailed information about all available options and features.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="basic-configuration"><a class="header" href="#basic-configuration">Basic Configuration</a></h1>
 <p>Releasaurus is designed to work out-of-the-box with zero configuration for most projects. However, you may want to customize certain aspects of the release process, such as changelog formatting or handling multiple packages within a single repository.</p>
@@ -824,6 +900,125 @@ releasaurus --version
 <ul>
 <li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="github-actions-integration"><a class="header" href="#github-actions-integration">GitHub Actions Integration</a></h1>
+<p>Releasaurus provides seamless integration with GitHub Actions through the
+official <a href="https://github.com/robgonnella/releasaurus-action">robgonnella/releasaurus-action</a>. This action automates your release
+workflow directly in your GitHub repository, eliminating the need to run
+Releasaurus commands manually. See action
+<a href="https://github.com/robgonnella/releasaurus-action">documentation</a>] for all available options.</p>
+<h2 id="basic-setup"><a class="header" href="#basic-setup">Basic Setup</a></h2>
+<h3 id="step-1-create-the-workflow-file"><a class="header" href="#step-1-create-the-workflow-file">Step 1: Create the Workflow File</a></h3>
+<p>Create a <code>.github/workflows/release.yml</code> file in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: robgonnella/releasaurus-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+</code></pre>
+<h3 id="step-2-configure-repository-permissions"><a class="header" href="#step-2-configure-repository-permissions">Step 2: Configure Repository Permissions</a></h3>
+<p>Ensure your repository has the correct permissions:</p>
+<ol>
+<li>Go to your repository <strong>Settings → Actions → General</strong></li>
+<li>Under <strong>Workflow permissions</strong>, select <strong>Read and write permissions</strong></li>
+<li>Check <strong>Allow GitHub Actions to create and approve pull requests</strong></li>
+</ol>
+<p>That's it! Your repository now has fully automated releases.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="gitlab-cicd-integration"><a class="header" href="#gitlab-cicd-integration">GitLab CI/CD Integration</a></h1>
+<p>Releasaurus provides seamless integration with GitLab CI/CD through the
+official [releasaurus-component]. This component automates your release
+workflow directly in your GitLab project, eliminating the need to run
+Releasaurus commands manually. See component
+[documentation][releasaurus-component] for all available options.</p>
+<h2 id="basic-setup-1"><a class="header" href="#basic-setup-1">Basic Setup</a></h2>
+<h3 id="step-1-create-the-pipeline-configuration"><a class="header" href="#step-1-create-the-pipeline-configuration">Step 1: Create the Pipeline Configuration</a></h3>
+<p>Create a <code>.gitlab-ci.yml</code> file in your repository or add the following to your
+existing pipeline:</p>
+<pre><code class="language-yaml">include:
+  - component: gitlab.com/rgon/releasaurus-component/releasaurus@~latest
+    inputs:
+      token: $GITLAB_TOKEN
+</code></pre>
+<h3 id="step-2-configure-project-permissions"><a class="header" href="#step-2-configure-project-permissions">Step 2: Configure Project Permissions</a></h3>
+<p>Ensure your GitLab project has the correct permissions:</p>
+<ol>
+<li>Go to <strong>Settings → CI/CD → Variables</strong></li>
+<li>Add a project variable <code>GITLAB_TOKEN</code> with a Personal Access Token that has:
+<ul>
+<li><code>api</code> scope</li>
+<li><code>write_repository</code> scope</li>
+</ul>
+</li>
+</ol>
+<h3 id="step-3-project-access-token-recommended"><a class="header" href="#step-3-project-access-token-recommended">Step 3: Project Access Token (Recommended)</a></h3>
+<p>For better security, use a Project Access Token instead of a Personal Access
+Token:</p>
+<ol>
+<li>Go to <strong>Settings → Access Tokens</strong></li>
+<li>Create a new token with:
+<ul>
+<li><strong>Token name</strong>: <code>releasaurus-ci</code></li>
+<li><strong>Role</strong>: <code>Maintainer</code></li>
+<li><strong>Scopes</strong>: <code>api</code>, <code>write_repository</code></li>
+</ul>
+</li>
+<li>Copy the generated token</li>
+<li>Go to <strong>Settings → CI/CD → Variables</strong></li>
+<li>Add variable <code>GITLAB_TOKEN</code> with the project access token as the value</li>
+<li>Mark it as <strong>Protected</strong> and <strong>Masked</strong></li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="gitea-actions-integration"><a class="header" href="#gitea-actions-integration">Gitea Actions Integration</a></h1>
+<p>Releasaurus provides seamless integration with Gitea Actions through the
+official <a href="https://gitea.com/rgon/releasaurus-gitea-action">releasaurus-gitea-action</a>. This action automates your release
+workflow directly in your Gitea repository, eliminating the need to run
+Releasaurus commands manually. See action
+<a href="https://gitea.com/rgon/releasaurus-gitea-action">documentation</a> for all available options.</p>
+<h2 id="basic-setup-2"><a class="header" href="#basic-setup-2">Basic Setup</a></h2>
+<h3 id="step-1-create-the-workflow-file-1"><a class="header" href="#step-1-create-the-workflow-file-1">Step 1: Create the Workflow File</a></h3>
+<p>Create a <code>.gitea/workflows/release.yml</code> file in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Run Releasaurus
+        uses: https://gitea.com/rgon/releasaurus-gitea-action@v1
+</code></pre>
+<h3 id="step-2-configure-repository-permissions-1"><a class="header" href="#step-2-configure-repository-permissions-1">Step 2: Configure Repository Permissions</a></h3>
+<p>Ensure your Gitea repository has the correct permissions:</p>
+<ol>
+<li>Go to your repository <strong>Settings → Actions</strong></li>
+<li>Enable <strong>Actions</strong> if not already enabled</li>
+<li>Under <strong>Secrets and Variables</strong>, add any custom tokens if needed</li>
+<li>Ensure the default <code>GITEA_TOKEN</code> has sufficient permissions</li>
+</ol>
+<h3 id="step-3-token-permissions-if-using-custom-token"><a class="header" href="#step-3-token-permissions-if-using-custom-token">Step 3: Token Permissions (If Using Custom Token)</a></h3>
+<p>If you need to use a custom Gitea token instead of the default, ensure it has:</p>
+<ul>
+<li><strong>Contents</strong>: <code>write</code> - To create tags and releases</li>
+<li><strong>Pull requests</strong>: <code>write</code> - To create release pull requests</li>
+<li><strong>Issues</strong>: <code>write</code> - To create and manage labels</li>
+</ul>
+<p>That's it! Your repository now has fully automated releases.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
 <p>This guide helps you diagnose and resolve common issues when using Releasaurus.
 If you encounter problems not covered here, please check the <a href="https://github.com/robgonnella/releasaurus/issues">GitHub issues</a> or create a new one.</p>
@@ -1147,6 +1342,9 @@ releasaurus release-pr --gitlab-repo "https://gitlab.com/group/project"
 # Self-hosted GitLab
 releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
 </code></pre>
+<p><strong>CI/CD Integration</strong>:</p>
+<p>For automated releases with GitLab CI/CD pipelines, see the dedicated
+<a href="./gitlab-ci.html">GitLab CI/CD</a> integration guide.</p>
 <h3 id="gitea-2"><a class="header" href="#gitea-2">Gitea</a></h3>
 <p><strong>Authentication</strong>:</p>
 <ul>
@@ -1157,6 +1355,9 @@ releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
 <pre><code class="language-bash">releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
 releasaurus release --gitea-repo "https://git.company.com/team/project"
 </code></pre>
+<p><strong>Actions Integration</strong>:</p>
+<p>For automated releases with Gitea Actions workflows, see the dedicated
+<a href="./gitea-actions.html">Gitea Actions</a> integration guide.</p>
 <h2 id="authentication-methods"><a class="header" href="#authentication-methods">Authentication Methods</a></h2>
 <p>All platforms use token-based authentication for security and API access:</p>
 <h3 id="command-line-tokens"><a class="header" href="#command-line-tokens">Command-Line Tokens</a></h3>
