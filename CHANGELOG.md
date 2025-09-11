@@ -1,3 +1,10 @@
+# [0.2.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.2) - 2025-09-11
+
+### 🐛 Bug Fixes
+
+- Fixes issue with Dockerfile and updates docs [_(28c2c797)_](https://github.com/robgonnella/releasaurus/commit/28c2c7971f4552ae27d87f816202dade950eed2f)
+
+
 # [0.2.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.1) - 2025-09-10
 
 ### 🐛 Bug Fixes
