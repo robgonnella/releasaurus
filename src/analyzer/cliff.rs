@@ -242,7 +242,7 @@ impl CliffAnalyzer {
         }
 
         Ok(Output {
-            changelog: cliff_helpers::strip_extra_lines(&out),
+            changelog: out,
             current_version: current,
             next_version: next,
             projected_release,
@@ -290,7 +290,11 @@ impl CliffAnalyzer {
         );
 
         content = cliff_helpers::strip_internal_body_markers(&content);
+        println!("------before------");
+        println!("{content}");
         content = cliff_helpers::strip_extra_lines(&content);
+        println!("------after------");
+        println!("{content}");
 
         file.write_all(content.as_bytes())?;
 
