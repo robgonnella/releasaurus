@@ -2,7 +2,6 @@
 use color_eyre::eyre::ContextCompat;
 use indexmap::IndexMap;
 use log::*;
-use regex::Regex;
 use std::{
     fs::OpenOptions,
     io::{BufWriter, Read, Write},
@@ -11,7 +10,7 @@ use std::{
 
 use crate::{
     analyzer::{
-        cliff_helpers,
+        cliff_helpers::{self, BODY_REGEX},
         config::AnalyzerConfig,
         types::{Output, ProjectedRelease, Version},
     },
@@ -21,7 +20,6 @@ use crate::{
 
 /// Represents a git-cliff implementation of a repository analyzer
 pub struct CliffAnalyzer {
-    analyzer_config: AnalyzerConfig,
     cliff_config: Box<git_cliff_core::config::Config>,
     repo: git_cliff_core::repo::Repository,
     package_full_path: PathBuf,
@@ -42,7 +40,6 @@ impl CliffAnalyzer {
         let repo = git_cliff_core::repo::Repository::init(repo_path)?;
 
         Ok(Self {
-            analyzer_config: config,
             cliff_config: Box::new(cliff_config),
             repo,
             package_full_path,
@@ -152,24 +149,13 @@ impl CliffAnalyzer {
     }
 
     fn get_notes_for_latest_release(&self, changelog: &str) -> String {
-        let stripped: Vec<&str> =
-            cliff_helpers::BODY_END_REGEX.splitn(changelog, 2).collect();
-
-        let notes = stripped[0].to_string();
-
-        let header_re = Regex::new(
-            format!(r"(?ms)(?<header>.*{})", cliff_helpers::HEADER_END_TAG)
-                .as_str(),
-        );
-
-        if let Ok(rgx) = header_re
-            && let Some(captures) = rgx.captures(changelog)
-            && let Some(_header_value) = captures.name("header")
+        if let Some(captures) = BODY_REGEX.captures(changelog)
+            && let Some(inner_body) = captures.name("body_inner")
         {
-            return rgx.replace_all(&notes, "").to_string();
+            return inner_body.as_str().to_string();
         }
 
-        notes
+        changelog.to_string()
     }
 
     pub fn process_repository(&self) -> Result<Output> {
@@ -203,7 +189,29 @@ impl CliffAnalyzer {
 
         // generate content
         let mut buf = BufWriter::new(Vec::new());
-        changelog.generate(&mut buf)?;
+
+        if self.starting_point.is_some() {
+            // if we started from last tag we just want to prepend the content
+            // to the existing changelog
+            let file_path = self.package_full_path.join("CHANGELOG.md");
+
+            let mut existing_content = String::from("");
+
+            let mut read_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false) // don't truncate here so we can read content
+                .open(file_path.clone())?;
+
+            read_file.read_to_string(&mut existing_content)?;
+
+            changelog.prepend(existing_content, &mut buf)?;
+        } else {
+            // otherwise generate the full changelog
+            changelog.generate(&mut buf)?;
+        }
+
         let bytes = buf.into_inner()?;
         let mut out = String::from_utf8(bytes)?;
 
@@ -253,43 +261,14 @@ impl CliffAnalyzer {
         let output = self.process_repository()?;
         let file_path = self.package_full_path.join("CHANGELOG.md");
 
-        let mut existing_content = String::from("");
-
-        // if we're starting from a specific point in time we won't get
-        // the entire changelog generated in output so we'll want to read
-        // in existing content and prepend
-        if self.starting_point.is_some() {
-            let mut read_file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false) // don't truncate here so we can read content
-                .open(file_path.clone())?;
-
-            read_file.read_to_string(&mut existing_content)?;
-
-            drop(read_file);
-        }
-
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(file_path.clone())?;
 
-        let mut content = format!("{}{}", output.changelog, existing_content);
-
-        content = cliff_helpers::replace_header(
-            &content,
-            self.analyzer_config.header.clone(),
-        );
-
-        content = cliff_helpers::replace_footer(
-            &content,
-            self.analyzer_config.footer.clone(),
-        );
-
-        content = cliff_helpers::strip_internal_body_marker(&content);
+        let content =
+            cliff_helpers::strip_internal_body_markers(&output.changelog);
 
         file.write_all(content.as_bytes())?;
 

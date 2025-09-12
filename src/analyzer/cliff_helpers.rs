@@ -5,30 +5,23 @@ use regex::{Regex, RegexBuilder};
 use serde_json::{Map, Value};
 use std::{path::Path, sync::LazyLock};
 
-pub static HEADER_START_TAG: &str = "<!--releasaurus_header_start-->";
-pub static HEADER_END_TAG: &str = "<!--releasaurus_header_end-->";
-
+pub static BODY_START_TAG: &str = "<!--releasaurus_body_start-->";
 pub static BODY_END_TAG: &str = "<!--releasaurus_body_end-->";
 
-pub static FOOTER_START_TAG: &str = "<!--releasaurus_footer_start-->";
-pub static FOOTER_END_TAG: &str = "<!--releasaurus_footer_end-->";
-
-pub static HEADER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        format!("(?ms)(?<header>{HEADER_START_TAG}.*{HEADER_END_TAG})")
-            .as_str(),
-    )
-    .unwrap()
+pub static BODY_START_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(format!("(?ms){BODY_START_TAG}").as_str()).unwrap()
 });
 
 pub static BODY_END_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(format!(r"(?ms){BODY_END_TAG}").as_str()).unwrap()
+    Regex::new(format!("(?ms){BODY_END_TAG}").as_str()).unwrap()
 });
 
-pub static FOOTER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+pub static BODY_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        format!("(?ms)(?<footer>{FOOTER_START_TAG}.*{FOOTER_END_TAG})")
-            .as_str(),
+        format!(
+            "(?ms)(?<body>{BODY_START_TAG}(?<body_inner>.*){BODY_END_TAG})"
+        )
+        .as_str(),
     )
     .unwrap()
 });
@@ -75,12 +68,12 @@ pub fn set_config_basic_settings(
     cliff_config: &mut git_cliff_core::config::Config,
     analyzer_config: &AnalyzerConfig,
 ) -> Result<()> {
-    cliff_config.changelog.body =
-        format!("{}{}\n", analyzer_config.body.clone(), BODY_END_TAG);
-    // set cliff config header and footer to None since we handle these
-    // separately within releasaurus
-    cliff_config.changelog.header = None;
-    cliff_config.changelog.footer = None;
+    cliff_config.changelog.body = format!(
+        "{BODY_START_TAG}\n{}\n{BODY_END_TAG}\n",
+        analyzer_config.body.clone()
+    );
+    cliff_config.changelog.header = analyzer_config.header.clone();
+    cliff_config.changelog.footer = analyzer_config.footer.clone();
     cliff_config.changelog.trim = true;
     cliff_config.git.conventional_commits = true;
     cliff_config.git.filter_unconventional = false;
@@ -257,47 +250,10 @@ pub fn add_link_base_and_commit_range_to_release(
     }
 }
 
-pub fn replace_header(changelog: &str, header: Option<String>) -> String {
-    if header.is_none() {
-        return changelog.to_string();
-    }
-
-    let new_header = format!(
-        "{HEADER_START_TAG}\n{}\n---\n{HEADER_END_TAG}",
-        header.unwrap()
-    );
-
-    if let Some(captures) = HEADER_REGEX.captures(changelog)
-        && let Some(_header_value) = captures.name("header")
-    {
-        return HEADER_REGEX.replace_all(changelog, new_header).to_string();
-    }
-
-    format!("{new_header}\n{changelog}")
-}
-
-pub fn replace_footer(changelog: &str, footer: Option<String>) -> String {
-    if footer.is_none() {
-        return changelog.to_string();
-    }
-
-    let new_footer = format!(
-        "{FOOTER_START_TAG}\n---\n{}\n{FOOTER_END_TAG}",
-        footer.unwrap()
-    );
-
-    if let Some(captures) = FOOTER_REGEX.captures(changelog)
-        && let Some(_foooter_value) = captures.name("footer")
-    {
-        return FOOTER_REGEX.replace_all(changelog, new_footer).to_string();
-    }
-
-    format!("{changelog}\n{new_footer}")
-}
-
-pub fn strip_internal_body_marker(changelog: &str) -> String {
-    let stripped = BODY_END_REGEX.replace_all(changelog, "");
-    stripped.to_string()
+pub fn strip_internal_body_markers(changelog: &str) -> String {
+    let changelog = BODY_START_REGEX.replace_all(changelog, "");
+    let changelog = BODY_END_REGEX.replace_all(&changelog, "");
+    changelog.to_string()
 }
 
 #[cfg(test)]
