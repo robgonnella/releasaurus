@@ -290,6 +290,7 @@ impl CliffAnalyzer {
         );
 
         content = cliff_helpers::strip_internal_body_markers(&content);
+        content = cliff_helpers::strip_extra_lines(&content);
 
         file.write_all(content.as_bytes())?;
 
