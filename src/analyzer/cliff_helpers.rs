@@ -295,9 +295,13 @@ pub fn replace_footer(changelog: &str, footer: Option<String>) -> String {
     format!("{changelog}\n{new_footer}")
 }
 
-pub fn strip_internal_body_marker(changelog: &str) -> String {
-    let stripped = BODY_END_REGEX.replace_all(changelog, "");
-    stripped.to_string()
+pub fn strip_internal_body_markers(changelog: &str) -> String {
+    BODY_END_REGEX.replace_all(changelog, "").trim().to_string()
+}
+
+pub fn strip_extra_lines(changelog: &str) -> String {
+    let pattern = Regex::new(r"\n{3,}").unwrap();
+    pattern.replace_all(changelog, "\n\n").trim().to_string()
 }
 
 #[cfg(test)]
