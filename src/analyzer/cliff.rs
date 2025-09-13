@@ -1,5 +1,6 @@
 //! A git-cliff implementation of a changelog
 use color_eyre::eyre::ContextCompat;
+use git_cliff_core::changelog::Changelog;
 use indexmap::IndexMap;
 use log::*;
 use regex::Regex;
@@ -50,6 +51,73 @@ impl CliffAnalyzer {
             commit_link_base_url,
             release_link_base_url,
         })
+    }
+
+    pub fn process_repository(&self) -> Result<Output> {
+        info!(
+            "processing repository for package: {}",
+            self.package_full_path.display()
+        );
+
+        let (releases, current_version) = self.get_repo_releases()?;
+
+        let current = self.get_tag_as_version(current_version)?;
+
+        let mut changelog = git_cliff_core::changelog::Changelog::new(
+            releases,
+            &self.cliff_config,
+            None,
+        )?;
+
+        self.process_changelog(current, &mut changelog)
+    }
+
+    pub fn write_changelog(&self) -> Result<Output> {
+        let output = self.process_repository()?;
+        let file_path = self.package_full_path.join("CHANGELOG.md");
+
+        let mut existing_content = String::from("");
+
+        // if we're starting from a specific point in time we won't get
+        // the entire changelog generated in output so we'll want to read
+        // in existing content and prepend
+        if self.starting_point.is_some() {
+            let mut read_file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false) // don't truncate here so we can read content
+                .open(file_path.clone())?;
+
+            read_file.read_to_string(&mut existing_content)?;
+
+            drop(read_file);
+        }
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(file_path.clone())?;
+
+        let mut content = format!("{}{}", output.changelog, existing_content);
+
+        content = cliff_helpers::replace_header(
+            &content,
+            self.analyzer_config.header.clone(),
+        );
+
+        content = cliff_helpers::replace_footer(
+            &content,
+            self.analyzer_config.footer.clone(),
+        );
+
+        content = cliff_helpers::strip_internal_body_markers(&content);
+        content = cliff_helpers::strip_extra_lines(&content);
+
+        file.write_all(content.as_bytes())?;
+
+        Ok(output)
     }
 
     fn process_commits<'a>(
@@ -172,32 +240,30 @@ impl CliffAnalyzer {
         notes
     }
 
-    pub fn process_repository(&self) -> Result<Output> {
-        info!(
-            "processing repository for package: {}",
-            self.package_full_path.display()
-        );
-
-        let (releases, current_version) = self.get_repo_releases()?;
-
-        let mut current: Option<Version> = None;
-        if let Some(tag) = current_version
+    fn get_tag_as_version(
+        &self,
+        tag: Option<String>,
+    ) -> Result<Option<Version>> {
+        let mut version: Option<Version> = None;
+        if let Some(tag) = tag
             && let Some(pattern) = self.cliff_config.git.tag_pattern.clone()
         {
             let stripped = pattern.replace(&tag, "").to_string();
             let semver_version = semver::Version::parse(&stripped)?;
-            current = Some(Version {
+            version = Some(Version {
                 tag,
                 semver: semver_version,
             })
         }
 
-        let mut changelog = git_cliff_core::changelog::Changelog::new(
-            releases,
-            &self.cliff_config,
-            None,
-        )?;
+        Ok(version)
+    }
 
+    fn process_changelog(
+        &self,
+        current_version: Option<Version>,
+        changelog: &mut Changelog,
+    ) -> Result<Output> {
         // increase to next version
         let next_version = changelog.bump_version()?;
 
@@ -214,27 +280,17 @@ impl CliffAnalyzer {
             out = self.get_notes_for_latest_release(&out);
         }
 
-        let mut next: Option<Version> = None;
-
-        if let Some(tag) = next_version.clone()
-            && let Some(pattern) = self.cliff_config.git.tag_pattern.clone()
-        {
-            let stripped = pattern.replace(&tag, "").to_string();
-            let semver_version = semver::Version::parse(&stripped)?;
-            next = Some(Version {
-                tag,
-                semver: semver_version,
-            })
-        }
+        let next = self.get_tag_as_version(next_version)?;
 
         let mut projected_release = None;
 
-        if next_version.is_some() {
+        if next.is_some() {
+            let next_v = next.clone().unwrap();
             let notes = self.get_notes_for_latest_release(&out);
             let last_release =
                 changelog.releases.last().wrap_err("no releases found")?;
             projected_release = Some(ProjectedRelease {
-                tag: next_version.clone().unwrap_or("".into()),
+                tag: next_v.tag,
                 path: self.package_full_path.display().to_string(),
                 sha: last_release.commit_id.clone().unwrap_or("".into()),
                 notes,
@@ -243,62 +299,10 @@ impl CliffAnalyzer {
 
         Ok(Output {
             changelog: out,
-            current_version: current,
+            current_version,
             next_version: next,
             projected_release,
         })
-    }
-
-    pub fn write_changelog(&self) -> Result<Output> {
-        let output = self.process_repository()?;
-        let file_path = self.package_full_path.join("CHANGELOG.md");
-
-        let mut existing_content = String::from("");
-
-        // if we're starting from a specific point in time we won't get
-        // the entire changelog generated in output so we'll want to read
-        // in existing content and prepend
-        if self.starting_point.is_some() {
-            let mut read_file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false) // don't truncate here so we can read content
-                .open(file_path.clone())?;
-
-            read_file.read_to_string(&mut existing_content)?;
-
-            drop(read_file);
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(file_path.clone())?;
-
-        let mut content = format!("{}{}", output.changelog, existing_content);
-
-        content = cliff_helpers::replace_header(
-            &content,
-            self.analyzer_config.header.clone(),
-        );
-
-        content = cliff_helpers::replace_footer(
-            &content,
-            self.analyzer_config.footer.clone(),
-        );
-
-        content = cliff_helpers::strip_internal_body_markers(&content);
-        println!("------before------");
-        println!("{content}");
-        content = cliff_helpers::strip_extra_lines(&content);
-        println!("------after------");
-        println!("{content}");
-
-        file.write_all(content.as_bytes())?;
-
-        Ok(output)
     }
 }
 
