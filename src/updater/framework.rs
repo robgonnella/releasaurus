@@ -1,6 +1,8 @@
+//! Framework detection and package management for multi-language support.
+
 use std::path::PathBuf;
 
-use crate::analyzer::types::Version;
+use crate::analyzer::types::Tag;
 use crate::updater::detection::manager::DetectionManager;
 use crate::updater::detection::traits::FrameworkDetector;
 use crate::updater::generic::updater::GenericUpdater;
@@ -18,8 +20,8 @@ use crate::updater::rust::detector::RustDetector;
 use crate::updater::rust::updater::RustUpdater;
 use crate::updater::traits::PackageUpdater;
 
+/// Supported programming languages and frameworks for version updating.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-/// Supported frameworks and languages
 pub enum Framework {
     /// Rust with Cargo
     Rust,
@@ -39,6 +41,7 @@ pub enum Framework {
 }
 
 impl Framework {
+    /// Create detection manager with all supported framework detectors.
     pub fn detection_manager(root_path: PathBuf) -> DetectionManager {
         let detectors: Vec<Box<dyn FrameworkDetector>> = vec![
             Box::new(RustDetector::new()),
@@ -52,6 +55,7 @@ impl Framework {
         DetectionManager::new(root_path, detectors)
     }
 
+    /// Get framework name as string.
     pub fn name(&self) -> &str {
         match self {
             Framework::Rust => "rust",
@@ -64,6 +68,7 @@ impl Framework {
         }
     }
 
+    /// Get package updater for this framework.
     pub fn updater(&self) -> Box<dyn PackageUpdater> {
         match self {
             Framework::Rust => Box::new(RustUpdater::new()),
@@ -79,23 +84,24 @@ impl Framework {
 
 /// A language/framework-agnostic package that needs version updates
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Package information with version and framework details.
 pub struct Package {
     /// Package name as defined in the manifest file
     pub name: String,
     /// Path to the package directory (relative to repository root)
     pub path: String,
     /// Next version to update to
-    pub next_version: Version,
+    pub next_version: Tag,
     /// Detected framework/language for this package
     pub framework: Framework,
 }
 
 impl Package {
-    /// Create a new package with minimal information
+    /// Create new package with version and framework information.
     pub fn new(
         name: String,
         path: String,
-        next_version: Version,
+        next_version: Tag,
         framework: Framework,
     ) -> Self {
         Self {
@@ -106,7 +112,7 @@ impl Package {
         }
     }
 
-    /// Get the framework type as a string
+    /// Get framework name as string.
     pub fn framework_name(&self) -> &str {
         self.framework.name()
     }
@@ -246,8 +252,9 @@ mod tests {
         let package = Package::new(
             "com.example:test-lib".to_string(),
             package_dir.to_str().unwrap().to_string(),
-            Version {
-                tag: "v2.0.0".to_string(),
+            Tag {
+                sha: "abc123".into(),
+                name: "v2.0.0".to_string(),
                 semver: semver::Version::parse("2.0.0").unwrap(),
             },
             Framework::Java,
@@ -292,8 +299,9 @@ mod tests {
         let package = Package::new(
             "vendor/test-lib".to_string(),
             package_dir.to_str().unwrap().to_string(),
-            Version {
-                tag: "v2.0.0".to_string(),
+            Tag {
+                sha: "abc123".into(),
+                name: "v2.0.0".to_string(),
                 semver: semver::Version::parse("2.0.0").unwrap(),
             },
             Framework::Php,
@@ -339,8 +347,9 @@ mod tests {
             Package::new(
                 "test-node".to_string(),
                 node_dir.to_str().unwrap().to_string(),
-                Version {
-                    tag: "v2.0.0".to_string(),
+                Tag {
+                    sha: "abc123".into(),
+                    name: "v2.0.0".to_string(),
                     semver: semver::Version::parse("2.0.0").unwrap(),
                 },
                 Framework::Node,
@@ -348,8 +357,9 @@ mod tests {
             Package::new(
                 "test/php".to_string(),
                 php_dir.to_str().unwrap().to_string(),
-                Version {
-                    tag: "v2.0.0".to_string(),
+                Tag {
+                    sha: "def456".into(),
+                    name: "v2.0.0".to_string(),
                     semver: semver::Version::parse("2.0.0").unwrap(),
                 },
                 Framework::Php,
@@ -460,8 +470,9 @@ end"#,
         let package = Package::new(
             "my_gem".to_string(),
             package_dir.to_str().unwrap().to_string(),
-            Version {
-                tag: "v2.0.0".to_string(),
+            Tag {
+                sha: "abc123".into(),
+                name: "v2.0.0".to_string(),
                 semver: semver::Version::parse("2.0.0").unwrap(),
             },
             Framework::Ruby,

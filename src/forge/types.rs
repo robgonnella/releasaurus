@@ -1,16 +1,19 @@
-#[derive(Debug)]
+/// Release pull request information.
+#[derive(Debug, Clone)]
 pub struct ReleasePullRequest {
     pub number: u64,
     pub sha: String,
 }
 
-#[derive(Debug)]
+/// Request to get pull request by branch names.
+#[derive(Debug, Clone)]
 pub struct GetPrRequest {
     pub head_branch: String,
     pub base_branch: String,
 }
 
-#[derive(Debug)]
+/// Request to create a new pull request.
+#[derive(Debug, Clone)]
 pub struct CreatePrRequest {
     pub head_branch: String,
     pub base_branch: String,
@@ -18,14 +21,16 @@ pub struct CreatePrRequest {
     pub body: String,
 }
 
-#[derive(Debug)]
+/// Request to update existing pull request.
+#[derive(Debug, Clone)]
 pub struct UpdatePrRequest {
     pub pr_number: u64,
     pub title: String,
     pub body: String,
 }
 
-#[derive(Debug)]
+/// Request to update pull request labels.
+#[derive(Debug, Clone)]
 pub struct PrLabelsRequest {
     pub pr_number: u64,
     pub labels: Vec<String>,

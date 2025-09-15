@@ -1,8 +1,8 @@
-//! Defines execution function for the release command
+//! Final release publication and tagging command implementation.
 use log::*;
 
 use crate::{
-    analyzer::{cliff::CliffAnalyzer, types::ProjectedRelease},
+    analyzer::{changelog::Analyzer, types::Release},
     cli,
     command::common,
     config,
@@ -11,6 +11,7 @@ use crate::{
     result::Result,
 };
 
+/// Execute release command to create git tags and publish final release.
 pub fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
@@ -59,7 +60,7 @@ fn process_packages_for_release(
     merged_pr: &ReleasePullRequest,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<Vec<ProjectedRelease>> {
+) -> Result<Vec<Release>> {
     let mut releases = vec![];
 
     for package in &cli_config.packages {
@@ -83,26 +84,26 @@ fn create_package_release(
     package: &config::CliPackageConfig,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<Option<ProjectedRelease>> {
+) -> Result<Option<Release>> {
     let tag_prefix = common::get_tag_prefix(package);
-    let starting_sha = repo.get_latest_tagged_starting_point(&tag_prefix)?;
+    let starting_tag = repo.get_latest_tag(&tag_prefix)?;
 
     let changelog_config = common::create_changelog_config(
         package,
         cli_config,
         remote_config,
-        starting_sha,
+        starting_tag,
         String::from(repo.workdir_as_str()),
     );
 
-    let analyzer = CliffAnalyzer::new(changelog_config)?;
-    let output = analyzer.process_repository()?;
+    let analyzer = Analyzer::new(changelog_config, repo)?;
+    let release = analyzer.process_repository()?;
 
-    if let Some(next_version) = output.next_version
-        && let Some(projected_release) = output.projected_release
+    if let Some(release) = release
+        && let Some(tag) = release.tag.clone()
     {
-        repo.tag_commit(&next_version.tag, &merged_pr.sha)?;
-        Ok(Some(projected_release))
+        repo.tag_commit(&tag.name, &merged_pr.sha)?;
+        Ok(Some(release))
     } else {
         Ok(None)
     }
@@ -111,7 +112,7 @@ fn create_package_release(
 fn publish_releases(
     forge: &dyn Forge,
     repo: &Repository,
-    releases: &[ProjectedRelease],
+    releases: &[Release],
 ) -> Result<()> {
     for release in releases {
         publish_single_release(forge, repo, release)?;
@@ -122,18 +123,18 @@ fn publish_releases(
 fn publish_single_release(
     forge: &dyn Forge,
     repo: &Repository,
-    release: &ProjectedRelease,
+    release: &Release,
 ) -> Result<()> {
-    info!("processing releasable package");
-    info!("release path: {}", release.path);
-    info!("release tag: {}", release.tag);
-    info!("release sha: {}", release.sha);
+    if let Some(tag) = release.tag.clone() {
+        info!("processing releasable package");
+        info!("release tag: {}", tag);
 
-    info!("pushing tag: {}", release.tag);
-    repo.push_tag_to_default_branch(&release.tag)?;
+        info!("pushing tag: {}", tag);
+        repo.push_tag_to_default_branch(&tag.name)?;
 
-    info!("creating release: {}", release.tag);
-    forge.create_release(&release.tag, &release.sha, &release.notes)?;
+        info!("creating release: {}", tag);
+        forge.create_release(&tag.name, &release.sha, &release.notes)?;
+    }
 
     // TODO: comment on PR about release
 

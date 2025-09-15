@@ -1,4 +1,4 @@
-//! Configuration used implement various forges
+//! Configuration for Git forge platform connections.
 use secrecy::SecretString;
 
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
@@ -12,25 +12,23 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-/// Remote Repository configuration
+/// Remote repository connection configuration.
 pub struct RemoteConfig {
-    /// The host for this remote repo
+    /// Remote repository host.
     pub host: String,
-    /// The scheme for this remote repo http|https
+    /// URL scheme (http or https).
     pub scheme: String,
-    /// The owner of the remote repo
+    /// Repository owner.
     pub owner: String,
-    /// The repo path i.e. `<group>/<repo>`
+    /// Repository path.
     pub repo: String,
-    /// The full path to the repo i.e. /org/group/owner/repo
+    /// Full repository path.
     pub path: String,
-    /// The access token for the remote repo
+    /// Access token for authentication.
     pub token: SecretString,
-    /// commit link base_url for the remote
-    /// This is only used for links displayed in changelog
+    /// Base URL for commit links in changelog.
     pub commit_link_base_url: String,
-    /// release link base_url for the remote
-    /// This is only used for links displayed in changelog
+    /// Base URL for release links in changelog.
     pub release_link_base_url: String,
 }
 
@@ -50,7 +48,7 @@ impl Default for RemoteConfig {
 }
 
 #[derive(Debug, Clone)]
-/// Represents the valid types of remotes
+/// Supported Git forge platforms.
 pub enum Remote {
     Github(RemoteConfig),
     Gitlab(RemoteConfig),

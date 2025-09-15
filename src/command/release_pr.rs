@@ -1,9 +1,10 @@
-use color_eyre::eyre::ContextCompat;
+//! Release pull request creation command implementation.
+
 use log::*;
 use std::collections::HashMap;
 
 use crate::{
-    analyzer::{cliff::CliffAnalyzer, types::Output},
+    analyzer::{changelog::Analyzer, types::Release},
     cli,
     command::common,
     config,
@@ -17,12 +18,14 @@ use crate::{
     updater::manager::UpdaterManager,
 };
 
+/// Content for release pull request.
 struct PrContent {
     pub title: String,
     pub body: Vec<String>,
     pub releasable: bool,
 }
 
+/// Execute release-pr command to analyze commits and create release pull request.
 pub fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
@@ -35,6 +38,8 @@ pub fn execute(args: &cli::Args) -> Result<()> {
         common::setup_release_branch(&repo, DEFAULT_PR_BRANCH_PREFIX)?;
 
     let manifest = process_packages(&repo, &cli_config, forge.config())?;
+
+    info!("manifest: {:#?}", manifest);
     let pr_content = create_pr_content(manifest, &repo)?;
 
     if !pr_content.releasable {
@@ -60,13 +65,15 @@ fn process_packages(
     repo: &Repository,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<HashMap<String, Output>> {
-    let mut manifest: HashMap<String, Output> = HashMap::new();
+) -> Result<HashMap<String, Release>> {
+    let mut manifest: HashMap<String, Release> = HashMap::new();
 
     for package in &cli_config.packages {
-        let output =
-            process_single_package(package, repo, cli_config, remote_config)?;
-        manifest.insert(package.path.clone(), output);
+        if let Some(release) =
+            process_single_package(package, repo, cli_config, remote_config)?
+        {
+            manifest.insert(package.path.clone(), release);
+        }
     }
 
     // Update package manifest files (Cargo.toml, package.json, setup.py, etc.)
@@ -105,33 +112,33 @@ fn process_single_package(
     repo: &Repository,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<Output> {
+) -> Result<Option<Release>> {
     let tag_prefix = common::get_tag_prefix(package);
 
     common::log_package_processing(&package.path, &tag_prefix);
 
-    let starting_point = repo.get_latest_tagged_starting_point(&tag_prefix)?;
+    let starting_tag = repo.get_latest_tag(&tag_prefix)?;
 
     let changelog_config = common::create_changelog_config(
         package,
         cli_config,
         remote_config,
-        starting_point,
+        starting_tag,
         String::from(repo.workdir_as_str()),
     );
 
-    let analyzer = CliffAnalyzer::new(changelog_config)?;
+    let analyzer = Analyzer::new(changelog_config, repo)?;
     analyzer.write_changelog()
 }
 
 fn create_pr_content(
-    manifest: HashMap<String, Output>,
+    manifest: HashMap<String, Release>,
     repo: &Repository,
 ) -> Result<PrContent> {
     let mut title = format!("chore({}): release", repo.default_branch);
     let mut include_title_version = false;
     let mut body = vec![];
-    let mut releasable = false;
+    let releasable = !manifest.is_empty();
 
     let mut start_tag = "<details>";
 
@@ -141,33 +148,30 @@ fn create_pr_content(
         start_tag = "<details open>";
     }
 
-    for (name, info) in manifest {
-        debug!(
-            "\n\n{}\n  current_version: {:?}\n  next_version: {:?}\n  projected_release_version: {:?}",
-            name, info.current_version, info.next_version, info.next_version,
-        );
+    for (name, release) in manifest {
+        if release.tag.is_none() {
+            warn!("no projected tag found fo release: {:#?}", release);
+            continue;
+        }
+
+        let tag = release.tag.unwrap();
+
+        debug!("\n\n{}\n  next_version: {:?}", name, tag);
 
         // only keep packages that have releasable commits
-        if let Some(version) = info.next_version {
-            info!("{name} is releasable: next version: {}", version.semver);
-            releasable = true;
 
-            let notes = info
-                .projected_release
-                .wrap_err("failed to find projected release")?
-                .notes;
+        info!("{name} is releasable: next version: {}", tag.semver);
 
-            // create the drop down
-            let drop_down = format!(
-                "{start_tag}<summary>{}</summary>\n\n{}</details>",
-                version.semver, notes
-            );
+        // create the drop down
+        let drop_down = format!(
+            "{start_tag}<summary>{}</summary>\n\n{}</details>",
+            tag.semver, release.notes
+        );
 
-            body.push(drop_down);
+        body.push(drop_down);
 
-            if include_title_version {
-                title = format!("{} {}", title, version.semver)
-            }
+        if include_title_version {
+            title = format!("{} {}", title, tag.semver)
         }
     }
 

@@ -2,6 +2,8 @@ use std::{fs, process::Command, thread, time::Duration};
 
 use tempfile::TempDir;
 
+use crate::forge::config::RemoteConfig;
+
 use super::*;
 
 #[derive(Clone)]
@@ -101,7 +103,7 @@ impl TestContext {
 
         args.file_name = "break.txt";
         args.footer = Some("BREAKING CHANGE: It broke");
-        args.message = "fix!: fixed it by breaking it";
+        args.message = "fix: fixed it by breaking it";
         args.tag = None;
 
         let result = self.add_commit(args.clone());
@@ -117,36 +119,55 @@ fn process_git_repository() {
     let tmp_dir_path_str = tmp_dir.path().display().to_string();
     let context = TestContext::new(tmp_dir);
     let result = context.setup_repo();
+    let remote_config = RemoteConfig {
+        host: "github.com".to_string(),
+        scheme: "https".to_string(),
+        owner: "test-owner".to_string(),
+        repo: "test-repo".to_string(),
+        path: "test-owner/test-repo".to_string(),
+        commit_link_base_url: "https://github.com/test-owner/test-repo/commit"
+            .to_string(),
+        release_link_base_url:
+            "https://github.com/test-owner/test-repo/releases/tag".to_string(),
+        ..RemoteConfig::default()
+    };
+    let repo = Repository::from_local(
+        context.path(),
+        remote_config,
+        "main".to_string(),
+    )
+    .unwrap();
+
     assert!(result.is_ok(), "failed to setup test repo");
+
+    let starting_tag = repo.get_latest_tag("v").unwrap();
 
     let config = AnalyzerConfig {
         repo_path: tmp_dir_path_str,
+        tag_prefix: Some("v".to_string()),
+        starting_tag,
         ..AnalyzerConfig::default()
     };
-    let result = CliffAnalyzer::new(config);
+    let result = Analyzer::new(config, &repo);
     assert!(result.is_ok(), "failed to create changelog instance");
 
-    let changelog = result.unwrap();
-    let result = changelog.write_changelog();
+    let analyzer = result.unwrap();
+
+    let result = analyzer.write_changelog();
     assert!(result.is_ok(), "failed to write to file");
 
-    let output = result.unwrap();
+    let release = result.unwrap();
 
-    assert!(
-        !output.changelog.is_empty(),
-        "output.log should not be empty"
-    );
+    assert!(release.is_some(), "there should be a release");
 
-    assert!(output.current_version.is_some());
-    let current_version = output.current_version.unwrap();
-    assert_eq!(
-        current_version.tag, "v0.2.1",
-        "current version does not match"
-    );
+    let release = release.unwrap();
 
-    assert!(output.next_version.is_some());
-    let next_version = output.next_version.unwrap();
-    assert_eq!(next_version.tag, "v1.0.0", "next version does not match");
+    assert!(!release.notes.is_empty(), "release should have notes");
+
+    assert!(release.tag.is_some(), "release should have projected tag");
+    let tag = release.tag.unwrap();
+
+    assert_eq!(tag.name, "v1.0.0", "tag does not match");
 
     let file_path = format!("{}/CHANGELOG.md", context.path().display());
 

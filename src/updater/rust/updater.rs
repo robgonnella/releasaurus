@@ -10,6 +10,7 @@ use crate::{
     updater::traits::PackageUpdater,
 };
 
+/// Rust package updater for Cargo projects.
 pub struct RustUpdater {
     cargo_toml: CargoToml,
     cargo_lock: CargoLock,
@@ -55,7 +56,7 @@ impl PackageUpdater for RustUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Version;
+    use crate::analyzer::types::Tag;
     use crate::updater::framework::{Framework, Package};
     use std::fs;
     use tempfile::TempDir;
@@ -69,8 +70,9 @@ mod tests {
         Package::new(
             name.to_string(),
             path.to_string(),
-            Version {
-                tag: format!("v{}", version),
+            Tag {
+                sha: "abc123".into(),
+                name: format!("v{}", version),
                 semver: semver::Version::parse(version).unwrap(),
             },
             framework,
