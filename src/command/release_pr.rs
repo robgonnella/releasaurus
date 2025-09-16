@@ -40,6 +40,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let manifest = process_packages(&repo, &cli_config, forge.config())?;
 
     info!("manifest: {:#?}", manifest);
+
     let pr_content = create_pr_content(manifest, &repo)?;
 
     if !pr_content.releasable {
