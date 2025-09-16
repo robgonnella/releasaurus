@@ -125,6 +125,7 @@ impl Repository {
     }
 
     /// Normalize glob pattern to match git diff paths.
+    /// take from git-cliff-core with slight modification
     fn normalize_pattern(pattern: Pattern) -> Result<Pattern> {
         let star_added = match pattern.as_str().chars().last() {
             Some('/' | '\\') => Pattern::new(&format!("{pattern}**"))
@@ -139,6 +140,7 @@ impl Repository {
     }
 
     /// Calculate changed files for commit without using cache.
+    /// take from git-cliff-core with slight modification
     fn get_changed_files_no_cache(
         &self,
         commit: &Commit,
@@ -195,6 +197,7 @@ impl Repository {
     }
 
     /// Get changed files for commit with caching for performance.
+    /// take from git-cliff-core with slight modification
     fn get_changed_files(&self, commit: &Commit) -> Result<Vec<PathBuf>> {
         // Cache key is generated from the repository path and commit id
         let cache_key = format!("commit_id:{}", commit.id());
@@ -243,6 +246,7 @@ impl Repository {
     }
 
     /// Check if commit should be retained based on changed files and patterns.
+    /// take from git-cliff-core with slight modification
     fn should_retain_commit(
         &self,
         commit: &Commit,
@@ -264,6 +268,7 @@ impl Repository {
     }
 
     /// Parse and return commits sorted by time.
+    /// take from git-cliff-core with slight modification
     pub fn commits(
         &self,
         range: Option<&str>,
@@ -309,10 +314,8 @@ impl Repository {
             .filter_map(|r| r.ok())
             .collect::<Vec<git2::Reference>>();
 
-        // Iterate through all references in the repository in reverse and stop
-        // at first that matches prefix
-        for reference in references.into_iter().rev() {
-            // Check if the reference is a tag with desired prefix
+        let mut commits: Vec<(git2::Commit, Tag)> = vec![];
+        for reference in references.iter() {
             if reference.is_tag()
                 && let Some(name) = reference.name()
                 && let Some(stripped) = name.strip_prefix("refs/tags/")
@@ -323,14 +326,26 @@ impl Repository {
                     tag_prefix_regex.replace_all(stripped, "").as_ref(),
                 )?;
 
-                return Ok(Some(Tag {
+                let tag = Tag {
                     sha: commit.id().to_string(),
                     name: stripped.to_string(),
                     semver,
-                }));
+                };
+                commits.push((commit, tag));
             }
         }
-        Ok(None)
+
+        if commits.is_empty() {
+            return Ok(None);
+        }
+
+        // sort commits by time descending so the first one should contain
+        // the latest tag
+        commits.sort_by(|(c1, _), (c2, _)| c2.time().cmp(&c1.time()));
+
+        let (_, tag) = commits[0].clone();
+
+        Ok(Some(tag))
     }
 
     /// Create new branch from current HEAD (force creates, overwrites existing).

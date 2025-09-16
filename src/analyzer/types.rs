@@ -37,7 +37,7 @@ impl Serialize for Tag {
 }
 
 /// Release information with commits, notes, and version tag.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Release {
     /// Associated version tag.
     pub tag: Option<Tag>,
@@ -51,6 +51,17 @@ pub struct Release {
     pub notes: String,
     /// Release timestamp.
     pub timestamp: i64,
+}
+
+impl std::fmt::Debug for Release {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Release")
+            .field("tag", &self.tag)
+            .field("link", &self.link)
+            .field("sha", &self.sha)
+            .field("timestamp", &self.timestamp)
+            .finish()
+    }
 }
 
 impl Serialize for Release {

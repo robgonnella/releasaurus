@@ -62,6 +62,9 @@ impl<'r> Analyzer<'r> {
 
         let current_version = self.config.starting_tag.clone();
 
+        info!("detected current version as: {:#?}", current_version);
+
+        // calculate next release
         if let Some(current) = current_version.clone() {
             let commits = release
                 .commits
@@ -97,6 +100,32 @@ impl<'r> Analyzer<'r> {
             let context = tera::Context::from_serialize(&release)?;
             let notes =
                 tera::Tera::one_off(&self.config.body, &context, false)?;
+            release.notes = helpers::strip_extra_lines(notes.trim());
+        } else {
+            // this is the first release
+            let mut tag_name = "0.1.0".to_string();
+            let semver = semver::Version::parse(&tag_name).unwrap();
+            if let Some(prefix) = self.config.tag_prefix.clone() {
+                tag_name = format!("{prefix}{tag_name}");
+            }
+            let next_tag = Tag {
+                sha: release.sha.clone(),
+                name: tag_name,
+                semver,
+            };
+
+            release.link = format!(
+                "{}/{}",
+                self.config.release_link_base_url, next_tag.name
+            );
+
+            release.tag = Some(next_tag.clone());
+
+            let context = tera::Context::from_serialize(&release)?;
+
+            let notes =
+                tera::Tera::one_off(&self.config.body, &context, false)?;
+
             release.notes = helpers::strip_extra_lines(notes.trim());
         }
 
