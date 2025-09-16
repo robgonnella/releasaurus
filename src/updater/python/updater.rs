@@ -13,6 +13,7 @@ use crate::{
 };
 
 /// Python updater - handles various Python packaging formats and build systems
+/// Python package updater supporting pyproject.toml, setup.py, and setup.cfg.
 pub struct PythonUpdater {
     pyproject: PyProject,
     setuppy: SetupPy,
@@ -54,7 +55,7 @@ impl PackageUpdater for PythonUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Version as AnalyzerVersion;
+    use crate::analyzer::types::Tag;
     use semver::Version;
     use std::fs;
     use tempfile::TempDir;
@@ -68,8 +69,9 @@ mod tests {
         Package::new(
             name.to_string(),
             path.to_string(),
-            AnalyzerVersion {
-                tag: format!("v{}", version),
+            Tag {
+                sha: "abc123".into(),
+                name: format!("v{}", version),
                 semver: Version::parse(version).unwrap(),
             },
             framework,

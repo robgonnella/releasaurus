@@ -117,7 +117,7 @@ impl CargoLock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Version;
+    use crate::analyzer::types::Tag;
     use crate::updater::framework::{Framework, Package};
     use std::fs;
     use tempfile::TempDir;
@@ -126,8 +126,9 @@ mod tests {
         Package::new(
             name.to_string(),
             path.to_string(),
-            Version {
-                tag: format!("v{}", version),
+            Tag {
+                sha: "abc123".into(),
+                name: format!("v{}", version),
                 semver: semver::Version::parse(version).unwrap(),
             },
             Framework::Rust,

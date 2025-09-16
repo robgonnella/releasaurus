@@ -68,7 +68,7 @@ impl SetupCfg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Version as AnalyzerVersion;
+    use crate::analyzer::types::Tag;
     use crate::updater::framework::Framework;
     use semver::Version;
     use std::fs;
@@ -78,8 +78,9 @@ mod tests {
         Package::new(
             name.to_string(),
             path.to_string(),
-            AnalyzerVersion {
-                tag: format!("v{}", version),
+            Tag {
+                sha: "abc123".into(),
+                name: format!("v{}", version),
                 semver: Version::parse(version).unwrap(),
             },
             Framework::Python,

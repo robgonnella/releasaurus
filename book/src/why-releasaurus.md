@@ -1,10 +1,15 @@
 # Why Releasaurus?
 
-The software development landscape is rich with release automation tools, each solving specific problems within their domains. So why create another one? Releasaurus was born from real-world frustrations with existing tools and a vision for what release automation could be: **universal, intelligent, and effortless**.
+The software development landscape is rich with release automation tools, each
+solving specific problems within their domains. So why create another one?
+Releasaurus was born from real-world frustrations with existing tools and a
+vision for what release automation could be:
+**universal, intelligent, and effortless**.
 
 ## The Release Automation Challenge
 
-Modern software development involves complex release processes that traditionally require significant manual effort:
+Modern software development involves complex release processes that
+traditionally require significant manual effort:
 
 - **Version Management**: Updating version numbers across multiple files and formats
 - **Changelog Generation**: Creating meaningful release notes from commit history
@@ -13,28 +18,36 @@ Modern software development involves complex release processes that traditionall
 - **Review Workflows**: Ensuring releases go through proper review processes
 - **Consistency**: Maintaining uniform practices across projects and teams
 
-While several excellent tools address parts of this challenge, none provided a complete, universal solution that works seamlessly across all environments.
+While several excellent tools address parts of this challenge, none provided a
+complete, universal solution that works seamlessly across all environments.
 
 ## The Existing Landscape
 
-Before Releasaurus, developers had to choose between specialized tools, each with significant limitations:
+Before Releasaurus, developers had to choose between specialized tools, each
+with significant limitations:
 
 ### release-please: GitHub-Only Excellence
 
-[release-please](https://github.com/googleapis/release-please) pioneered the release-PR workflow and remains excellent for GitHub-centric organizations. However:
+[release-please](https://github.com/googleapis/release-please) pioneered the
+release-PR workflow and remains excellent for GitHub-centric organizations.
+However:
 
 - **Platform Lock-in**: Only works with GitHub, excluding GitLab and Gitea users
 
 ### release-plz: Rust Ecosystem Specialist
 
-[release-plz](https://release-plz.ieni.dev/) provides outstanding Rust support with deep Cargo integration. But:
+[release-plz](https://release-plz.ieni.dev/) provides outstanding Rust support
+with deep Cargo integration. But:
 
 - **Single Language**: Only supports Rust projects
 - **Ecosystem Specific**: Designed exclusively for the Rust/Cargo ecosystem
 
 ### git-cliff: Powerful but Manual
 
-[git-cliff](https://git-cliff.org/) excels at changelog generation with extensive customization. However:
+[git-cliff](https://git-cliff.org/) excels at changelog generation with
+extensive customization and inspired our approach to commit parsing and
+changelog formatting. However, as a standalone tool it has some limitations for
+complete release automation:
 
 - **Changelog Only**: Doesn't handle version updates or release automation
 - **Manual Process**: Requires additional tooling for complete release workflows
@@ -42,13 +55,18 @@ Before Releasaurus, developers had to choose between specialized tools, each wit
 
 ## Releasaurus
 
-Releasaurus was designed to combine the best aspects of existing tools while eliminating their limitations. Our core principles:
+Releasaurus was designed to combine the best aspects of existing tools while
+eliminating their limitations. Our core principles:
 
 ### 🌍 Universal Platform Support
 
-**Problem**: Teams using GitLab, Gitea, or mixed environments were left behind by GitHub-only tools.
+**Problem**: Teams using GitLab, Gitea, or mixed environments were left behind
+by GitHub-only tools.
 
-**Solution**: First-class support for GitHub, GitLab, and Gitea with identical workflows across all platforms. Whether your repositories are hosted on github.com, self-hosted GitLab, or Gitea instances, Releasaurus works seamlessly.
+**Solution**: First-class support for GitHub, GitLab, and Gitea with identical
+workflows across all platforms. Whether your repositories are hosted on
+github.com, self-hosted GitLab, or Gitea instances, Releasaurus works
+seamlessly.
 
 ```bash
 # Same workflow, different platforms
@@ -59,20 +77,29 @@ releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
 
 ### 🔍 Intelligent Zero-Configuration
 
-**Problem**: Complex setup requirements create barriers to adoption and maintenance overhead.
+**Problem**: Complex setup requirements create barriers to adoption and
+maintenance overhead.
 
-**Solution**: Intelligent detection that works immediately without configuration files, setup scripts, or complex onboarding. Releasaurus analyzes your project structure and applies appropriate conventions automatically.
+**Solution**: Intelligent detection that works immediately without configuration
+files, setup scripts, or complex onboarding. Releasaurus analyzes your project
+structure and applies appropriate conventions automatically.
 
-- **Language Detection**: Automatically identifies Rust, Node.js, Python, Java, PHP, Ruby, or generic projects
-- **Version File Discovery**: Finds and updates all relevant version files for supported languages (generic projects receive changelog and tagging only)
-- **Framework Integration**: Adapts to your project's specific packaging and build systems
-- **Sensible Defaults**: Provides beautiful changelogs and workflows out-of-the-box
+- **Language Detection**: Automatically identifies Rust, Node.js, Python, Java,
+  PHP, Ruby, or generic projects
+- **Version File Discovery**: Finds and updates all relevant version files for
+  supported languages (generic projects receive changelog and tagging only)
+- **Framework Integration**: Adapts to your project's specific packaging and
+  build systems
+- **Sensible Defaults**: Provides beautiful changelogs and workflows
+  out-of-the-box
 
 ### 🚀 Multi-Language Native Support
 
-**Problem**: Polyglot projects and organizations needed different tools for different languages.
+**Problem**: Polyglot projects and organizations needed different tools for
+different languages.
 
-**Solution**: Native support for major programming languages with deep understanding of each ecosystem's manifest files
+**Solution**: Native support for major programming languages with deep
+understanding of each ecosystem's manifest files
 
 | Language    | Package Files                | Lock Files                       |
 | ----------- | ---------------------------- | -------------------------------- |
@@ -114,7 +141,8 @@ Releasaurus wouldn't exist without the pioneering work of existing tools:
 - **[release-plz](https://release-plz.ieni.dev/)**
 
 We're grateful for these tools and the problems they solved. Releasaurus builds
-upon their innovations while addressing the gaps that remained.
+upon their innovations while implementing our own solutions to address the gaps
+that remained.
 
 ## When to Choose Releasaurus
 

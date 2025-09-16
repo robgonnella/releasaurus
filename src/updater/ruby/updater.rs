@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+/// Ruby package updater for Gem and Bundler projects.
 pub struct RubyUpdater {}
 
 impl RubyUpdater {
@@ -260,7 +261,7 @@ impl PackageUpdater for RubyUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{analyzer::types::Version, updater::framework::Framework};
+    use crate::{analyzer::types::Tag, updater::framework::Framework};
     use std::fs;
     use tempfile::TempDir;
 
@@ -273,8 +274,9 @@ mod tests {
         Package::new(
             name.to_string(),
             path.to_string(),
-            Version {
-                tag: format!("v{}", version),
+            Tag {
+                sha: "abc123".into(),
+                name: format!("v{}", version),
                 semver: semver::Version::parse(version).unwrap(),
             },
             framework,

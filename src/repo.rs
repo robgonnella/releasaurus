@@ -1,98 +1,27 @@
-//! Git repository operations and management.
+//! Git repository operations for release automation workflows.
 //!
-//! This module provides a high-level interface for interacting with Git repositories,
-//! specifically designed for release automation workflows. It handles:
-//!
-//! - Repository cloning and authentication
-//! - Branch creation and management
-//! - Commit operations and tagging
-//! - Remote repository interactions
-//! - Tag-based version history analysis
-//!
-//! # Key Features
-//!
-//! - **Shallow Cloning**: Clones repositories with limited depth to optimize performance
-//! - **Multi-Platform Authentication**: Supports token-based authentication for GitHub, GitLab, and Gitea
-//! - **Branch Management**: Create, switch, and push branches for release workflows
-//! - **Tag Operations**: Create and push version tags with proper commit association
-//! - **Starting Point Detection**: Find the latest tagged release for changelog generation
-//!
-//! # Authentication
-//!
-//! Authentication is handled through Git credentials using username/token pairs.
-//! Tokens should have appropriate repository permissions for the intended operations.
-//!
-//! # Usage
-//!
-//! ```rust,ignore
-//! use std::path::Path;
-//! use crate::forge::config::RemoteConfig;
-//!
-//! let repo = Repository::new(Path::new("./local-repo"), remote_config)?;
-//! repo.create_branch("release-prep")?;
-//! repo.switch_branch("release-prep")?;
-//! // Make changes...
-//! repo.add_all()?;
-//! repo.commit("Prepare release v1.0.0")?;
-//! repo.push_branch("release-prep")?;
-//! ```
-use color_eyre::eyre::eyre;
-use git2::{Oid, RemoteCallbacks};
+//! Handles cloning, authentication, branch management, commit operations,
+//! tagging, and version history analysis with token-based authentication.
+use color_eyre::eyre::{Context, eyre};
+use git2::{Commit, Oid, RemoteCallbacks, Sort, TreeWalkMode};
+use glob::Pattern;
 use log::*;
 use regex::Regex;
 use reqwest::Url;
 use secrecy::ExposeSecret;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use crate::{forge::config::RemoteConfig, result::Result};
+use crate::{
+    analyzer::types::Tag, forge::config::RemoteConfig, result::Result,
+};
 
-/// Default name for the upstream remote repository.
-///
-/// After cloning, the original "origin" remote is renamed to this value to maintain
-/// consistency with typical fork-based workflows where "origin" refers to the user's
-/// fork and "upstream" refers to the main repository.
+/// Default upstream remote name after renaming "origin".
 const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
 
-/// Represents a tagged commit and its parent for changelog generation.
-///
-/// This structure captures the information needed to generate changelogs by providing
-/// both the tagged commit (end point) and its parent (start point) for analyzing
-/// the range of commits included in a release.
-///
-/// # Fields
-///
-/// * `tagged_commit` - The commit hash that was tagged for a release
-/// * `tagged_parent` - The parent commit hash, used as the starting point for changelog generation
-///
-/// # Usage
-///
-/// Used by the analyzer to determine the range of commits to include when generating
-/// changelogs for a new release, ensuring all commits since the last tagged release
-/// are properly documented.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StartingPoint {
-    /// The commit hash of the tagged release.
-    pub tagged_commit: String,
-    /// The parent commit hash of the tagged release, used as the changelog starting point.
-    pub tagged_parent: String,
-}
+/// Cache file name for changed files.
+const CHANGED_FILES_CACHE: &str = "changed_files_cache";
 
-/// High-level Git repository interface for release automation.
-///
-/// This structure wraps the `git2::Repository` with additional functionality
-/// specific to release workflows, including authentication, branch management,
-/// and tag operations.
-///
-/// # Authentication
-///
-/// The repository uses the configured remote credentials for all operations
-/// that require network access (clone, push, etc.). Credentials are sourced
-/// from the `RemoteConfig` and combined with local Git configuration.
-///
-/// # Working Directory
-///
-/// All operations are performed in the repository's working directory, which
-/// is established when the repository is cloned or opened.
+/// Git repository wrapper with release automation functionality.
 pub struct Repository {
     /// The default branch name of the remote repository (e.g., "main" or "master").
     pub default_branch: String,
@@ -100,28 +29,10 @@ pub struct Repository {
     config: RemoteConfig,
     /// The underlying git2 repository instance.
     repo: git2::Repository,
+    changed_files_cache_path: PathBuf,
 }
 
-/// Create Git authentication callbacks for username/token authentication.
-///
-/// This function sets up the authentication mechanism used for all Git operations
-/// that require network access. It uses plaintext username/token authentication,
-/// which is suitable for HTTPS-based Git operations with personal access tokens.
-///
-/// # Arguments
-///
-/// * `user` - The username for authentication (typically from Git config)
-/// * `token` - The access token or password for authentication
-///
-/// # Returns
-///
-/// * `RemoteCallbacks` - Configured callbacks for Git remote operations
-///
-/// # Security
-///
-/// The token is passed as plaintext, which is appropriate for HTTPS connections
-/// where the transport layer provides encryption. The token should be treated
-/// as sensitive and not logged or exposed in error messages.
+/// Create Git authentication callbacks for username/token auth.
 fn get_auth_callbacks<'r>(user: String, token: String) -> RemoteCallbacks<'r> {
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, _username, _allowed| {
@@ -131,41 +42,7 @@ fn get_auth_callbacks<'r>(user: String, token: String) -> RemoteCallbacks<'r> {
 }
 
 impl Repository {
-    /// Create a new repository instance by cloning from a remote.
-    ///
-    /// This method performs a shallow clone of the remote repository with a maximum
-    /// depth of 250 commits to optimize performance. The clone is authenticated using
-    /// the provided remote configuration and local Git settings.
-    ///
-    /// # Arguments
-    ///
-    /// * `local_path` - Local filesystem path where the repository should be cloned
-    /// * `config` - Remote repository configuration including URL and authentication
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Self>` - New repository instance or error if cloning fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The remote URL is invalid or inaccessible
-    /// - Authentication fails
-    /// - Local Git configuration is missing required fields (user.name)
-    /// - The local path is invalid or not writable
-    /// - Network connectivity issues prevent cloning
-    ///
-    /// # Shallow Clone Behavior
-    ///
-    /// The method uses a shallow clone with depth 250 to balance performance with
-    /// functionality. This works best with repositories that maintain linear commit
-    /// histories. For repositories with complex branching, some historical context
-    /// may be limited.
-    ///
-    /// # Remote Naming
-    ///
-    /// After cloning, the default "origin" remote is renamed to "upstream" to
-    /// follow conventional fork-based workflow naming.
+    /// Clone remote repository to local path with shallow clone and authentication.
     pub fn new(
         local_path: &Path,
         clone_depth: u64,
@@ -212,59 +89,220 @@ impl Repository {
 
         drop(remote);
 
+        let changed_files_cache_path = repo
+            .path()
+            .join(env!("CARGO_PKG_NAME"))
+            .join(CHANGED_FILES_CACHE);
+
         Ok(Self {
             repo,
             config,
             default_branch,
+            changed_files_cache_path,
         })
     }
 
-    /// Find the latest tagged commit matching the given prefix.
-    ///
-    /// This method searches through all Git tags in the repository to find the most
-    /// recent tag that matches the specified prefix. It returns information about
-    /// both the tagged commit and its parent, which is essential for changelog
-    /// generation that needs to analyze commits since the last release.
-    ///
-    /// # Arguments
-    ///
-    /// * `prefix` - Tag prefix to match (e.g., "v" for "v1.0.0" tags, or "" for any tag)
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Option<StartingPoint>>` - The latest matching tag information, or None if no tags match
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The regex pattern for the prefix is invalid
-    /// - Git references cannot be accessed
-    /// - Tag commit resolution fails
-    ///
-    /// # Tag Matching
-    ///
-    /// Tags are matched using a regex pattern `^{prefix}` where the prefix is treated
-    /// as a literal string. This allows for flexible tag naming schemes:
-    ///
-    /// - `""` matches any tag
-    /// - `"v"` matches tags like "v1.0.0", "v2.1.0-beta"
-    /// - `"api-v"` matches tags like "api-v1.0.0"
-    ///
-    /// # Usage
-    ///
-    /// ```rust,ignore
-    /// // Find latest version tag
-    /// let starting_point = repo.get_latest_tagged_starting_point("v")?;
-    ///
-    /// // Find latest API package tag
-    /// let starting_point = repo.get_latest_tagged_starting_point("api-v")?;
-    /// ```
-    pub fn get_latest_tagged_starting_point(
+    /// Create repository instance from existing local git repository (for testing).
+    #[cfg(test)]
+    pub fn from_local(
+        local_path: &Path,
+        config: RemoteConfig,
+        default_branch: String,
+    ) -> Result<Self> {
+        let repo = git2::Repository::open(local_path)?;
+
+        let changed_files_cache_path = repo
+            .path()
+            .join(env!("CARGO_PKG_NAME"))
+            .join(CHANGED_FILES_CACHE);
+
+        Ok(Self {
+            repo,
+            config,
+            default_branch,
+            changed_files_cache_path,
+        })
+    }
+
+    /// Normalize glob pattern to match git diff paths.
+    fn normalize_pattern(pattern: Pattern) -> Result<Pattern> {
+        let star_added = match pattern.as_str().chars().last() {
+            Some('/' | '\\') => Pattern::new(&format!("{pattern}**"))
+                .wrap_err("failed to add glob (**) to pattern")?,
+            _ => pattern,
+        };
+        match star_added.as_str().strip_prefix("./") {
+            Some(stripped) => Pattern::new(stripped)
+                .wrap_err("failed to strip ./ prefix from pattern"),
+            None => Ok(star_added),
+        }
+    }
+
+    /// Calculate changed files for commit without using cache.
+    fn get_changed_files_no_cache(
         &self,
-        prefix: &str,
-    ) -> Result<Option<StartingPoint>> {
+        commit: &Commit,
+    ) -> Result<Vec<PathBuf>> {
+        let mut changed_files = Vec::new();
+        if let Ok(prev_commit) = commit.parent(0) {
+            // Compare the current commit with the previous commit to get the
+            // changed files.
+            // libgit2 does not provide a way to get the changed files directly,
+            // so the full diff is calculated here.
+            if let Ok(diff) = self.repo.diff_tree_to_tree(
+                commit.tree().ok().as_ref(),
+                prev_commit.tree().ok().as_ref(),
+                None,
+            ) {
+                changed_files.extend(diff.deltas().filter_map(|delta| {
+                    delta.new_file().path().map(PathBuf::from)
+                }));
+            }
+        } else {
+            // If there is no parent, it is the first commit.
+            // So get all the files in the tree.
+            if let Ok(tree) = commit.tree() {
+                tree.walk(TreeWalkMode::PreOrder, |dir, entry| {
+                    let kind = entry.kind().unwrap_or(git2::ObjectType::Any);
+
+                    if kind != git2::ObjectType::Blob {
+                        return 0;
+                    }
+
+                    let name = entry.name().unwrap_or("");
+
+                    if name.is_empty() {
+                        return 1;
+                    }
+
+                    let entry_path = if dir == "," {
+                        name.to_string()
+                    } else {
+                        format!("{dir}/{name}")
+                    };
+
+                    changed_files.push(entry_path.into());
+
+                    0
+                })
+                .wrap_err(
+                    "failed to get the changed files of the first commit",
+                )?;
+            }
+        }
+
+        Ok(changed_files)
+    }
+
+    /// Get changed files for commit with caching for performance.
+    fn get_changed_files(&self, commit: &Commit) -> Result<Vec<PathBuf>> {
+        // Cache key is generated from the repository path and commit id
+        let cache_key = format!("commit_id:{}", commit.id());
+
+        // Check the cache first.
+        {
+            if let Ok(result) =
+                cacache::read_sync(&self.changed_files_cache_path, &cache_key)
+                && let Ok((files, _)) = bincode::decode_from_slice(
+                    &result,
+                    bincode::config::standard(),
+                )
+            {
+                return Ok(files);
+            }
+        }
+
+        // If the cache is not found, calculate the result and set in cache
+        let result = self.get_changed_files_no_cache(commit);
+        match bincode::encode_to_vec(
+            self.get_changed_files_no_cache(commit)?,
+            bincode::config::standard(),
+        ) {
+            Ok(v) => {
+                if let Err(e) = cacache::write_sync_with_algo(
+                    cacache::Algorithm::Xxh3,
+                    &self.changed_files_cache_path,
+                    cache_key,
+                    v,
+                ) {
+                    error!(
+                        "Failed to set cache for repo {:?}: {e}",
+                        self.repo.path()
+                    );
+                }
+            }
+            Err(e) => {
+                error!(
+                    "Failed to serialize cache for repo {:?}: {e}",
+                    self.repo.path(),
+                );
+            }
+        }
+
+        result
+    }
+
+    /// Check if commit should be retained based on changed files and patterns.
+    fn should_retain_commit(
+        &self,
+        commit: &Commit,
+        include_patterns: &Option<Vec<Pattern>>,
+    ) -> Result<bool> {
+        let changed_files = self.get_changed_files(commit)?;
+        match include_patterns {
+            Some(include_pattern) => {
+                // check if the commit has any changed files that match any of
+                // the include patterns and none of the exclude patterns.
+                Ok(changed_files.iter().any(|path| {
+                    include_pattern
+                        .iter()
+                        .any(|pattern| pattern.matches_path(path))
+                }))
+            }
+            None => Ok(true),
+        }
+    }
+
+    /// Parse and return commits sorted by time.
+    pub fn commits(
+        &self,
+        range: Option<&str>,
+        include_path: Option<Vec<Pattern>>,
+    ) -> Result<Vec<Commit<'_>>> {
+        let mut revwalk = self.repo.revwalk()?;
+
+        revwalk.set_sorting(Sort::TIME)?;
+
+        if let Some(range) = range {
+            revwalk.push_range(range)?;
+        } else {
+            revwalk.push_head()?;
+        }
+
+        let mut commits: Vec<Commit> = revwalk
+            .filter_map(|id| id.ok())
+            .filter_map(|id| self.repo.find_commit(id).ok())
+            .collect();
+
+        if include_path.is_some() {
+            let include_patterns = include_path.map(|patterns| {
+                patterns
+                    .into_iter()
+                    .map(|p| Self::normalize_pattern(p.clone()).unwrap_or(p))
+                    .collect()
+            });
+            commits.retain(|commit| {
+                self.should_retain_commit(commit, &include_patterns)
+                    .unwrap_or(false)
+            });
+        }
+        Ok(commits)
+    }
+
+    /// Find latest git tag matching the given prefix.
+    pub fn get_latest_tag(&self, prefix: &str) -> Result<Option<Tag>> {
         let regex_prefix = format!(r"^{}", prefix);
-        let tag_regex = Regex::new(&regex_prefix)?;
+        let tag_prefix_regex = Regex::new(&regex_prefix)?;
         let references = self
             .repo
             .references()?
@@ -278,49 +316,24 @@ impl Repository {
             if reference.is_tag()
                 && let Some(name) = reference.name()
                 && let Some(stripped) = name.strip_prefix("refs/tags/")
-                && tag_regex.is_match(stripped)
+                && tag_prefix_regex.is_match(stripped)
             {
                 let commit = reference.peel_to_commit()?;
+                let semver = semver::Version::parse(
+                    tag_prefix_regex.replace_all(stripped, "").as_ref(),
+                )?;
 
-                // return the commit and the parent of the tagged commit so the
-                // commit range can use the parent to get a full release in the
-                // event no new commits have been added
-                if let Ok(parent) = commit.parent(0) {
-                    return Ok(Some(StartingPoint {
-                        tagged_commit: commit.id().to_string(),
-                        tagged_parent: parent.id().to_string(),
-                    }));
-                }
+                return Ok(Some(Tag {
+                    sha: commit.id().to_string(),
+                    name: stripped.to_string(),
+                    semver,
+                }));
             }
         }
         Ok(None)
     }
 
-    /// Create a new branch from the current HEAD.
-    ///
-    /// Creates a new branch pointing to the same commit as the current HEAD.
-    /// The branch is created locally and can be switched to using `switch_branch()`.
-    ///
-    /// # Arguments
-    ///
-    /// * `branch` - Name of the branch to create
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if branch creation fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - A branch with the same name already exists
-    /// - The repository is in a detached HEAD state
-    /// - Git operations fail due to repository corruption
-    ///
-    /// # Force Creation
-    ///
-    /// This method uses force creation (`true` parameter), meaning it will
-    /// overwrite existing branches with the same name. This is intentional
-    /// for release workflows where branches may be recreated.
+    /// Create new branch from current HEAD (force creates, overwrites existing).
     pub fn create_branch(&self, branch: &str) -> Result<()> {
         info!("creating branch: {branch}");
         let head = self.repo.head()?;
@@ -329,32 +342,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Switch to the specified branch and update the working directory.
-    ///
-    /// This performs a checkout operation to switch the working directory
-    /// to the specified branch. Both the HEAD reference and working directory
-    /// files are updated to match the target branch.
-    ///
-    /// # Arguments
-    ///
-    /// * `branch` - Name of the branch to switch to
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if branch switching fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The specified branch does not exist
-    /// - Working directory has uncommitted changes that would conflict
-    /// - Git operations fail due to repository issues
-    ///
-    /// # Working Directory Changes
-    ///
-    /// This operation will modify files in the working directory to match
-    /// the target branch. Any uncommitted changes may cause conflicts
-    /// and prevent the branch switch from completing.
+    /// Switch to branch and update working directory.
     pub fn switch_branch(&self, branch: &str) -> Result<()> {
         info!("switching to branch: {branch}");
         let ref_name = format!("refs/heads/{}", branch);
@@ -364,33 +352,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Add all changed files to the Git index (staging area).
-    ///
-    /// This method stages all modified, new, and deleted files in the working
-    /// directory for the next commit. It's equivalent to running `git add .`.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if staging fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The Git index cannot be accessed or modified
-    /// - File system permissions prevent reading changed files
-    /// - The repository is in an invalid state
-    ///
-    /// # Staging Behavior
-    ///
-    /// - **Modified files**: Existing files with changes are staged
-    /// - **New files**: Untracked files are added to the index
-    /// - **Deleted files**: File deletions are staged for commit
-    /// - **Ignored files**: Files matching .gitignore patterns are skipped
-    ///
-    /// # Usage in Release Workflows
-    ///
-    /// Typically used after version files and changelogs have been updated
-    /// to prepare all changes for a release commit.
+    /// Add all changed files to git index (equivalent to `git add .`).
     pub fn add_all(&self) -> Result<()> {
         debug!("adding changed files to index");
         let mut index = self.repo.index()?;
@@ -399,40 +361,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Create a new commit with the currently staged changes.
-    ///
-    /// Creates a commit using the files currently in the Git index (staging area)
-    /// with the specified commit message. The commit author and committer are
-    /// determined from the local Git configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - Commit message describing the changes
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if commit creation fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Git configuration is missing required fields (user.name, user.email)
-    /// - The index is empty (no staged changes)
-    /// - The repository is in an invalid state
-    /// - Git operations fail
-    ///
-    /// # Git Configuration Requirements
-    ///
-    /// This method requires the following Git configuration values:
-    /// - `user.name`: The name to use for the commit author/committer
-    /// - `user.email`: The email address for the commit author/committer
-    ///
-    /// # Commit Structure
-    ///
-    /// The created commit:
-    /// - Has the current HEAD as its parent (normal linear commit)
-    /// - Uses the same signature for both author and committer
-    /// - Updates the HEAD reference to point to the new commit
+    /// Create commit with staged changes and specified message.
     pub fn commit(&self, msg: &str) -> Result<()> {
         debug!("committing changes with msg: {msg}");
         let config = self.repo.config()?.snapshot()?;
@@ -455,44 +384,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Push a local branch to the remote repository.
-    ///
-    /// Pushes the specified local branch to the upstream remote repository
-    /// using force push to ensure the remote branch is updated even if it
-    /// has diverged from the local branch.
-    ///
-    /// # Arguments
-    ///
-    /// * `branch` - Name of the local branch to push
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if push operation fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The specified branch does not exist locally
-    /// - Authentication fails with the remote repository
-    /// - Network connectivity issues prevent pushing
-    /// - The remote repository rejects the push due to permissions
-    ///
-    /// # Force Push Behavior
-    ///
-    /// This method uses force push (`+` prefix in refspec) to ensure that
-    /// the remote branch is updated to match the local branch exactly.
-    /// This is appropriate for release workflow branches that may be
-    /// recreated or rebased.
-    ///
-    /// # Authentication
-    ///
-    /// Uses the repository's configured authentication credentials
-    /// (username/token) to authenticate with the remote repository.
-    ///
-    /// # Network Requirements
-    ///
-    /// Requires network access to the remote repository and appropriate
-    /// permissions to push to the target branch.
+    /// Push branch to remote with force push.
     pub fn push_branch(&self, branch: &str) -> Result<()> {
         info!("pushing branch {branch}");
         // setup callbacks for authentication
@@ -512,46 +404,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Create a Git tag pointing to the specified commit.
-    ///
-    /// Creates an annotated Git tag with the given name pointing to the
-    /// specified commit. The tag includes tagger information from the
-    /// local Git configuration and uses the tag name as the tag message.
-    ///
-    /// # Arguments
-    ///
-    /// * `tag` - Name of the tag to create (e.g., "v1.0.0")
-    /// * `commit_str` - Commit hash (SHA) to tag
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if tag creation fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The commit hash is invalid or doesn't exist
-    /// - A tag with the same name already exists
-    /// - Git configuration is missing tagger information
-    /// - Git operations fail
-    ///
-    /// # Tag Type
-    ///
-    /// Creates an annotated tag (not a lightweight tag) which includes:
-    /// - Tagger name and email from Git configuration
-    /// - Timestamp of tag creation
-    /// - Tag message (same as tag name)
-    ///
-    /// # Git Configuration Requirements
-    ///
-    /// Requires the following Git configuration:
-    /// - `user.name`: Name for the tagger field
-    /// - `user.email`: Email for the tagger field
-    ///
-    /// # Usage in Release Workflows
-    ///
-    /// Typically called after a release commit has been created to
-    /// mark the specific commit as a released version.
+    /// Create annotated git tag pointing to specified commit.
     pub fn tag_commit(&self, tag: &str, commit_str: &str) -> Result<()> {
         let config = self.repo.config()?.snapshot()?;
         let user = config.get_str("user.name")?;
@@ -567,48 +420,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Push a Git tag to the remote repository.
-    ///
-    /// Pushes the specified local tag to the upstream remote repository,
-    /// making it available to other users and triggering any automated
-    /// processes that monitor for new tags (like CI/CD release pipelines).
-    ///
-    /// # Arguments
-    ///
-    /// * `tag` - Name of the tag to push
-    ///
-    /// # Returns
-    ///
-    /// * `Result<()>` - Success or error if push operation fails
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The specified tag does not exist locally
-    /// - Authentication fails with the remote repository
-    /// - Network connectivity issues prevent pushing
-    /// - The remote repository rejects the push due to permissions
-    /// - A tag with the same name already exists remotely (unless force pushed)
-    ///
-    /// # Authentication
-    ///
-    /// Uses the repository's configured authentication credentials
-    /// to authenticate with the remote repository. The credentials
-    /// must have appropriate permissions to create tags.
-    ///
-    /// # Remote Repository Effects
-    ///
-    /// Successfully pushing a tag may trigger:
-    /// - Automated release processes
-    /// - CI/CD pipeline executions
-    /// - Package publication workflows
-    /// - Notification systems
-    ///
-    /// # Tag Naming
-    ///
-    /// The method name references "default_branch" for historical reasons,
-    /// but it actually pushes the tag to the remote repository where it
-    /// exists independently of any specific branch.
+    /// Push git tag to remote repository.
     pub fn push_tag_to_default_branch(&self, tag: &str) -> Result<()> {
         // setup callbacks for authentication
         let config = self.repo.config()?.snapshot()?;
@@ -626,24 +438,7 @@ impl Repository {
         Ok(())
     }
 
-    /// Get the repository's working directory path.
-    ///
-    /// Returns a reference to the filesystem path of the repository's
-    /// working directory where files can be read and modified.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<&Path>` - Path to the working directory or error if unavailable
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the repository doesn't have a working directory,
-    /// which can occur with bare repositories or in certain Git operations.
-    ///
-    /// # Usage
-    ///
-    /// Used by other modules to determine where to read and write files
-    /// as part of the release process, such as version files and changelogs.
+    /// Get repository working directory path.
     pub fn workdir(&self) -> Result<&Path> {
         self.repo
             .workdir()
@@ -656,20 +451,12 @@ impl Repository {
     /// to the current directory (".") if the working directory cannot be
     /// determined or converted to a valid UTF-8 string.
     ///
-    /// # Returns
-    ///
-    /// * `&str` - Working directory path as string, or "." as fallback
     ///
     /// # Fallback Behavior
     ///
     /// This method never fails, returning "." in cases where:
     /// - The repository has no working directory (bare repository)
     /// - The working directory path contains invalid UTF-8 characters
-    ///
-    /// # Usage
-    ///
-    /// Useful for logging, display purposes, or when a string representation
-    /// of the working directory is needed for external tools or APIs.
     pub fn workdir_as_str(&self) -> &str {
         if let Some(w) = self.repo.workdir()
             && let Some(p) = w.to_str()

@@ -4,22 +4,14 @@ use std::path::Path;
 use tempfile::TempDir;
 
 use crate::{
-    analyzer::config::AnalyzerConfig,
+    analyzer::{config::AnalyzerConfig, types::Tag},
     config,
     forge::{config::RemoteConfig, traits::Forge, types::PrLabelsRequest},
-    repo::{Repository, StartingPoint},
+    repo::Repository,
     result::Result,
 };
 
-/// Sets up a temporary repository for command execution
-///
-/// This function:
-/// - Creates a temporary directory
-/// - Clones the repository to the temp directory
-/// - Changes the current working directory to the temp directory
-///
-/// Returns both the Repository instance and the TempDir handle.
-/// The TempDir must be kept alive to prevent premature cleanup.
+/// Clone repository to temporary directory and return handles.
 pub fn setup_repository(
     clone_depth: u64,
     forge: &dyn Forge,
@@ -39,24 +31,18 @@ pub fn setup_repository(
     Ok((repo, tmp_dir))
 }
 
-/// Loads the CLI configuration from the current directory
-///
-/// This is a simple wrapper around config::load_config that adds
-/// appropriate logging.
+/// Load CLI configuration with logging.
 pub fn load_configuration(dir: &Path) -> Result<config::CliConfig> {
     info!("loading configuration");
     config::load_config(Some(dir))
 }
 
-/// Creates a changelog configuration for a specific package
-///
-/// This helper consolidates the common pattern of creating ChangelogConfig
-/// instances used by both release and release-pr commands.
+/// Create changelog configuration for a package.
 pub fn create_changelog_config(
     package: &config::CliPackageConfig,
     cli_config: &config::CliConfig,
     remote_config: &RemoteConfig,
-    starting_point: Option<StartingPoint>,
+    starting_tag: Option<Tag>,
     repo_path: String,
 ) -> AnalyzerConfig {
     AnalyzerConfig {
@@ -67,12 +53,12 @@ pub fn create_changelog_config(
         footer: cli_config.changelog.footer.clone(),
         header: cli_config.changelog.header.clone(),
         release_link_base_url: remote_config.release_link_base_url.clone(),
-        starting_point,
+        starting_tag,
         tag_prefix: Some(get_tag_prefix(package)),
     }
 }
 
-/// Gets the tag prefix for a package, using "v" as default if none specified
+/// Get tag prefix for package, defaults to "v" or "{basename}-v".
 pub fn get_tag_prefix(package: &config::CliPackageConfig) -> String {
     let mut default_for_package = "v".to_string();
     let package_path = Path::new(&package.path);
@@ -82,7 +68,7 @@ pub fn get_tag_prefix(package: &config::CliPackageConfig) -> String {
     package.tag_prefix.clone().unwrap_or(default_for_package)
 }
 
-/// Logs package processing information
+/// Log package processing info.
 pub fn log_package_processing(package_path: &str, tag_prefix: &str) {
     info!(
         "processing changelog for package path: {}, tag_prefix: {}",
@@ -90,10 +76,7 @@ pub fn log_package_processing(package_path: &str, tag_prefix: &str) {
     );
 }
 
-/// Sets up a release branch for PR creation
-///
-/// Creates a branch name using the default PR prefix and the repository's
-/// default branch, then creates and switches to that branch.
+/// Create and switch to release branch for PR.
 pub fn setup_release_branch(
     repo: &Repository,
     pr_branch_prefix: &str,
@@ -107,10 +90,7 @@ pub fn setup_release_branch(
     Ok(release_branch)
 }
 
-/// Updates PR labels using the forge API
-///
-/// This is a common pattern used by both release commands to set
-/// specific labels on pull requests.
+/// Update PR labels via forge API.
 pub fn update_pr_labels(
     forge: &dyn Forge,
     pr_number: u64,
@@ -121,10 +101,7 @@ pub fn update_pr_labels(
     forge.replace_pr_labels(req)
 }
 
-/// Commits and pushes changes to a branch
-///
-/// This is a common pattern for both release commands that need to
-/// commit changes and push them to the remote repository.
+/// Commit and push changes to branch.
 pub fn commit_and_push_changes(
     repo: &Repository,
     commit_message: &str,
@@ -139,10 +116,7 @@ pub fn commit_and_push_changes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        config::{CliChangelogConfig, CliPackageConfig},
-        repo::StartingPoint,
-    };
+    use crate::config::{CliChangelogConfig, CliPackageConfig};
 
     #[test]
     fn test_get_tag_prefix_with_prefix() {
@@ -205,9 +179,10 @@ mod tests {
             &package,
             &cli_config,
             &remote_config,
-            Some(StartingPoint {
-                tagged_commit: "abc123".into(),
-                tagged_parent: "def123".into(),
+            Some(Tag {
+                sha: "abc123".into(),
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
             }),
             ".".into(),
         );
@@ -217,10 +192,11 @@ mod tests {
         assert_eq!(changelog_config.header, Some("test header".to_string()));
         assert_eq!(changelog_config.footer, Some("test footer".to_string()));
         assert_eq!(
-            changelog_config.starting_point,
-            Some(StartingPoint {
-                tagged_commit: "abc123".into(),
-                tagged_parent: "def123".into(),
+            changelog_config.starting_tag,
+            Some(Tag {
+                sha: "abc123".into(),
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
             })
         );
         assert_eq!(

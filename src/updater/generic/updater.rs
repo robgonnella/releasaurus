@@ -5,6 +5,7 @@ use crate::{
     updater::{framework::Package, traits::PackageUpdater},
 };
 
+/// Generic package updater for projects without specific language support.
 pub struct GenericUpdater {}
 
 impl GenericUpdater {

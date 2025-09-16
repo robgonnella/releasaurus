@@ -12,7 +12,7 @@ use crate::{
     updater::traits::PackageUpdater,
 };
 
-/// Node.js package updater supporting npm, yarn, and pnpm
+/// Node.js package updater for npm, yarn, and pnpm projects.
 pub struct NodeUpdater {}
 
 impl NodeUpdater {
@@ -527,14 +527,15 @@ impl PackageUpdater for NodeUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Version;
+    use crate::analyzer::types::Tag;
     use crate::updater::framework::Framework;
     use std::fs;
     use tempfile::TempDir;
 
-    fn create_test_version(version: &str) -> Version {
-        Version {
-            tag: format!("v{}", version),
+    fn create_test_version(version: &str) -> Tag {
+        Tag {
+            sha: "abc123".into(),
+            name: format!("v{}", version),
             semver: semver::Version::parse(version).unwrap(),
         }
     }

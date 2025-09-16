@@ -2,6 +2,7 @@ use crate::updater::framework::Framework;
 
 /// Framework detection result
 #[derive(Debug, Clone, PartialEq)]
+/// Result of framework detection with confidence score and evidence.
 pub struct FrameworkDetection {
     /// Detected framework
     pub framework: Framework,
@@ -13,6 +14,7 @@ pub struct FrameworkDetection {
 
 /// Detection patterns for different frameworks
 #[derive(Clone)]
+/// Pattern definition for detecting specific frameworks.
 pub struct DetectionPattern<'a> {
     /// Primary manifest files that indicate this framework
     pub manifest_files: Vec<&'a str>,

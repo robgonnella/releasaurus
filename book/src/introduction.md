@@ -51,7 +51,7 @@ Native support for:
 
 ### 📝 **Smart Changelog Generation**
 
-Powered by [git-cliff](https://git-cliff.org/), automatically generates beautiful changelogs from your commit history with conventional commit support.
+Inspired by [git-cliff](https://git-cliff.org/), automatically generates beautiful changelogs from your commit history with conventional commit support.
 
 ### 🏢 **Monorepo Ready**
 
@@ -90,9 +90,9 @@ Releasaurus brings together the best ideas from these tools while providing:
 
 We gratefully acknowledge the inspiration and foundation provided by:
 
-- **[git-cliff](https://git-cliff.org/)** - For excellent changelog generation capabilities that we integrate directly
-- **[release-please](https://github.com/googleapis/release-please)** - For pioneering the release-PR workflow pattern
-- **[release-plz](https://release-plz.ieni.dev/)** - For demonstrating effective Rust ecosystem integration
+- **[git-cliff](https://git-cliff.org/)**
+- **[release-please](https://github.com/googleapis/release-please)**
+- **[release-plz](https://release-plz.ieni.dev/)**
 
 Releasaurus builds upon these proven concepts while extending support to a broader ecosystem of languages, frameworks, and platforms.
 

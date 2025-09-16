@@ -46,23 +46,7 @@ mod updater;
 
 use crate::result::Result;
 
-/// Initialize the application logger with appropriate filtering and formatting.
-///
-/// Sets up terminal logging with colored output and filters to show only releasaurus
-/// log messages. The log level is determined by the debug flag.
-///
-/// # Arguments
-///
-/// * `debug` - If true, sets log level to Debug; otherwise uses Info level
-///
-/// # Returns
-///
-/// * `Result<()>` - Ok(()) on successful initialization, Err on failure
-///
-/// # Errors
-///
-/// Returns an error if the terminal logger cannot be initialized due to
-/// terminal compatibility issues or other system constraints.
+/// Initialize terminal logger with colored output and level filtering.
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {
         simplelog::LevelFilter::Debug
@@ -84,24 +68,7 @@ fn initialize_logger(debug: bool) -> Result<()> {
     Ok(())
 }
 
-/// Application entry point.
-///
-/// Performs the following initialization and execution steps:
-/// 1. Installs color-eyre for enhanced error reporting
-/// 2. Parses command line arguments using clap
-/// 3. Initializes logging with appropriate level
-/// 4. Dispatches to the appropriate command handler
-///
-/// # Returns
-///
-/// * `Result<()>` - Ok(()) on successful execution, Err on any failure
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Color-eyre installation fails
-/// - Logger initialization fails
-/// - Command execution encounters an error
+/// Main entry point. Initializes error handling, logging, and dispatches commands.
 fn main() -> Result<()> {
     color_eyre::install()?;
 

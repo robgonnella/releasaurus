@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::{
-    analyzer::types::Output,
+    analyzer::types::Release,
     config::CliConfig,
     result::Result,
     updater::{
@@ -14,18 +14,18 @@ use crate::{
     },
 };
 
-/// Statistics about the update operation
+/// Update operation statistics.
 #[derive(Debug, Default, Clone)]
 pub struct UpdateStats {
-    /// Total number of packages processed
+    /// Total packages processed.
     pub total_packages: usize,
-    /// Number of packages that were releasable (had version updates)
+    /// Packages that had version updates.
     pub releasable_packages: usize,
-    /// Number of packages successfully updated
+    /// Packages successfully updated.
     pub updated_packages: usize,
-    /// Frameworks detected and their package counts
+    /// Detected frameworks and package counts.
     pub frameworks_detected: HashMap<String, usize>,
-    /// Any warnings encountered during processing
+    /// Warnings encountered during processing.
     pub warnings: Vec<String>,
 }
 
@@ -54,16 +54,16 @@ impl std::fmt::Display for UpdateStats {
     }
 }
 
-/// High-level manager for coordinating package updates across different languages/frameworks
+/// Coordinates package updates across different languages and frameworks.
 pub struct UpdaterManager {
-    /// Root path of the repository
+    /// Repository root path.
     root_path: std::path::PathBuf,
-    /// Detects frameworks for packages
+    /// Framework detection manager.
     detection_manager: DetectionManager,
 }
 
 impl UpdaterManager {
-    /// Create a new updater manager for the given repository
+    /// Create updater manager for repository.
     pub fn new<P: AsRef<Path>>(root_path: P) -> Self {
         let root_path = root_path.as_ref().to_path_buf();
 
@@ -73,16 +73,10 @@ impl UpdaterManager {
         }
     }
 
-    /// Update packages based on analyzer output and configuration
-    ///
-    /// This is the main entry point for package updates. It:
-    /// 1. Converts analyzer output to Package structs
-    /// 2. Auto-detects frameworks for each package
-    /// 3. Creates appropriate updaters from the detected framework
-    /// 4. Executes the updates
+    /// Update packages based on analyzer output and configuration.
     pub fn update_packages(
         &mut self,
-        manifest: &HashMap<String, Output>,
+        manifest: &HashMap<String, Release>,
         cli_config: &CliConfig,
     ) -> Result<UpdateStats> {
         info!(
@@ -137,50 +131,53 @@ impl UpdaterManager {
     // Private helper methods
     fn convert_manifest_to_packages(
         &self,
-        manifest: &HashMap<String, Output>,
+        manifest: &HashMap<String, Release>,
         cli_config: &CliConfig,
     ) -> Result<Vec<Package>> {
         let mut packages = Vec::new();
 
-        for (package_path, output) in manifest {
+        for (package_path, release) in manifest {
             // Only create Package if there's a next version (i.e., the package is releasable)
-            if let Some(next_version) = &output.next_version {
-                // Validate that we have a corresponding package config
-                cli_config
-                    .packages
-                    .iter()
-                    .find(|p| &p.path == package_path)
-                    .context(format!(
-                        "Could not find package config for path: {}",
-                        package_path
-                    ))?;
-
-                let detection =
-                    self.detection_manager.detect_framework(package_path)?;
-
-                let package_name = self.derive_package_name(package_path);
-                let package_path =
-                    self.root_path.join(package_path).display().to_string();
-
-                let package = Package::new(
-                    package_name.clone(),
-                    package_path.clone(),
-                    next_version.clone(),
-                    detection.framework, // Will be detected later
+            if release.tag.is_none() {
+                warn!(
+                    "failed to find projected tag for release: {:#?}",
+                    release
                 );
-
-                debug!(
-                    "Prepared package '{}' at path '{}' for version update: {}",
-                    package_name, package_path, next_version.semver,
-                );
-
-                packages.push(package);
-            } else {
-                debug!(
-                    "Skipping package '{}' - no next version determined",
-                    package_path
-                );
+                continue;
             }
+
+            let tag = release.tag.clone().unwrap();
+
+            // Validate that we have a corresponding package config
+            cli_config
+                .packages
+                .iter()
+                .find(|p| &p.path == package_path)
+                .context(format!(
+                    "Could not find package config for path: {}",
+                    package_path
+                ))?;
+
+            let detection =
+                self.detection_manager.detect_framework(package_path)?;
+
+            let package_name = self.derive_package_name(package_path);
+            let package_path =
+                self.root_path.join(package_path).display().to_string();
+
+            let package = Package::new(
+                package_name.clone(),
+                package_path.clone(),
+                tag.clone(),
+                detection.framework, // Will be detected later
+            );
+
+            debug!(
+                "Prepared package '{}' at path '{}' for version update: {}",
+                package_name, package_path, tag.semver,
+            );
+
+            packages.push(package);
         }
 
         info!(
