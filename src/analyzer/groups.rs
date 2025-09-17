@@ -29,45 +29,65 @@ impl Serialize for Group {
         S: serde::Serializer,
     {
         match self {
-            Group::Breaking => {
-                serializer.serialize_unit_variant("Group", 0, "❌ Breaking")
-            }
-            Group::Feat => {
-                serializer.serialize_unit_variant("Group", 1, "🚀 Features")
-            }
-            Group::Fix => {
-                serializer.serialize_unit_variant("Group", 2, "🐛 Bug Fixes")
-            }
-            Group::Revert => {
-                serializer.serialize_unit_variant("Group", 3, "◀️ Revert")
-            }
-            Group::Refactor => {
-                serializer.serialize_unit_variant("Group", 4, "🚜 Refactor")
-            }
-            Group::Perf => {
-                serializer.serialize_unit_variant("Group", 5, "⚡ Performance")
-            }
+            Group::Breaking => serializer.serialize_unit_variant(
+                "Group",
+                0,
+                "<!-- 00 -->❌ Breaking",
+            ),
+            Group::Feat => serializer.serialize_unit_variant(
+                "Group",
+                1,
+                "<!-- 01 -->🚀 Features",
+            ),
+            Group::Fix => serializer.serialize_unit_variant(
+                "Group",
+                2,
+                "<!-- 02 -->🐛 Bug Fixes",
+            ),
+            Group::Revert => serializer.serialize_unit_variant(
+                "Group",
+                3,
+                "<!-- 03 -->◀️ Revert",
+            ),
+            Group::Refactor => serializer.serialize_unit_variant(
+                "Group",
+                4,
+                "<!-- 04 -->🚜 Refactor",
+            ),
+            Group::Perf => serializer.serialize_unit_variant(
+                "Group",
+                5,
+                "<!-- 05 -->⚡ Performance",
+            ),
             Group::Doc => serializer.serialize_unit_variant(
                 "Group",
                 6,
-                "📚 Documentation",
+                "<!-- 06 -->📚 Documentation",
             ),
-            Group::Style => {
-                serializer.serialize_unit_variant("Group", 7, "🎨 Styling")
-            }
-            Group::Test => {
-                serializer.serialize_unit_variant("Group", 8, "🧪 Testing")
-            }
-            Group::Chore => {
-                serializer.serialize_unit_variant("Group", 9, "🧹 Chore")
-            }
-            Group::Ci => {
-                serializer.serialize_unit_variant("Group", 10, "⏩ CI/CD")
-            }
+            Group::Style => serializer.serialize_unit_variant(
+                "Group",
+                7,
+                "<!-- 07 -->🎨 Styling",
+            ),
+            Group::Test => serializer.serialize_unit_variant(
+                "Group",
+                8,
+                "<!-- 08 -->🧪 Testing",
+            ),
+            Group::Chore => serializer.serialize_unit_variant(
+                "Group",
+                9,
+                "<!-- 09 -->🧹 Chore",
+            ),
+            Group::Ci => serializer.serialize_unit_variant(
+                "Group",
+                10,
+                "<!-- 10 -->⏩ CI/CD",
+            ),
             Group::Other => serializer.serialize_unit_variant(
                 "Group",
                 11,
-                "⚙️ Miscellaneous Tasks",
+                "<!-- 11 -->⚙️ Miscellaneous Tasks",
             ),
         }
     }
