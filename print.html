@@ -215,7 +215,7 @@ local checkouts—just point at any repository URL.</p>
 <li><strong>Generic</strong> projects (changelog and tagging only - no version file updates)</li>
 </ul>
 <h3 id="-smart-changelog-generation"><a class="header" href="#-smart-changelog-generation">📝 <strong>Smart Changelog Generation</strong></a></h3>
-<p>Powered by <a href="https://git-cliff.org/">git-cliff</a>, automatically generates beautiful changelogs from your commit history with conventional commit support.</p>
+<p>Inspired by <a href="https://git-cliff.org/">git-cliff</a>, automatically generates beautiful changelogs from your commit history with conventional commit support.</p>
 <h3 id="-monorepo-ready"><a class="header" href="#-monorepo-ready">🏢 <strong>Monorepo Ready</strong></a></h3>
 <p>Handle multiple independently-versioned packages within a single repository with per-package configuration and release cycles.</p>
 <h3 id="-flexible-configuration"><a class="header" href="#-flexible-configuration">🔧 <strong>Flexible Configuration</strong></a></h3>
@@ -248,9 +248,9 @@ local checkouts—just point at any repository URL.</p>
 <h2 id="credit-and-inspiration"><a class="header" href="#credit-and-inspiration">Credit and Inspiration</a></h2>
 <p>We gratefully acknowledge the inspiration and foundation provided by:</p>
 <ul>
-<li><strong><a href="https://git-cliff.org/">git-cliff</a></strong> - For excellent changelog generation capabilities that we integrate directly</li>
-<li><strong><a href="https://github.com/googleapis/release-please">release-please</a></strong> - For pioneering the release-PR workflow pattern</li>
-<li><strong><a href="https://release-plz.ieni.dev/">release-plz</a></strong> - For demonstrating effective Rust ecosystem integration</li>
+<li><strong><a href="https://git-cliff.org/">git-cliff</a></strong></li>
+<li><strong><a href="https://github.com/googleapis/release-please">release-please</a></strong></li>
+<li><strong><a href="https://release-plz.ieni.dev/">release-plz</a></strong></li>
 </ul>
 <p>Releasaurus builds upon these proven concepts while extending support to a broader ecosystem of languages, frameworks, and platforms.</p>
 <h2 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h2>
@@ -1579,9 +1579,14 @@ the <a href="./commands.html#clone-depth-control">Commands</a> section.</p>
 <li><strong><a href="./troubleshooting.html#authentication-issues">Troubleshooting</a></strong> - Resolving environment issues</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="why-releasaurus"><a class="header" href="#why-releasaurus">Why Releasaurus?</a></h1>
-<p>The software development landscape is rich with release automation tools, each solving specific problems within their domains. So why create another one? Releasaurus was born from real-world frustrations with existing tools and a vision for what release automation could be: <strong>universal, intelligent, and effortless</strong>.</p>
+<p>The software development landscape is rich with release automation tools, each
+solving specific problems within their domains. So why create another one?
+Releasaurus was born from real-world frustrations with existing tools and a
+vision for what release automation could be:
+<strong>universal, intelligent, and effortless</strong>.</p>
 <h2 id="the-release-automation-challenge"><a class="header" href="#the-release-automation-challenge">The Release Automation Challenge</a></h2>
-<p>Modern software development involves complex release processes that traditionally require significant manual effort:</p>
+<p>Modern software development involves complex release processes that
+traditionally require significant manual effort:</p>
 <ul>
 <li><strong>Version Management</strong>: Updating version numbers across multiple files and formats</li>
 <li><strong>Changelog Generation</strong>: Creating meaningful release notes from commit history</li>
@@ -1590,49 +1595,71 @@ the <a href="./commands.html#clone-depth-control">Commands</a> section.</p>
 <li><strong>Review Workflows</strong>: Ensuring releases go through proper review processes</li>
 <li><strong>Consistency</strong>: Maintaining uniform practices across projects and teams</li>
 </ul>
-<p>While several excellent tools address parts of this challenge, none provided a complete, universal solution that works seamlessly across all environments.</p>
+<p>While several excellent tools address parts of this challenge, none provided a
+complete, universal solution that works seamlessly across all environments.</p>
 <h2 id="the-existing-landscape"><a class="header" href="#the-existing-landscape">The Existing Landscape</a></h2>
-<p>Before Releasaurus, developers had to choose between specialized tools, each with significant limitations:</p>
+<p>Before Releasaurus, developers had to choose between specialized tools, each
+with significant limitations:</p>
 <h3 id="release-please-github-only-excellence"><a class="header" href="#release-please-github-only-excellence">release-please: GitHub-Only Excellence</a></h3>
-<p><a href="https://github.com/googleapis/release-please">release-please</a> pioneered the release-PR workflow and remains excellent for GitHub-centric organizations. However:</p>
+<p><a href="https://github.com/googleapis/release-please">release-please</a> pioneered the
+release-PR workflow and remains excellent for GitHub-centric organizations.
+However:</p>
 <ul>
 <li><strong>Platform Lock-in</strong>: Only works with GitHub, excluding GitLab and Gitea users</li>
 </ul>
 <h3 id="release-plz-rust-ecosystem-specialist"><a class="header" href="#release-plz-rust-ecosystem-specialist">release-plz: Rust Ecosystem Specialist</a></h3>
-<p><a href="https://release-plz.ieni.dev/">release-plz</a> provides outstanding Rust support with deep Cargo integration. But:</p>
+<p><a href="https://release-plz.ieni.dev/">release-plz</a> provides outstanding Rust support
+with deep Cargo integration. But:</p>
 <ul>
 <li><strong>Single Language</strong>: Only supports Rust projects</li>
 <li><strong>Ecosystem Specific</strong>: Designed exclusively for the Rust/Cargo ecosystem</li>
 </ul>
 <h3 id="git-cliff-powerful-but-manual"><a class="header" href="#git-cliff-powerful-but-manual">git-cliff: Powerful but Manual</a></h3>
-<p><a href="https://git-cliff.org/">git-cliff</a> excels at changelog generation with extensive customization. However:</p>
+<p><a href="https://git-cliff.org/">git-cliff</a> excels at changelog generation with
+extensive customization and inspired our approach to commit parsing and
+changelog formatting. However, as a standalone tool it has some limitations for
+complete release automation:</p>
 <ul>
 <li><strong>Changelog Only</strong>: Doesn't handle version updates or release automation</li>
 <li><strong>Manual Process</strong>: Requires additional tooling for complete release workflows</li>
 <li><strong>No Platform Integration</strong>: Doesn't create releases or pull requests</li>
 </ul>
 <h2 id="releasaurus"><a class="header" href="#releasaurus">Releasaurus</a></h2>
-<p>Releasaurus was designed to combine the best aspects of existing tools while eliminating their limitations. Our core principles:</p>
+<p>Releasaurus was designed to combine the best aspects of existing tools while
+eliminating their limitations. Our core principles:</p>
 <h3 id="-universal-platform-support"><a class="header" href="#-universal-platform-support">🌍 Universal Platform Support</a></h3>
-<p><strong>Problem</strong>: Teams using GitLab, Gitea, or mixed environments were left behind by GitHub-only tools.</p>
-<p><strong>Solution</strong>: First-class support for GitHub, GitLab, and Gitea with identical workflows across all platforms. Whether your repositories are hosted on github.com, self-hosted GitLab, or Gitea instances, Releasaurus works seamlessly.</p>
+<p><strong>Problem</strong>: Teams using GitLab, Gitea, or mixed environments were left behind
+by GitHub-only tools.</p>
+<p><strong>Solution</strong>: First-class support for GitHub, GitLab, and Gitea with identical
+workflows across all platforms. Whether your repositories are hosted on
+github.com, self-hosted GitLab, or Gitea instances, Releasaurus works
+seamlessly.</p>
 <pre><code class="language-bash"># Same workflow, different platforms
 releasaurus release-pr --github-repo "https://github.com/team/project"
 releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/project"
 releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
 </code></pre>
 <h3 id="-intelligent-zero-configuration"><a class="header" href="#-intelligent-zero-configuration">🔍 Intelligent Zero-Configuration</a></h3>
-<p><strong>Problem</strong>: Complex setup requirements create barriers to adoption and maintenance overhead.</p>
-<p><strong>Solution</strong>: Intelligent detection that works immediately without configuration files, setup scripts, or complex onboarding. Releasaurus analyzes your project structure and applies appropriate conventions automatically.</p>
+<p><strong>Problem</strong>: Complex setup requirements create barriers to adoption and
+maintenance overhead.</p>
+<p><strong>Solution</strong>: Intelligent detection that works immediately without configuration
+files, setup scripts, or complex onboarding. Releasaurus analyzes your project
+structure and applies appropriate conventions automatically.</p>
 <ul>
-<li><strong>Language Detection</strong>: Automatically identifies Rust, Node.js, Python, Java, PHP, Ruby, or generic projects</li>
-<li><strong>Version File Discovery</strong>: Finds and updates all relevant version files for supported languages (generic projects receive changelog and tagging only)</li>
-<li><strong>Framework Integration</strong>: Adapts to your project's specific packaging and build systems</li>
-<li><strong>Sensible Defaults</strong>: Provides beautiful changelogs and workflows out-of-the-box</li>
+<li><strong>Language Detection</strong>: Automatically identifies Rust, Node.js, Python, Java,
+PHP, Ruby, or generic projects</li>
+<li><strong>Version File Discovery</strong>: Finds and updates all relevant version files for
+supported languages (generic projects receive changelog and tagging only)</li>
+<li><strong>Framework Integration</strong>: Adapts to your project's specific packaging and
+build systems</li>
+<li><strong>Sensible Defaults</strong>: Provides beautiful changelogs and workflows
+out-of-the-box</li>
 </ul>
 <h3 id="-multi-language-native-support"><a class="header" href="#-multi-language-native-support">🚀 Multi-Language Native Support</a></h3>
-<p><strong>Problem</strong>: Polyglot projects and organizations needed different tools for different languages.</p>
-<p><strong>Solution</strong>: Native support for major programming languages with deep understanding of each ecosystem's manifest files</p>
+<p><strong>Problem</strong>: Polyglot projects and organizations needed different tools for
+different languages.</p>
+<p><strong>Solution</strong>: Native support for major programming languages with deep
+understanding of each ecosystem's manifest files</p>
 <div class="table-wrapper"><table><thead><tr><th>Language</th><th>Package Files</th><th>Lock Files</th></tr></thead><tbody>
 <tr><td><strong>Rust</strong></td><td><code>Cargo.toml</code></td><td><code>Cargo.lock</code></td></tr>
 <tr><td><strong>Node.js</strong></td><td><code>package.json</code></td><td><code>package-lock.json</code>, <code>yarn.lock</code></td></tr>
@@ -1664,7 +1691,8 @@ don't interfere with simple use cases.</p>
 <li><strong><a href="https://release-plz.ieni.dev/">release-plz</a></strong></li>
 </ul>
 <p>We're grateful for these tools and the problems they solved. Releasaurus builds
-upon their innovations while addressing the gaps that remained.</p>
+upon their innovations while implementing our own solutions to address the gaps
+that remained.</p>
 <h2 id="when-to-choose-releasaurus"><a class="header" href="#when-to-choose-releasaurus">When to Choose Releasaurus</a></h2>
 <p><strong>Choose Releasaurus if you:</strong></p>
 <ul>
