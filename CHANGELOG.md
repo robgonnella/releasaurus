@@ -1,9 +1,34 @@
+# [0.2.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.3) - 2025-09-17
+
+### 🐛 Bug Fixes
+
+- handles headers / footers and note parsing more intelligently (#80) [_(dc33475a)_](https://github.com/robgonnella/releasaurus/commit/dc33475a43f2ff079643f53c42129a1136073406)
+
+- cleanup extra spaces in changelog [_(cf5bba54)_](https://github.com/robgonnella/releasaurus/commit/cf5bba546ad36da06d5b80d40712f6e879e59357)
+
+- strip extra lines when writing changelog [_(e9a672d1)_](https://github.com/robgonnella/releasaurus/commit/e9a672d1511c41d355c1ebb8d539808b10da701a)
+
+- another fix for stripping extra space in changelog [_(293e5a45)_](https://github.com/robgonnella/releasaurus/commit/293e5a4526bd4ed8477c4e17abb4b80990ef2ccc)
+
+- fixes issues in analyzer (#84) [_(666a1224)_](https://github.com/robgonnella/releasaurus/commit/666a12241401da5887a5a7c8139909356d834d84)
+
+- fixes ordering of groups in tera output (#85) [_(5d68ecca)_](https://github.com/robgonnella/releasaurus/commit/5d68eccad45aab26b3baaf167db9bae4a80547bf)
+
+### 🚜 Refactor
+
+- minor refactor in analyzer [_(39c6d452)_](https://github.com/robgonnella/releasaurus/commit/39c6d45267d023cea445ba31cd4f84b27e7479a2)
+
+- removes dependency on git-cliff-core (#83) [_(84d36e8a)_](https://github.com/robgonnella/releasaurus/commit/84d36e8a0ddca324181b3ccc7aa4452240bbb2c5)
+
+### ⚙️ Miscellaneous Tasks
+
+- Revert "fix: handles headers / footers and note parsing more intelligently (#80)" [_(faeee380)_](https://github.com/robgonnella/releasaurus/commit/faeee380903dc91f8e11cd3d311144f965f1d500)
+
 # [0.2.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.2) - 2025-09-11
 
 ### 🐛 Bug Fixes
 
 - Fixes issue with Dockerfile and updates docs [_(28c2c797)_](https://github.com/robgonnella/releasaurus/commit/28c2c7971f4552ae27d87f816202dade950eed2f)
-
 
 # [0.2.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.1) - 2025-09-10
 
@@ -11,18 +36,15 @@
 
 - Adds missing dependencies to docker build [_(86310337)_](https://github.com/robgonnella/releasaurus/commit/86310337aee8df9b65d41658e2c15b7e4ce8b73c)
 
-
 # [0.2.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.0) - 2025-09-10
 
 ### 🚀 Features
 
 - Adds option to configure clone depth (#74) [_(5c86f065)_](https://github.com/robgonnella/releasaurus/commit/5c86f06594e065fbbeb77efe22c69ab29c9d8c16)
 
-
 ### 🐛 Bug Fixes
 
 - Skip chore and ci commits [_(61fa42b1)_](https://github.com/robgonnella/releasaurus/commit/61fa42b13b507901ea91ca651fe9456ead1def68)
-
 
 # [0.1.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.1) - 2025-09-10
 
@@ -33,7 +55,6 @@
 - Update homepage in Cargo.toml [_(9fb67c3b)_](https://github.com/robgonnella/releasaurus/commit/9fb67c3b0b344aff21969d34f7c909c10633f713)
 
 - Fixes docker publish job [_(dacdc151)_](https://github.com/robgonnella/releasaurus/commit/dacdc15113ad14b540ce74334b769b917cd7ba63)
-
 
 # [0.1.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.1.0) - 2025-09-09
 
