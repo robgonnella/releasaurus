@@ -17,6 +17,8 @@ pub struct Commit {
     pub breaking_description: Option<String>,
     pub merge_commit: bool,
     pub timestamp: i64,
+    pub author_name: String,
+    pub author_email: String,
     pub raw_message: String,
 }
 
@@ -27,6 +29,8 @@ impl Commit {
         link_base: &str,
         g2_commit: &Git2Commit,
     ) -> Self {
+        let author_name = g2_commit.author().name().unwrap_or("").to_string();
+        let author_email = g2_commit.author().email().unwrap_or("").to_string();
         let commit_id = g2_commit.id().to_string();
         let merge_commit = g2_commit.parent_count() > 1;
         let raw_message = g2_commit.message().unwrap_or("").trim_end();
@@ -50,6 +54,8 @@ impl Commit {
                     group: Group::default(),
                     link,
                     timestamp,
+                    author_name,
+                    author_email,
                 };
                 commit.group = group_parser.parse(&commit);
                 commit
@@ -82,6 +88,8 @@ impl Commit {
                     group: Group::default(),
                     link,
                     timestamp,
+                    author_name,
+                    author_email,
                 }
             }
         }

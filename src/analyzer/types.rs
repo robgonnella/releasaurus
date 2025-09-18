@@ -69,7 +69,7 @@ impl Serialize for Release {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Release", 4)?;
+        let mut s = serializer.serialize_struct("Release", 5)?;
         let tag = &self
             .tag
             .clone()
@@ -77,6 +77,7 @@ impl Serialize for Release {
             .unwrap();
         s.serialize_field("link", &self.link)?;
         s.serialize_field("version", &tag.semver.to_string())?;
+        s.serialize_field("sha", &self.sha)?;
         s.serialize_field("commits", &self.commits)?;
         s.serialize_field("timestamp", &self.timestamp)?;
         s.end()

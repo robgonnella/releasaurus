@@ -218,6 +218,8 @@ mod tests {
             merge_commit: false,
             timestamp: 1640995200,
             raw_message: raw_message.to_string(),
+            author_name: "".into(),
+            author_email: "".into(),
         }
     }
 
