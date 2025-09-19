@@ -2,6 +2,7 @@
 use std::any::Any;
 
 use crate::{
+    analyzer::types::Tag,
     forge::{
         config::RemoteConfig,
         types::{
@@ -16,6 +17,8 @@ use crate::{
 pub trait Forge: Any {
     /// Get forge configuration.
     fn config(&self) -> &RemoteConfig;
+    /// Get latest tag matching prefix
+    fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>>;
     /// Get open release pull request if it exists.
     fn get_open_release_pr(
         &self,
