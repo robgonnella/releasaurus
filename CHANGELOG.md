@@ -1,3 +1,13 @@
+# [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-20
+
+### 🚀 Features
+
+- makes author name and email available in tera template [_(ea532fb9)_](https://github.com/robgonnella/releasaurus/commit/ea532fb9cab140d91a28d40a48817d61fb33e222)
+
+### 🚜 Refactor
+
+- gets latest tag directly from forge (#87) [_(2b9b0ff4)_](https://github.com/robgonnella/releasaurus/commit/2b9b0ff413338c702549630b922d96c9453ca3e0)
+
 # [0.2.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.2.3) - 2025-09-17
 
 ### 🐛 Bug Fixes
