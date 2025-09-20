@@ -1,6 +1,7 @@
 //! Implements the Forge trait for Gitea
 use color_eyre::eyre::eyre;
 use log::*;
+use regex::Regex;
 use reqwest::{
     Url,
     blocking::Client,
@@ -10,6 +11,7 @@ use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    analyzer::types::Tag,
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
         traits::Forge,
@@ -84,6 +86,19 @@ struct CreateRelease {
     prerelease: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct GiteaCommit {
+    sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GiteaTag {
+    name: String,
+    commit: GiteaCommit,
+    // id: String,
+    // message: String,
+}
+
 pub struct Gitea {
     config: RemoteConfig,
     base_url: Url,
@@ -149,6 +164,32 @@ impl Gitea {
 impl Forge for Gitea {
     fn config(&self) -> &RemoteConfig {
         &self.config
+    }
+
+    fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>> {
+        let re = Regex::new(format!(r"^{prefix}").as_str())?;
+
+        // Search for open issues with the pending label
+        let tags_url = self.base_url.join("tags")?;
+        let request = self.client.get(tags_url).build()?;
+        let response = self.client.execute(request)?;
+        let result = response.error_for_status()?;
+        let tags: Vec<GiteaTag> = result.json()?;
+
+        for tag in tags.into_iter() {
+            if re.is_match(&tag.name) {
+                let stripped = re.replace_all(&tag.name, "").to_string();
+                if let Ok(sver) = semver::Version::parse(&stripped) {
+                    return Ok(Some(Tag {
+                        name: tag.name,
+                        semver: sver,
+                        sha: tag.commit.sha,
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     fn get_open_release_pr(

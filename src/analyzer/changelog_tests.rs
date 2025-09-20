@@ -1,5 +1,5 @@
+use color_eyre::eyre::eyre;
 use std::{fs, process::Command, thread, time::Duration};
-
 use tempfile::TempDir;
 
 use crate::forge::config::RemoteConfig;
@@ -16,18 +16,26 @@ struct CommitArgs {
 
 struct TestContext {
     tmp_dir: TempDir,
+    starting_tag: Option<Tag>,
 }
 
 impl TestContext {
     fn new(tmp_dir: TempDir) -> Self {
-        Self { tmp_dir }
+        Self {
+            tmp_dir,
+            starting_tag: None,
+        }
     }
 
     fn path(&self) -> &Path {
         self.tmp_dir.path()
     }
 
-    fn add_commit(&self, args: CommitArgs) -> Result<()> {
+    fn starting_tag(&self) -> Option<Tag> {
+        self.starting_tag.clone()
+    }
+
+    fn add_commit(&self, args: CommitArgs) -> Result<String> {
         // Create a file and commit it
         fs::write(self.tmp_dir.path().join(args.file_name), args.message)?;
 
@@ -65,10 +73,22 @@ impl TestContext {
 
         thread::sleep(Duration::from_millis(500));
 
-        Ok(())
+        let output = Command::new("git")
+            .arg("rev-parse")
+            .arg("HEAD")
+            .current_dir(self.tmp_dir.path())
+            .output()?;
+
+        if !output.status.success() {
+            return Err(eyre!("failed to get commit sha"));
+        }
+
+        let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        Ok(sha)
     }
 
-    fn setup_repo(&self) -> Result<()> {
+    fn setup_repo(&mut self) -> Result<()> {
         // Initialize Git repository
         Command::new("git")
             .arg("init")
@@ -101,6 +121,12 @@ impl TestContext {
         let result = self.add_commit(args.clone());
         assert!(result.is_ok());
 
+        self.starting_tag = Some(Tag {
+            name: "v0.2.1".into(),
+            semver: semver::Version::parse("0.2.1").unwrap(),
+            sha: result.unwrap(),
+        });
+
         args.file_name = "break.txt";
         args.footer = Some("BREAKING CHANGE: It broke");
         args.message = "fix: fixed it by breaking it";
@@ -117,7 +143,7 @@ impl TestContext {
 fn process_git_repository() {
     let tmp_dir = TempDir::new().unwrap();
     let tmp_dir_path_str = tmp_dir.path().display().to_string();
-    let context = TestContext::new(tmp_dir);
+    let mut context = TestContext::new(tmp_dir);
     let result = context.setup_repo();
     let remote_config = RemoteConfig {
         host: "github.com".to_string(),
@@ -131,6 +157,9 @@ fn process_git_repository() {
             "https://github.com/test-owner/test-repo/releases/tag".to_string(),
         ..RemoteConfig::default()
     };
+
+    assert!(result.is_ok(), "failed to setup test repo");
+
     let repo = Repository::from_local(
         context.path(),
         remote_config,
@@ -138,14 +167,10 @@ fn process_git_repository() {
     )
     .unwrap();
 
-    assert!(result.is_ok(), "failed to setup test repo");
-
-    let starting_tag = repo.get_latest_tag("v").unwrap();
-
     let config = AnalyzerConfig {
         repo_path: tmp_dir_path_str,
         tag_prefix: Some("v".to_string()),
-        starting_tag,
+        starting_tag: context.starting_tag(),
         ..AnalyzerConfig::default()
     };
     let result = Analyzer::new(config, &repo);

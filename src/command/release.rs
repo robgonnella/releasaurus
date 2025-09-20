@@ -31,6 +31,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
     let releases = process_packages_for_release(
         &repo,
+        forge.as_ref(),
         &merged_pr,
         &cli_config,
         forge.config(),
@@ -57,6 +58,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
 fn process_packages_for_release(
     repo: &Repository,
+    forge: &dyn Forge,
     merged_pr: &ReleasePullRequest,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
@@ -66,6 +68,7 @@ fn process_packages_for_release(
     for package in &cli_config.packages {
         if let Some(release) = create_package_release(
             repo,
+            forge,
             merged_pr,
             package,
             cli_config,
@@ -80,13 +83,14 @@ fn process_packages_for_release(
 
 fn create_package_release(
     repo: &Repository,
+    forge: &dyn Forge,
     merged_pr: &ReleasePullRequest,
     package: &config::CliPackageConfig,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
 ) -> Result<Option<Release>> {
     let tag_prefix = common::get_tag_prefix(package);
-    let starting_tag = repo.get_latest_tag(&tag_prefix)?;
+    let starting_tag = forge.get_latest_tag_for_prefix(&tag_prefix)?;
 
     let changelog_config = common::create_changelog_config(
         package,

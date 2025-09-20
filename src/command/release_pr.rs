@@ -37,7 +37,8 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let release_branch =
         common::setup_release_branch(&repo, DEFAULT_PR_BRANCH_PREFIX)?;
 
-    let manifest = process_packages(&repo, &cli_config, forge.config())?;
+    let manifest =
+        process_packages(&repo, forge.as_ref(), &cli_config, forge.config())?;
 
     info!("manifest: {:#?}", manifest);
 
@@ -64,15 +65,20 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
 fn process_packages(
     repo: &Repository,
+    forge: &dyn Forge,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
 ) -> Result<HashMap<String, Release>> {
     let mut manifest: HashMap<String, Release> = HashMap::new();
 
     for package in &cli_config.packages {
-        if let Some(release) =
-            process_single_package(package, repo, cli_config, remote_config)?
-        {
+        if let Some(release) = process_single_package(
+            package,
+            repo,
+            forge,
+            cli_config,
+            remote_config,
+        )? {
             manifest.insert(package.path.clone(), release);
         }
     }
@@ -111,6 +117,7 @@ fn process_packages(
 fn process_single_package(
     package: &config::CliPackageConfig,
     repo: &Repository,
+    forge: &dyn Forge,
     cli_config: &config::CliConfig,
     remote_config: &crate::forge::config::RemoteConfig,
 ) -> Result<Option<Release>> {
@@ -118,7 +125,7 @@ fn process_single_package(
 
     common::log_package_processing(&package.path, &tag_prefix);
 
-    let starting_tag = repo.get_latest_tag(&tag_prefix)?;
+    let starting_tag = forge.get_latest_tag_for_prefix(&tag_prefix)?;
 
     let changelog_config = common::create_changelog_config(
         package,

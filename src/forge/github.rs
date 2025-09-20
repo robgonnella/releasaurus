@@ -5,9 +5,11 @@ use octocrab::{
     Octocrab,
     params::{self, Direction, State},
 };
+use regex::Regex;
 use tokio::runtime::Runtime;
 
 use crate::{
+    analyzer::types::Tag,
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
         traits::Forge,
@@ -51,6 +53,35 @@ impl Github {
 impl Forge for Github {
     fn config(&self) -> &RemoteConfig {
         &self.config
+    }
+
+    fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>> {
+        let re = Regex::new(format!(r"^{prefix}").as_str())?;
+        self.rt.block_on(async {
+            if let Ok(octocrab) = self.new_instance() {
+                let page = octocrab
+                    .repos(&self.config.owner, &self.config.repo)
+                    .list_tags()
+                    .send()
+                    .await?;
+
+                for tag in page.into_iter() {
+                    if re.is_match(&tag.name) {
+                        let stripped =
+                            re.replace_all(&tag.name, "").to_string();
+                        if let Ok(sver) = semver::Version::parse(&stripped) {
+                            return Ok(Some(Tag {
+                                name: tag.name,
+                                semver: sver,
+                                sha: tag.commit.sha,
+                            }));
+                        }
+                    }
+                }
+            }
+
+            Ok(None)
+        })
     }
 
     fn get_open_release_pr(

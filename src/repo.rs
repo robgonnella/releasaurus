@@ -6,14 +6,11 @@ use color_eyre::eyre::{Context, eyre};
 use git2::{Commit, Oid, RemoteCallbacks, Sort, TreeWalkMode};
 use glob::Pattern;
 use log::*;
-use regex::Regex;
 use reqwest::Url;
 use secrecy::ExposeSecret;
 use std::path::{Path, PathBuf};
 
-use crate::{
-    analyzer::types::Tag, forge::config::RemoteConfig, result::Result,
-};
+use crate::{forge::config::RemoteConfig, result::Result};
 
 /// Default upstream remote name after renaming "origin".
 const DEFAULT_UPSTREAM_REMOTE: &str = "upstream";
@@ -302,50 +299,6 @@ impl Repository {
             });
         }
         Ok(commits)
-    }
-
-    /// Find latest git tag matching the given prefix.
-    pub fn get_latest_tag(&self, prefix: &str) -> Result<Option<Tag>> {
-        let regex_prefix = format!(r"^{}", prefix);
-        let tag_prefix_regex = Regex::new(&regex_prefix)?;
-        let references = self
-            .repo
-            .references()?
-            .filter_map(|r| r.ok())
-            .collect::<Vec<git2::Reference>>();
-
-        let mut commits: Vec<(git2::Commit, Tag)> = vec![];
-        for reference in references.iter() {
-            if reference.is_tag()
-                && let Some(name) = reference.name()
-                && let Some(stripped) = name.strip_prefix("refs/tags/")
-                && tag_prefix_regex.is_match(stripped)
-            {
-                let commit = reference.peel_to_commit()?;
-                let semver = semver::Version::parse(
-                    tag_prefix_regex.replace_all(stripped, "").as_ref(),
-                )?;
-
-                let tag = Tag {
-                    sha: commit.id().to_string(),
-                    name: stripped.to_string(),
-                    semver,
-                };
-                commits.push((commit, tag));
-            }
-        }
-
-        if commits.is_empty() {
-            return Ok(None);
-        }
-
-        // sort commits by time descending so the first one should contain
-        // the latest tag
-        commits.sort_by(|(c1, _), (c2, _)| c2.time().cmp(&c1.time()));
-
-        let (_, tag) = commits[0].clone();
-
-        Ok(Some(tag))
     }
 
     /// Create new branch from current HEAD (force creates, overwrites existing).

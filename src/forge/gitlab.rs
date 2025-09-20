@@ -11,14 +11,17 @@ use gitlab::{
                 CreateMergeRequest, EditMergeRequest, MergeRequests,
             },
             releases::CreateRelease,
+            repository::tags::{Tags, TagsOrderBy},
         },
     },
 };
 use log::*;
+use regex::Regex;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 
 use crate::{
+    analyzer::types::Tag,
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
         traits::Forge,
@@ -41,6 +44,34 @@ struct MergeRequestInfo {
 #[derive(Debug, Deserialize)]
 struct LabelInfo {
     name: String,
+}
+
+/// Information about a commit associated with a release.
+#[derive(Debug, Deserialize)]
+pub struct GitlabCommit {
+    pub id: String,
+    // pub title: String,
+    // pub message: String,
+    // pub author_name: String,
+    // pub author_email: String,
+    // pub created_at: String,
+}
+
+// /// Represents a GitLab project release.
+// #[derive(Debug, Deserialize)]
+// pub struct GitlabRelease {
+//     pub tag_name: String,
+//     pub description: Option<String>,
+// }
+
+/// Represents a Gitlab project Tag
+#[derive(Debug, Deserialize)]
+pub struct GitlabTag {
+    pub name: String,
+    pub commit: GitlabCommit,
+    // pub message: String,
+    // pub target: String,
+    // pub release: GitlabRelease,
 }
 
 pub struct Gitlab {
@@ -90,6 +121,29 @@ impl Gitlab {
 impl Forge for Gitlab {
     fn config(&self) -> &RemoteConfig {
         &self.config
+    }
+
+    /// Get the latest release for the project
+    fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>> {
+        let re = Regex::new(format!(r"^{prefix}").as_str())?;
+        let endpoint = Tags::builder()
+            .project(&self.project_id)
+            .order_by(TagsOrderBy::Updated)
+            .build()?;
+        let tags: Vec<GitlabTag> = endpoint.query(&self.gl)?;
+        for t in tags.into_iter() {
+            if re.is_match(&t.name) {
+                let stripped = re.replace_all(&t.name, "").to_string();
+                if let Ok(sver) = semver::Version::parse(&stripped) {
+                    return Ok(Some(Tag {
+                        name: t.name,
+                        semver: sver,
+                        sha: t.commit.id,
+                    }));
+                }
+            }
+        }
+        Ok(None)
     }
 
     fn get_open_release_pr(
