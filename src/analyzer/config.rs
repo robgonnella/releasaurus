@@ -1,6 +1,6 @@
 //! Configuration for changelog generation and commit analysis.
 
-use crate::analyzer::types::Tag;
+use crate::analyzer::release::Tag;
 
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}

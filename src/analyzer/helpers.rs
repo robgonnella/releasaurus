@@ -27,7 +27,7 @@ pub static FOOTER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 use crate::{
-    analyzer::{commit::Commit, groups::GroupParser, types::Release},
+    analyzer::{commit::Commit, groups::GroupParser, release::Release},
     result::Result,
 };
 

@@ -2,11 +2,11 @@
 use log::*;
 
 use crate::{
-    analyzer::{changelog::Analyzer, types::Release},
-    cli,
+    analyzer::{changelog::Analyzer, release::Release},
+    cli::{self, DEFAULT_COMMIT_SEARCH_DEPTH},
     command::common,
     config,
-    forge::{config::TAGGED_LABEL, traits::Forge, types::ReleasePullRequest},
+    forge::{config::TAGGED_LABEL, request::ReleasePullRequest, traits::Forge},
     repo::Repository,
     result::Result,
 };
@@ -16,7 +16,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let forge = remote.get_forge()?;
     let (repo, tmp_dir) =
-        common::setup_repository(args.clone_depth, forge.as_ref())?;
+        common::setup_repository(DEFAULT_COMMIT_SEARCH_DEPTH, forge.as_ref())?;
 
     let merged_pr = forge.get_merged_release_pr()?;
 

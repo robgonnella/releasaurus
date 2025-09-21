@@ -4,14 +4,16 @@ use log::*;
 use std::collections::HashMap;
 
 use crate::{
-    analyzer::{changelog::Analyzer, types::Release},
-    cli,
+    analyzer::{changelog::Analyzer, release::Release},
+    cli::{self, DEFAULT_COMMIT_SEARCH_DEPTH},
     command::common,
     config,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
+        request::{
+            CreatePrRequest, GetPrRequest, ReleasePullRequest, UpdatePrRequest,
+        },
         traits::Forge,
-        types::{CreatePrRequest, GetPrRequest, UpdatePrRequest},
     },
     repo::Repository,
     result::Result,
@@ -31,7 +33,7 @@ pub fn execute(args: &cli::Args) -> Result<()> {
     let forge = remote.get_forge()?;
 
     let (repo, tmp_dir) =
-        common::setup_repository(args.clone_depth, forge.as_ref())?;
+        common::setup_repository(DEFAULT_COMMIT_SEARCH_DEPTH, forge.as_ref())?;
     let cli_config = common::load_configuration(tmp_dir.path())?;
 
     let release_branch =
@@ -226,7 +228,7 @@ fn find_or_create_pr(
     head_branch: &str,
     base_branch: &str,
     forge: &dyn Forge,
-) -> Result<crate::forge::types::ReleasePullRequest> {
+) -> Result<ReleasePullRequest> {
     let req = GetPrRequest {
         head_branch: head_branch.to_string(),
         base_branch: base_branch.to_string(),

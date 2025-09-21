@@ -56,7 +56,7 @@ impl PackageUpdater for RustUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Tag;
+    use crate::analyzer::release::Tag;
     use crate::updater::framework::{Framework, Package};
     use std::fs;
     use tempfile::TempDir;

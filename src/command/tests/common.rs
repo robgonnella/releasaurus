@@ -11,7 +11,7 @@ use tempfile::TempDir;
 
 use crate::{
     cli,
-    forge::{config::RemoteConfig, traits::Forge, types::ReleasePullRequest},
+    forge::{config::RemoteConfig, request::ReleasePullRequest, traits::Forge},
     repo,
     result::Result,
 };

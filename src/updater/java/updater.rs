@@ -307,7 +307,7 @@ impl PackageUpdater for JavaUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{analyzer::types::Tag, updater::framework::Framework};
+    use crate::{analyzer::release::Tag, updater::framework::Framework};
     use std::fs;
     use tempfile::TempDir;
 

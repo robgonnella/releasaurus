@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::analyzer::types::Tag;
+use crate::analyzer::release::Tag;
 use crate::updater::detection::manager::DetectionManager;
 use crate::updater::detection::traits::FrameworkDetector;
 use crate::updater::generic::updater::GenericUpdater;
