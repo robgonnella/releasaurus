@@ -68,7 +68,7 @@ impl SetupPy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Tag;
+    use crate::analyzer::release::Tag;
     use crate::updater::framework::Framework;
     use semver::Version;
     use std::fs;

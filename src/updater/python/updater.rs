@@ -55,7 +55,7 @@ impl PackageUpdater for PythonUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::types::Tag;
+    use crate::analyzer::release::Tag;
     use semver::Version;
     use std::fs;
     use tempfile::TempDir;

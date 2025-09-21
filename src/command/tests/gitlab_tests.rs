@@ -2,12 +2,12 @@ use nanoid::nanoid;
 use std::{env, thread, time::Duration};
 
 use crate::{
-    cli::{Args, Command},
+    cli::{Args, Command, DEFAULT_COMMIT_SEARCH_DEPTH},
     command::{
         release::execute as execute_release,
         release_pr::execute as execute_release_pr, tests::common,
     },
-    forge::types::GetPrRequest,
+    forge::request::GetPrRequest,
 };
 
 #[test]
@@ -17,7 +17,7 @@ fn gitlab_e2e_test() {
     let args = Args {
         command: Command::ReleasePR,
         debug: true,
-        clone_depth: 0,
+        commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
         github_repo: "".into(),
         github_token: "".into(),
         gitea_repo: "".into(),

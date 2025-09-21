@@ -10,6 +10,8 @@ use crate::{
     result::Result,
 };
 
+pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
+
 /// Global CLI arguments for forge configuration and debugging.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -38,9 +40,9 @@ pub struct Args {
     /// Gitea access token. Falls back to GITEA_TOKEN env var.
     pub gitea_token: String,
 
-    #[arg(long, default_value = "250", global = true)]
+    #[arg(long, default_value_t = DEFAULT_COMMIT_SEARCH_DEPTH, global = true)]
     /// Git clone depth. Use 0 for full history.
-    pub clone_depth: u64,
+    pub commit_search_depth: u64,
 
     #[arg(long, default_value_t = false, global = true)]
     /// Enable debug logging.
@@ -284,7 +286,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            clone_depth: 0,
+            commit_search_depth: 0,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: "".into(),
@@ -310,7 +312,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            clone_depth: 0,
+            commit_search_depth: 0,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: repo,
@@ -336,7 +338,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            clone_depth: 0,
+            commit_search_depth: 0,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
@@ -362,7 +364,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            clone_depth: 0,
+            commit_search_depth: 0,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),

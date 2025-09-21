@@ -13,7 +13,7 @@ use crate::{
         config::AnalyzerConfig,
         groups::GroupParser,
         helpers,
-        types::{Release, Tag},
+        release::{Release, Tag},
     },
     repo::Repository,
     result::Result,

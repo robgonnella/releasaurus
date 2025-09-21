@@ -9,14 +9,14 @@ use regex::Regex;
 use tokio::runtime::Runtime;
 
 use crate::{
-    analyzer::types::Tag,
+    analyzer::release::Tag,
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
-        traits::Forge,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
-            UpdatePrRequest,
+        request::{
+            CreatePrRequest, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            ReleasePullRequest, UpdatePrRequest,
         },
+        traits::Forge,
     },
     result::Result,
 };
@@ -82,6 +82,14 @@ impl Forge for Github {
 
             Ok(None)
         })
+    }
+
+    fn commit_iterator(
+        &self,
+        _since: Option<&str>,
+        _max_depth: u64,
+    ) -> Result<Vec<ForgeCommit>> {
+        Err(eyre!("not implemented for gitea yet"))
     }
 
     fn get_open_release_pr(

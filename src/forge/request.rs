@@ -35,3 +35,9 @@ pub struct PrLabelsRequest {
     pub pr_number: u64,
     pub labels: Vec<String>,
 }
+
+/// Represents a normalized commit returned from any forge
+#[derive(Debug)]
+pub struct ForgeCommit {
+    pub id: String,
+}

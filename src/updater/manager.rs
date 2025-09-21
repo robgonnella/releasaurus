@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::{
-    analyzer::types::Release,
+    analyzer::release::Release,
     config::CliConfig,
     result::Result,
     updater::{

@@ -3,8 +3,8 @@
 //! Parses conventional commits, determines semantic version bumps,
 //! and generates formatted changelogs using Tera templates.
 pub mod changelog;
-mod commit;
+pub mod commit;
 pub mod config;
 mod groups;
 mod helpers;
-pub mod types;
+pub mod release;

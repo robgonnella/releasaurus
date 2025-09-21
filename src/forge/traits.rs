@@ -2,12 +2,12 @@
 use std::any::Any;
 
 use crate::{
-    analyzer::types::Tag,
+    analyzer::release::Tag,
     forge::{
         config::RemoteConfig,
-        types::{
-            CreatePrRequest, GetPrRequest, PrLabelsRequest, ReleasePullRequest,
-            UpdatePrRequest,
+        request::{
+            CreatePrRequest, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            ReleasePullRequest, UpdatePrRequest,
         },
     },
     result::Result,
@@ -19,6 +19,12 @@ pub trait Forge: Any {
     fn config(&self) -> &RemoteConfig;
     /// Get latest tag matching prefix
     fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>>;
+    /// Returns commit iterator for projected release
+    fn commit_iterator(
+        &self,
+        since: Option<&str>,
+        max_depth: u64,
+    ) -> Result<Vec<ForgeCommit>>;
     /// Get open release pull request if it exists.
     fn get_open_release_pr(
         &self,

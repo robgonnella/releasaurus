@@ -4,9 +4,9 @@ use std::path::Path;
 use tempfile::TempDir;
 
 use crate::{
-    analyzer::{config::AnalyzerConfig, types::Tag},
+    analyzer::{config::AnalyzerConfig, release::Tag},
     config,
-    forge::{config::RemoteConfig, traits::Forge, types::PrLabelsRequest},
+    forge::{config::RemoteConfig, request::PrLabelsRequest, traits::Forge},
     repo::Repository,
     result::Result,
 };
