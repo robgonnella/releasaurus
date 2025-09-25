@@ -1,65 +1,15 @@
 //! Common functionality shared between release commands
 use log::*;
 use std::path::Path;
-use tempfile::TempDir;
 
 use crate::{
-    analyzer::{config::AnalyzerConfig, release::Tag},
     config,
-    forge::{config::RemoteConfig, request::PrLabelsRequest, traits::Forge},
-    repo::Repository,
+    forge::{request::PrLabelsRequest, traits::Forge},
     result::Result,
 };
 
-/// Clone repository to temporary directory and return handles.
-pub fn setup_repository(
-    clone_depth: u64,
-    forge: &dyn Forge,
-) -> Result<(Repository, TempDir)> {
-    let remote_config = forge.config();
-    let tmp_dir = TempDir::new()?;
-
-    info!(
-        "cloning repository {} to {}",
-        remote_config.repo,
-        tmp_dir.path().display()
-    );
-
-    let repo =
-        Repository::new(tmp_dir.path(), clone_depth, remote_config.clone())?;
-
-    Ok((repo, tmp_dir))
-}
-
-/// Load CLI configuration with logging.
-pub fn load_configuration(dir: &Path) -> Result<config::CliConfig> {
-    info!("loading configuration");
-    config::load_config(Some(dir))
-}
-
-/// Create changelog configuration for a package.
-pub fn create_changelog_config(
-    package: &config::CliPackageConfig,
-    cli_config: &config::CliConfig,
-    remote_config: &RemoteConfig,
-    starting_tag: Option<Tag>,
-    repo_path: String,
-) -> AnalyzerConfig {
-    AnalyzerConfig {
-        repo_path,
-        package_relative_path: package.path.clone(),
-        body: cli_config.changelog.body.clone(),
-        commit_link_base_url: remote_config.commit_link_base_url.clone(),
-        footer: cli_config.changelog.footer.clone(),
-        header: cli_config.changelog.header.clone(),
-        release_link_base_url: remote_config.release_link_base_url.clone(),
-        starting_tag,
-        tag_prefix: Some(get_tag_prefix(package)),
-    }
-}
-
 /// Get tag prefix for package, defaults to "v" or "{basename}-v".
-pub fn get_tag_prefix(package: &config::CliPackageConfig) -> String {
+pub fn get_tag_prefix(package: &config::PackageConfig) -> String {
     let mut default_for_package = "v".to_string();
     let package_path = Path::new(&package.path);
     if let Some(basename) = package_path.file_name() {
@@ -76,136 +26,12 @@ pub fn log_package_processing(package_path: &str, tag_prefix: &str) {
     );
 }
 
-/// Create and switch to release branch for PR.
-pub fn setup_release_branch(
-    repo: &Repository,
-    pr_branch_prefix: &str,
-) -> Result<String> {
-    let release_branch = format!("{}{}", pr_branch_prefix, repo.default_branch);
-
-    debug!("setting up release branch: {release_branch}");
-    repo.create_branch(&release_branch)?;
-    repo.switch_branch(&release_branch)?;
-
-    Ok(release_branch)
-}
-
 /// Update PR labels via forge API.
-pub fn update_pr_labels(
+pub async fn update_pr_labels(
     forge: &dyn Forge,
     pr_number: u64,
     labels: Vec<String>,
 ) -> Result<()> {
     let req = PrLabelsRequest { pr_number, labels };
-
-    forge.replace_pr_labels(req)
-}
-
-/// Commit and push changes to branch.
-pub fn commit_and_push_changes(
-    repo: &Repository,
-    commit_message: &str,
-    branch: &str,
-) -> Result<()> {
-    repo.add_all()?;
-    repo.commit(commit_message)?;
-    repo.push_branch(branch)?;
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::{CliChangelogConfig, CliPackageConfig};
-
-    #[test]
-    fn test_get_tag_prefix_with_prefix() {
-        let package = CliPackageConfig {
-            path: "test".to_string(),
-            tag_prefix: Some("release-".to_string()),
-        };
-
-        assert_eq!(get_tag_prefix(&package), "release-");
-    }
-
-    #[test]
-    fn test_get_tag_prefix_default() {
-        let package = CliPackageConfig {
-            path: "test".to_string(),
-            tag_prefix: None,
-        };
-
-        assert_eq!(get_tag_prefix(&package), "test-v");
-    }
-
-    #[test]
-    fn test_get_tag_prefix_root_directory() {
-        let package = CliPackageConfig {
-            path: ".".to_string(),
-            tag_prefix: None,
-        };
-
-        assert_eq!(get_tag_prefix(&package), "v");
-    }
-
-    #[test]
-    fn test_create_changelog_config() {
-        let package = CliPackageConfig {
-            path: "./test".to_string(),
-            tag_prefix: Some("v".to_string()),
-        };
-
-        let cli_config = config::CliConfig {
-            changelog: CliChangelogConfig {
-                body: "test body".to_string(),
-                header: Some("test header".to_string()),
-                footer: Some("test footer".to_string()),
-            },
-            packages: vec![],
-        };
-
-        let remote_config = RemoteConfig {
-            host: "example.com".to_string(),
-            scheme: "https".to_string(),
-            owner: "owner".to_string(),
-            repo: "repo".to_string(),
-            path: "path".to_string(),
-            commit_link_base_url: "https://example.com/commit".to_string(),
-            release_link_base_url: "https://example.com/releases".to_string(),
-            token: "token".into(),
-        };
-
-        let changelog_config = create_changelog_config(
-            &package,
-            &cli_config,
-            &remote_config,
-            Some(Tag {
-                sha: "abc123".into(),
-                name: "v1.0.0".into(),
-                semver: semver::Version::parse("1.0.0").unwrap(),
-            }),
-            ".".into(),
-        );
-
-        assert_eq!(changelog_config.package_relative_path, "./test");
-        assert_eq!(changelog_config.body, "test body");
-        assert_eq!(changelog_config.header, Some("test header".to_string()));
-        assert_eq!(changelog_config.footer, Some("test footer".to_string()));
-        assert_eq!(
-            changelog_config.starting_tag,
-            Some(Tag {
-                sha: "abc123".into(),
-                name: "v1.0.0".into(),
-                semver: semver::Version::parse("1.0.0").unwrap(),
-            })
-        );
-        assert_eq!(
-            changelog_config.commit_link_base_url,
-            "https://example.com/commit"
-        );
-        assert_eq!(
-            changelog_config.release_link_base_url,
-            "https://example.com/releases"
-        );
-    }
+    forge.replace_pr_labels(req).await
 }

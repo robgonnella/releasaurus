@@ -1,32 +1,47 @@
 //! Implements the Forge trait for Gitlab
-use color_eyre::eyre::eyre;
+use async_trait::async_trait;
+use chrono::DateTime;
+use color_eyre::eyre::{ContextCompat, eyre};
 use gitlab::{
-    Gitlab as GitlabClient,
+    AsyncGitlab,
     api::{
-        Query, ignore,
+        AsyncQuery, Pagination, ignore,
         merge_requests::MergeRequestState,
+        paged,
         projects::{
+            Project,
             labels::{CreateLabel, Labels},
             merge_requests::{
                 CreateMergeRequest, EditMergeRequest, MergeRequests,
             },
             releases::CreateRelease,
-            repository::tags::{Tags, TagsOrderBy},
+            repository::{
+                commits::{
+                    CommitAction, CommitActionType, Commits, CommitsOrder,
+                    CreateCommit,
+                },
+                files::FileRaw,
+                tags::{Tags, TagsOrderBy},
+            },
         },
     },
 };
 use log::*;
 use regex::Regex;
+use reqwest::StatusCode;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
+use std::cmp;
 
 use crate::{
     analyzer::release::Tag,
+    config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
         request::{
-            CreatePrRequest, ForgeCommit, GetPrRequest, PrLabelsRequest,
-            ReleasePullRequest, UpdatePrRequest,
+            Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
+            ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -50,11 +65,11 @@ struct LabelInfo {
 #[derive(Debug, Deserialize)]
 pub struct GitlabCommit {
     pub id: String,
-    // pub title: String,
-    // pub message: String,
-    // pub author_name: String,
-    // pub author_email: String,
-    // pub created_at: String,
+    pub message: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub parent_ids: Vec<String>,
+    pub created_at: String,
 }
 
 // /// Represents a GitLab project release.
@@ -74,20 +89,26 @@ pub struct GitlabTag {
     // pub release: GitlabRelease,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreatedCommit {
+    pub id: String,
+}
+
 pub struct Gitlab {
     config: RemoteConfig,
-    gl: GitlabClient,
+    gl: AsyncGitlab,
     project_id: String,
 }
 
 impl Gitlab {
-    pub fn new(config: RemoteConfig) -> Result<Self> {
+    pub async fn new(config: RemoteConfig) -> Result<Self> {
         let project_id = config.path.clone();
 
         let token = config.token.expose_secret();
 
-        let gl =
-            gitlab::GitlabBuilder::new(config.host.clone(), token).build()?;
+        let gl = gitlab::GitlabBuilder::new(config.host.clone(), token)
+            .build_async()
+            .await?;
 
         Ok(Self {
             config,
@@ -96,15 +117,15 @@ impl Gitlab {
         })
     }
 
-    fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
+    async fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
         let endpoint = Labels::builder().project(&self.project_id).build()?;
 
-        let labels: Vec<LabelInfo> = endpoint.query(&self.gl)?;
+        let labels: Vec<LabelInfo> = endpoint.query_async(&self.gl).await?;
 
         Ok(labels)
     }
 
-    fn create_label(&self, label_name: String) -> Result<LabelInfo> {
+    async fn create_label(&self, label_name: String) -> Result<LabelInfo> {
         let endpoint = CreateLabel::builder()
             .project(&self.project_id)
             .name(label_name)
@@ -112,25 +133,90 @@ impl Gitlab {
             .description("".to_string())
             .build()?;
 
-        let label: LabelInfo = endpoint.query(&self.gl)?;
+        let label: LabelInfo = endpoint.query_async(&self.gl).await?;
 
         Ok(label)
     }
 }
 
+#[async_trait]
 impl Forge for Gitlab {
-    fn config(&self) -> &RemoteConfig {
-        &self.config
+    async fn load_config(&self) -> Result<Config> {
+        let content = self.get_file_contents(DEFAULT_CONFIG_FILE).await?;
+
+        if content.is_none() {
+            info!("repository configuration not found: using default");
+            return Ok(Config::default());
+        }
+
+        let content = content.unwrap();
+
+        let config: Config = toml::from_str(&content)?;
+
+        Ok(config)
+    }
+
+    async fn default_branch(&self) -> Result<String> {
+        let endpoint = Project::builder().project(&self.project_id).build()?;
+        let result: serde_json::Value = endpoint.query_async(&self.gl).await?;
+        let default_branch = result["default_branch"]
+            .as_str()
+            .wrap_err("failed to find default branch")?;
+        Ok(default_branch.to_string())
+    }
+
+    async fn get_file_contents(&self, path: &str) -> Result<Option<String>> {
+        let endpoint = FileRaw::builder()
+            .project(&self.project_id)
+            .file_path(path)
+            .build()?;
+
+        let result: std::result::Result<
+            String,
+            gitlab::api::ApiError<gitlab::RestError>,
+        > = endpoint.query_async(&self.gl).await;
+
+        match result {
+            Err(gitlab::api::ApiError::GitlabService { status, data }) => {
+                if status == StatusCode::NOT_FOUND {
+                    info!("no file found for path: {path}");
+                    return Ok(None);
+                }
+                if status == StatusCode::OK {
+                    info!("found file at path: {path}");
+                    let content = String::from_utf8(data)?;
+                    return Ok(Some(content));
+                }
+                let msg = format!(
+                    "failed to file content from repo: status: {status}, data: {}",
+                    String::from_utf8(data).unwrap()
+                );
+                error!("{msg}");
+                Err(eyre!(msg))
+            }
+            Err(err) => {
+                error!("failed to get file from repo: {err}");
+                Err(eyre!("failed to get file from repo: {err}"))
+            }
+            _ => {
+                let msg = "unknown error occurred getting file from repo";
+                error!("{msg}");
+                Err(eyre!(msg))
+            }
+        }
     }
 
     /// Get the latest release for the project
-    fn get_latest_tag_for_prefix(&self, prefix: &str) -> Result<Option<Tag>> {
+    async fn get_latest_tag_for_prefix(
+        &self,
+        prefix: &str,
+    ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let endpoint = Tags::builder()
             .project(&self.project_id)
             .order_by(TagsOrderBy::Updated)
             .build()?;
-        let tags: Vec<GitlabTag> = endpoint.query(&self.gl)?;
+        let tags: Vec<GitlabTag> = endpoint.query_async(&self.gl).await?;
         for t in tags.into_iter() {
             if re.is_match(&t.name) {
                 let stripped = re.replace_all(&t.name, "").to_string();
@@ -146,18 +232,120 @@ impl Forge for Gitlab {
         Ok(None)
     }
 
-    fn commit_iterator(
+    async fn get_commits(
         &self,
-        _since: Option<&str>,
-        _max_depth: u64,
+        path: &str,
+        sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
-        Err(eyre!("not implemented for gitea yet"))
+        let mut builder = Commits::builder();
+
+        builder
+            .project(&self.project_id)
+            .path(path)
+            .order(CommitsOrder::Default);
+
+        if let Some(sha) = sha.clone() {
+            let range = format!("{sha}..HEAD");
+            builder.ref_name(range);
+        }
+
+        let endpoint = builder.build()?;
+        let page_limit =
+            cmp::min(100, self.config.commit_search_depth) as usize;
+        let search_depth = self.config.commit_search_depth as usize;
+
+        let result: Vec<GitlabCommit> = if sha.is_none() {
+            paged(endpoint, Pagination::Limit(search_depth))
+                .query_async(&self.gl)
+                .await?
+        } else {
+            paged(endpoint, Pagination::AllPerPageLimit(page_limit))
+                .query_async(&self.gl)
+                .await?
+        };
+
+        let forge_commits = result
+            .iter()
+            .map(|c| ForgeCommit {
+                author_email: c.author_email.clone(),
+                author_name: c.author_name.clone(),
+                id: c.id.clone(),
+                link: format!("{}/{}", self.config.commit_link_base_url, c.id),
+                merge_commit: c.parent_ids.len() > 1,
+                message: c.message.clone().trim().into(),
+                timestamp: DateTime::parse_from_rfc3339(&c.created_at)
+                    .unwrap()
+                    .timestamp(),
+            })
+            .collect::<Vec<ForgeCommit>>();
+
+        Ok(forge_commits)
     }
 
-    fn get_open_release_pr(
+    async fn create_release_branch(
+        &self,
+        req: CreateBranchRequest,
+    ) -> Result<Commit> {
+        let default_branch_name = self.default_branch().await?;
+        // let default_branch = self.get_branch(&default_branch_name).await?;
+
+        // if default_branch.is_none() {
+        //     return Err(eyre!("failed to get default branch ref"));
+        // }
+
+        // let default_branch = default_branch.unwrap();
+        // let release_branch = self.get_branch(&req.branch).await?;
+
+        let mut actions: Vec<CommitAction> = vec![];
+
+        for change in req.file_changes {
+            let mut content = change.content;
+
+            let mut update_type = CommitActionType::Update;
+
+            let existing_content = self.get_file_contents(&change.path).await?;
+
+            if existing_content.is_none() {
+                update_type = CommitActionType::Create;
+            }
+
+            if matches!(change.update_type, FileUpdateType::Prepend)
+                && let Some(existing_content) = existing_content
+            {
+                content = format!("{content}{existing_content}");
+            }
+
+            let action = CommitAction::builder()
+                .action(update_type)
+                .content(content.as_bytes().to_owned())
+                .file_path(change.path.clone())
+                .build()?;
+
+            actions.push(action)
+        }
+
+        let endpoint = CreateCommit::builder()
+            .project(&self.project_id)
+            .start_branch(default_branch_name)
+            .branch(req.branch)
+            .actions(actions)
+            .commit_message(req.message)
+            .force(true)
+            .build()?;
+
+        let commit: CreatedCommit = endpoint.query_async(&self.gl).await?;
+
+        Ok(Commit { sha: commit.id })
+    }
+
+    async fn tag_commit(&self, _tag_name: &str, _sha: &str) -> Result<()> {
+        Ok(())
+    }
+
+    async fn get_open_release_pr(
         &self,
         req: GetPrRequest,
-    ) -> Result<Option<ReleasePullRequest>> {
+    ) -> Result<Option<PullRequest>> {
         // Create the merge requests query to find open MRs
         // targeting the base branch
         let endpoint = MergeRequests::builder()
@@ -171,7 +359,7 @@ impl Forge for Gitlab {
         let result: std::result::Result<
             Vec<MergeRequestInfo>,
             gitlab::api::ApiError<gitlab::RestError>,
-        > = endpoint.query(&self.gl);
+        > = endpoint.query_async(&self.gl).await;
 
         // Execute the query to get matching merge requests
         match result {
@@ -186,7 +374,7 @@ impl Forge for Gitlab {
 
                 let merge_request = first.unwrap();
 
-                Ok(Some(ReleasePullRequest {
+                Ok(Some(PullRequest {
                     number: merge_request.iid,
                     sha: merge_request.sha.clone(),
                 }))
@@ -208,7 +396,7 @@ impl Forge for Gitlab {
         }
     }
 
-    fn get_merged_release_pr(&self) -> Result<Option<ReleasePullRequest>> {
+    async fn get_merged_release_pr(&self) -> Result<Option<PullRequest>> {
         info!("looking for closed release prs with pending label");
 
         // Search for closed merge requests with the pending label
@@ -218,7 +406,8 @@ impl Forge for Gitlab {
             .labels(vec![PENDING_LABEL])
             .build()?;
 
-        let merge_requests: Vec<MergeRequestInfo> = endpoint.query(&self.gl)?;
+        let merge_requests: Vec<MergeRequestInfo> =
+            endpoint.query_async(&self.gl).await?;
 
         if merge_requests.is_empty() {
             warn!(
@@ -254,13 +443,13 @@ impl Forge for Gitlab {
             .ok_or_else(|| eyre!("no merge_commit_sha found for pr"))?
             .clone();
 
-        Ok(Some(ReleasePullRequest {
+        Ok(Some(PullRequest {
             number: merge_request.iid,
             sha,
         }))
     }
 
-    fn create_pr(&self, req: CreatePrRequest) -> Result<ReleasePullRequest> {
+    async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(&self.project_id)
@@ -271,15 +460,16 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the creation
-        let merge_request: MergeRequestInfo = endpoint.query(&self.gl)?;
+        let merge_request: MergeRequestInfo =
+            endpoint.query_async(&self.gl).await?;
 
-        Ok(ReleasePullRequest {
+        Ok(PullRequest {
             number: merge_request.iid,
             sha: merge_request.sha.clone(),
         })
     }
 
-    fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
+    async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         // Update the merge request
         let endpoint = EditMergeRequest::builder()
             .project(&self.project_id)
@@ -289,13 +479,13 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the update using ignore since we don't need the response
-        ignore(endpoint).query(&self.gl)?;
+        ignore(endpoint).query_async(&self.gl).await?;
 
         Ok(())
     }
 
-    fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        let all_labels = self.get_repo_labels()?;
+    async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
+        let all_labels = self.get_repo_labels().await?;
 
         let mut labels = vec![];
 
@@ -303,7 +493,7 @@ impl Forge for Gitlab {
             if let Some(label) = all_labels.iter().find(|l| l.name == name) {
                 labels.push(label.name.clone());
             } else {
-                let label = self.create_label(name)?;
+                let label = self.create_label(name).await?;
                 labels.push(label.name);
             }
         }
@@ -316,12 +506,17 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the update
-        ignore(endpoint).query(&self.gl)?;
+        ignore(endpoint).query_async(&self.gl).await?;
 
         Ok(())
     }
 
-    fn create_release(&self, tag: &str, sha: &str, notes: &str) -> Result<()> {
+    async fn create_release(
+        &self,
+        tag: &str,
+        sha: &str,
+        notes: &str,
+    ) -> Result<()> {
         // Create the release
         let endpoint = CreateRelease::builder()
             .project(&self.project_id)
@@ -332,7 +527,7 @@ impl Forge for Gitlab {
             .build()?;
 
         // Execute the creation using ignore since we don't need the response
-        ignore(endpoint).query(&self.gl)?;
+        ignore(endpoint).query_async(&self.gl).await?;
 
         Ok(())
     }

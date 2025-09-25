@@ -40,7 +40,6 @@ mod cli;
 mod command;
 mod config;
 mod forge;
-mod repo;
 mod result;
 mod updater;
 
@@ -68,8 +67,9 @@ fn initialize_logger(debug: bool) -> Result<()> {
     Ok(())
 }
 
+#[tokio::main]
 /// Main entry point. Initializes error handling, logging, and dispatches commands.
-fn main() -> Result<()> {
+async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let cli_args = cli::Args::parse();
@@ -77,7 +77,9 @@ fn main() -> Result<()> {
     initialize_logger(cli_args.debug)?;
 
     match cli_args.command {
-        cli::Command::ReleasePR => command::release_pr::execute(&cli_args),
-        cli::Command::Release => command::release::execute(&cli_args),
+        cli::Command::ReleasePR => {
+            command::release_pr::execute(&cli_args).await
+        }
+        cli::Command::Release => command::release::execute(&cli_args).await,
     }
 }
