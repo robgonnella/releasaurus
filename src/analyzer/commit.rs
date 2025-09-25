@@ -1,8 +1,10 @@
 use git_conventional::Commit as ConventionalCommit;
-use git2::Commit as Git2Commit;
 use serde::Serialize;
 
-use crate::analyzer::groups::{Group, GroupParser};
+use crate::{
+    analyzer::group::{Group, GroupParser},
+    forge::request::ForgeCommit,
+};
 
 /// Parsed commit with conventional commit information and metadata.
 #[derive(Debug, Clone, Serialize)]
@@ -24,19 +26,18 @@ pub struct Commit {
 
 impl Commit {
     /// Parse git2 commit into structured commit with conventional commit parsing.
-    pub fn parse_git2_commit(
+    pub fn parse_forge_commit(
         group_parser: &GroupParser,
-        link_base: &str,
-        g2_commit: &Git2Commit,
+        forge_commit: &ForgeCommit,
     ) -> Self {
-        let author_name = g2_commit.author().name().unwrap_or("").to_string();
-        let author_email = g2_commit.author().email().unwrap_or("").to_string();
-        let commit_id = g2_commit.id().to_string();
-        let merge_commit = g2_commit.parent_count() > 1;
-        let raw_message = g2_commit.message().unwrap_or("").trim_end();
-        let timestamp = g2_commit.time().seconds();
+        let author_name = forge_commit.author_name.clone();
+        let author_email = forge_commit.author_email.clone();
+        let commit_id = forge_commit.id.clone();
+        let merge_commit = forge_commit.merge_commit;
+        let raw_message = forge_commit.message.clone();
+        let timestamp = forge_commit.timestamp;
         let parsed = ConventionalCommit::parse(raw_message.trim_end());
-        let link = format!("{}/{}", link_base, commit_id);
+        let link = forge_commit.link.clone();
 
         match parsed {
             Ok(cc) => {

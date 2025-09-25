@@ -30,6 +30,8 @@ pub struct RemoteConfig {
     pub commit_link_base_url: String,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
+    /// Max search depth for commits when starting sha not provided
+    pub commit_search_depth: u64,
 }
 
 impl Default for RemoteConfig {
@@ -43,6 +45,7 @@ impl Default for RemoteConfig {
             token: SecretString::from("".to_string()),
             commit_link_base_url: "".to_string(),
             release_link_base_url: "".to_string(),
+            commit_search_depth: 0,
         }
     }
 }
@@ -56,14 +59,22 @@ pub enum Remote {
 }
 
 impl Remote {
-    pub fn get_forge(&self) -> Result<Box<dyn Forge>> {
+    pub fn get_config(&self) -> RemoteConfig {
+        match self {
+            Remote::Github(conf) => conf.clone(),
+            Remote::Gitlab(conf) => conf.clone(),
+            Remote::Gitea(conf) => conf.clone(),
+        }
+    }
+
+    pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
         match self {
             Remote::Github(config) => {
                 let forge = Github::new(config.clone())?;
                 Ok(Box::new(forge))
             }
             Remote::Gitlab(config) => {
-                let forge = Gitlab::new(config.clone())?;
+                let forge = Gitlab::new(config.clone()).await?;
                 Ok(Box::new(forge))
             }
             Remote::Gitea(config) => {

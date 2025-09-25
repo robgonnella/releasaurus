@@ -27,7 +27,8 @@ pub static FOOTER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 use crate::{
-    analyzer::{commit::Commit, groups::GroupParser, release::Release},
+    analyzer::{commit::Commit, group::GroupParser, release::Release},
+    forge::request::ForgeCommit,
     result::Result,
 };
 
@@ -76,12 +77,11 @@ pub fn process_package_path(
 /// Update release with parsed commit information.
 pub fn update_release_with_commit(
     group_parser: &GroupParser,
-    link_base: &str,
     release: &mut Release,
-    git_commit: &git2::Commit,
+    forge_commit: &ForgeCommit,
 ) {
     // create git_cliff commit from git2 commit
-    let commit = Commit::parse_git2_commit(group_parser, link_base, git_commit);
+    let commit = Commit::parse_forge_commit(group_parser, forge_commit);
     let commit_id = commit.id.to_string();
     let lines = commit
         .message
@@ -100,7 +100,7 @@ pub fn update_release_with_commit(
     // set release commit - this will keep getting updated until we
     // get to the last commit in the release, which will be a tag
     release.sha = commit_id;
-    release.timestamp = git_commit.time().seconds();
+    release.timestamp = forge_commit.timestamp;
 }
 
 /// Replace changelog header section with custom header template.

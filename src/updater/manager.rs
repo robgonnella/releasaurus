@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::{
     analyzer::release::Release,
-    config::CliConfig,
+    config::Config,
     result::Result,
     updater::{
         detection::manager::DetectionManager,
@@ -77,7 +77,7 @@ impl UpdaterManager {
     pub fn update_packages(
         &mut self,
         manifest: &HashMap<String, Release>,
-        cli_config: &CliConfig,
+        cli_config: &Config,
     ) -> Result<UpdateStats> {
         info!(
             "Starting package updates for {} manifest entries",
@@ -132,7 +132,7 @@ impl UpdaterManager {
     fn convert_manifest_to_packages(
         &self,
         manifest: &HashMap<String, Release>,
-        cli_config: &CliConfig,
+        cli_config: &Config,
     ) -> Result<Vec<Package>> {
         let mut packages = Vec::new();
 

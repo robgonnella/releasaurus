@@ -1,266 +1,160 @@
 //! Release pull request creation command implementation.
 
 use log::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use crate::{
-    analyzer::{changelog::Analyzer, release::Release},
-    cli::{self, DEFAULT_COMMIT_SEARCH_DEPTH},
-    command::common,
-    config,
+    analyzer::{Analyzer, config::AnalyzerConfig, release::Release},
+    cli,
+    command::common::get_tag_prefix,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         request::{
-            CreatePrRequest, GetPrRequest, ReleasePullRequest, UpdatePrRequest,
+            CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
+            GetPrRequest, PrLabelsRequest, UpdatePrRequest,
         },
-        traits::Forge,
     },
-    repo::Repository,
     result::Result,
-    updater::manager::UpdaterManager,
+    // updater::manager::UpdaterManager,
 };
 
-/// Content for release pull request.
-struct PrContent {
-    pub title: String,
-    pub body: Vec<String>,
-    pub releasable: bool,
-}
-
 /// Execute release-pr command to analyze commits and create release pull request.
-pub fn execute(args: &cli::Args) -> Result<()> {
+pub async fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
-    let forge = remote.get_forge()?;
-
-    let (repo, tmp_dir) =
-        common::setup_repository(DEFAULT_COMMIT_SEARCH_DEPTH, forge.as_ref())?;
-    let cli_config = common::load_configuration(tmp_dir.path())?;
-
-    let release_branch =
-        common::setup_release_branch(&repo, DEFAULT_PR_BRANCH_PREFIX)?;
-
-    let manifest =
-        process_packages(&repo, forge.as_ref(), &cli_config, forge.config())?;
-
-    info!("manifest: {:#?}", manifest);
-
-    let pr_content = create_pr_content(manifest, &repo)?;
-
-    if !pr_content.releasable {
-        info!("no releasable commits found");
-        return Ok(());
-    }
-
-    create_or_update_pr(
-        &pr_content.title,
-        &pr_content.body.join("\n"),
-        &release_branch,
-        &repo,
-        forge,
-    )?;
-
-    // Keep tmp_dir alive until the end to prevent cleanup
-    drop(tmp_dir);
-
-    Ok(())
-}
-
-fn process_packages(
-    repo: &Repository,
-    forge: &dyn Forge,
-    cli_config: &config::CliConfig,
-    remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<HashMap<String, Release>> {
+    let remote_config = remote.get_config();
+    let forge = remote.get_forge().await?;
+    let config = forge.load_config().await?;
     let mut manifest: HashMap<String, Release> = HashMap::new();
 
-    for package in &cli_config.packages {
-        if let Some(release) = process_single_package(
-            package,
-            repo,
-            forge,
-            cli_config,
-            remote_config,
-        )? {
+    for package in config.packages.iter() {
+        info!(
+            "processing package: path: {}, tag_prefix: {}",
+            package.path,
+            package.tag_prefix.clone().unwrap_or("v".into())
+        );
+        let tag_prefix = package.tag_prefix.clone().unwrap_or("v".into());
+        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
+
+        info!("path: {}, current tag {:#?}", package.path, current_tag);
+
+        let current_sha = current_tag.clone().map(|t| t.sha);
+        let commits = forge.get_commits(&package.path, current_sha).await?;
+
+        info!("processing commits for package: {}", package.path);
+
+        let analyzer_config = AnalyzerConfig {
+            body: config.changelog.body.clone(),
+            footer: config.changelog.footer.clone(),
+            header: config.changelog.header.clone(),
+            release_link_base_url: remote_config.release_link_base_url.clone(),
+            tag_prefix: Some(get_tag_prefix(package)),
+        };
+
+        let analyzer = Analyzer::new(analyzer_config)?;
+        let release = analyzer.analyze(commits, current_tag)?;
+
+        info!("package path: {}, release: {:#?}", package.path, release);
+
+        if let Some(release) = release {
             manifest.insert(package.path.clone(), release);
         }
     }
 
-    // Update package manifest files (Cargo.toml, package.json, setup.py, etc.)
-    // with the new versions using the language-agnostic updater system.
-    // This step ensures that package files are updated consistently across
-    // different programming languages and package managers.
-    info!(
-        "Updating package manifest files with new versions across all detected frameworks"
-    );
-    let mut updater_manager = UpdaterManager::new(repo.workdir()?);
+    debug!("manifest: {:#?}", manifest);
 
-    match updater_manager.update_packages(&manifest, cli_config) {
-        Ok(stats) => {
-            info!(
-                "✓ Package update completed successfully: {} of {} packages updated",
-                stats.updated_packages, stats.total_packages
-            );
-            debug!("{stats}");
-        }
-        Err(e) => {
-            warn!("Failed to update package manifest files: {}", e);
-            warn!(
-                "Continuing with PR creation - changelog generation was successful"
-            );
-            // Continue with PR creation even if file updates fail since the core
-            // functionality (changelog generation and version detection) worked.
-            // The PR will still be created with the correct changelog content.
-        }
-    }
+    let default_branch = forge.default_branch().await?;
+    let release_branch =
+        format!("{DEFAULT_PR_BRANCH_PREFIX}{}", default_branch);
 
-    Ok(manifest)
-}
+    let include_title_version = config.packages.len() == 1;
+    let mut title = format!("chore({}): release", default_branch);
 
-fn process_single_package(
-    package: &config::CliPackageConfig,
-    repo: &Repository,
-    forge: &dyn Forge,
-    cli_config: &config::CliConfig,
-    remote_config: &crate::forge::config::RemoteConfig,
-) -> Result<Option<Release>> {
-    let tag_prefix = common::get_tag_prefix(package);
-
-    common::log_package_processing(&package.path, &tag_prefix);
-
-    let starting_tag = forge.get_latest_tag_for_prefix(&tag_prefix)?;
-
-    let changelog_config = common::create_changelog_config(
-        package,
-        cli_config,
-        remote_config,
-        starting_tag,
-        String::from(repo.workdir_as_str()),
-    );
-
-    let analyzer = Analyzer::new(changelog_config, repo)?;
-    analyzer.write_changelog()
-}
-
-fn create_pr_content(
-    manifest: HashMap<String, Release>,
-    repo: &Repository,
-) -> Result<PrContent> {
-    let mut title = format!("chore({}): release", repo.default_branch);
-    let mut include_title_version = false;
+    let mut file_updates: Vec<FileChange> = vec![];
     let mut body = vec![];
-    let releasable = !manifest.is_empty();
-
     let mut start_tag = "<details>";
 
     // auto-open dropdown if there's only one package
     if manifest.len() == 1 {
-        include_title_version = true;
         start_tag = "<details open>";
     }
 
-    for (name, release) in manifest {
-        if release.tag.is_none() {
-            warn!("no projected tag found fo release: {:#?}", release);
-            continue;
-        }
+    for (path, release) in manifest.iter() {
+        if let Some(tag) = release.tag.clone() {
+            if include_title_version {
+                title = format!("{title} {}", tag.name);
+            }
 
-        let tag = release.tag.unwrap();
+            // create the drop down
+            let drop_down = format!(
+                "{start_tag}<summary>{}</summary>\n\n{}</details>",
+                tag.name, release.notes
+            );
 
-        debug!("\n\n{}\n  next_version: {:?}", name, tag);
+            body.push(drop_down);
 
-        // only keep packages that have releasable commits
-
-        info!("{name} is releasable: next version: {}", tag.semver);
-
-        // create the drop down
-        let drop_down = format!(
-            "{start_tag}<summary>{}</summary>\n\n{}</details>",
-            tag.semver, release.notes
-        );
-
-        body.push(drop_down);
-
-        if include_title_version {
-            title = format!("{} {}", title, tag.semver)
+            file_updates.push(FileChange {
+                content: format!("{}\n\n", release.notes),
+                path: Path::new(path)
+                    .join("CHANGELOG.md")
+                    .display()
+                    .to_string(),
+                update_type: FileUpdateType::Prepend,
+            });
         }
     }
 
-    Ok(PrContent {
-        title,
-        body,
-        releasable,
-    })
-}
+    if !manifest.is_empty() {
+        info!("creating / updating release branch: {release_branch}");
+        let commit = forge
+            .create_release_branch(CreateBranchRequest {
+                branch: release_branch.clone(),
+                message: title.clone(),
+                file_changes: file_updates,
+            })
+            .await?;
 
-fn create_or_update_pr(
-    title: &str,
-    body: &str,
-    release_branch: &str,
-    repo: &Repository,
-    forge: Box<dyn Forge>,
-) -> Result<()> {
-    let head_branch =
-        format!("{}{}", DEFAULT_PR_BRANCH_PREFIX, repo.default_branch);
-    let base_branch = repo.default_branch.clone();
+        info!("commit --> {:#?}", commit);
 
-    common::commit_and_push_changes(repo, title, release_branch)?;
+        info!("searching for existing pr for branch {release_branch}");
+        let pr = forge
+            .get_open_release_pr(GetPrRequest {
+                head_branch: release_branch.clone(),
+                base_branch: default_branch.clone(),
+            })
+            .await?;
 
-    let pr = find_or_create_pr(
-        title,
-        body,
-        &head_branch,
-        &base_branch,
-        forge.as_ref(),
-    )?;
+        let pr = if let Some(pr) = pr {
+            forge
+                .update_pr(UpdatePrRequest {
+                    pr_number: pr.number,
+                    title,
+                    body: body.join("\n"),
+                })
+                .await?;
+            info!("updated existing release-pr: {}", pr.number);
+            pr
+        } else {
+            let pr = forge
+                .create_pr(CreatePrRequest {
+                    head_branch: release_branch,
+                    base_branch: default_branch,
+                    title,
+                    body: body.join("\n"),
+                })
+                .await?;
+            info!("created release-pr: {}", pr.number);
+            pr
+        };
 
-    common::update_pr_labels(
-        forge.as_ref(),
-        pr.number,
-        vec![PENDING_LABEL.into()],
-    )?;
+        info!("setting pr labels: {PENDING_LABEL}");
+
+        forge
+            .replace_pr_labels(PrLabelsRequest {
+                pr_number: pr.number,
+                labels: vec![PENDING_LABEL.into()],
+            })
+            .await?;
+    }
 
     Ok(())
-}
-
-fn find_or_create_pr(
-    title: &str,
-    body: &str,
-    head_branch: &str,
-    base_branch: &str,
-    forge: &dyn Forge,
-) -> Result<ReleasePullRequest> {
-    let req = GetPrRequest {
-        head_branch: head_branch.to_string(),
-        base_branch: base_branch.to_string(),
-    };
-
-    info!("looking for existing release pull request");
-    let result = forge.get_open_release_pr(req)?;
-
-    let pr = match result {
-        Some(pr) => {
-            info!("updating pr {}", pr.number);
-            let req = UpdatePrRequest {
-                pr_number: pr.number,
-                title: title.to_string(),
-                body: body.to_string(),
-            };
-
-            forge.update_pr(req)?;
-            pr
-        }
-        None => {
-            info!("creating pull request: {title}");
-            let req = CreatePrRequest {
-                title: title.to_string(),
-                body: body.to_string(),
-                head_branch: head_branch.to_string(),
-                base_branch: base_branch.to_string(),
-            };
-
-            forge.create_pr(req)?
-        }
-    };
-
-    Ok(pr)
 }

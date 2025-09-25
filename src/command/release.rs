@@ -2,23 +2,19 @@
 use log::*;
 
 use crate::{
-    analyzer::{changelog::Analyzer, release::Release},
-    cli::{self, DEFAULT_COMMIT_SEARCH_DEPTH},
+    analyzer::release::Release,
+    cli,
     command::common,
     config,
-    forge::{config::TAGGED_LABEL, request::ReleasePullRequest, traits::Forge},
-    repo::Repository,
+    forge::{config::TAGGED_LABEL, request::PullRequest, traits::Forge},
     result::Result,
 };
 
 /// Execute release command to create git tags and publish final release.
-pub fn execute(args: &cli::Args) -> Result<()> {
+pub async fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
-    let forge = remote.get_forge()?;
-    let (repo, tmp_dir) =
-        common::setup_repository(DEFAULT_COMMIT_SEARCH_DEPTH, forge.as_ref())?;
-
-    let merged_pr = forge.get_merged_release_pr()?;
+    let forge = remote.get_forge().await?;
+    let merged_pr = forge.get_merged_release_pr().await?;
 
     if merged_pr.is_none() {
         warn!("releases are up-to-date: nothing to release");
@@ -27,53 +23,39 @@ pub fn execute(args: &cli::Args) -> Result<()> {
 
     let merged_pr = merged_pr.unwrap();
 
-    let cli_config = common::load_configuration(tmp_dir.path())?;
+    let config = forge.load_config().await?;
 
-    let releases = process_packages_for_release(
-        &repo,
-        forge.as_ref(),
-        &merged_pr,
-        &cli_config,
-        forge.config(),
-    )?;
+    let releases =
+        process_packages_for_release(forge.as_ref(), &merged_pr, &config)?;
 
     if releases.is_empty() {
         info!("releases are all up-to-date: nothing to do");
         return Ok(());
     }
 
-    publish_releases(forge.as_ref(), &repo, &releases)?;
+    publish_releases(forge.as_ref(), &releases).await?;
 
     common::update_pr_labels(
         forge.as_ref(),
         merged_pr.number,
         vec![TAGGED_LABEL.into()],
-    )?;
-
-    // Keep tmp_dir alive until the end to prevent cleanup
-    drop(tmp_dir);
+    )
+    .await?;
 
     Ok(())
 }
 
 fn process_packages_for_release(
-    repo: &Repository,
     forge: &dyn Forge,
-    merged_pr: &ReleasePullRequest,
-    cli_config: &config::CliConfig,
-    remote_config: &crate::forge::config::RemoteConfig,
+    merged_pr: &PullRequest,
+    conf: &config::Config,
 ) -> Result<Vec<Release>> {
     let mut releases = vec![];
 
-    for package in &cli_config.packages {
-        if let Some(release) = create_package_release(
-            repo,
-            forge,
-            merged_pr,
-            package,
-            cli_config,
-            remote_config,
-        )? {
+    for package in &conf.packages {
+        if let Some(release) =
+            create_package_release(forge, merged_pr, package, conf)?
+        {
             releases.push(release);
         }
     }
@@ -82,51 +64,48 @@ fn process_packages_for_release(
 }
 
 fn create_package_release(
-    repo: &Repository,
-    forge: &dyn Forge,
-    merged_pr: &ReleasePullRequest,
-    package: &config::CliPackageConfig,
-    cli_config: &config::CliConfig,
-    remote_config: &crate::forge::config::RemoteConfig,
+    _forge: &dyn Forge,
+    _merged_pr: &PullRequest,
+    _package: &config::PackageConfig,
+    _conf: &config::Config,
 ) -> Result<Option<Release>> {
-    let tag_prefix = common::get_tag_prefix(package);
-    let starting_tag = forge.get_latest_tag_for_prefix(&tag_prefix)?;
+    // let tag_prefix = common::get_tag_prefix(package);
+    // let starting_tag = forge.get_latest_tag_for_prefix(&tag_prefix)?;
 
-    let changelog_config = common::create_changelog_config(
-        package,
-        cli_config,
-        remote_config,
-        starting_tag,
-        String::from(repo.workdir_as_str()),
-    );
+    // let changelog_config = common::create_changelog_config(
+    //     package,
+    //     cli_config,
+    //     remote_config,
+    //     starting_tag,
+    //     String::from(repo.workdir_as_str()),
+    // );
 
-    let analyzer = Analyzer::new(changelog_config, repo)?;
-    let release = analyzer.process_repository()?;
+    // let analyzer = Analyzer::new(changelog_config, repo)?;
+    // let release = analyzer.process_repository()?;
 
-    if let Some(release) = release
-        && let Some(tag) = release.tag.clone()
-    {
-        repo.tag_commit(&tag.name, &merged_pr.sha)?;
-        Ok(Some(release))
-    } else {
-        Ok(None)
-    }
+    // if let Some(release) = release
+    //     && let Some(tag) = release.tag.clone()
+    // {
+    //     repo.tag_commit(&tag.name, &merged_pr.sha)?;
+    //     Ok(Some(release))
+    // } else {
+    //     Ok(None)
+    // }
+    Ok(None)
 }
 
-fn publish_releases(
+async fn publish_releases(
     forge: &dyn Forge,
-    repo: &Repository,
     releases: &[Release],
 ) -> Result<()> {
     for release in releases {
-        publish_single_release(forge, repo, release)?;
+        publish_single_release(forge, release).await?;
     }
     Ok(())
 }
 
-fn publish_single_release(
+async fn publish_single_release(
     forge: &dyn Forge,
-    repo: &Repository,
     release: &Release,
 ) -> Result<()> {
     if let Some(tag) = release.tag.clone() {
@@ -134,10 +113,12 @@ fn publish_single_release(
         info!("release tag: {}", tag);
 
         info!("pushing tag: {}", tag);
-        repo.push_tag_to_default_branch(&tag.name)?;
+        forge.tag_commit(&tag.name, &release.sha).await?;
 
         info!("creating release: {}", tag);
-        forge.create_release(&tag.name, &release.sha, &release.notes)?;
+        forge
+            .create_release(&tag.name, &release.sha, &release.notes)
+            .await?;
     }
 
     // TODO: comment on PR about release
