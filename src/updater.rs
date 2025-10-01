@@ -4,7 +4,6 @@
 //! Node.js, Python, Java, PHP, Ruby, and generic projects with trait-based
 //! architecture for language-specific implementations.
 
-mod detection;
 mod framework;
 mod generic;
 mod java;

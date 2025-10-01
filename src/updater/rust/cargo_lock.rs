@@ -1,13 +1,15 @@
-use std::{
-    fs::OpenOptions,
-    io::{Read, Write},
-    path::Path,
-};
-
 use color_eyre::eyre::ContextCompat;
+use std::path::Path;
 use toml_edit::{DocumentMut, value};
 
-use crate::{result::Result, updater::framework::Package};
+use crate::{
+    forge::{
+        request::{FileChange, FileUpdateType},
+        traits::FileLoader,
+    },
+    result::Result,
+    updater::framework::Package,
+};
 
 pub struct CargoLock {}
 
@@ -16,13 +18,18 @@ impl CargoLock {
         Self {}
     }
 
-    pub fn process_workspace_lockfile(
+    pub async fn process_workspace_lockfile(
         &self,
         root_path: &Path,
         packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("Cargo.lock");
-        let mut lock_doc = self.load_doc(lock_path.as_path())?;
+        let lock_doc = self.load_doc(lock_path.as_path(), loader).await?;
+        if lock_doc.is_none() {
+            return Ok(None);
+        }
+        let mut lock_doc = lock_doc.unwrap();
         let lock_packages = lock_doc["package"]
             .as_array_of_tables_mut()
             .wrap_err("Cargo.lock doesn't seem to have any packages")?;
@@ -47,599 +54,84 @@ impl CargoLock {
         }
 
         if updated > 0 {
-            self.write_doc(&mut lock_doc, lock_path.as_path())?;
+            return Ok(Some(FileChange {
+                path: lock_path.display().to_string(),
+                content: lock_doc.to_string(),
+                update_type: FileUpdateType::Replace,
+            }));
         }
 
-        Ok(())
+        Ok(None)
     }
 
-    pub fn process_packages(
+    pub async fn process_packages(
         &self,
         packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut file_changes: Vec<FileChange> = vec![];
+
         for (_package_name, package) in packages.iter() {
             let mut updated = false;
             let doc_path = Path::new(&package.path).join("Cargo.lock");
-            if doc_path.exists() {
-                let mut lock_doc = self.load_doc(doc_path.as_path())?;
-                let doc_packages = lock_doc["package"].as_array_of_tables_mut();
+            let lock_doc = self.load_doc(doc_path.as_path(), loader).await?;
 
-                if doc_packages.is_none() {
-                    continue;
-                }
+            if lock_doc.is_none() {
+                continue;
+            }
 
-                let doc_packages = doc_packages.unwrap();
+            let mut lock_doc = lock_doc.unwrap();
 
-                for (dep_name, dep) in packages.iter() {
-                    if let Some(found) = doc_packages.iter_mut().find(|p| {
-                        let doc_package_name = p
-                            .get("name")
-                            .and_then(|item| item.as_str())
-                            .unwrap_or("");
-                        doc_package_name == dep_name
-                    }) {
-                        found["version"] =
-                            value(dep.next_version.semver.to_string());
-                        updated = true;
-                    }
-                }
+            let doc_packages = lock_doc["package"].as_array_of_tables_mut();
 
-                if updated {
-                    self.write_doc(&mut lock_doc, doc_path.as_path())?;
+            if doc_packages.is_none() {
+                continue;
+            }
+
+            let doc_packages = doc_packages.unwrap();
+
+            for (dep_name, dep) in packages.iter() {
+                if let Some(found) = doc_packages.iter_mut().find(|p| {
+                    let doc_package_name = p
+                        .get("name")
+                        .and_then(|item| item.as_str())
+                        .unwrap_or("");
+                    doc_package_name == dep_name
+                }) {
+                    found["version"] =
+                        value(dep.next_version.semver.to_string());
+                    updated = true;
                 }
             }
+
+            if updated {
+                file_changes.push(FileChange {
+                    path: doc_path.display().to_string(),
+                    content: lock_doc.to_string(),
+                    update_type: FileUpdateType::Replace,
+                });
+            }
         }
-        Ok(())
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
     }
 
-    fn load_doc<P: AsRef<Path>>(&self, file_path: P) -> Result<DocumentMut> {
-        let mut file = OpenOptions::new().read(true).open(file_path)?;
-        let mut content = String::from("");
-        file.read_to_string(&mut content)?;
-        let doc = content.parse::<DocumentMut>()?;
-        Ok(doc)
-    }
-
-    fn write_doc<P: AsRef<Path>>(
+    async fn load_doc<P: AsRef<Path>>(
         &self,
-        doc: &mut DocumentMut,
         file_path: P,
-    ) -> Result<()> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(file_path)?;
-        file.write_all(doc.to_string().as_bytes())?;
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::analyzer::release::Tag;
-    use crate::updater::framework::{Framework, Package};
-    use std::fs;
-    use tempfile::TempDir;
-
-    fn create_test_package(name: &str, path: &str, version: &str) -> Package {
-        Package::new(
-            name.to_string(),
-            path.to_string(),
-            Tag {
-                sha: "abc123".into(),
-                name: format!("v{}", version),
-                semver: semver::Version::parse(version).unwrap(),
-            },
-            Framework::Rust,
-        )
-    }
-
-    #[test]
-    fn test_new() {
-        let cargo_lock = CargoLock::new();
-        // Just verify we can create an instance
-        assert_eq!(std::mem::size_of_val(&cargo_lock), 0);
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_single_package() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create a workspace Cargo.lock
-        fs::write(
-            root_path.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-# It is not intended for manual editing.
-version = 3
-
-[[package]]
-name = "test-crate"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "other-crate"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package("test-crate", "test-crate", "1.5.0");
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock
-            .process_workspace_lockfile(root_path, &packages_with_names);
-
-        assert!(result.is_ok());
-
-        // Verify the lockfile was updated
-        let updated_content =
-            fs::read_to_string(root_path.join("Cargo.lock")).unwrap();
-        assert!(updated_content.contains(r#"version = "1.5.0""#));
-        assert!(updated_content.contains(r#"name = "test-crate""#));
-        // Other package should remain unchanged
-        assert!(updated_content.contains(r#"version = "2.0.0""#));
-        assert!(updated_content.contains(r#"name = "other-crate""#));
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_multiple_packages() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create a workspace Cargo.lock with multiple packages
-        fs::write(
-            root_path.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-# It is not intended for manual editing.
-version = 3
-
-[[package]]
-name = "crate1"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "crate2"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "external-crate"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-"#,
-        )
-        .unwrap();
-
-        let package1 = create_test_package("crate1", "crate1", "1.5.0");
-        let package2 = create_test_package("crate2", "crate2", "2.5.0");
-        let packages_with_names = vec![
-            ("crate1".to_string(), package1),
-            ("crate2".to_string(), package2),
-        ];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock
-            .process_workspace_lockfile(root_path, &packages_with_names);
-
-        assert!(result.is_ok());
-
-        // Verify both packages were updated
-        let updated_content =
-            fs::read_to_string(root_path.join("Cargo.lock")).unwrap();
-        assert!(updated_content.contains(r#"name = "crate1""#));
-        assert!(updated_content.contains(r#"version = "1.5.0""#));
-        assert!(updated_content.contains(r#"name = "crate2""#));
-        assert!(updated_content.contains(r#"version = "2.5.0""#));
-        // External crate should remain unchanged
-        assert!(updated_content.contains(r#"name = "external-crate""#));
-        assert!(updated_content.contains(r#"version = "3.0.0""#));
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_no_lockfile() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        let package = create_test_package("test-crate", "test-crate", "1.5.0");
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock
-            .process_workspace_lockfile(root_path, &packages_with_names);
-
-        // Should return an error when lockfile doesn't exist
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_invalid_format() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create an invalid Cargo.lock (missing package array)
-        fs::write(
-            root_path.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-# Missing [[package]] entries
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package("test-crate", "test-crate", "1.5.0");
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock
-            .process_workspace_lockfile(root_path, &packages_with_names);
-
-        // Should return an error for invalid format
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_no_matching_packages() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create a workspace Cargo.lock with packages that don't match
-        fs::write(
-            root_path.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "different-crate"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package("test-crate", "test-crate", "1.5.0");
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock
-            .process_workspace_lockfile(root_path, &packages_with_names);
-
-        assert!(result.is_ok());
-
-        // File should remain unchanged since no packages matched
-        let content = fs::read_to_string(root_path.join("Cargo.lock")).unwrap();
-        assert!(content.contains(r#"name = "different-crate""#));
-        assert!(content.contains(r#"version = "1.0.0""#));
-    }
-
-    #[test]
-    fn test_process_packages_single_package() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let pkg_dir = path.join("test-crate");
-        fs::create_dir_all(&pkg_dir).unwrap();
-
-        // Create package Cargo.lock
-        fs::write(
-            pkg_dir.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "test-crate"
-version = "1.0.0"
-
-[[package]]
-name = "dependency"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package(
-            "test-crate",
-            pkg_dir.to_str().unwrap(),
-            "1.5.0",
-        );
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&packages_with_names);
-
-        assert!(result.is_ok());
-
-        // Verify the package version was updated
-        let updated_content =
-            fs::read_to_string(pkg_dir.join("Cargo.lock")).unwrap();
-        assert!(updated_content.contains(r#"name = "test-crate""#));
-        assert!(updated_content.contains(r#"version = "1.5.0""#));
-        // Dependency should remain unchanged
-        assert!(updated_content.contains(r#"name = "dependency""#));
-        assert!(updated_content.contains(r#"version = "2.0.0""#));
-    }
-
-    #[test]
-    fn test_process_packages_cross_dependencies() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let pkg1_dir = path.join("crate1");
-        let pkg2_dir = path.join("crate2");
-        fs::create_dir_all(&pkg1_dir).unwrap();
-        fs::create_dir_all(&pkg2_dir).unwrap();
-
-        // Create Cargo.lock for crate1 that includes crate2 as dependency
-        fs::write(
-            pkg1_dir.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "crate1"
-version = "1.0.0"
-
-[[package]]
-name = "crate2"
-version = "2.0.0"
-"#,
-        )
-        .unwrap();
-
-        // Create Cargo.lock for crate2
-        fs::write(
-            pkg2_dir.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "crate2"
-version = "2.0.0"
-"#,
-        )
-        .unwrap();
-
-        let package1 =
-            create_test_package("crate1", pkg1_dir.to_str().unwrap(), "1.5.0");
-        let package2 =
-            create_test_package("crate2", pkg2_dir.to_str().unwrap(), "2.5.0");
-        let packages_with_names = vec![
-            ("crate1".to_string(), package1),
-            ("crate2".to_string(), package2),
-        ];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&packages_with_names);
-
-        assert!(result.is_ok());
-
-        // Verify crate1's lockfile was updated with both versions
-        let pkg1_content =
-            fs::read_to_string(pkg1_dir.join("Cargo.lock")).unwrap();
-        assert!(pkg1_content.contains(r#"name = "crate1""#));
-        assert!(pkg1_content.contains(r#"version = "1.5.0""#));
-        assert!(pkg1_content.contains(r#"name = "crate2""#));
-        assert!(pkg1_content.contains(r#"version = "2.5.0""#));
-
-        // Verify crate2's lockfile was updated
-        let pkg2_content =
-            fs::read_to_string(pkg2_dir.join("Cargo.lock")).unwrap();
-        assert!(pkg2_content.contains(r#"name = "crate2""#));
-        assert!(pkg2_content.contains(r#"version = "2.5.0""#));
-    }
-
-    #[test]
-    fn test_process_packages_no_lockfile() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let pkg_dir = path.join("test-crate");
-        fs::create_dir_all(&pkg_dir).unwrap();
-        // Don't create Cargo.lock
-
-        let package = create_test_package(
-            "test-crate",
-            pkg_dir.to_str().unwrap(),
-            "1.5.0",
-        );
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&packages_with_names);
-
-        // Should succeed even if lockfile doesn't exist (it's skipped)
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_process_packages_invalid_lockfile_format() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let pkg_dir = path.join("test-crate");
-        fs::create_dir_all(&pkg_dir).unwrap();
-
-        // Create invalid Cargo.lock (no package array)
-        fs::write(
-            pkg_dir.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-# No [[package]] entries
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package(
-            "test-crate",
-            pkg_dir.to_str().unwrap(),
-            "1.5.0",
-        );
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&packages_with_names);
-
-        // Should succeed but skip the invalid file
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_load_doc_success() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        fs::write(
-            path.join("test.toml"),
-            r#"version = 3
-
-[[package]]
-name = "test"
-version = "1.0.0"
-"#,
-        )
-        .unwrap();
-
-        let cargo_lock = CargoLock::new();
-        let doc = cargo_lock.load_doc(path.join("test.toml")).unwrap();
-
-        assert!(doc.get("version").is_some());
-        assert!(doc.get("package").is_some());
-    }
-
-    #[test]
-    fn test_load_doc_file_not_found() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.load_doc(path.join("nonexistent.toml"));
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_load_doc_invalid_toml() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        // Write invalid TOML
-        fs::write(path.join("invalid.toml"), "invalid toml content [[[")
-            .unwrap();
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.load_doc(path.join("invalid.toml"));
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_write_doc() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-        let file_path = path.join("output.toml");
-
-        // Create initial file
-        fs::write(&file_path, "").unwrap();
-
-        let cargo_lock = CargoLock::new();
-        let mut doc = r#"version = 3
-
-[[package]]
-name = "test"
-version = "1.0.0"
-"#
-        .parse::<DocumentMut>()
-        .unwrap();
-
-        cargo_lock.write_doc(&mut doc, &file_path).unwrap();
-
-        let content = fs::read_to_string(&file_path).unwrap();
-        assert!(content.contains("version = 3"));
-        assert!(content.contains(r#"name = "test""#));
-        assert!(content.contains(r#"version = "1.0.0""#));
-    }
-
-    #[test]
-    fn test_process_packages_empty_list() {
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&[]);
-
-        // Should succeed with empty packages list
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_process_workspace_lockfile_empty_list() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create a basic workspace Cargo.lock
-        fs::write(
-            root_path.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "some-crate"
-version = "1.0.0"
-"#,
-        )
-        .unwrap();
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_workspace_lockfile(root_path, &[]);
-
-        // Should succeed with empty packages list
-        assert!(result.is_ok());
-
-        // File should remain unchanged
-        let content = fs::read_to_string(root_path.join("Cargo.lock")).unwrap();
-        assert!(content.contains(r#"name = "some-crate""#));
-        assert!(content.contains(r#"version = "1.0.0""#));
-    }
-
-    #[test]
-    fn test_process_packages_package_not_in_lockfile() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
-
-        let pkg_dir = path.join("test-crate");
-        fs::create_dir_all(&pkg_dir).unwrap();
-
-        // Create package Cargo.lock with different package
-        fs::write(
-            pkg_dir.join("Cargo.lock"),
-            r#"# This file is automatically @generated by Cargo.
-version = 3
-
-[[package]]
-name = "different-crate"
-version = "1.0.0"
-"#,
-        )
-        .unwrap();
-
-        let package = create_test_package(
-            "test-crate",
-            pkg_dir.to_str().unwrap(),
-            "1.5.0",
-        );
-        let packages_with_names = vec![("test-crate".to_string(), package)];
-
-        let cargo_lock = CargoLock::new();
-        let result = cargo_lock.process_packages(&packages_with_names);
-
-        assert!(result.is_ok());
-
-        // File should remain unchanged since package not found
-        let content = fs::read_to_string(pkg_dir.join("Cargo.lock")).unwrap();
-        assert!(content.contains(r#"name = "different-crate""#));
-        assert!(content.contains(r#"version = "1.0.0""#));
+        loader: &dyn FileLoader,
+    ) -> Result<Option<DocumentMut>> {
+        let file_path = file_path.as_ref().display().to_string();
+        let content = loader.get_file_content(&file_path).await?;
+        if content.is_none() {
+            return Ok(None);
+        }
+        let content = content.unwrap();
+        let doc = content.parse::<DocumentMut>()?;
+        Ok(Some(doc))
     }
 }

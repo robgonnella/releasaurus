@@ -1,6 +1,7 @@
-use std::path::Path;
+use async_trait::async_trait;
 
 use crate::{
+    forge::{request::FileChange, traits::FileLoader},
     result::Result,
     updater::{framework::Package, traits::PackageUpdater},
 };
@@ -14,9 +15,14 @@ impl GenericUpdater {
     }
 }
 
+#[async_trait]
 impl PackageUpdater for GenericUpdater {
-    fn update(&self, _root_path: &Path, _packages: Vec<Package>) -> Result<()> {
+    async fn update(
+        &self,
+        _packages: Vec<Package>,
+        _loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
         // nothing to do for generic updater
-        Ok(())
+        Ok(None)
     }
 }

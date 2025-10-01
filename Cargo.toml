@@ -47,6 +47,7 @@ chrono = "0.4.42"
 async-trait = "0.1.89"
 gitlab = "0.1803.0"
 base64 = "0.22.1"
+futures = "0.3.31"
 
 [dev-dependencies]
 nanoid = "0.4.0"

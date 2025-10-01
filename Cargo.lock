@@ -2333,6 +2333,7 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "futures",
  "git-conventional",
  "git-url-parse",
  "git2",

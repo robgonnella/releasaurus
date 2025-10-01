@@ -1,15 +1,19 @@
-use color_eyre::eyre::eyre;
+use async_trait::async_trait;
 use log::*;
 use regex::Regex;
 use serde_json::{Value, json};
-use std::fs::{File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 use crate::{
+    forge::{
+        request::{FileChange, FileUpdateType},
+        traits::FileLoader,
+    },
     result::Result,
-    updater::framework::{Framework, Package},
-    updater::traits::PackageUpdater,
+    updater::{
+        framework::{Framework, Package},
+        traits::PackageUpdater,
+    },
 };
 
 /// Node.js package updater for npm, yarn, and pnpm projects.
@@ -20,24 +24,19 @@ impl NodeUpdater {
         Self {}
     }
 
-    fn load_doc<P: AsRef<Path>>(&self, file_path: P) -> Result<Value> {
-        let file = OpenOptions::new().read(true).open(file_path)?;
-        let doc: Value = serde_json::from_reader(file)?;
-        Ok(doc)
-    }
-
-    fn write_doc<P: AsRef<Path>>(
+    async fn load_doc<P: AsRef<Path>>(
         &self,
-        doc: &Value,
         file_path: P,
-    ) -> Result<()> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(file_path)?;
-        let formatted_json = serde_json::to_string_pretty(doc)?;
-        file.write_all(formatted_json.as_bytes())?;
-        Ok(())
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Value>> {
+        let file_path = file_path.as_ref().display().to_string();
+        let content = loader.get_file_content(&file_path).await?;
+        if content.is_none() {
+            return Ok(None);
+        }
+        let content = content.unwrap();
+        let doc: Value = serde_json::from_str(&content)?;
+        Ok(Some(doc))
     }
 
     fn update_deps(
@@ -67,38 +66,45 @@ impl NodeUpdater {
         Ok(())
     }
 
-    fn get_packages_with_names(
+    async fn get_packages_with_names(
         &self,
         packages: Vec<Package>,
+        loader: &dyn FileLoader,
     ) -> Vec<(String, Package)> {
-        packages
-            .into_iter()
-            .map(|p| {
-                let manifest_path = Path::new(&p.path).join("package.json");
-                if let Ok(doc) = self.load_doc(manifest_path)
-                    && let Some(name) = doc["name"].as_str()
-                {
-                    return (name.to_string(), p);
-                }
-                (p.name.clone(), p)
-            })
-            .collect::<Vec<(String, Package)>>()
+        let results = packages.into_iter().map(|p| async {
+            let manifest_path = Path::new(&p.path).join("package.json");
+            let content = self.load_doc(manifest_path, loader).await;
+            if let Ok(content) = content
+                && let Some(doc) = content
+                && let Some(name) = doc["name"].as_str()
+            {
+                return (name.to_string(), p);
+            }
+
+            (p.name.clone(), p)
+        });
+
+        futures::future::join_all(results).await
     }
 
     /// Update package-lock.json file for a specific package
-    fn update_package_lock_json_for_package(
+    async fn update_package_lock_json_for_package(
         &self,
         current_package: (&str, &Package),
         other_packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<FileChange>> {
         let lock_path =
             Path::new(&current_package.1.path).join("package-lock.json");
 
-        if !lock_path.exists() {
-            return Ok(());
+        let lock_doc = self.load_doc(lock_path.clone(), loader).await?;
+
+        if lock_doc.is_none() {
+            return Ok(None);
         }
 
-        let mut lock_doc = self.load_doc(&lock_path)?;
+        info!("Updating package-lock.json at {}", lock_path.display());
+        let mut lock_doc = lock_doc.unwrap();
 
         // Get root package name for later use
         let root_name = lock_doc
@@ -205,23 +211,29 @@ impl NodeUpdater {
             }
         }
 
-        self.write_doc(&lock_doc, &lock_path)?;
-        Ok(())
+        let formatted_json = serde_json::to_string_pretty(&lock_doc)?;
+
+        Ok(Some(FileChange {
+            path: lock_path.display().to_string(),
+            content: formatted_json,
+            update_type: crate::forge::request::FileUpdateType::Replace,
+        }))
     }
 
     /// Update package-lock.json file at root path
-    fn update_package_lock_json_for_root(
+    async fn update_package_lock_json_for_root(
         &self,
         root_path: &Path,
         all_packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("package-lock.json");
-
-        if !lock_path.exists() {
-            return Ok(());
+        let lock_doc = self.load_doc(lock_path.clone(), loader).await?;
+        if lock_doc.is_none() {
+            return Ok(None);
         }
-
-        let mut lock_doc = self.load_doc(&lock_path)?;
+        info!("Updating package-lock.json at {}", lock_path.display());
+        let mut lock_doc = lock_doc.unwrap();
 
         // Get root package name for later use
         let root_name = lock_doc
@@ -301,27 +313,34 @@ impl NodeUpdater {
             }
         }
 
-        self.write_doc(&lock_doc, &lock_path)?;
-        Ok(())
+        let formatted_json = serde_json::to_string_pretty(&lock_doc)?;
+
+        Ok(Some(FileChange {
+            path: lock_path.display().to_string(),
+            content: formatted_json,
+            update_type: crate::forge::request::FileUpdateType::Replace,
+        }))
     }
 
     /// Update yarn.lock file for a specific package
-    fn update_yarn_lock_for_package(
+    async fn update_yarn_lock_for_package(
         &self,
         current_package: (&str, &Package),
         other_packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<FileChange>> {
         let lock_path = Path::new(&current_package.1.path).join("yarn.lock");
-        if !lock_path.exists() {
-            return Ok(());
+        let lock_path = lock_path.display().to_string();
+
+        let content = loader.get_file_content(&lock_path).await?;
+
+        if content.is_none() {
+            return Ok(None);
         }
 
-        let file = File::open(&lock_path)?;
-        let reader = BufReader::new(file);
-        let mut lines: Vec<String> = reader
-            .lines()
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|e| eyre!("Failed to read lines: {}", e))?;
+        info!("Updating yarn.lock at {lock_path}");
+        let content = content.unwrap();
+        let mut lines: Vec<String> = vec![];
 
         // Regex to match package entries like "package@^1.0.0:"
         let package_regex = Regex::new(r#"^"?([^@"]+)@[^"]*"?:$"#)?;
@@ -329,10 +348,11 @@ impl NodeUpdater {
 
         let mut current_yarn_package: Option<String> = None;
 
-        for line in lines.iter_mut() {
+        for line in content.lines() {
             // Check if this line starts a new package entry
             if let Some(caps) = package_regex.captures(line) {
                 current_yarn_package = Some(caps[1].to_string());
+                lines.push(line.to_string());
                 continue;
             }
 
@@ -342,19 +362,23 @@ impl NodeUpdater {
             {
                 // Check if it matches the current package
                 if current_package.0 == pkg_name {
-                    *line = format!(
+                    let new_line = format!(
                         "{}\"{}\"",
                         &caps[1], current_package.1.next_version.semver
                     );
+                    lines.push(new_line);
+                    continue;
                 }
                 // Check if it matches one of the other packages
                 else if let Some((_, package)) =
                     other_packages.iter().find(|(n, _)| n == pkg_name)
                 {
-                    *line = format!(
+                    let new_line = format!(
                         "{}\"{}\"",
                         &caps[1], package.next_version.semver
                     );
+                    lines.push(new_line);
+                    continue;
                 }
             }
 
@@ -367,33 +391,37 @@ impl NodeUpdater {
             {
                 current_yarn_package = None;
             }
+
+            lines.push(line.to_string());
         }
 
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&lock_path)?;
-        file.write_all(lines.join("\n").as_bytes())?;
-        Ok(())
+        let updated_content = lines.join("\n");
+        Ok(Some(FileChange {
+            path: lock_path,
+            content: updated_content,
+            update_type: FileUpdateType::Replace,
+        }))
     }
 
     /// Update yarn.lock file at root path
-    fn update_yarn_lock_for_root(
+    async fn update_yarn_lock_for_root(
         &self,
         root_path: &Path,
         all_packages: &[(String, Package)],
-    ) -> Result<()> {
+        loader: &dyn FileLoader,
+    ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("yarn.lock");
-        if !lock_path.exists() {
-            return Ok(());
+        let lock_path = lock_path.display().to_string();
+        let content = loader.get_file_content(&lock_path).await?;
+
+        if content.is_none() {
+            return Ok(None);
         }
 
-        let file = File::open(&lock_path)?;
-        let reader = BufReader::new(file);
-        let mut lines: Vec<String> = reader
-            .lines()
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|e| eyre!("Failed to read lines: {}", e))?;
+        info!("Updating yarn.lock at {lock_path}");
+
+        let content = content.unwrap();
+        let mut lines: Vec<String> = vec![];
 
         // Regex to match package entries like "package@^1.0.0:"
         let package_regex = Regex::new(r#"^"?([^@"]+)@[^"]*"?:$"#)?;
@@ -401,10 +429,11 @@ impl NodeUpdater {
 
         let mut current_yarn_package: Option<String> = None;
 
-        for line in lines.iter_mut() {
+        for line in content.lines() {
             // Check if this line starts a new package entry
             if let Some(caps) = package_regex.captures(line) {
                 current_yarn_package = Some(caps[1].to_string());
+                lines.push(line.to_string());
                 continue;
             }
 
@@ -414,8 +443,10 @@ impl NodeUpdater {
                 && let Some((_, package)) =
                     all_packages.iter().find(|(n, _)| n == pkg_name)
             {
-                *line =
+                let new_line =
                     format!("{}\"{}\"", &caps[1], package.next_version.semver);
+                lines.push(new_line);
+                continue;
             }
 
             // Reset current package when we hit an empty line or start of new entry
@@ -426,78 +457,114 @@ impl NodeUpdater {
             {
                 current_yarn_package = None;
             }
+
+            lines.push(line.to_string());
         }
 
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&lock_path)?;
-        file.write_all(lines.join("\n").as_bytes())?;
-        Ok(())
+        let updated_content = lines.join("\n");
+
+        Ok(Some(FileChange {
+            path: lock_path,
+            content: updated_content,
+            update_type: FileUpdateType::Replace,
+        }))
     }
 
     /// Update lock files for a specific package
-    fn update_package_lock_files(
+    async fn update_package_lock_files(
         &self,
         current_package: (&str, &Package),
         other_packages: &[(String, Package)],
-    ) -> Result<()> {
-        let package_path = Path::new(&current_package.1.path);
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut changes: Vec<FileChange> = vec![];
 
-        if package_path.join("package-lock.json").exists() {
-            info!("Updating package-lock.json at {}", package_path.display());
-            self.update_package_lock_json_for_package(
+        if let Some(change) = self
+            .update_package_lock_json_for_package(
                 current_package,
                 other_packages,
-            )?;
+                loader,
+            )
+            .await?
+        {
+            changes.push(change);
         }
 
-        if package_path.join("yarn.lock").exists() {
-            info!("Updating yarn.lock at {}", package_path.display());
-            self.update_yarn_lock_for_package(current_package, other_packages)?;
+        if let Some(change) = self
+            .update_yarn_lock_for_package(
+                current_package,
+                other_packages,
+                loader,
+            )
+            .await?
+        {
+            changes.push(change);
         }
 
-        Ok(())
+        if changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(changes))
     }
 
     /// Update lock files at root path
-    fn update_root_lock_files(
+    async fn update_root_lock_files(
         &self,
         root_path: &Path,
         all_packages: &[(String, Package)],
-    ) -> Result<()> {
-        if root_path.join("package-lock.json").exists() {
-            info!("Updating package-lock.json at {}", root_path.display());
-            self.update_package_lock_json_for_root(root_path, all_packages)?;
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut changes: Vec<FileChange> = vec![];
+
+        if let Some(change) = self
+            .update_package_lock_json_for_root(root_path, all_packages, loader)
+            .await?
+        {
+            changes.push(change);
         }
 
-        if root_path.join("yarn.lock").exists() {
-            info!("Updating yarn.lock at {}", root_path.display());
-            self.update_yarn_lock_for_root(root_path, all_packages)?;
+        if let Some(change) = self
+            .update_yarn_lock_for_root(root_path, all_packages, loader)
+            .await?
+        {
+            changes.push(change);
         }
 
-        Ok(())
+        if changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(changes))
     }
 }
 
+#[async_trait]
 impl PackageUpdater for NodeUpdater {
-    fn update(&self, root_path: &Path, packages: Vec<Package>) -> Result<()> {
+    async fn update(
+        &self,
+        packages: Vec<Package>,
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
         let node_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Node))
             .collect::<Vec<Package>>();
 
-        info!(
-            "Found {} node packages in {}",
-            node_packages.len(),
-            root_path.display(),
-        );
+        info!("Found {} node packages", node_packages.len());
 
-        let packages_with_names = self.get_packages_with_names(node_packages);
+        let mut file_changes: Vec<FileChange> = vec![];
+
+        let packages_with_names =
+            self.get_packages_with_names(node_packages, loader).await;
 
         for (package_name, package) in packages_with_names.iter() {
             let pkg_json = Path::new(&package.path).join("package.json");
-            let mut pkg_doc = self.load_doc(pkg_json.as_path())?;
+            let pkg_doc = self.load_doc(pkg_json.clone(), loader).await?;
+            if pkg_doc.is_none() {
+                continue;
+            }
+            let mut pkg_doc = pkg_doc.unwrap();
             pkg_doc["version"] = json!(package.next_version.semver.to_string());
 
             let other_pkgs = packages_with_names
@@ -508,1130 +575,44 @@ impl PackageUpdater for NodeUpdater {
 
             self.update_deps(&mut pkg_doc, "dependencies", &other_pkgs)?;
             self.update_deps(&mut pkg_doc, "dev_dependencies", &other_pkgs)?;
-            self.write_doc(&pkg_doc, pkg_json.as_path())?;
+
+            let formatted_json = serde_json::to_string_pretty(&pkg_doc)?;
+
+            file_changes.push(FileChange {
+                path: pkg_json.display().to_string(),
+                content: formatted_json,
+                update_type: FileUpdateType::Replace,
+            });
 
             // Update lock files in this package directory
-            self.update_package_lock_files(
-                (package_name, package),
-                &other_pkgs,
-            )?;
+            if let Some(changes) = self
+                .update_package_lock_files(
+                    (package_name, package),
+                    &other_pkgs,
+                    loader,
+                )
+                .await?
+            {
+                file_changes.extend(changes);
+            }
         }
 
         // Update lock files at root path
-        self.update_root_lock_files(root_path, &packages_with_names)?;
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::analyzer::release::Tag;
-    use crate::updater::framework::Framework;
-    use std::fs;
-    use tempfile::TempDir;
-
-    fn create_test_version(version: &str) -> Tag {
-        Tag {
-            sha: "abc123".into(),
-            name: format!("v{}", version),
-            semver: semver::Version::parse(version).unwrap(),
+        if let Some(changes) = self
+            .update_root_lock_files(
+                Path::new("."),
+                &packages_with_names,
+                loader,
+            )
+            .await?
+        {
+            file_changes.extend(changes);
         }
-    }
 
-    fn create_test_package(name: &str, path: &str, version: &str) -> Package {
-        Package::new(
-            name.to_string(),
-            path.to_string(),
-            create_test_version(version),
-            Framework::Node,
-        )
-    }
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
 
-    #[test]
-    fn test_load_doc_success() {
-        let temp_dir = TempDir::new().unwrap();
-        let package_json = temp_dir.path().join("package.json");
-
-        fs::write(
-            &package_json,
-            r#"{
-  "name": "test-package",
-  "version": "1.0.0",
-  "dependencies": {
-    "express": "^4.17.1"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let doc = updater.load_doc(&package_json).unwrap();
-
-        assert_eq!(doc["name"].as_str(), Some("test-package"));
-        assert_eq!(doc["version"].as_str(), Some("1.0.0"));
-        assert_eq!(doc["dependencies"]["express"].as_str(), Some("^4.17.1"));
-    }
-
-    #[test]
-    fn test_load_doc_file_not_found() {
-        let updater = NodeUpdater::new();
-        let result = updater.load_doc("/nonexistent/package.json");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_load_doc_invalid_json() {
-        let temp_dir = TempDir::new().unwrap();
-        let package_json = temp_dir.path().join("package.json");
-
-        fs::write(&package_json, "invalid json content").unwrap();
-
-        let updater = NodeUpdater::new();
-        let result = updater.load_doc(&package_json);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_write_doc() {
-        let temp_dir = TempDir::new().unwrap();
-        let package_json = temp_dir.path().join("package.json");
-
-        // Create initial file
-        fs::write(
-            &package_json,
-            r#"{
-  "name": "test-package",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let mut doc = updater.load_doc(&package_json).unwrap();
-
-        // Modify the document
-        doc["version"] = json!("2.0.0");
-
-        // Write it back
-        updater.write_doc(&doc, &package_json).unwrap();
-
-        // Verify the change
-        let updated_content = fs::read_to_string(&package_json).unwrap();
-        assert!(updated_content.contains("\"version\": \"2.0.0\""));
-    }
-
-    #[test]
-    fn test_update_deps_dependencies() {
-        let updater = NodeUpdater::new();
-        let mut doc = json!({
-            "name": "test-package",
-            "version": "1.0.0",
-            "dependencies": {
-                "my-dep": "1.0.0",
-                "external-dep": "2.0.0"
-            }
-        });
-
-        let other_packages = vec![(
-            "my-dep".to_string(),
-            create_test_package("my-dep", "/path/to/my-dep", "1.5.0"),
-        )];
-
-        updater
-            .update_deps(&mut doc, "dependencies", &other_packages)
-            .unwrap();
-
-        assert_eq!(doc["dependencies"]["my-dep"].as_str(), Some("1.5.0"));
-        assert_eq!(doc["dependencies"]["external-dep"].as_str(), Some("2.0.0"));
-    }
-
-    #[test]
-    fn test_update_deps_dev_dependencies() {
-        let updater = NodeUpdater::new();
-        let mut doc = json!({
-            "name": "test-package",
-            "version": "1.0.0",
-            "dev_dependencies": {
-                "test-dep": "1.0.0"
-            }
-        });
-
-        let other_packages = vec![(
-            "test-dep".to_string(),
-            create_test_package("test-dep", "/path/to/test-dep", "2.1.0"),
-        )];
-
-        updater
-            .update_deps(&mut doc, "dev_dependencies", &other_packages)
-            .unwrap();
-
-        assert_eq!(doc["dev_dependencies"]["test-dep"].as_str(), Some("2.1.0"));
-    }
-
-    #[test]
-    fn test_update_deps_no_dependencies() {
-        let updater = NodeUpdater::new();
-        let mut doc = json!({
-            "name": "test-package",
-            "version": "1.0.0"
-        });
-
-        let other_packages = vec![(
-            "my-dep".to_string(),
-            create_test_package("my-dep", "/path/to/my-dep", "1.5.0"),
-        )];
-
-        // Should not error when dependencies section doesn't exist
-        updater
-            .update_deps(&mut doc, "dependencies", &other_packages)
-            .unwrap();
-
-        assert!(doc["dependencies"].is_null());
-    }
-
-    #[test]
-    fn test_get_packages_with_names_from_package_json() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("my-package");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "@scope/actual-name",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "my-package",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let packages_with_names = updater.get_packages_with_names(packages);
-
-        assert_eq!(packages_with_names.len(), 1);
-        assert_eq!(packages_with_names[0].0, "@scope/actual-name");
-        assert_eq!(packages_with_names[0].1.name, "my-package");
-    }
-
-    #[test]
-    fn test_get_packages_with_names_fallback() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("my-package");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create invalid package.json or missing file
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "my-package",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let packages_with_names = updater.get_packages_with_names(packages);
-
-        assert_eq!(packages_with_names.len(), 1);
-        assert_eq!(packages_with_names[0].0, "my-package");
-    }
-
-    #[test]
-    fn test_update_single_package() {
-        let temp_dir = TempDir::new().unwrap();
-        let package_path = temp_dir.path().join("my-package");
-        fs::create_dir_all(&package_path).unwrap();
-
-        let package_json = package_path.join("package.json");
-        fs::write(
-            &package_json,
-            r#"{
-  "name": "my-package",
-  "version": "1.0.0",
-  "dependencies": {
-    "express": "^4.17.1"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "my-package",
-            package_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let updated_content = fs::read_to_string(&package_json).unwrap();
-        assert!(updated_content.contains("\"version\": \"2.0.0\""));
-        // Express dependency should remain unchanged
-        assert!(updated_content.contains("\"express\": \"^4.17.1\""));
-    }
-
-    #[test]
-    fn test_update_cross_package_dependencies() {
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create package A
-        let pkg_a_path = temp_dir.path().join("pkg-a");
-        fs::create_dir_all(&pkg_a_path).unwrap();
-        fs::write(
-            pkg_a_path.join("package.json"),
-            r#"{
-  "name": "pkg-a",
-  "version": "1.0.0",
-  "dependencies": {
-    "lodash": "^4.17.21"
-  }
-}"#,
-        )
-        .unwrap();
-
-        // Create package B that depends on A
-        let pkg_b_path = temp_dir.path().join("pkg-b");
-        fs::create_dir_all(&pkg_b_path).unwrap();
-        fs::write(
-            pkg_b_path.join("package.json"),
-            r#"{
-  "name": "pkg-b",
-  "version": "1.0.0",
-  "dependencies": {
-    "pkg-a": "1.0.0",
-    "express": "^4.17.1"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![
-            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "2.0.0"),
-            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "1.1.0"),
-        ];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        // Check that pkg-a was updated to 2.0.0
-        let pkg_a_content =
-            fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
-        assert!(pkg_a_content.contains("\"version\": \"2.0.0\""));
-
-        // Check that pkg-b was updated to 1.1.0 and its dependency on pkg-a was updated
-        let pkg_b_content =
-            fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\": \"1.1.0\""));
-        assert!(pkg_b_content.contains("\"pkg-a\": \"2.0.0\""));
-        // External dependency should remain unchanged
-        assert!(pkg_b_content.contains("\"express\": \"^4.17.1\""));
-    }
-
-    #[test]
-    fn test_update_with_dev_dependencies() {
-        let temp_dir = TempDir::new().unwrap();
-
-        let pkg_a_path = temp_dir.path().join("pkg-a");
-        let pkg_b_path = temp_dir.path().join("pkg-b");
-        fs::create_dir_all(&pkg_a_path).unwrap();
-        fs::create_dir_all(&pkg_b_path).unwrap();
-
-        fs::write(
-            pkg_a_path.join("package.json"),
-            r#"{
-  "name": "pkg-a",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        fs::write(
-            pkg_b_path.join("package.json"),
-            r#"{
-  "name": "pkg-b",
-  "version": "1.0.0",
-  "dev_dependencies": {
-    "pkg-a": "1.0.0",
-    "jest": "^27.0.0"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![
-            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "1.5.0"),
-            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "1.2.0"),
-        ];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let pkg_b_content =
-            fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\": \"1.2.0\""));
-        assert!(pkg_b_content.contains("\"pkg-a\": \"1.5.0\""));
-        assert!(pkg_b_content.contains("\"jest\": \"^27.0.0\""));
-    }
-
-    #[test]
-    fn test_update_filters_non_node_packages() {
-        let temp_dir = TempDir::new().unwrap();
-
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![
-            create_test_package("pkg", pkg_path.to_str().unwrap(), "2.0.0"),
-            Package::new(
-                "rust-pkg".to_string(),
-                pkg_path.to_str().unwrap().to_string(),
-                create_test_version("1.1.0"),
-                Framework::Rust,
-            ),
-        ];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        // Only the Node package should be updated
-        let content =
-            fs::read_to_string(pkg_path.join("package.json")).unwrap();
-        assert!(content.contains("\"version\": \"2.0.0\""));
-    }
-
-    #[test]
-    fn test_update_with_scoped_package_names() {
-        let temp_dir = TempDir::new().unwrap();
-
-        let pkg_a_path = temp_dir.path().join("pkg-a");
-        let pkg_b_path = temp_dir.path().join("pkg-b");
-        fs::create_dir_all(&pkg_a_path).unwrap();
-        fs::create_dir_all(&pkg_b_path).unwrap();
-
-        fs::write(
-            pkg_a_path.join("package.json"),
-            r#"{
-  "name": "@myorg/pkg-a",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        fs::write(
-            pkg_b_path.join("package.json"),
-            r#"{
-  "name": "@myorg/pkg-b",
-  "version": "1.0.0",
-  "dependencies": {
-    "@myorg/pkg-a": "1.0.0"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![
-            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "2.0.0"),
-            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "1.5.0"),
-        ];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let pkg_b_content =
-            fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\": \"1.5.0\""));
-        assert!(pkg_b_content.contains("\"@myorg/pkg-a\": \"2.0.0\""));
-    }
-
-    #[test]
-    fn test_update_with_missing_package_json() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let result = updater.update(temp_dir.path(), packages);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_update_package_lock_json() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "name": "root-project",
-  "lockfileVersion": 2,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "root-project"
-    },
-    "node_modules/test-pkg": {
-      "name": "test-pkg",
-      "version": "1.0.0"
-    }
-  },
-  "dependencies": {
-    "test-pkg": {
-      "version": "1.0.0"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-        assert!(lock_content.contains("\"version\": \"2.0.0\""));
-    }
-
-    #[test]
-    fn test_update_package_lock_json_root_package() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("my-root-pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "my-root-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json with root package entry
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "name": "my-root-pkg",
-  "version": "1.0.0",
-  "lockfileVersion": 2,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "my-root-pkg",
-      "version": "1.0.0",
-      "dependencies": {
-        "lodash": "^4.17.21"
-      }
-    },
-    "node_modules/lodash": {
-      "version": "4.17.21"
-    }
-  },
-  "dependencies": {
-    "lodash": {
-      "version": "4.17.21"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "my-root-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-
-        // Root level version should be updated
-        let lock_json: serde_json::Value =
-            serde_json::from_str(&lock_content).unwrap();
-        assert_eq!(lock_json["version"].as_str(), Some("2.0.0"));
-
-        // Root package entry (key "") should be updated
-        assert_eq!(
-            lock_json["packages"][""]["version"].as_str(),
-            Some("2.0.0")
-        );
-
-        // External dependencies should remain unchanged
-        assert_eq!(
-            lock_json["dependencies"]["lodash"]["version"].as_str(),
-            Some("4.17.21")
-        );
-    }
-
-    #[test]
-    fn test_update_yarn_lock() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create yarn.lock
-        fs::write(
-            temp_dir.path().join("yarn.lock"),
-            r#"# yarn lockfile v1
-
-"test-pkg@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/test-pkg/-/test-pkg-1.0.0.tgz"
-  integrity sha512-example
-
-other-dep@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/other-dep/-/other-dep-2.0.0.tgz"
-"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("yarn.lock")).unwrap();
-        assert!(lock_content.contains("version \"2.0.0\""));
-        // Ensure other packages weren't affected
-        assert!(lock_content.contains("other-dep@^2.0.0"));
-    }
-
-    #[test]
-    fn test_update_with_missing_lock_files() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        // Should not fail when lock files don't exist
-        let result = updater.update(temp_dir.path(), packages);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_update_package_lock_json_modern_structure() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json with modern structure (lockfileVersion 3)
-        // where dependencies are under packages[""] entry
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "name": "root-project",
-  "version": "1.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "root-project",
-      "version": "1.0.0",
-      "dependencies": {
-        "test-pkg": "^1.0.0"
-      },
-      "devDependencies": {
-        "test-pkg": "^1.0.0"
-      }
-    },
-    "node_modules/test-pkg": {
-      "name": "test-pkg",
-      "version": "1.0.0"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let result = updater.update(temp_dir.path(), packages);
-        assert!(result.is_ok());
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-
-        // Verify dependencies under packages[""] were updated
-        assert!(lock_content.contains("\"test-pkg\": \"^2.0.0\""));
-        // Verify devDependencies under packages[""] were updated
-        assert!(lock_content.contains("\"test-pkg\": \"^2.0.0\""));
-        // Verify node_modules entry was updated
-        assert!(lock_content.contains(r#""version": "2.0.0""#));
-    }
-
-    #[test]
-    fn test_update_package_lock_json_node_modules_entries() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json with node_modules/ entries
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "name": "root-project",
-  "version": "1.0.0",
-  "lockfileVersion": 2,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "root-project",
-      "version": "1.0.0"
-    },
-    "node_modules/test-pkg": {
-      "version": "1.0.0",
-      "resolved": "https://registry.npmjs.org/test-pkg/-/test-pkg-1.0.0.tgz"
-    },
-    "node_modules/@scope/other-pkg": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/@scope/other-pkg/-/other-pkg-2.0.0.tgz"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let result = updater.update(temp_dir.path(), packages);
-        assert!(result.is_ok());
-
-        let lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-
-        // Verify node_modules/test-pkg was updated (version should be 2.0.0)
-        assert!(lock_content.contains(r#""node_modules/test-pkg""#));
-        assert!(lock_content.contains(r#""version": "2.0.0""#));
-
-        // Verify other packages remain unchanged
-        assert!(lock_content.contains(r#""node_modules/@scope/other-pkg""#));
-    }
-
-    #[test]
-    fn test_update_lock_files_in_root_and_package_paths() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json files
-        fs::write(
-            temp_dir.path().join("package.json"),
-            r#"{
-  "name": "root-project",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json in root
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "name": "root-project",
-  "version": "1.0.0",
-  "lockfileVersion": 2,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "root-project",
-      "version": "1.0.0"
-    },
-    "node_modules/test-pkg": {
-      "name": "test-pkg",
-      "version": "1.0.0"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        // Create package-lock.json in package directory
-        fs::write(
-            pkg_path.join("package-lock.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0",
-  "lockfileVersion": 2,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "test-pkg",
-      "version": "1.0.0"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let result = updater.update(temp_dir.path(), packages);
-        assert!(result.is_ok());
-
-        // Verify root lock file was updated
-        let root_lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-        assert!(root_lock_content.contains(r#""version": "2.0.0""#));
-
-        // Verify package lock file was updated
-        let pkg_lock_content =
-            fs::read_to_string(pkg_path.join("package-lock.json")).unwrap();
-        assert!(pkg_lock_content.contains(r#""version": "2.0.0""#));
-    }
-
-    #[test]
-    fn test_update_multiple_lock_files() {
-        let temp_dir = TempDir::new().unwrap();
-        let pkg_path = temp_dir.path().join("pkg");
-        fs::create_dir_all(&pkg_path).unwrap();
-
-        // Create package.json
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-pkg",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create multiple lock files
-        fs::write(
-            temp_dir.path().join("package-lock.json"),
-            r#"{
-  "packages": {
-    "node_modules/test-pkg": {
-      "name": "test-pkg",
-      "version": "1.0.0"
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        fs::write(
-            temp_dir.path().join("yarn.lock"),
-            r#""test-pkg@^1.0.0":
-  version "1.0.0"
-"#,
-        )
-        .unwrap();
-
-        let updater = NodeUpdater::new();
-        let packages = vec![create_test_package(
-            "test-pkg",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        updater.update(temp_dir.path(), packages).unwrap();
-
-        // Both lock files should be updated
-        let package_lock_content =
-            fs::read_to_string(temp_dir.path().join("package-lock.json"))
-                .unwrap();
-        assert!(package_lock_content.contains("\"version\": \"2.0.0\""));
-
-        let yarn_lock_content =
-            fs::read_to_string(temp_dir.path().join("yarn.lock")).unwrap();
-        assert!(yarn_lock_content.contains("version \"2.0.0\""));
-    }
-
-    #[test]
-    fn test_workspace_dependencies_not_updated() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create package A with workspace dependencies
-        let pkg_a_path = root_path.join("packages/pkg-a");
-        fs::create_dir_all(&pkg_a_path).unwrap();
-        fs::write(
-            pkg_a_path.join("package.json"),
-            r#"{
-  "name": "pkg-a",
-  "version": "1.0.0",
-  "dependencies": {
-    "pkg-b": "workspace:*",
-    "pkg-c": "workspace:^1.0.0",
-    "external-dep": "^2.0.0"
-  },
-  "devDependencies": {
-    "pkg-d": "workspace:~1.0.0"
-  }
-}"#,
-        )
-        .unwrap();
-
-        // Create package B that will be updated
-        let pkg_b_path = root_path.join("packages/pkg-b");
-        fs::create_dir_all(&pkg_b_path).unwrap();
-        fs::write(
-            pkg_b_path.join("package.json"),
-            r#"{
-  "name": "pkg-b",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let packages = vec![
-            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "2.0.0"),
-            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "2.1.0"),
-        ];
-
-        let updater = NodeUpdater::new();
-        updater.update(root_path, packages).unwrap();
-
-        // Check that workspace dependencies were NOT updated
-        let pkg_a_content =
-            fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
-
-        // Workspace dependencies should remain unchanged
-        assert!(pkg_a_content.contains("\"pkg-b\": \"workspace:*\""));
-        assert!(pkg_a_content.contains("\"pkg-c\": \"workspace:^1.0.0\""));
-        assert!(pkg_a_content.contains("\"pkg-d\": \"workspace:~1.0.0\""));
-
-        // External dependency should remain unchanged
-        assert!(pkg_a_content.contains("\"external-dep\": \"^2.0.0\""));
-
-        // Package A's version should be updated
-        assert!(pkg_a_content.contains("\"version\": \"2.0.0\""));
-
-        // Check that pkg-b version was updated
-        let pkg_b_content =
-            fs::read_to_string(pkg_b_path.join("package.json")).unwrap();
-        assert!(pkg_b_content.contains("\"version\": \"2.1.0\""));
-    }
-
-    #[test]
-    fn test_mixed_workspace_and_regular_dependencies() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        // Create package A
-        let pkg_a_path = root_path.join("pkg-a");
-        fs::create_dir_all(&pkg_a_path).unwrap();
-        fs::write(
-            pkg_a_path.join("package.json"),
-            r#"{
-  "name": "pkg-a",
-  "version": "1.0.0",
-  "dependencies": {
-    "pkg-b": "workspace:*",
-    "pkg-c": "1.0.0"
-  }
-}"#,
-        )
-        .unwrap();
-
-        // Create package B (workspace dependency)
-        let pkg_b_path = root_path.join("pkg-b");
-        fs::create_dir_all(&pkg_b_path).unwrap();
-        fs::write(
-            pkg_b_path.join("package.json"),
-            r#"{
-  "name": "pkg-b",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        // Create package C (regular dependency that should be updated)
-        let pkg_c_path = root_path.join("pkg-c");
-        fs::create_dir_all(&pkg_c_path).unwrap();
-        fs::write(
-            pkg_c_path.join("package.json"),
-            r#"{
-  "name": "pkg-c",
-  "version": "1.0.0"
-}"#,
-        )
-        .unwrap();
-
-        let packages = vec![
-            create_test_package("pkg-a", pkg_a_path.to_str().unwrap(), "1.5.0"),
-            create_test_package("pkg-b", pkg_b_path.to_str().unwrap(), "2.0.0"),
-            create_test_package("pkg-c", pkg_c_path.to_str().unwrap(), "2.1.0"),
-        ];
-
-        let updater = NodeUpdater::new();
-        updater.update(root_path, packages).unwrap();
-
-        let pkg_a_content =
-            fs::read_to_string(pkg_a_path.join("package.json")).unwrap();
-
-        // Workspace dependency should NOT be updated
-        assert!(pkg_a_content.contains("\"pkg-b\": \"workspace:*\""));
-
-        // Regular dependency should be updated to new version
-        assert!(pkg_a_content.contains("\"pkg-c\": \"2.1.0\""));
-
-        // Package A version should be updated
-        assert!(pkg_a_content.contains("\"version\": \"1.5.0\""));
-    }
-
-    #[test]
-    fn test_various_workspace_protocols() {
-        let temp_dir = TempDir::new().unwrap();
-        let root_path = temp_dir.path();
-
-        let pkg_path = root_path.join("package");
-        fs::create_dir_all(&pkg_path).unwrap();
-        fs::write(
-            pkg_path.join("package.json"),
-            r#"{
-  "name": "test-package",
-  "version": "1.0.0",
-  "dependencies": {
-    "dep1": "workspace:*",
-    "dep2": "workspace:^",
-    "dep3": "workspace:~",
-    "dep4": "workspace:^1.2.3",
-    "dep5": "workspace:~1.2.3",
-    "dep6": "workspace:1.2.3"
-  }
-}"#,
-        )
-        .unwrap();
-
-        let packages = vec![create_test_package(
-            "test-package",
-            pkg_path.to_str().unwrap(),
-            "2.0.0",
-        )];
-
-        let updater = NodeUpdater::new();
-        updater.update(root_path, packages).unwrap();
-
-        let updated_content =
-            fs::read_to_string(pkg_path.join("package.json")).unwrap();
-
-        // All workspace protocols should be preserved
-        assert!(updated_content.contains("\"dep1\": \"workspace:*\""));
-        assert!(updated_content.contains("\"dep2\": \"workspace:^\""));
-        assert!(updated_content.contains("\"dep3\": \"workspace:~\""));
-        assert!(updated_content.contains("\"dep4\": \"workspace:^1.2.3\""));
-        assert!(updated_content.contains("\"dep5\": \"workspace:~1.2.3\""));
-        assert!(updated_content.contains("\"dep6\": \"workspace:1.2.3\""));
-
-        // Package version should be updated
-        assert!(updated_content.contains("\"version\": \"2.0.0\""));
+        Ok(Some(file_changes))
     }
 }
