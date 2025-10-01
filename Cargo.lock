@@ -2327,6 +2327,7 @@ name = "releasaurus"
 version = "0.2.3"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "bincode",
  "cacache",
  "chrono",
