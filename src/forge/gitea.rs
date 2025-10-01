@@ -147,7 +147,7 @@ struct GiteaFileChange {
 }
 
 #[derive(Debug, Serialize)]
-// TODO: Currently git does not support the force option
+// TODO: Currently gitea does not support the force option
 // Update once below issue is resolved
 // https://github.com/go-gitea/gitea/issues/35538
 struct GiteaModifyFiles {
@@ -441,7 +441,7 @@ impl Forge for Gitea {
             })
         }
 
-        // TODO: Currently git does not support the force option
+        // TODO: Currently gitea does not support the force option
         // Update once below issue is resolved
         // https://github.com/go-gitea/gitea/issues/35538
         let body = GiteaModifyFiles {
@@ -460,7 +460,15 @@ impl Forge for Gitea {
         Ok(created.commit)
     }
 
-    async fn tag_commit(&self, _tag_name: &str, _sha: &str) -> Result<()> {
+    async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
+        let tag_url = self.base_url.join("tags")?;
+        let body = serde_json::json!({
+          "tag_name": tag_name,
+          "target": sha
+        });
+        let request = self.client.post(tag_url).json(&body).build()?;
+        let response = self.client.execute(request).await?;
+        response.error_for_status()?;
         Ok(())
     }
 
