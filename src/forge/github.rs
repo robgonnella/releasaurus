@@ -3,7 +3,11 @@ use async_trait::async_trait;
 use chrono::DateTime;
 use color_eyre::eyre::eyre;
 use log::*;
-use octocrab::{Octocrab, models::repos::Object, params};
+use octocrab::{
+    Octocrab,
+    models::repos::Object,
+    params::{self, repos::Reference},
+};
 use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -591,7 +595,12 @@ impl Forge for Github {
         Ok(commit)
     }
 
-    async fn tag_commit(&self, _tag_name: &str, _sha: &str) -> Result<()> {
+    async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
+        self.instance
+            .repos(&self.config.owner, &self.config.repo)
+            .create_ref(&Reference::Tag(tag_name.to_string()), sha)
+            .await?;
+
         Ok(())
     }
 

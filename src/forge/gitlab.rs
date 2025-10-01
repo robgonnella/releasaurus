@@ -21,7 +21,7 @@ use gitlab::{
                     CreateCommit,
                 },
                 files::FileRaw,
-                tags::{Tags, TagsOrderBy},
+                tags::{CreateTag, Tags, TagsOrderBy},
             },
         },
     },
@@ -72,21 +72,11 @@ pub struct GitlabCommit {
     pub created_at: String,
 }
 
-// /// Represents a GitLab project release.
-// #[derive(Debug, Deserialize)]
-// pub struct GitlabRelease {
-//     pub tag_name: String,
-//     pub description: Option<String>,
-// }
-
 /// Represents a Gitlab project Tag
 #[derive(Debug, Deserialize)]
 pub struct GitlabTag {
     pub name: String,
     pub commit: GitlabCommit,
-    // pub message: String,
-    // pub target: String,
-    // pub release: GitlabRelease,
 }
 
 #[derive(Debug, Deserialize)]
@@ -337,7 +327,16 @@ impl Forge for Gitlab {
         Ok(Commit { sha: commit.id })
     }
 
-    async fn tag_commit(&self, _tag_name: &str, _sha: &str) -> Result<()> {
+    async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
+        let endpoint = CreateTag::builder()
+            .project(&self.project_id)
+            .message(tag_name)
+            .tag_name(tag_name)
+            .ref_(sha)
+            .build()?;
+
+        ignore(endpoint).query_async(&self.gl).await?;
+
         Ok(())
     }
 
