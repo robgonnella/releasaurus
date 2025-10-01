@@ -1,9 +1,8 @@
 //! Implements the Forge trait for Gitea
-use std::{cmp, path::Path};
-
 use async_trait::async_trait;
+use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{ContextCompat, eyre};
 use log::*;
 use regex::Regex;
 use reqwest::{
@@ -12,6 +11,7 @@ use reqwest::{
 };
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
+use std::{cmp, path::Path};
 
 use crate::{
     analyzer::release::Tag,
@@ -19,8 +19,9 @@ use crate::{
     forge::{
         config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
-            GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+            Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
+            ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -130,6 +131,37 @@ struct GiteaTag {
     commit: GiteaTagCommit,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum GiteaFileChangeOperation {
+    Create,
+    Update,
+}
+
+#[derive(Debug, Serialize)]
+struct GiteaFileChange {
+    pub path: String,
+    pub content: String,
+    pub operation: GiteaFileChangeOperation,
+    pub sha: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+// TODO: Currently git does not support the force option
+// Update once below issue is resolved
+// https://github.com/go-gitea/gitea/issues/35538
+struct GiteaModifyFiles {
+    pub new_branch: String,
+    pub message: String,
+    pub files: Vec<GiteaFileChange>,
+    // pub force: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GiteaCreatedCommit {
+    pub commit: Commit,
+}
+
 pub struct Gitea {
     config: RemoteConfig,
     base_url: Url,
@@ -151,19 +183,48 @@ impl Gitea {
             .default_headers(headers)
             .build()?;
 
-        let base_url = Url::parse(
-            format!(
-                "{}://{}/api/v1/repos/{}/",
-                config.scheme, config.host, config.path
-            )
-            .as_str(),
-        )?;
+        let mut base_url = format!(
+            "{}://{}/api/v1/repos/{}/",
+            config.scheme, config.host, config.path
+        );
+
+        if let Some(port) = config.port {
+            base_url = format!(
+                "{}://{}:{}/api/v1/repos/{}/",
+                config.scheme, config.host, port, config.path
+            );
+        }
+
+        let base_url = Url::parse(&base_url)?;
 
         Ok(Gitea {
             config,
             client,
             base_url,
         })
+    }
+
+    // TODO: Right now gitea does not support force updating a branch
+    // Once the below issue is resolved we can remove this method and use the
+    // "force" option
+    // https://github.com/go-gitea/gitea/issues/35538
+    async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
+        let url = self.base_url.join(&format!("branches/{branch}"))?;
+        let request = self.client.delete(url).build()?;
+        let resp = self.client.execute(request).await?;
+        info!("delete branch resp --> {:#?}", resp);
+        Ok(())
+    }
+
+    async fn get_file_sha(&self, path: &str) -> Result<String> {
+        let path = path.strip_prefix("./").unwrap_or(path);
+        let file_url = self.base_url.join(&format!("contents/{path}"))?;
+        let request = self.client.get(file_url).build()?;
+        let response = self.client.execute(request).await?;
+        let result = response.error_for_status()?;
+        let file: serde_json::Value = result.json().await?;
+        let sha = file["sha"].as_str().wrap_err("failed to get file sha")?;
+        Ok(sha.into())
     }
 
     async fn get_all_labels(&self) -> Result<Vec<Label>> {
@@ -211,9 +272,11 @@ impl Forge for Gitea {
         let request = self.client.get(self.base_url.clone()).build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
-        let mut repo: serde_json::Value = result.json().await?;
-        let branch = repo["default_branch"].take().to_string();
-        Ok(branch)
+        let repo: serde_json::Value = result.json().await?;
+        let branch = repo["default_branch"]
+            .as_str()
+            .wrap_err("failed to get default branch")?;
+        Ok(branch.into())
     }
 
     async fn get_file_contents(&self, path: &str) -> Result<Option<String>> {
@@ -342,9 +405,52 @@ impl Forge for Gitea {
 
     async fn create_release_branch(
         &self,
-        _req: CreateBranchRequest,
+        req: CreateBranchRequest,
     ) -> Result<Commit> {
-        Ok(Commit { sha: "".into() })
+        // TODO: Once below issue is resolved we can delete this call
+        // https://github.com/go-gitea/gitea/issues/35538
+        self.delete_branch_if_exists(&req.branch).await?;
+
+        let mut file_changes: Vec<GiteaFileChange> = vec![];
+
+        for change in req.file_changes.iter() {
+            let mut op = GiteaFileChangeOperation::Update;
+            let mut sha = None;
+            let mut content = change.content.clone();
+            let existing_content = self.get_file_contents(&change.path).await?;
+            if let Some(existing_content) = existing_content {
+                sha = Some(self.get_file_sha(&change.path).await?);
+                if matches!(change.update_type, FileUpdateType::Prepend) {
+                    content = format!("{content}{existing_content}");
+                }
+            } else {
+                op = GiteaFileChangeOperation::Create;
+            }
+            file_changes.push(GiteaFileChange {
+                path: change.path.clone(),
+                content: BASE64_STANDARD.encode(&content),
+                operation: op,
+                sha,
+            })
+        }
+
+        // TODO: Currently git does not support the force option
+        // Update once below issue is resolved
+        // https://github.com/go-gitea/gitea/issues/35538
+        let body = GiteaModifyFiles {
+            new_branch: req.branch,
+            message: req.message,
+            files: file_changes,
+            // force: true,
+        };
+
+        let contents_url = self.base_url.join("contents")?;
+        let request = self.client.post(contents_url).json(&body).build()?;
+        let response = self.client.execute(request).await?;
+        let result = response.error_for_status()?;
+        let created: GiteaCreatedCommit = result.json().await?;
+
+        Ok(created.commit)
     }
 
     async fn tag_commit(&self, _tag_name: &str, _sha: &str) -> Result<()> {
@@ -367,6 +473,8 @@ impl Forge for Gitea {
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
         let issues: Vec<Issue> = result.json().await?;
+
+        info!("found open PRs --> {:#?}", issues);
 
         if issues.is_empty() {
             return Ok(None);

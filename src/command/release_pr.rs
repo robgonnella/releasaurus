@@ -64,7 +64,7 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
 
     let default_branch = forge.default_branch().await?;
     let release_branch =
-        format!("{DEFAULT_PR_BRANCH_PREFIX}{}", default_branch);
+        format!("{DEFAULT_PR_BRANCH_PREFIX}-{}", default_branch);
 
     let include_title_version = config.packages.len() == 1;
     let mut title = format!("chore({}): release", default_branch);
@@ -105,15 +105,13 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
 
     if !manifest.is_empty() {
         info!("creating / updating release branch: {release_branch}");
-        let commit = forge
+        forge
             .create_release_branch(CreateBranchRequest {
                 branch: release_branch.clone(),
                 message: title.clone(),
                 file_changes: file_updates,
             })
             .await?;
-
-        info!("commit --> {:#?}", commit);
 
         info!("searching for existing pr for branch {release_branch}");
         let pr = forge

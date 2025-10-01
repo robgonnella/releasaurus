@@ -1,7 +1,7 @@
 //! Configuration for Git forge platform connections.
 use secrecy::SecretString;
 
-pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release--";
+pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release";
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
@@ -14,8 +14,10 @@ use crate::{
 #[derive(Debug, Clone)]
 /// Remote repository connection configuration.
 pub struct RemoteConfig {
-    /// Remote repository host.
+    /// Remote forge host
     pub host: String,
+    /// Remote forge port
+    pub port: Option<u16>,
     /// URL scheme (http or https).
     pub scheme: String,
     /// Repository owner.
@@ -38,6 +40,7 @@ impl Default for RemoteConfig {
     fn default() -> Self {
         Self {
             host: "".to_string(),
+            port: None,
             scheme: "".to_string(),
             owner: "".to_string(),
             repo: "".to_string(),

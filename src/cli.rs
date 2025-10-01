@@ -163,6 +163,7 @@ fn get_github_remote(
 
     let remote_config = RemoteConfig {
         host,
+        port: parsed.port,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
@@ -228,6 +229,7 @@ fn get_gitlab_remote(
 
     let remote_config = RemoteConfig {
         host,
+        port: parsed.port,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
@@ -293,6 +295,7 @@ fn get_gitea_remote(
 
     let remote_config = RemoteConfig {
         host,
+        port: parsed.port,
         scheme: parsed.scheme.to_string(),
         owner,
         repo: parsed.name,
