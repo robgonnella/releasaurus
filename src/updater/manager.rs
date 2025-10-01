@@ -6,12 +6,10 @@ use std::path::Path;
 
 use crate::{
     analyzer::release::Release,
-    config::Config,
+    config::{Config, ReleaseType},
+    forge::{request::FileChange, traits::FileLoader},
     result::Result,
-    updater::{
-        detection::manager::DetectionManager,
-        framework::{Framework, Package},
-    },
+    updater::framework::{Framework, Package},
 };
 
 /// Update operation statistics.
@@ -23,10 +21,6 @@ pub struct UpdateStats {
     pub releasable_packages: usize,
     /// Packages successfully updated.
     pub updated_packages: usize,
-    /// Detected frameworks and package counts.
-    pub frameworks_detected: HashMap<String, usize>,
-    /// Warnings encountered during processing.
-    pub warnings: Vec<String>,
 }
 
 impl std::fmt::Display for UpdateStats {
@@ -35,50 +29,30 @@ impl std::fmt::Display for UpdateStats {
         writeln!(f, "  Total packages: {}", self.total_packages)?;
         writeln!(f, "  Releasable packages: {}", self.releasable_packages)?;
         writeln!(f, "  Successfully updated: {}", self.updated_packages)?;
-
-        if !self.frameworks_detected.is_empty() {
-            writeln!(f, "  Frameworks detected:")?;
-            for (framework, count) in &self.frameworks_detected {
-                writeln!(f, "    {}: {} packages", framework, count)?;
-            }
-        }
-
-        if !self.warnings.is_empty() {
-            writeln!(f, "  Warnings:")?;
-            for warning in &self.warnings {
-                writeln!(f, "    - {}", warning)?;
-            }
-        }
-
         Ok(())
     }
 }
 
 /// Coordinates package updates across different languages and frameworks.
 pub struct UpdaterManager {
-    /// Repository root path.
-    root_path: std::path::PathBuf,
-    /// Framework detection manager.
-    detection_manager: DetectionManager,
+    repo_name: String,
 }
 
 impl UpdaterManager {
     /// Create updater manager for repository.
-    pub fn new<P: AsRef<Path>>(root_path: P) -> Self {
-        let root_path = root_path.as_ref().to_path_buf();
-
+    pub fn new(repo_name: &str) -> Self {
         Self {
-            root_path: root_path.clone(),
-            detection_manager: Framework::detection_manager(root_path),
+            repo_name: repo_name.to_string(),
         }
     }
 
     /// Update packages based on analyzer output and configuration.
-    pub fn update_packages(
+    pub async fn update_packages(
         &mut self,
         manifest: &HashMap<String, Release>,
-        cli_config: &Config,
-    ) -> Result<UpdateStats> {
+        config: &Config,
+        loader: &dyn FileLoader,
+    ) -> Result<Option<Vec<FileChange>>> {
         info!(
             "Starting package updates for {} manifest entries",
             manifest.len()
@@ -86,18 +60,18 @@ impl UpdaterManager {
 
         // Convert analyzer output to packages
         let packages = self
-            .convert_manifest_to_packages(manifest, cli_config)
+            .convert_manifest_to_packages(manifest, config)
             .context("Failed to convert manifest to packages")?;
 
         if packages.is_empty() {
             info!("No releasable packages found");
-            return Ok(UpdateStats {
+            let stats = UpdateStats {
                 total_packages: manifest.len(),
                 releasable_packages: 0,
                 updated_packages: 0,
-                frameworks_detected: HashMap::new(),
-                warnings: vec!["No packages were releasable".to_string()],
-            });
+            };
+            info!("{stats}");
+            return Ok(None);
         }
 
         // Collect statistics
@@ -105,34 +79,31 @@ impl UpdaterManager {
 
         info!("Executing updates for {} packages", packages.len());
 
+        let mut file_changes: Vec<FileChange> = vec![];
+
         for package in packages.iter() {
             let updater = package.framework.updater();
-            match updater.update(&self.root_path, packages.clone()) {
-                Ok(()) => {
-                    stats.updated_packages += 1;
-                    info!(
-                        "Successfully updated {} packages",
-                        stats.updated_packages
-                    );
-                }
-                Err(err) => {
-                    let error_msg =
-                        format!("Failed to update packages: {}", err);
-                    warn!("{}", error_msg);
-                    stats.warnings.push(error_msg);
-                    return Err(err.wrap_err("Package update failed"));
-                }
+            let updates = updater.update(packages.clone(), loader).await?;
+            if let Some(updates) = updates {
+                file_changes.extend(updates);
+                stats.updated_packages += 1;
             }
         }
 
-        Ok(stats)
+        info!("{stats}");
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
     }
 
     // Private helper methods
     fn convert_manifest_to_packages(
         &self,
         manifest: &HashMap<String, Release>,
-        cli_config: &Config,
+        config: &Config,
     ) -> Result<Vec<Package>> {
         let mut packages = Vec::new();
 
@@ -149,7 +120,7 @@ impl UpdaterManager {
             let tag = release.tag.clone().unwrap();
 
             // Validate that we have a corresponding package config
-            cli_config
+            let config_pkg = config
                 .packages
                 .iter()
                 .find(|p| &p.path == package_path)
@@ -158,18 +129,20 @@ impl UpdaterManager {
                     package_path
                 ))?;
 
-            let detection =
-                self.detection_manager.detect_framework(package_path)?;
+            let release_type = config_pkg
+                .release_type
+                .clone()
+                .unwrap_or(ReleaseType::default());
+
+            let framework = Framework::from(release_type);
 
             let package_name = self.derive_package_name(package_path);
-            let package_path =
-                self.root_path.join(package_path).display().to_string();
 
             let package = Package::new(
                 package_name.clone(),
                 package_path.clone(),
                 tag.clone(),
-                detection.framework, // Will be detected later
+                framework, // Will be detected later
             );
 
             debug!(
@@ -196,11 +169,7 @@ impl UpdaterManager {
 
         if package_path == "." {
             // For root package, use repository directory name as fallback
-            self.root_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("root")
-                .to_string()
+            self.repo_name.clone()
         } else {
             // Extract name from path (e.g., "crates/my-package" -> "my-package")
             package_path
@@ -216,22 +185,10 @@ impl UpdaterManager {
         packages: &[Package],
         total_count: usize,
     ) -> UpdateStats {
-        let mut frameworks_detected = HashMap::new();
-
-        // Count packages by framework
-        for package in packages {
-            let framework_name = package.framework_name().to_string();
-            *frameworks_detected
-                .entry(framework_name.clone())
-                .or_insert(0) += 1;
-        }
-
         UpdateStats {
             total_packages: total_count,
             releasable_packages: packages.len(),
             updated_packages: 0, // Will be set after actual updates
-            frameworks_detected,
-            warnings: vec![],
         }
     }
 }

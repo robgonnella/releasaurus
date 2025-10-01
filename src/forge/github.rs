@@ -62,7 +62,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::Forge,
+        traits::{FileLoader, Forge},
     },
     result::Result,
 };
@@ -245,7 +245,7 @@ impl Github {
             let mut content = change.content;
             if matches!(change.update_type, FileUpdateType::Prepend)
                 && let Some(existing_content) =
-                    self.get_file_contents(&change.path).await?
+                    self.get_file_content(&change.path).await?
             {
                 content = format!("{content}{existing_content}");
             }
@@ -292,30 +292,8 @@ impl Github {
 }
 
 #[async_trait]
-impl Forge for Github {
-    async fn load_config(&self) -> Result<Config> {
-        let content = self.get_file_contents(DEFAULT_CONFIG_FILE).await?;
-
-        if content.is_none() {
-            info!("no configuration found: using default");
-            return Ok(Config::default());
-        }
-
-        let content = content.unwrap();
-        let config: Config = toml::from_str(&content)?;
-        Ok(config)
-    }
-
-    async fn default_branch(&self) -> Result<String> {
-        let repo = self
-            .instance
-            .repos(&self.config.owner, &self.config.repo)
-            .get()
-            .await?;
-        Ok(repo.default_branch.unwrap_or("main".into()))
-    }
-
-    async fn get_file_contents(&self, path: &str) -> Result<Option<String>> {
+impl FileLoader for Github {
+    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let result = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
@@ -360,6 +338,35 @@ impl Forge for Github {
                 }
             }
         }
+    }
+}
+
+#[async_trait]
+impl Forge for Github {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
+    async fn load_config(&self) -> Result<Config> {
+        let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
+
+        if content.is_none() {
+            info!("no configuration found: using default");
+            return Ok(Config::default());
+        }
+
+        let content = content.unwrap();
+        let config: Config = toml::from_str(&content)?;
+        Ok(config)
+    }
+
+    async fn default_branch(&self) -> Result<String> {
+        let repo = self
+            .instance
+            .repos(&self.config.owner, &self.config.repo)
+            .get()
+            .await?;
+        Ok(repo.default_branch.unwrap_or("main".into()))
     }
 
     async fn get_latest_tag_for_prefix(

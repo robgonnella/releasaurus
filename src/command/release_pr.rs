@@ -6,7 +6,6 @@ use std::{collections::HashMap, path::Path};
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig, release::Release},
     cli,
-    command::common::get_tag_prefix,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         request::{
@@ -15,7 +14,7 @@ use crate::{
         },
     },
     result::Result,
-    // updater::manager::UpdaterManager,
+    updater::manager::UpdaterManager,
 };
 
 /// Execute release-pr command to analyze commits and create release pull request.
@@ -23,6 +22,7 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
     let remote = args.get_remote()?;
     let remote_config = remote.get_config();
     let forge = remote.get_forge().await?;
+    let file_loader = remote.get_file_loader().await?;
     let config = forge.load_config().await?;
     let mut manifest: HashMap<String, Release> = HashMap::new();
 
@@ -44,10 +44,8 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
 
         let analyzer_config = AnalyzerConfig {
             body: config.changelog.body.clone(),
-            footer: config.changelog.footer.clone(),
-            header: config.changelog.header.clone(),
             release_link_base_url: remote_config.release_link_base_url.clone(),
-            tag_prefix: Some(get_tag_prefix(package)),
+            tag_prefix: Some(tag_prefix),
         };
 
         let analyzer = Analyzer::new(analyzer_config)?;
@@ -101,6 +99,17 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
                 update_type: FileUpdateType::Prepend,
             });
         }
+    }
+
+    let repo_name = forge.repo_name();
+
+    let mut update_manager = UpdaterManager::new(&repo_name);
+
+    if let Some(changes) = update_manager
+        .update_packages(&manifest, &config, file_loader.as_ref())
+        .await?
+    {
+        file_updates.extend(changes);
     }
 
     if !manifest.is_empty() {

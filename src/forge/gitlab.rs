@@ -43,7 +43,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::Forge,
+        traits::{FileLoader, Forge},
     },
     result::Result,
 };
@@ -140,32 +140,8 @@ impl Gitlab {
 }
 
 #[async_trait]
-impl Forge for Gitlab {
-    async fn load_config(&self) -> Result<Config> {
-        let content = self.get_file_contents(DEFAULT_CONFIG_FILE).await?;
-
-        if content.is_none() {
-            info!("repository configuration not found: using default");
-            return Ok(Config::default());
-        }
-
-        let content = content.unwrap();
-
-        let config: Config = toml::from_str(&content)?;
-
-        Ok(config)
-    }
-
-    async fn default_branch(&self) -> Result<String> {
-        let endpoint = Project::builder().project(&self.project_id).build()?;
-        let result: serde_json::Value = endpoint.query_async(&self.gl).await?;
-        let default_branch = result["default_branch"]
-            .as_str()
-            .wrap_err("failed to find default branch")?;
-        Ok(default_branch.to_string())
-    }
-
-    async fn get_file_contents(&self, path: &str) -> Result<Option<String>> {
+impl FileLoader for Gitlab {
+    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let endpoint = FileRaw::builder()
             .project(&self.project_id)
             .file_path(path)
@@ -204,6 +180,37 @@ impl Forge for Gitlab {
                 Err(eyre!(msg))
             }
         }
+    }
+}
+
+#[async_trait]
+impl Forge for Gitlab {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
+    async fn load_config(&self) -> Result<Config> {
+        let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
+
+        if content.is_none() {
+            info!("repository configuration not found: using default");
+            return Ok(Config::default());
+        }
+
+        let content = content.unwrap();
+
+        let config: Config = toml::from_str(&content)?;
+
+        Ok(config)
+    }
+
+    async fn default_branch(&self) -> Result<String> {
+        let endpoint = Project::builder().project(&self.project_id).build()?;
+        let result: serde_json::Value = endpoint.query_async(&self.gl).await?;
+        let default_branch = result["default_branch"]
+            .as_str()
+            .wrap_err("failed to find default branch")?;
+        Ok(default_branch.to_string())
     }
 
     /// Get the latest release for the project
@@ -287,14 +294,6 @@ impl Forge for Gitlab {
         req: CreateBranchRequest,
     ) -> Result<Commit> {
         let default_branch_name = self.default_branch().await?;
-        // let default_branch = self.get_branch(&default_branch_name).await?;
-
-        // if default_branch.is_none() {
-        //     return Err(eyre!("failed to get default branch ref"));
-        // }
-
-        // let default_branch = default_branch.unwrap();
-        // let release_branch = self.get_branch(&req.branch).await?;
 
         let mut actions: Vec<CommitAction> = vec![];
 
@@ -303,7 +302,7 @@ impl Forge for Gitlab {
 
             let mut update_type = CommitActionType::Update;
 
-            let existing_content = self.get_file_contents(&change.path).await?;
+            let existing_content = self.get_file_content(&change.path).await?;
 
             if existing_content.is_none() {
                 update_type = CommitActionType::Create;

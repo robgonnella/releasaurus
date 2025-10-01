@@ -3,7 +3,7 @@
 //! Supports customizable changelog templates and multi-package repositories.
 use serde::Deserialize;
 
-use crate::analyzer::config::{DEFAULT_BODY, DEFAULT_FOOTER};
+use crate::analyzer::config::DEFAULT_BODY;
 
 /// Default configuration filename.
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
@@ -13,20 +13,27 @@ pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 pub struct ChangelogConfig {
     /// Main changelog body template.
     pub body: String,
-    /// Optional header template for the changelog.
-    pub header: Option<String>,
-    /// Optional footer template for the changelog.
-    pub footer: Option<String>,
 }
 
 impl Default for ChangelogConfig {
     fn default() -> Self {
         Self {
             body: DEFAULT_BODY.into(),
-            header: None,
-            footer: Some(DEFAULT_FOOTER.into()),
         }
     }
+}
+
+/// Supported release types for updating package files
+#[derive(Debug, Default, Clone, Deserialize)]
+pub enum ReleaseType {
+    #[default]
+    Generic,
+    Node,
+    Rust,
+    Python,
+    Php,
+    Ruby,
+    Java,
 }
 
 /// Package configuration for multi-package repositories and monorepos.
@@ -34,6 +41,8 @@ impl Default for ChangelogConfig {
 pub struct PackageConfig {
     /// Package directory path relative to repository root.
     pub path: String,
+    /// release type for updating package files
+    pub release_type: Option<ReleaseType>,
     /// Optional Git tag prefix for this package.
     pub tag_prefix: Option<String>,
 }
@@ -42,6 +51,7 @@ impl Default for PackageConfig {
     fn default() -> Self {
         Self {
             path: ".".to_string(),
+            release_type: None,
             tag_prefix: None,
         }
     }

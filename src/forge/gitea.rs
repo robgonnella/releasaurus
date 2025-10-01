@@ -23,7 +23,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::Forge,
+        traits::{FileLoader, Forge},
     },
     result::Result,
 };
@@ -254,9 +254,29 @@ impl Gitea {
 }
 
 #[async_trait]
+impl FileLoader for Gitea {
+    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
+        let raw_url = self.base_url.join(&format!("raw/{path}"))?;
+        let request = self.client.get(raw_url).build()?;
+        let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            info!("no file found in repo at path: {path}");
+            return Ok(None);
+        }
+        let result = response.error_for_status()?;
+        let content = result.text().await?;
+        Ok(Some(content))
+    }
+}
+
+#[async_trait]
 impl Forge for Gitea {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
     async fn load_config(&self) -> Result<Config> {
-        let content = self.get_file_contents(DEFAULT_CONFIG_FILE).await?;
+        let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
 
         if content.is_none() {
             info!("configuration not found in repo: using default");
@@ -277,19 +297,6 @@ impl Forge for Gitea {
             .as_str()
             .wrap_err("failed to get default branch")?;
         Ok(branch.into())
-    }
-
-    async fn get_file_contents(&self, path: &str) -> Result<Option<String>> {
-        let raw_url = self.base_url.join(&format!("raw/{path}"))?;
-        let request = self.client.get(raw_url).build()?;
-        let response = self.client.execute(request).await?;
-        if response.status() == StatusCode::NOT_FOUND {
-            info!("no file found in repo at path: {path}");
-            return Ok(None);
-        }
-        let result = response.error_for_status()?;
-        let content = result.text().await?;
-        Ok(Some(content))
     }
 
     async fn get_latest_tag_for_prefix(
@@ -417,7 +424,7 @@ impl Forge for Gitea {
             let mut op = GiteaFileChangeOperation::Update;
             let mut sha = None;
             let mut content = change.content.clone();
-            let existing_content = self.get_file_contents(&change.path).await?;
+            let existing_content = self.get_file_content(&change.path).await?;
             if let Some(existing_content) = existing_content {
                 sha = Some(self.get_file_sha(&change.path).await?);
                 if matches!(change.update_type, FileUpdateType::Prepend) {
