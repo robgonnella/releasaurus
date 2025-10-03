@@ -11,8 +11,3 @@ pub mod release;
 
 /// Release PR creation and management command implementation.
 pub mod release_pr;
-
-/// End-to-end integration tests (requires `_internal_e2e_tests` feature).
-#[cfg(test)]
-#[cfg(feature = "_internal_e2e_tests")]
-mod tests;
