@@ -10,3 +10,6 @@ pub mod github;
 pub mod gitlab;
 pub mod request;
 pub mod traits;
+
+#[cfg(all(test, feature = "_internal_e2e_tests"))]
+mod tests;

@@ -156,6 +156,8 @@ impl FileLoader for Gitlab {
                     info!("no file found for path: {path}");
                     return Ok(None);
                 }
+                // For some reason successful responses are returned in Err
+                // ¯\_(ツ)_/¯
                 if status == StatusCode::OK {
                     info!("found file at path: {path}");
                     let content = String::from_utf8(data)?;
@@ -164,6 +166,18 @@ impl FileLoader for Gitlab {
                 let msg = format!(
                     "failed to file content from repo: status: {status}, data: {}",
                     String::from_utf8(data).unwrap()
+                );
+                error!("{msg}");
+                Err(eyre!(msg))
+            }
+            Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
+                if status == StatusCode::NOT_FOUND {
+                    info!("no file found for path: {path}");
+                    return Ok(None);
+                }
+                let msg = format!(
+                    "failed to file content from repo: status: {status}, msg: {}",
+                    msg
                 );
                 error!("{msg}");
                 Err(eyre!(msg))
