@@ -34,66 +34,44 @@ impl JavaUpdater {
 
             // Try Maven first (pom.xml)
             let pom_path = package_path.join("pom.xml");
-            if pom_path.exists() {
-                let pom_path = pom_path.display().to_string();
-                info!("Updating Maven project: {}", package.path);
-                if let Some(change) = self
-                    .update_maven_project(&pom_path, package, loader)
-                    .await?
-                {
-                    file_changes.push(change);
-                }
+
+            let pom_path = pom_path.display().to_string();
+            if let Some(change) = self
+                .update_maven_project(&pom_path, package, loader)
+                .await?
+            {
+                file_changes.push(change);
                 continue;
             }
 
             // Try Gradle (build.gradle or build.gradle.kts)
             let gradle_path = package_path.join("build.gradle");
+            let gradle_path = gradle_path.display().to_string();
             let gradle_kts_path = package_path.join("build.gradle.kts");
+            let gradle_kts_path = gradle_kts_path.display().to_string();
 
-            if gradle_path.exists() {
-                let gradle_path = gradle_path.display().to_string();
-                info!("Updating Gradle project: {}", gradle_path);
-                if let Some(change) = self
-                    .update_gradle_project(&gradle_path, package, false, loader)
-                    .await?
-                {
-                    file_changes.push(change);
-                }
-            } else if gradle_kts_path.exists() {
-                let gradle_kts_path = gradle_kts_path.display().to_string();
-                info!("Updating Gradle Kotlin DSL project: {}", package.path);
-                if let Some(change) = self
-                    .update_gradle_project(
-                        &gradle_kts_path,
-                        package,
-                        true,
-                        loader,
-                    )
-                    .await?
-                {
-                    file_changes.push(change);
-                }
-            } else {
-                info!(
-                    "No Maven or Gradle build file found for package: {}",
-                    package.path
-                );
+            if let Some(change) = self
+                .update_gradle_project(&gradle_path, package, false, loader)
+                .await?
+            {
+                file_changes.push(change);
+            }
+
+            if let Some(change) = self
+                .update_gradle_project(&gradle_kts_path, package, true, loader)
+                .await?
+            {
+                file_changes.push(change);
             }
 
             // Also check for gradle.properties
             let gradle_props_path = package_path.join("gradle.properties");
-            if gradle_props_path.exists() {
-                let gradle_props_path = gradle_props_path.display().to_string();
-                if let Some(change) = self
-                    .update_gradle_properties(
-                        &gradle_props_path,
-                        package,
-                        loader,
-                    )
-                    .await?
-                {
-                    file_changes.push(change);
-                }
+            let gradle_props_path = gradle_props_path.display().to_string();
+            if let Some(change) = self
+                .update_gradle_properties(&gradle_props_path, package, loader)
+                .await?
+            {
+                file_changes.push(change);
             }
         }
 
@@ -116,6 +94,8 @@ impl JavaUpdater {
         if content.is_none() {
             return Ok(None);
         }
+
+        info!("Updating Maven project: {}", package.path);
 
         let content = content.unwrap();
         let bytes = content.as_bytes();
@@ -191,6 +171,8 @@ impl JavaUpdater {
         if content.is_none() {
             return Ok(None);
         }
+
+        info!("Updating Gradle project: {}", build_path);
 
         let content = content.unwrap();
 
@@ -306,6 +288,8 @@ impl JavaUpdater {
             return Ok(None);
         }
 
+        info!("Updating gradle.properties: {}", props_path);
+
         let content = content.unwrap();
 
         let mut lines: Vec<String> = Vec::new();
@@ -356,5 +340,645 @@ impl PackageUpdater for JavaUpdater {
         info!("Found {} Java packages", java_packages.len(),);
 
         self.process_packages(&java_packages, loader).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::release::Tag;
+    use crate::forge::traits::MockFileLoader;
+    use semver::Version as SemVer;
+
+    fn create_test_package(path: &str, next_version: &str) -> Package {
+        Package {
+            name: "test-package".to_string(),
+            path: path.to_string(),
+            framework: Framework::Java,
+            next_version: Tag {
+                sha: "test-sha".to_string(),
+                name: format!("v{}", next_version),
+                semver: SemVer::parse(next_version).unwrap(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn test_update_maven_project() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>test-project</artifactId>
+    <version>1.0.0</version>
+    <name>Test Project</name>
+</project>"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/pom.xml"))
+            .times(1)
+            .returning(move |_| Ok(Some(pom_content.to_string())));
+
+        let result = updater
+            .update_maven_project(
+                "test-project/pom.xml",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "test-project/pom.xml");
+        assert!(change.content.contains("<version>2.0.0</version>"));
+        assert!(!change.content.contains("<version>1.0.0</version>"));
+    }
+
+    #[tokio::test]
+    async fn test_update_maven_project_with_nested_versions() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "3.0.0");
+
+        let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>test-project</artifactId>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <groupId>org.example</groupId>
+            <artifactId>some-lib</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+    </dependencies>
+</project>"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/pom.xml"))
+            .times(1)
+            .returning(move |_| Ok(Some(pom_content.to_string())));
+
+        let result = updater
+            .update_maven_project(
+                "test-project/pom.xml",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        // Should only update project version, not dependency version
+        assert!(change.content.contains("<version>3.0.0</version>"));
+        assert!(change.content.contains("<version>5.0.0</version>"));
+        assert!(!change.content.contains("<version>1.0.0</version>"));
+    }
+
+    #[tokio::test]
+    async fn test_update_maven_project_file_not_found() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/pom.xml"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .update_maven_project(
+                "test-project/pom.xml",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_groovy_double_quotes() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let gradle_content = r#"plugins {
+    id 'java'
+}
+
+group = 'com.example'
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle",
+                &package,
+                false,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "test-project/build.gradle");
+        assert!(change.content.contains(r#"version = "2.0.0""#));
+        assert!(!change.content.contains(r#"version = "1.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_groovy_single_quotes() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.5.0");
+
+        let gradle_content = r#"plugins {
+    id 'java'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle",
+                &package,
+                false,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert!(change.content.contains(r#"version = '2.5.0'"#));
+        assert!(!change.content.contains(r#"version = '1.0.0'"#));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_kotlin_dsl() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "3.0.0");
+
+        let gradle_content = r#"plugins {
+    kotlin("jvm") version "1.9.0"
+}
+
+group = "com.example"
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle.kts"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle.kts",
+                &package,
+                true,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "test-project/build.gradle.kts");
+        assert!(change.content.contains(r#"version = "3.0.0""#));
+        assert!(!change.content.contains(r#"version = "1.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_kotlin_val_declaration() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "4.0.0");
+
+        let gradle_content = r#"plugins {
+    kotlin("jvm") version "1.9.0"
+}
+
+val version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle.kts"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle.kts",
+                &package,
+                true,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert!(change.content.contains(r#"val version = "4.0.0""#));
+        assert!(!change.content.contains(r#"val version = "1.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_no_version() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let gradle_content = r#"plugins {
+    id 'java'
+}
+
+group = 'com.example'
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle",
+                &package,
+                false,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_properties() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let props_content = r#"# Project properties
+version=1.0.0
+group=com.example
+name=test-project
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/gradle.properties"))
+            .times(1)
+            .returning(move |_| Ok(Some(props_content.to_string())));
+
+        let result = updater
+            .update_gradle_properties(
+                "test-project/gradle.properties",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "test-project/gradle.properties");
+        assert!(change.content.contains("version=2.0.0"));
+        assert!(!change.content.contains("version=1.0.0"));
+        assert!(change.content.contains("group=com.example"));
+        assert!(change.content.contains("name=test-project"));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_properties_with_spaces() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "3.0.0");
+
+        let props_content = r#"# Project properties
+  version=1.0.0
+group=com.example
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/gradle.properties"))
+            .times(1)
+            .returning(move |_| Ok(Some(props_content.to_string())));
+
+        let result = updater
+            .update_gradle_properties(
+                "test-project/gradle.properties",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert!(change.content.contains("version=3.0.0"));
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_properties_no_version() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let props_content = r#"# Project properties
+group=com.example
+name=test-project
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/gradle.properties"))
+            .times(1)
+            .returning(move |_| Ok(Some(props_content.to_string())));
+
+        let result = updater
+            .update_gradle_properties(
+                "test-project/gradle.properties",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_properties_file_not_found() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/gradle.properties"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .update_gradle_properties(
+                "test-project/gradle.properties",
+                &package,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_filters_java_packages() {
+        let updater = JavaUpdater::new();
+
+        let packages = vec![
+            create_test_package("java-project", "2.0.0"),
+            Package {
+                name: "node-project".to_string(),
+                path: "node-project".to_string(),
+                framework: Framework::Node,
+                next_version: Tag {
+                    sha: "test-sha".to_string(),
+                    name: "v1.0.0".to_string(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                },
+            },
+        ];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        let result = updater.update(packages, &mock_loader).await.unwrap();
+
+        // Should process but find no files (returns None because no changes made)
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_gradle_project_with_project_prefix() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let gradle_content = r#"plugins {
+    id 'java'
+}
+
+group = 'com.example'
+project.version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle"))
+            .times(1)
+            .returning(move |_| Ok(Some(gradle_content.to_string())));
+
+        let result = updater
+            .update_gradle_project(
+                "test-project/build.gradle",
+                &package,
+                false,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert!(change.content.contains(r#"project.version = "2.0.0""#));
+        assert!(!change.content.contains(r#"project.version = "1.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_process_packages_with_multiple_gradle_files() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let gradle_content = r#"version = "1.0.0""#;
+        let props_content = r#"version=1.0.0"#;
+
+        let mut mock_loader = MockFileLoader::new();
+
+        // pom.xml doesn't exist
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/pom.xml"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // build.gradle exists and has version
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle"))
+            .times(1)
+            .returning({
+                let content = gradle_content.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // build.gradle.kts doesn't exist
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/build.gradle.kts"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // gradle.properties exists and has version
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/gradle.properties"))
+            .times(1)
+            .returning({
+                let content = props_content.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        let packages = vec![package];
+        let result = updater
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+
+        // Verify build.gradle was updated
+        assert!(changes.iter().any(|c| c.path == "test-project/build.gradle"
+            && c.content.contains(r#"version = "2.0.0""#)));
+
+        // Verify gradle.properties was updated
+        assert!(
+            changes
+                .iter()
+                .any(|c| c.path == "test-project/gradle.properties"
+                    && c.content.contains("version=2.0.0"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_process_packages_maven_takes_precedence() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "3.0.0");
+
+        let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <version>1.0.0</version>
+</project>"#;
+        let mut mock_loader = MockFileLoader::new();
+
+        // pom.xml exists
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-project/pom.xml"))
+            .times(1)
+            .returning({
+                let content = pom_content.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // build.gradle should NOT be called because Maven takes precedence
+        // (the continue statement in process_packages)
+
+        let packages = vec![package];
+        let result = updater
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+
+        // Only Maven file should be updated
+        assert_eq!(changes[0].path, "test-project/pom.xml");
+        assert!(changes[0].content.contains("<version>3.0.0</version>"));
+    }
+
+    #[tokio::test]
+    async fn test_process_packages_no_files_found() {
+        let updater = JavaUpdater::new();
+        let package = create_test_package("test-project", "2.0.0");
+
+        let mut mock_loader = MockFileLoader::new();
+
+        // All files return None (don't exist)
+        mock_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        let packages = vec![package];
+        let result = updater
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        // Should return None when no files are found
+        assert!(result.is_none());
     }
 }
