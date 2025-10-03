@@ -197,42 +197,10 @@ impl UpdaterManager {
 mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
-    use crate::config::PackageConfig;
+    use crate::config::ReleaseType;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::*;
     use semver::Version as SemVer;
-
-    fn create_test_release(version: &str, has_tag: bool) -> Release {
-        Release {
-            tag: if has_tag {
-                Some(Tag {
-                    sha: "test-sha".to_string(),
-                    name: format!("v{}", version),
-                    semver: SemVer::parse(version).unwrap(),
-                })
-            } else {
-                None
-            },
-            link: String::new(),
-            sha: "test-sha".to_string(),
-            commits: vec![],
-            notes: String::new(),
-            timestamp: 0,
-        }
-    }
-
-    fn create_test_config(packages: Vec<(&str, ReleaseType)>) -> Config {
-        Config {
-            packages: packages
-                .into_iter()
-                .map(|(path, release_type)| PackageConfig {
-                    path: path.to_string(),
-                    release_type: Some(release_type),
-                    tag_prefix: None,
-                })
-                .collect(),
-            ..Default::default()
-        }
-    }
 
     #[test]
     fn test_new_updater_manager() {
@@ -297,7 +265,7 @@ mod tests {
             create_test_release("2.0.0", true),
         );
 
-        let config = create_test_config(vec![
+        let config = create_test_config_simple(vec![
             ("packages/one", ReleaseType::Node),
             ("packages/two", ReleaseType::Rust),
         ]);
@@ -349,7 +317,7 @@ mod tests {
             create_test_release("2.0.0", false), // No tag
         );
 
-        let config = create_test_config(vec![
+        let config = create_test_config_simple(vec![
             ("packages/one", ReleaseType::Node),
             ("packages/two", ReleaseType::Rust),
         ]);
@@ -373,8 +341,10 @@ mod tests {
         );
 
         // Config doesn't include packages/one
-        let config =
-            create_test_config(vec![("packages/different", ReleaseType::Node)]);
+        let config = create_test_config_simple(vec![(
+            "packages/different",
+            ReleaseType::Node,
+        )]);
 
         let result = manager.convert_manifest_to_packages(&manifest, &config);
         assert!(result.is_err());
@@ -424,8 +394,10 @@ mod tests {
             create_test_release("1.0.0", false), // No tag
         );
 
-        let config =
-            create_test_config(vec![("packages/one", ReleaseType::Node)]);
+        let config = create_test_config_simple(vec![(
+            "packages/one",
+            ReleaseType::Node,
+        )]);
 
         let mock_loader = MockFileLoader::new();
 

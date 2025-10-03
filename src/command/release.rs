@@ -95,85 +95,8 @@ async fn create_package_release(
 mod tests {
     use super::*;
     use crate::{
-        analyzer::release::Tag,
-        config::{ChangelogConfig, Config, PackageConfig, ReleaseType},
-        forge::{
-            config::RemoteConfig,
-            request::{ForgeCommit, PullRequest},
-            traits::MockForge,
-        },
+        config::ReleaseType, forge::traits::MockForge, test_helpers::*,
     };
-    use secrecy::SecretString;
-    use semver::Version as SemVer;
-
-    fn create_test_remote_config() -> RemoteConfig {
-        RemoteConfig {
-            host: "github.com".to_string(),
-            port: None,
-            scheme: "https".to_string(),
-            owner: "test".to_string(),
-            repo: "repo".to_string(),
-            path: "test/repo".to_string(),
-            token: SecretString::from("test-token".to_string()),
-            commit_link_base_url: "https://github.com/test/repo/commit"
-                .to_string(),
-            release_link_base_url: "https://github.com/test/repo/releases/tag"
-                .to_string(),
-        }
-    }
-
-    fn create_test_config(packages: Vec<PackageConfig>) -> Config {
-        Config {
-            first_release_search_depth: 100,
-            changelog: ChangelogConfig {
-                body: "## Changes\n{{ commits }}".to_string(),
-            },
-            packages,
-        }
-    }
-
-    fn create_test_package_config(
-        path: &str,
-        release_type: Option<ReleaseType>,
-        tag_prefix: Option<String>,
-    ) -> PackageConfig {
-        PackageConfig {
-            path: path.to_string(),
-            release_type,
-            tag_prefix,
-        }
-    }
-
-    fn create_test_tag(name: &str, semver: &str, sha: &str) -> Tag {
-        Tag {
-            sha: sha.to_string(),
-            name: name.to_string(),
-            semver: SemVer::parse(semver).unwrap(),
-        }
-    }
-
-    fn create_test_forge_commit(
-        id: &str,
-        message: &str,
-        timestamp: i64,
-    ) -> ForgeCommit {
-        ForgeCommit {
-            id: id.to_string(),
-            link: format!("https://github.com/test/repo/commit/{}", id),
-            author_name: "Test Author".to_string(),
-            author_email: "test@example.com".to_string(),
-            merge_commit: false,
-            message: message.to_string(),
-            timestamp,
-        }
-    }
-
-    fn create_test_pull_request(number: u64, sha: &str) -> PullRequest {
-        PullRequest {
-            number,
-            sha: sha.to_string(),
-        }
-    }
 
     #[tokio::test]
     async fn test_execute_with_no_merged_pr() {
