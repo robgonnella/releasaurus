@@ -8,9 +8,12 @@ use mockall::automock;
 use crate::{
     analyzer::release::Tag,
     config::Config,
-    forge::request::{
-        Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
-        GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+    forge::{
+        config::RemoteConfig,
+        request::{
+            Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
+            GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+        },
     },
     result::Result,
 };
@@ -26,6 +29,7 @@ pub trait FileLoader: Sync {
 /// Common interface for Git forge platform operations.
 pub trait Forge: Any {
     fn repo_name(&self) -> String;
+    fn remote_config(&self) -> RemoteConfig;
     async fn load_config(&self) -> Result<Config>;
     async fn default_branch(&self) -> Result<String>;
     async fn create_release_branch(

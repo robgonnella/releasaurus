@@ -65,14 +65,6 @@ pub enum Remote {
 }
 
 impl Remote {
-    pub fn get_config(&self) -> RemoteConfig {
-        match self {
-            Remote::Github(conf) => conf.clone(),
-            Remote::Gitlab(conf) => conf.clone(),
-            Remote::Gitea(conf) => conf.clone(),
-        }
-    }
-
     pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
         match self {
             Remote::Github(config) => {
@@ -116,38 +108,5 @@ mod tests {
     fn test_default_remote_config() {
         let remote = RemoteConfig::default();
         assert!(remote.port.is_none());
-    }
-
-    #[test]
-    fn test_get_github_config() {
-        let remote_config = RemoteConfig {
-            host: "github.com".into(),
-            ..RemoteConfig::default()
-        };
-        let remote = Remote::Github(remote_config.clone());
-        let conf = remote.get_config();
-        assert_eq!(conf.host, remote_config.host);
-    }
-
-    #[test]
-    fn test_get_gitlab_config() {
-        let remote_config = RemoteConfig {
-            host: "gitlab.com".into(),
-            ..RemoteConfig::default()
-        };
-        let remote = Remote::Gitlab(remote_config.clone());
-        let conf = remote.get_config();
-        assert_eq!(conf.host, remote_config.host);
-    }
-
-    #[test]
-    fn test_get_gitea_config() {
-        let remote_config = RemoteConfig {
-            host: "gitea.com".into(),
-            ..RemoteConfig::default()
-        };
-        let remote = Remote::Gitea(remote_config.clone());
-        let conf = remote.get_config();
-        assert_eq!(conf.host, remote_config.host);
     }
 }

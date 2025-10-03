@@ -7,21 +7,23 @@ use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig, release::Release},
     command::common,
     forge::{
-        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL, Remote},
+        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         request::{
             CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
             GetPrRequest, PrLabelsRequest, UpdatePrRequest,
         },
+        traits::{FileLoader, Forge},
     },
     result::Result,
     updater::manager::UpdaterManager,
 };
 
 /// Execute release-pr command to analyze commits and create release pull request.
-pub async fn execute(remote: Remote) -> Result<()> {
-    let remote_config = remote.get_config();
-    let forge = remote.get_forge().await?;
-    let file_loader = remote.get_file_loader().await?;
+pub async fn execute(
+    forge: Box<dyn Forge>,
+    file_loader: Box<dyn FileLoader>,
+) -> Result<()> {
+    let remote_config = forge.remote_config();
     let config = forge.load_config().await?;
     let mut manifest: HashMap<String, Release> = HashMap::new();
 

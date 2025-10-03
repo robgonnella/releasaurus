@@ -6,7 +6,7 @@ use crate::{
     command::common,
     config,
     forge::{
-        config::{Remote, RemoteConfig, TAGGED_LABEL},
+        config::{RemoteConfig, TAGGED_LABEL},
         request::{PrLabelsRequest, PullRequest},
         traits::Forge,
     },
@@ -14,9 +14,8 @@ use crate::{
 };
 
 /// Execute release command to create git tags and publish final release.
-pub async fn execute(remote: Remote) -> Result<()> {
-    let remote_config = remote.get_config();
-    let forge = remote.get_forge().await?;
+pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
+    let remote_config = forge.remote_config();
     let merged_pr = forge.get_merged_release_pr().await?;
 
     if merged_pr.is_none() {
