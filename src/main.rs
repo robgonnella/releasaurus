@@ -77,9 +77,13 @@ async fn main() -> Result<()> {
     initialize_logger(args.debug)?;
 
     let remote = args.get_remote()?;
+    let forge = remote.get_forge().await?;
+    let file_loader = remote.get_file_loader().await?;
 
     match args.command {
-        cli::Command::ReleasePR => command::release_pr::execute(remote).await,
-        cli::Command::Release => command::release::execute(remote).await,
+        cli::Command::ReleasePR => {
+            command::release_pr::execute(forge, file_loader).await
+        }
+        cli::Command::Release => command::release::execute(forge).await,
     }
 }

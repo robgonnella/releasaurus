@@ -283,6 +283,10 @@ impl Forge for Gitea {
         self.config.repo.clone()
     }
 
+    fn remote_config(&self) -> RemoteConfig {
+        self.config.clone()
+    }
+
     async fn load_config(&self) -> Result<Config> {
         let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
 
