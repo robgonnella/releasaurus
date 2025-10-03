@@ -109,3 +109,47 @@ impl Remote {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_remote_config() {
+        let remote = RemoteConfig::default();
+        assert!(remote.port.is_none());
+    }
+
+    #[test]
+    fn test_get_github_config() {
+        let remote_config = RemoteConfig {
+            host: "github.com".into(),
+            ..RemoteConfig::default()
+        };
+        let remote = Remote::Github(remote_config.clone());
+        let conf = remote.get_config();
+        assert_eq!(conf.host, remote_config.host);
+    }
+
+    #[test]
+    fn test_get_gitlab_config() {
+        let remote_config = RemoteConfig {
+            host: "gitlab.com".into(),
+            ..RemoteConfig::default()
+        };
+        let remote = Remote::Gitlab(remote_config.clone());
+        let conf = remote.get_config();
+        assert_eq!(conf.host, remote_config.host);
+    }
+
+    #[test]
+    fn test_get_gitea_config() {
+        let remote_config = RemoteConfig {
+            host: "gitea.com".into(),
+            ..RemoteConfig::default()
+        };
+        let remote = Remote::Gitea(remote_config.clone());
+        let conf = remote.get_config();
+        assert_eq!(conf.host, remote_config.host);
+    }
+}
