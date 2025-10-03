@@ -5,9 +5,9 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig, release::Release},
-    cli,
+    command::common,
     forge::{
-        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
+        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL, Remote},
         request::{
             CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
             GetPrRequest, PrLabelsRequest, UpdatePrRequest,
@@ -18,8 +18,7 @@ use crate::{
 };
 
 /// Execute release-pr command to analyze commits and create release pull request.
-pub async fn execute(args: &cli::Args) -> Result<()> {
-    let remote = args.get_remote()?;
+pub async fn execute(remote: Remote) -> Result<()> {
     let remote_config = remote.get_config();
     let forge = remote.get_forge().await?;
     let file_loader = remote.get_file_loader().await?;
@@ -27,12 +26,11 @@ pub async fn execute(args: &cli::Args) -> Result<()> {
     let mut manifest: HashMap<String, Release> = HashMap::new();
 
     for package in config.packages.iter() {
+        let tag_prefix = common::get_tag_prefix(package);
         info!(
             "processing package: path: {}, tag_prefix: {}",
-            package.path,
-            package.tag_prefix.clone().unwrap_or("v".into())
+            package.path, tag_prefix
         );
-        let tag_prefix = package.tag_prefix.clone().unwrap_or("v".into());
         let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         info!("path: {}, current tag {:#?}", package.path, current_tag);

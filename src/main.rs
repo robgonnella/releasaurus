@@ -72,14 +72,14 @@ fn initialize_logger(debug: bool) -> Result<()> {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let cli_args = cli::Args::parse();
+    let args = cli::Args::parse();
 
-    initialize_logger(cli_args.debug)?;
+    initialize_logger(args.debug)?;
 
-    match cli_args.command {
-        cli::Command::ReleasePR => {
-            command::release_pr::execute(&cli_args).await
-        }
-        cli::Command::Release => command::release::execute(&cli_args).await,
+    let remote = args.get_remote()?;
+
+    match args.command {
+        cli::Command::ReleasePR => command::release_pr::execute(remote).await,
+        cli::Command::Release => command::release::execute(remote).await,
     }
 }

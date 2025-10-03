@@ -3,11 +3,10 @@ use log::*;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
-    cli,
     command::common,
     config,
     forge::{
-        config::{RemoteConfig, TAGGED_LABEL},
+        config::{Remote, RemoteConfig, TAGGED_LABEL},
         request::{PrLabelsRequest, PullRequest},
         traits::Forge,
     },
@@ -15,8 +14,7 @@ use crate::{
 };
 
 /// Execute release command to create git tags and publish final release.
-pub async fn execute(args: &cli::Args) -> Result<()> {
-    let remote = args.get_remote()?;
+pub async fn execute(remote: Remote) -> Result<()> {
     let remote_config = remote.get_config();
     let forge = remote.get_forge().await?;
     let merged_pr = forge.get_merged_release_pr().await?;
