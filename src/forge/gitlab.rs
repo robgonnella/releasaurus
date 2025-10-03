@@ -31,13 +31,17 @@ use regex::Regex;
 use reqwest::StatusCode;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
-use std::cmp;
+use std::{cmp, sync::Arc};
+use tokio::sync::Mutex;
 
 use crate::{
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
-        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        config::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
+            RemoteConfig,
+        },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
@@ -86,6 +90,7 @@ pub struct CreatedCommit {
 
 pub struct Gitlab {
     config: RemoteConfig,
+    commit_search_depth: Arc<Mutex<u64>>,
     gl: AsyncGitlab,
     project_id: String,
 }
@@ -102,6 +107,9 @@ impl Gitlab {
 
         Ok(Self {
             config,
+            commit_search_depth: Arc::new(Mutex::new(
+                DEFAULT_COMMIT_SEARCH_DEPTH,
+            )),
             gl,
             project_id,
         })
@@ -191,6 +199,14 @@ impl Forge for Gitlab {
 
         let config: Config = toml::from_str(&content)?;
 
+        let mut config_search_depth = config.first_release_search_depth;
+        if config_search_depth == 0 {
+            config_search_depth = u64::MAX;
+        }
+
+        let mut search_depth = self.commit_search_depth.lock().await;
+        *search_depth = config_search_depth;
+
         Ok(config)
     }
 
@@ -234,6 +250,8 @@ impl Forge for Gitlab {
         path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
+        let search_depth = self.commit_search_depth.lock().await;
+
         let mut builder = Commits::builder();
 
         builder
@@ -247,9 +265,8 @@ impl Forge for Gitlab {
         }
 
         let endpoint = builder.build()?;
-        let page_limit =
-            cmp::min(100, self.config.commit_search_depth) as usize;
-        let search_depth = self.config.commit_search_depth as usize;
+        let page_limit = cmp::min(100, *search_depth) as usize;
+        let search_depth = *search_depth as usize;
 
         let result: Vec<GitlabCommit> = if sha.is_none() {
             paged(endpoint, Pagination::Limit(search_depth))

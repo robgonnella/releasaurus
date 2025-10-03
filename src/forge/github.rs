@@ -11,7 +11,8 @@ use octocrab::{
 use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::cmp;
+use std::{cmp, sync::Arc};
+use tokio::sync::Mutex;
 
 const COMMITS_QUERY: &str = r#"
 query GetCommits($owner: String!, $repo: String!, $path: String!, $page_limit: Int!, $since: GitTimestamp, $cursor: String) {
@@ -60,7 +61,10 @@ use crate::{
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
-        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        config::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
+            RemoteConfig,
+        },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
@@ -203,6 +207,7 @@ pub const TREE_BLOB_TYPE: &str = "blob";
 
 pub struct Github {
     config: RemoteConfig,
+    commit_search_depth: Arc<Mutex<u64>>,
     base_uri: String,
     instance: Octocrab,
 }
@@ -217,6 +222,9 @@ impl Github {
 
         Ok(Self {
             config,
+            commit_search_depth: Arc::new(Mutex::new(
+                DEFAULT_COMMIT_SEARCH_DEPTH,
+            )),
             base_uri,
             instance,
         })
@@ -361,6 +369,15 @@ impl Forge for Github {
 
         let content = content.unwrap();
         let config: Config = toml::from_str(&content)?;
+
+        let mut config_search_depth = config.first_release_search_depth;
+        if config_search_depth == 0 {
+            config_search_depth = u64::MAX;
+        }
+
+        let mut search_depth = self.commit_search_depth.lock().await;
+        *search_depth = config_search_depth;
+
         Ok(config)
     }
 
@@ -407,7 +424,8 @@ impl Forge for Github {
         path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
-        let page_limit = cmp::min(100, self.config.commit_search_depth);
+        let search_depth = self.commit_search_depth.lock().await;
+        let page_limit = cmp::min(100, *search_depth);
         let mut commits: Vec<ForgeCommit> = vec![];
         let mut since_date = None;
 
@@ -433,7 +451,7 @@ impl Forge for Github {
 
         let mut cursor = None;
         let mut has_more = true;
-        let search_depth = self.config.commit_search_depth as usize;
+        let search_depth = *search_depth as usize;
 
         while has_more {
             if sha.is_none() && commits.len() >= search_depth {

@@ -10,8 +10,6 @@ use crate::{
     result::Result,
 };
 
-pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
-
 /// Global CLI arguments for forge configuration and debugging.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -40,10 +38,6 @@ pub struct Args {
     /// Gitea access token. Falls back to GITEA_TOKEN env var.
     pub gitea_token: String,
 
-    #[arg(long, default_value_t = DEFAULT_COMMIT_SEARCH_DEPTH, global = true)]
-    /// Git clone depth. Use 0 for full history.
-    pub commit_search_depth: u64,
-
     #[arg(long, default_value_t = false, global = true)]
     /// Enable debug logging.
     pub debug: bool,
@@ -66,34 +60,16 @@ pub enum Command {
 impl Args {
     /// Configure remote repository connection from CLI arguments.
     pub fn get_remote(&self) -> Result<Remote> {
-        let mut search_depth = self.commit_search_depth;
-
-        if search_depth == 0 {
-            search_depth = u64::MAX;
-        }
-
         if !self.github_repo.is_empty() {
-            return get_github_remote(
-                search_depth,
-                &self.github_repo,
-                &self.github_token,
-            );
+            return get_github_remote(&self.github_repo, &self.github_token);
         }
 
         if !self.gitlab_repo.is_empty() {
-            return get_gitlab_remote(
-                search_depth,
-                &self.gitlab_repo,
-                &self.gitlab_token,
-            );
+            return get_gitlab_remote(&self.gitlab_repo, &self.gitlab_token);
         }
 
         if !self.gitea_repo.is_empty() {
-            return get_gitea_remote(
-                search_depth,
-                &self.gitea_repo,
-                &self.gitea_token,
-            );
+            return get_gitea_remote(&self.gitea_repo, &self.gitea_token);
         }
 
         Err(eyre!("must configure a remote"))
@@ -112,11 +88,7 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 }
 
 /// Configure GitHub remote with URL parsing and token resolution.
-fn get_github_remote(
-    search_depth: u64,
-    github_repo: &str,
-    github_token: &str,
-) -> Result<Remote> {
+fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(github_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -171,18 +143,13 @@ fn get_github_remote(
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
-        commit_search_depth: search_depth,
     };
 
     Ok(Remote::Github(remote_config.clone()))
 }
 
 /// Configure GitLab remote with URL parsing and token resolution.
-fn get_gitlab_remote(
-    search_depth: u64,
-    gitlab_repo: &str,
-    gitlab_token: &str,
-) -> Result<Remote> {
+fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitlab_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -237,18 +204,13 @@ fn get_gitlab_remote(
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
-        commit_search_depth: search_depth,
     };
 
     Ok(Remote::Gitlab(remote_config.clone()))
 }
 
 /// Configure Gitea remote with URL parsing and token resolution.
-fn get_gitea_remote(
-    search_depth: u64,
-    gitea_repo: &str,
-    gitea_token: &str,
-) -> Result<Remote> {
+fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitea_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -303,7 +265,6 @@ fn get_gitea_remote(
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
-        commit_search_depth: search_depth,
     };
 
     Ok(Remote::Gitea(remote_config.clone()))
@@ -322,7 +283,6 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: "".into(),
@@ -348,7 +308,6 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: repo,
@@ -374,7 +333,6 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
@@ -400,7 +358,6 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
-            commit_search_depth: 0,
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),

@@ -11,13 +11,17 @@ use reqwest::{
 };
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::{cmp, path::Path};
+use std::{cmp, path::Path, sync::Arc};
+use tokio::sync::Mutex;
 
 use crate::{
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
-        config::{DEFAULT_LABEL_COLOR, PENDING_LABEL, RemoteConfig},
+        config::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
+            RemoteConfig,
+        },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
@@ -164,6 +168,7 @@ struct GiteaCreatedCommit {
 
 pub struct Gitea {
     config: RemoteConfig,
+    commit_search_depth: Arc<Mutex<u64>>,
     base_url: Url,
     client: Client,
 }
@@ -199,6 +204,9 @@ impl Gitea {
 
         Ok(Gitea {
             config,
+            commit_search_depth: Arc::new(Mutex::new(
+                DEFAULT_COMMIT_SEARCH_DEPTH,
+            )),
             client,
             base_url,
         })
@@ -285,6 +293,15 @@ impl Forge for Gitea {
 
         let content = content.unwrap();
         let config: Config = toml::from_str(&content)?;
+
+        let mut config_search_depth = config.first_release_search_depth;
+        if config_search_depth == 0 {
+            config_search_depth = u64::MAX;
+        }
+
+        let mut search_depth = self.commit_search_depth.lock().await;
+        *search_depth = config_search_depth;
+
         Ok(config)
     }
 
@@ -334,7 +351,8 @@ impl Forge for Gitea {
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut page = 1;
-        let page_limit = cmp::min(100, self.config.commit_search_depth);
+        let search_depth = self.commit_search_depth.lock().await;
+        let page_limit = cmp::min(100, *search_depth);
         let mut has_more = true;
         let mut count = 0;
         let mut commits: Vec<ForgeCommit> = vec![];
@@ -358,7 +376,8 @@ impl Forge for Gitea {
             let results: Vec<GiteaCommitQueryObject> = result.json().await?;
 
             for result in results {
-                if sha.is_none() && count >= self.config.commit_search_depth {
+                // only apply search depth if this is the first release
+                if sha.is_none() && count >= *search_depth {
                     return Ok(commits);
                 }
 
