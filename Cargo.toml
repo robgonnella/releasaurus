@@ -50,4 +50,5 @@ base64 = "0.22.1"
 futures = "0.3.31"
 
 [dev-dependencies]
+mockall = "0.13.1"
 nanoid = "0.4.0"

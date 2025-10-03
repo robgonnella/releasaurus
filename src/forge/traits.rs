@@ -2,6 +2,9 @@
 use async_trait::async_trait;
 use std::any::Any;
 
+#[cfg(test)]
+use mockall::automock;
+
 use crate::{
     analyzer::release::Tag,
     config::Config,
@@ -12,11 +15,13 @@ use crate::{
     result::Result,
 };
 
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait FileLoader: Sync {
     async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
 }
 
+#[cfg_attr(test, automock)]
 #[async_trait]
 /// Common interface for Git forge platform operations.
 pub trait Forge: Any {
