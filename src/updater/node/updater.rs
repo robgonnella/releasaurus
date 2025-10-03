@@ -616,3 +616,627 @@ impl PackageUpdater for NodeUpdater {
         Ok(Some(file_changes))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::release::Tag;
+    use crate::forge::traits::MockFileLoader;
+    use semver::Version as SemVer;
+
+    fn create_test_package(
+        name: &str,
+        path: &str,
+        next_version: &str,
+    ) -> Package {
+        Package {
+            name: name.to_string(),
+            path: path.to_string(),
+            framework: Framework::Node,
+            next_version: Tag {
+                sha: "test-sha".to_string(),
+                name: format!("v{}", next_version),
+                semver: SemVer::parse(next_version).unwrap(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn test_load_doc() {
+        let updater = NodeUpdater::new();
+        let package_json = r#"{
+  "name": "test-package",
+  "version": "1.0.0"
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-package/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_json.to_string())));
+
+        let result = updater
+            .load_doc("test-package/package.json", &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let doc = result.unwrap();
+        assert_eq!(doc["name"], "test-package");
+        assert_eq!(doc["version"], "1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_load_doc_file_not_found() {
+        let updater = NodeUpdater::new();
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("test-package/package.json"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .load_doc("test-package/package.json", &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_deps() {
+        let updater = NodeUpdater::new();
+        let mut doc = json!({
+            "name": "test-package",
+            "version": "1.0.0",
+            "dependencies": {
+                "other-package": "^1.0.0",
+                "external-package": "^2.0.0"
+            }
+        });
+
+        let other_packages = vec![(
+            "other-package".to_string(),
+            create_test_package("other-package", "packages/other", "2.0.0"),
+        )];
+
+        updater
+            .update_deps(&mut doc, "dependencies", &other_packages)
+            .unwrap();
+
+        assert_eq!(doc["dependencies"]["other-package"], "2.0.0");
+        assert_eq!(doc["dependencies"]["external-package"], "^2.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_update_deps_skips_workspace() {
+        let updater = NodeUpdater::new();
+        let mut doc = json!({
+            "name": "test-package",
+            "version": "1.0.0",
+            "dependencies": {
+                "other-package": "workspace:*",
+                "another-package": "^1.0.0"
+            }
+        });
+
+        let other_packages = vec![
+            (
+                "other-package".to_string(),
+                create_test_package("other-package", "packages/other", "2.0.0"),
+            ),
+            (
+                "another-package".to_string(),
+                create_test_package(
+                    "another-package",
+                    "packages/another",
+                    "3.0.0",
+                ),
+            ),
+        ];
+
+        updater
+            .update_deps(&mut doc, "dependencies", &other_packages)
+            .unwrap();
+
+        // workspace dependency should not be updated
+        assert_eq!(doc["dependencies"]["other-package"], "workspace:*");
+        // regular dependency should be updated
+        assert_eq!(doc["dependencies"]["another-package"], "3.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_update_package_json() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let package_json = r#"{
+  "name": "test-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "other-package": "^1.0.0"
+  }
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/package.json"))
+            .times(2) // Called twice: once in get_packages_with_names, once in update
+            .returning(move |_| Ok(Some(package_json.to_string())));
+
+        // Mock for other files (none exist)
+        mock_loader
+            .expect_get_file_content()
+            .returning(|_path| Ok(None));
+
+        let packages = vec![package];
+        let result = updater.update(packages, &mock_loader).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].path, "packages/test/package.json");
+        assert!(changes[0].content.contains("\"version\": \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_update_package_lock_json_for_package() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let lock_json = r#"{
+  "name": "test-package",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "test-package",
+      "version": "1.0.0"
+    },
+    "node_modules/test-package": {
+      "version": "1.0.0"
+    }
+  }
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/package-lock.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(lock_json.to_string())));
+
+        let result = updater
+            .update_package_lock_json_for_package(
+                ("test-package", &package),
+                &[],
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "packages/test/package-lock.json");
+        assert!(change.content.contains("\"version\": \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_update_package_lock_json_updates_dependencies() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let lock_json = r#"{
+  "name": "test-package",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "test-package",
+      "version": "1.0.0",
+      "dependencies": {
+        "other-package": "^1.0.0"
+      }
+    },
+    "node_modules/other-package": {
+      "version": "1.0.0"
+    }
+  }
+}"#;
+
+        let other_packages = vec![(
+            "other-package".to_string(),
+            create_test_package("other-package", "packages/other", "3.0.0"),
+        )];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/package-lock.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(lock_json.to_string())));
+
+        let result = updater
+            .update_package_lock_json_for_package(
+                ("test-package", &package),
+                &other_packages,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        // Should update the root package version
+        assert!(change.content.contains("\"version\": \"2.0.0\""));
+        // Should update dependency reference
+        assert!(change.content.contains("\"other-package\": \"^3.0.0\""));
+        // Should update node_modules version
+        assert!(change.content.contains("\"version\": \"3.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_update_package_lock_json_file_not_found() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/package-lock.json"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .update_package_lock_json_for_package(
+                ("test-package", &package),
+                &[],
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_yarn_lock_for_package() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let yarn_lock = r#"# THIS IS AN AUTOGENERATED FILE.
+# yarn lockfile v1
+
+"test-package@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/test-package/-/test-package-1.0.0.tgz"
+
+"other-package@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/other-package/-/other-package-1.0.0.tgz"
+"#;
+
+        let other_packages = vec![(
+            "other-package".to_string(),
+            create_test_package("other-package", "packages/other", "3.0.0"),
+        )];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/yarn.lock"))
+            .times(1)
+            .returning(move |_| Ok(Some(yarn_lock.to_string())));
+
+        let result = updater
+            .update_yarn_lock_for_package(
+                ("test-package", &package),
+                &other_packages,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.path, "packages/test/yarn.lock");
+        assert!(change.content.contains("version \"2.0.0\""));
+        assert!(change.content.contains("version \"3.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_update_yarn_lock_file_not_found() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/yarn.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .update_yarn_lock_for_package(
+                ("test-package", &package),
+                &[],
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_root_lock_files() {
+        let updater = NodeUpdater::new();
+
+        let lock_json = r#"{
+  "name": "root",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "root",
+      "version": "1.0.0"
+    },
+    "node_modules/test-package": {
+      "version": "1.0.0"
+    }
+  }
+}"#;
+
+        let yarn_lock = r#"# yarn lockfile v1
+
+"test-package@^1.0.0":
+  version "1.0.0"
+"#;
+
+        let packages = vec![(
+            "test-package".to_string(),
+            create_test_package("test-package", "packages/test", "2.0.0"),
+        )];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("./package-lock.json"))
+            .times(1)
+            .returning({
+                let content = lock_json.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("./yarn.lock"))
+            .times(1)
+            .returning({
+                let content = yarn_lock.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        let result = updater
+            .update_root_lock_files(Path::new("."), &packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+
+        // Check package-lock.json was updated
+        assert!(changes.iter().any(|c| c.path == "./package-lock.json"
+            && c.content.contains("\"version\": \"2.0.0\"")));
+
+        // Check yarn.lock was updated
+        assert!(changes.iter().any(|c| c.path == "./yarn.lock"
+            && c.content.contains("version \"2.0.0\"")));
+    }
+
+    #[tokio::test]
+    async fn test_update_multiple_packages() {
+        let updater = NodeUpdater::new();
+
+        let package1_json = r#"{
+  "name": "package-one",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-two": "^1.0.0"
+  }
+}"#;
+
+        let package2_json = r#"{
+  "name": "package-two",
+  "version": "1.0.0"
+}"#;
+
+        let packages = vec![
+            create_test_package("package-one", "packages/one", "2.0.0"),
+            create_test_package("package-two", "packages/two", "3.0.0"),
+        ];
+
+        let mut mock_loader = MockFileLoader::new();
+
+        // Mock for package-one's package.json
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/one/package.json"))
+            .times(2) // Called twice: once in get_packages_with_names, once in update
+            .returning({
+                let content = package1_json.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // Mock for package-two's package.json
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/two/package.json"))
+            .times(2)
+            .returning({
+                let content = package2_json.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // Mock for other files (none exist)
+        mock_loader
+            .expect_get_file_content()
+            .returning(|_path| Ok(None));
+
+        let result = updater.update(packages, &mock_loader).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+
+        // Check package-one was updated
+        let pkg1_change = changes
+            .iter()
+            .find(|c| c.path == "packages/one/package.json")
+            .unwrap();
+        assert!(pkg1_change.content.contains("\"version\": \"2.0.0\""));
+        assert!(pkg1_change.content.contains("\"package-two\": \"3.0.0\""));
+
+        // Check package-two was updated
+        let pkg2_change = changes
+            .iter()
+            .find(|c| c.path == "packages/two/package.json")
+            .unwrap();
+        assert!(pkg2_change.content.contains("\"version\": \"3.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_update_filters_node_packages() {
+        let updater = NodeUpdater::new();
+
+        let packages = vec![
+            create_test_package("node-package", "packages/node", "2.0.0"),
+            Package {
+                name: "java-package".to_string(),
+                path: "packages/java".to_string(),
+                framework: Framework::Java,
+                next_version: Tag {
+                    sha: "test-sha".to_string(),
+                    name: "v1.0.0".to_string(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                },
+            },
+        ];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        let result = updater.update(packages, &mock_loader).await.unwrap();
+
+        // Should return None when no package.json files are found
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_packages_with_names() {
+        let updater = NodeUpdater::new();
+
+        let package1_json = r#"{
+  "name": "custom-name",
+  "version": "1.0.0"
+}"#;
+
+        let packages = vec![
+            create_test_package("package-one", "packages/one", "2.0.0"),
+            create_test_package("package-two", "packages/two", "3.0.0"),
+        ];
+
+        let mut mock_loader = MockFileLoader::new();
+
+        // First package has a custom name in package.json
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/one/package.json"))
+            .times(1)
+            .returning({
+                let content = package1_json.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // Second package doesn't have package.json
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/two/package.json"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let result = updater
+            .get_packages_with_names(packages, &mock_loader)
+            .await;
+
+        assert_eq!(result.len(), 2);
+        // First package should use name from package.json
+        assert_eq!(result[0].0, "custom-name");
+        // Second package should use package name as fallback
+        assert_eq!(result[1].0, "package-two");
+    }
+
+    #[tokio::test]
+    async fn test_update_package_lock_json_with_dev_dependencies() {
+        let updater = NodeUpdater::new();
+        let package =
+            create_test_package("test-package", "packages/test", "2.0.0");
+
+        let lock_json = r#"{
+  "name": "test-package",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "packages": {
+    "": {
+      "name": "test-package",
+      "version": "1.0.0",
+      "devDependencies": {
+        "other-package": "^1.0.0"
+      }
+    },
+    "node_modules/other-package": {
+      "version": "1.0.0"
+    }
+  }
+}"#;
+
+        let other_packages = vec![(
+            "other-package".to_string(),
+            create_test_package("other-package", "packages/other", "3.0.0"),
+        )];
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/package-lock.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(lock_json.to_string())));
+
+        let result = updater
+            .update_package_lock_json_for_package(
+                ("test-package", &package),
+                &other_packages,
+                &mock_loader,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        // Should update devDependency reference
+        assert!(change.content.contains("\"other-package\": \"^3.0.0\""));
+    }
+}
