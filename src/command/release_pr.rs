@@ -165,3 +165,946 @@ pub async fn execute(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        analyzer::release::Tag,
+        config::{ChangelogConfig, Config, PackageConfig, ReleaseType},
+        forge::{
+            config::RemoteConfig,
+            request::{Commit, ForgeCommit, PullRequest},
+            traits::{MockFileLoader, MockForge},
+        },
+    };
+    use secrecy::SecretString;
+    use semver::Version as SemVer;
+
+    fn create_test_remote_config() -> RemoteConfig {
+        RemoteConfig {
+            host: "github.com".to_string(),
+            port: None,
+            scheme: "https".to_string(),
+            owner: "test".to_string(),
+            repo: "repo".to_string(),
+            path: "test/repo".to_string(),
+            token: SecretString::from("test-token".to_string()),
+            commit_link_base_url: "https://github.com/test/repo/commit"
+                .to_string(),
+            release_link_base_url: "https://github.com/test/repo/releases/tag"
+                .to_string(),
+        }
+    }
+
+    fn create_test_config(packages: Vec<PackageConfig>) -> Config {
+        Config {
+            first_release_search_depth: 100,
+            changelog: ChangelogConfig {
+                body: "## Changes\n{{ commits }}".to_string(),
+            },
+            packages,
+        }
+    }
+
+    fn create_test_package_config(
+        path: &str,
+        release_type: Option<ReleaseType>,
+        tag_prefix: Option<String>,
+    ) -> PackageConfig {
+        PackageConfig {
+            path: path.to_string(),
+            release_type,
+            tag_prefix,
+        }
+    }
+
+    fn create_test_tag(name: &str, semver: &str, sha: &str) -> Tag {
+        Tag {
+            sha: sha.to_string(),
+            name: name.to_string(),
+            semver: SemVer::parse(semver).unwrap(),
+        }
+    }
+
+    fn create_test_forge_commit(
+        id: &str,
+        message: &str,
+        timestamp: i64,
+    ) -> ForgeCommit {
+        ForgeCommit {
+            id: id.to_string(),
+            link: format!("https://github.com/test/repo/commit/{}", id),
+            author_name: "Test Author".to_string(),
+            author_email: "test@example.com".to_string(),
+            merge_commit: false,
+            message: message.to_string(),
+            timestamp,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_single_package_no_existing_tag() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("v"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .with(mockall::predicate::eq("."), mockall::predicate::eq(None))
+            .times(1)
+            .returning(|_, _| {
+                Ok(vec![create_test_forge_commit(
+                    "abc123",
+                    "feat: add new feature",
+                    1000,
+                )])
+            });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|_| {
+            Ok(PullRequest {
+                number: 42,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_single_package_existing_tag() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+        let existing_tag = create_test_tag("v1.0.0", "1.0.0", "old-sha");
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        let tag_clone = existing_tag.clone();
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("v"))
+            .times(1)
+            .returning(move |_| Ok(Some(tag_clone.clone())));
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![create_test_forge_commit(
+                "abc123",
+                "fix: fix bug",
+                2000,
+            )])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|_| {
+            Ok(PullRequest {
+                number: 43,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_multiple_packages() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![
+            create_test_package_config(
+                "packages/frontend",
+                Some(ReleaseType::Node),
+                Some("frontend-v".to_string()),
+            ),
+            create_test_package_config(
+                "packages/backend",
+                Some(ReleaseType::Rust),
+                Some("backend-v".to_string()),
+            ),
+        ]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("frontend-v"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .with(
+                mockall::predicate::eq("packages/frontend"),
+                mockall::predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _| {
+                Ok(vec![create_test_forge_commit(
+                    "abc123",
+                    "feat: add frontend feature",
+                    1000,
+                )])
+            });
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("backend-v"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .with(
+                mockall::predicate::eq("packages/backend"),
+                mockall::predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _| {
+                Ok(vec![create_test_forge_commit(
+                    "def456",
+                    "feat: add backend feature",
+                    2000,
+                )])
+            });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|req| {
+            assert!(!req.title.contains("v0.1.0"));
+            assert_eq!(req.title, "chore(main): release");
+            Ok(PullRequest {
+                number: 44,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_updates_existing_pr() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![create_test_forge_commit(
+                "abc123",
+                "feat: new feature",
+                1000,
+            )])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 100,
+                    sha: "existing-pr-sha".to_string(),
+                }))
+            });
+
+        mock_forge.expect_update_pr().times(1).returning(|req| {
+            assert_eq!(req.pr_number, 100);
+            Ok(())
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|req| {
+                assert_eq!(req.pr_number, 100);
+                Ok(())
+            });
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_no_changes() {
+        let mut mock_forge = MockForge::new();
+        let mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .times(1)
+            .returning(|_, _| Ok(vec![]));
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_non_conventional_commits() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Non-conventional commits on first release still create a release
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![
+                create_test_forge_commit("abc123", "update readme", 1000),
+                create_test_forge_commit("def456", "merge branch", 2000),
+            ])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        // First release includes all commits, so PR is created
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|_| {
+            Ok(PullRequest {
+                number: 50,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_custom_default_branch() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![create_test_forge_commit(
+                "abc123",
+                "feat: new feature",
+                1000,
+            )])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("develop".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|req| {
+                assert_eq!(req.branch, "releasaurus-release-develop");
+                assert!(req.message.contains("chore(develop): release"));
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|req| {
+                assert_eq!(req.head_branch, "releasaurus-release-develop");
+                assert_eq!(req.base_branch, "develop");
+                Ok(None)
+            });
+
+        mock_forge.expect_create_pr().times(1).returning(|req| {
+            assert!(req.title.contains("chore(develop): release"));
+            assert_eq!(req.base_branch, "develop");
+            Ok(PullRequest {
+                number: 45,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_single_package_includes_version_in_title() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![create_test_forge_commit(
+                "abc123",
+                "feat: new feature",
+                1000,
+            )])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|req| {
+            assert!(req.title.contains("v0.1.0"));
+            assert_eq!(req.title, "chore(main): release v0.1.0");
+            Ok(PullRequest {
+                number: 46,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_handles_config_load_error() {
+        let mut mock_forge = MockForge::new();
+        let mock_file_loader = MockFileLoader::new();
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(|| Err(color_eyre::eyre::eyre!("Config not found")));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_breaking_changes() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![create_test_package_config(
+            ".",
+            Some(ReleaseType::Node),
+            Some("v".to_string()),
+        )]);
+
+        let remote_config = create_test_remote_config();
+        let existing_tag = create_test_tag("v1.2.3", "1.2.3", "old-sha");
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        let tag_clone = existing_tag.clone();
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(move |_| Ok(Some(tag_clone.clone())));
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![create_test_forge_commit(
+                "abc123",
+                "feat!: breaking change",
+                1000,
+            )])
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|req| {
+            assert!(req.title.contains("v2.0.0"));
+            Ok(PullRequest {
+                number: 47,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_mixed_packages_some_without_changes() {
+        let mut mock_forge = MockForge::new();
+        let mut mock_file_loader = MockFileLoader::new();
+
+        let config = create_test_config(vec![
+            create_test_package_config(
+                "packages/frontend",
+                Some(ReleaseType::Node),
+                Some("frontend-v".to_string()),
+            ),
+            create_test_package_config(
+                "packages/backend",
+                Some(ReleaseType::Rust),
+                Some("backend-v".to_string()),
+            ),
+        ]);
+
+        let remote_config = create_test_remote_config();
+
+        mock_forge
+            .expect_remote_config()
+            .return_const(remote_config.clone());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("frontend-v"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .with(
+                mockall::predicate::eq("packages/frontend"),
+                mockall::predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _| {
+                Ok(vec![create_test_forge_commit(
+                    "abc123",
+                    "feat: frontend feature",
+                    1000,
+                )])
+            });
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .with(mockall::predicate::eq("backend-v"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .with(
+                mockall::predicate::eq("packages/backend"),
+                mockall::predicate::eq(None),
+            )
+            .times(1)
+            .returning(|_, _| Ok(vec![]));
+
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge.expect_repo_name().return_const("test-repo");
+
+        mock_file_loader
+            .expect_get_file_content()
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "new-sha".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_create_pr().times(1).returning(|_| {
+            Ok(PullRequest {
+                number: 48,
+                sha: "pr-sha".to_string(),
+            })
+        });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let result =
+            execute(Box::new(mock_forge), Box::new(mock_file_loader)).await;
+
+        assert!(result.is_ok());
+    }
+}
