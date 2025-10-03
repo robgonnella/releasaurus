@@ -192,3 +192,262 @@ impl UpdaterManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::release::Tag;
+    use crate::config::PackageConfig;
+    use crate::forge::traits::MockFileLoader;
+    use semver::Version as SemVer;
+
+    fn create_test_release(version: &str, has_tag: bool) -> Release {
+        Release {
+            tag: if has_tag {
+                Some(Tag {
+                    sha: "test-sha".to_string(),
+                    name: format!("v{}", version),
+                    semver: SemVer::parse(version).unwrap(),
+                })
+            } else {
+                None
+            },
+            link: String::new(),
+            sha: "test-sha".to_string(),
+            commits: vec![],
+            notes: String::new(),
+            timestamp: 0,
+        }
+    }
+
+    fn create_test_config(packages: Vec<(&str, ReleaseType)>) -> Config {
+        Config {
+            packages: packages
+                .into_iter()
+                .map(|(path, release_type)| PackageConfig {
+                    path: path.to_string(),
+                    release_type: Some(release_type),
+                    tag_prefix: None,
+                })
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_new_updater_manager() {
+        let manager = UpdaterManager::new("test-repo");
+        assert_eq!(manager.repo_name, "test-repo");
+    }
+
+    #[test]
+    fn test_update_stats_display() {
+        let stats = UpdateStats {
+            total_packages: 10,
+            releasable_packages: 8,
+            updated_packages: 5,
+        };
+
+        let display = format!("{}", stats);
+        assert!(display.contains("Total packages: 10"));
+        assert!(display.contains("Releasable packages: 8"));
+        assert!(display.contains("Successfully updated: 5"));
+    }
+
+    #[test]
+    fn test_update_stats_default() {
+        let stats = UpdateStats::default();
+        assert_eq!(stats.total_packages, 0);
+        assert_eq!(stats.releasable_packages, 0);
+        assert_eq!(stats.updated_packages, 0);
+    }
+
+    #[test]
+    fn test_derive_package_name_from_directory() {
+        let manager = UpdaterManager::new("test-repo");
+
+        // Test with simple directory name
+        let name = manager.derive_package_name("packages/my-package");
+        assert_eq!(name, "my-package");
+
+        // Test with nested path
+        let name = manager.derive_package_name("crates/core/utils");
+        assert_eq!(name, "utils");
+
+        // Test with root path
+        let name = manager.derive_package_name(".");
+        assert_eq!(name, "test-repo");
+
+        // Test with single directory
+        let name = manager.derive_package_name("backend");
+        assert_eq!(name, "backend");
+    }
+
+    #[test]
+    fn test_convert_manifest_to_packages() {
+        let manager = UpdaterManager::new("test-repo");
+
+        let mut manifest = HashMap::new();
+        manifest.insert(
+            "packages/one".to_string(),
+            create_test_release("1.0.0", true),
+        );
+        manifest.insert(
+            "packages/two".to_string(),
+            create_test_release("2.0.0", true),
+        );
+
+        let config = create_test_config(vec![
+            ("packages/one", ReleaseType::Node),
+            ("packages/two", ReleaseType::Rust),
+        ]);
+
+        let result = manager.convert_manifest_to_packages(&manifest, &config);
+        assert!(result.is_ok());
+
+        let packages = result.unwrap();
+        assert_eq!(packages.len(), 2);
+
+        // Verify package properties
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "one" && p.path == "packages/one")
+        );
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "two" && p.path == "packages/two")
+        );
+
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "one"
+                    && matches!(p.framework, Framework::Node))
+        );
+
+        assert!(
+            packages
+                .iter()
+                .any(|p| p.name == "two"
+                    && matches!(p.framework, Framework::Rust))
+        );
+    }
+
+    #[test]
+    fn test_convert_manifest_skips_packages_without_tags() {
+        let manager = UpdaterManager::new("test-repo");
+
+        let mut manifest = HashMap::new();
+        manifest.insert(
+            "packages/one".to_string(),
+            create_test_release("1.0.0", true),
+        );
+        manifest.insert(
+            "packages/two".to_string(),
+            create_test_release("2.0.0", false), // No tag
+        );
+
+        let config = create_test_config(vec![
+            ("packages/one", ReleaseType::Node),
+            ("packages/two", ReleaseType::Rust),
+        ]);
+
+        let result = manager.convert_manifest_to_packages(&manifest, &config);
+        assert!(result.is_ok());
+
+        let packages = result.unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "one");
+    }
+
+    #[test]
+    fn test_convert_manifest_error_when_config_missing() {
+        let manager = UpdaterManager::new("test-repo");
+
+        let mut manifest = HashMap::new();
+        manifest.insert(
+            "packages/one".to_string(),
+            create_test_release("1.0.0", true),
+        );
+
+        // Config doesn't include packages/one
+        let config =
+            create_test_config(vec![("packages/different", ReleaseType::Node)]);
+
+        let result = manager.convert_manifest_to_packages(&manifest, &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_initial_stats() {
+        let manager = UpdaterManager::new("test-repo");
+
+        let packages = vec![
+            Package {
+                name: "pkg1".to_string(),
+                path: "packages/pkg1".to_string(),
+                framework: Framework::Node,
+                next_version: Tag {
+                    sha: "sha1".to_string(),
+                    name: "v1.0.0".to_string(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                },
+            },
+            Package {
+                name: "pkg2".to_string(),
+                path: "packages/pkg2".to_string(),
+                framework: Framework::Rust,
+                next_version: Tag {
+                    sha: "sha2".to_string(),
+                    name: "v2.0.0".to_string(),
+                    semver: SemVer::parse("2.0.0").unwrap(),
+                },
+            },
+        ];
+
+        let stats = manager.create_initial_stats(&packages, 5);
+
+        assert_eq!(stats.total_packages, 5);
+        assert_eq!(stats.releasable_packages, 2);
+        assert_eq!(stats.updated_packages, 0);
+    }
+
+    #[tokio::test]
+    async fn test_update_packages_with_no_releasable_packages() {
+        let mut manager = UpdaterManager::new("test-repo");
+
+        let mut manifest = HashMap::new();
+        manifest.insert(
+            "packages/one".to_string(),
+            create_test_release("1.0.0", false), // No tag
+        );
+
+        let config =
+            create_test_config(vec![("packages/one", ReleaseType::Node)]);
+
+        let mock_loader = MockFileLoader::new();
+
+        let result = manager
+            .update_packages(&manifest, &config, &mock_loader)
+            .await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_packages_with_empty_manifest() {
+        let mut manager = UpdaterManager::new("test-repo");
+
+        let manifest = HashMap::new();
+        let config = Config::default();
+        let mock_loader = MockFileLoader::new();
+
+        let result = manager
+            .update_packages(&manifest, &config, &mock_loader)
+            .await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+}
