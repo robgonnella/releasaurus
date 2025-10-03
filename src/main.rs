@@ -43,6 +43,9 @@ mod forge;
 mod result;
 mod updater;
 
+#[cfg(test)]
+mod test_helpers;
+
 use crate::result::Result;
 
 /// Initialize terminal logger with colored output and level filtering.

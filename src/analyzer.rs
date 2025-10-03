@@ -132,37 +132,12 @@ impl Analyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::config::AnalyzerConfig;
+    use crate::test_helpers::*;
     use semver::Version as SemVer;
-
-    fn create_test_config() -> AnalyzerConfig {
-        AnalyzerConfig {
-            tag_prefix: None,
-            body: "Release version {{ version }}".to_string(),
-            release_link_base_url: "https://github.com/test/repo/releases/tag"
-                .to_string(),
-        }
-    }
-
-    fn create_forge_commit(
-        id: &str,
-        message: &str,
-        timestamp: i64,
-    ) -> ForgeCommit {
-        ForgeCommit {
-            id: id.to_string(),
-            link: format!("https://github.com/test/repo/commit/{}", id),
-            author_name: "Test Author".to_string(),
-            author_email: "test@example.com".to_string(),
-            merge_commit: false,
-            message: message.to_string(),
-            timestamp,
-        }
-    }
 
     #[test]
     fn test_analyzer_new() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config.clone());
 
         assert!(analyzer.is_ok());
@@ -172,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_analyzer_new_with_tag_prefix() {
-        let mut config = create_test_config();
+        let mut config = create_test_analyzer_config();
         config.tag_prefix = Some("v".to_string());
 
         let analyzer = Analyzer::new(config);
@@ -181,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_analyze_empty_commits() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let result = analyzer.analyze(vec![], None).unwrap();
@@ -190,12 +165,12 @@ mod tests {
 
     #[test]
     fn test_analyze_first_release_no_tag() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits = vec![
-            create_forge_commit("abc123", "feat: add new feature", 1000),
-            create_forge_commit("def456", "fix: fix bug", 2000),
+            create_test_forge_commit("abc123", "feat: add new feature", 1000),
+            create_test_forge_commit("def456", "fix: fix bug", 2000),
         ];
 
         let result = analyzer.analyze(commits, None).unwrap();
@@ -212,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_patch_bump() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -221,8 +196,11 @@ mod tests {
             semver: SemVer::parse("1.0.0").unwrap(),
         };
 
-        let commits =
-            vec![create_forge_commit("abc123", "fix: fix critical bug", 1000)];
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "fix: fix critical bug",
+            1000,
+        )];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
@@ -237,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_minor_bump() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -246,8 +224,11 @@ mod tests {
             semver: SemVer::parse("1.0.0").unwrap(),
         };
 
-        let commits =
-            vec![create_forge_commit("abc123", "feat: add new feature", 1000)];
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: add new feature",
+            1000,
+        )];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
@@ -262,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_major_bump() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -271,7 +252,7 @@ mod tests {
             semver: SemVer::parse("1.0.0").unwrap(),
         };
 
-        let commits = vec![create_forge_commit(
+        let commits = vec![create_test_forge_commit(
             "abc123",
             "feat!: breaking change",
             1000,
@@ -290,12 +271,15 @@ mod tests {
 
     #[test]
     fn test_analyze_with_tag_prefix() {
-        let mut config = create_test_config();
+        let mut config = create_test_analyzer_config();
         config.tag_prefix = Some("v".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
-        let commits =
-            vec![create_forge_commit("abc123", "feat: add new feature", 1000)];
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
 
         let result = analyzer.analyze(commits, None).unwrap();
 
@@ -307,11 +291,14 @@ mod tests {
 
     #[test]
     fn test_analyze_generates_release_link() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
-        let commits =
-            vec![create_forge_commit("abc123", "feat: add feature", 1000)];
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat!: breaking change",
+            1000,
+        )];
 
         let result = analyzer.analyze(commits, None).unwrap();
 
@@ -326,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_analyze_multiple_commits() {
-        let config = create_test_config();
+        let config = create_test_analyzer_config();
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -336,9 +323,9 @@ mod tests {
         };
 
         let commits = vec![
-            create_forge_commit("abc123", "feat: feature one", 1000),
-            create_forge_commit("def456", "feat: feature two", 2000),
-            create_forge_commit("ghi789", "fix: bug fix", 3000),
+            create_test_forge_commit("abc123", "feat: feature one", 1000),
+            create_test_forge_commit("def456", "feat: feature two", 2000),
+            create_test_forge_commit("ghi789", "fix: bug fix", 3000),
         ];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
