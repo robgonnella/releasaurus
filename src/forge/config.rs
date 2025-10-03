@@ -1,6 +1,7 @@
 //! Configuration for Git forge platform connections.
 use secrecy::SecretString;
 
+pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release";
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const TAGGED_LABEL: &str = "releasaurus:tagged";
@@ -37,8 +38,6 @@ pub struct RemoteConfig {
     pub commit_link_base_url: String,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
-    /// Max search depth for commits when starting sha not provided
-    pub commit_search_depth: u64,
 }
 
 impl Default for RemoteConfig {
@@ -53,7 +52,6 @@ impl Default for RemoteConfig {
             token: SecretString::from("".to_string()),
             commit_link_base_url: "".to_string(),
             release_link_base_url: "".to_string(),
-            commit_search_depth: 0,
         }
     }
 }

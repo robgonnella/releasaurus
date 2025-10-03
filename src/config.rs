@@ -3,7 +3,9 @@
 //! Supports customizable changelog templates and multi-package repositories.
 use serde::Deserialize;
 
-use crate::analyzer::config::DEFAULT_BODY;
+use crate::{
+    analyzer::config::DEFAULT_BODY, forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
+};
 
 /// Default configuration filename.
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
@@ -61,6 +63,8 @@ impl Default for PackageConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// The search depth for commits for the 1st release
+    pub first_release_search_depth: u64,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
     /// List of packages to manage within this repository.
@@ -71,6 +75,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             changelog: ChangelogConfig::default(),
             packages: vec![PackageConfig::default()],
         }
@@ -80,12 +85,18 @@ impl Default for Config {
 /// Unit tests for configuration loading.
 #[cfg(test)]
 mod tests {
+    use crate::forge::config::DEFAULT_COMMIT_SEARCH_DEPTH;
+
     use super::*;
 
     /// Test default configuration values.
     #[test]
     fn loads_defaults() {
         let config = Config::default();
-        assert!(!config.changelog.body.is_empty())
+        assert!(!config.changelog.body.is_empty());
+        assert_eq!(
+            config.first_release_search_depth,
+            DEFAULT_COMMIT_SEARCH_DEPTH
+        );
     }
 }
