@@ -15,12 +15,24 @@ pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 pub struct ChangelogConfig {
     /// Main changelog body template.
     pub body: String,
+    /// Skips including ci commits in changelog (default: false)
+    pub skip_ci: bool,
+    /// Skips including ci commits in changelog (default: false)
+    pub skip_chore: bool,
+    /// Skips including miscellaneous commits in changelog (default: false)
+    pub skip_miscellaneous: bool,
+    /// Includes commit author in default body template (default: false)
+    pub include_author: bool,
 }
 
 impl Default for ChangelogConfig {
     fn default() -> Self {
         Self {
             body: DEFAULT_BODY.into(),
+            skip_ci: false,
+            skip_chore: false,
+            skip_miscellaneous: false,
+            include_author: false,
         }
     }
 }

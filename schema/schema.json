@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Releasaurs TOML Configuration Schema",
+  "description": "Releasaurus TOML configuration.",
+  "type": "object",
+  "properties": {
+    "first_release_search_depth": {
+      "type": "number",
+      "description": "Configures commit search depth for first release. After the first release releasaurus will always parse all the commits since the last release"
+    },
+    "changelog": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string",
+          "description": "Tera template for generating changelog body"
+        },
+        "skip_ci": {
+          "type": "boolean",
+          "description": "Skips including \"ci\" commits in changelog"
+        },
+        "skip_chore": {
+          "type": "boolean",
+          "description": "Skips including \"chore\" commits in changelog"
+        },
+        "skip_miscellaneous": {
+          "type": "boolean",
+          "description": "Skips including miscellaneous commits in changelog. Miscellaneous commits are commits that do not conform to conventional commits standard"
+        },
+        "include_author": {
+          "type": "boolean",
+          "description": "Includes the author name for each commit in the generated changelog"
+        }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "description": "A list of packages to generate releases for in this repository",
+      "items": {
+        "type": "object",
+        "description": "package config",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The relative path to the package directory starting from root of repository"
+          },
+          "release_type": {
+            "type": "string",
+            "description": "The release type to use when updating package version files",
+            "enum": ["Generic", "Java", "Node", "Php", "Python", "Ruby", "Rust"]
+          },
+          "tag_prefix": {
+            "type": "string",
+            "description": "The tag prefix to use for this package: default (\"v\")"
+          }
+        }
+      }
+    }
+  }
+}

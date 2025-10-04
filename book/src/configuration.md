@@ -28,6 +28,11 @@ The configuration file uses TOML format with these main sections:
   release analysis (optional)
 - **`[changelog]`** - Customizes changelog generation and formatting
   (optional)
+  - `body` - Tera template for changelog content
+  - `skip_ci` - Exclude CI commits from changelog (optional, default: false)
+  - `skip_chore` - Exclude chore commits from changelog (optional, default: false)
+  - `skip_miscellaneous` - Exclude non-conventional commits from changelog (optional, default: false)
+  - `include_author` - Include commit author names in changelog (optional, default: false)
 - **`[[package]]`** - Defines packages within the repository with their
   release type (required, can have multiple)
 
@@ -93,6 +98,66 @@ this setting unnecessary for ongoing releases.
 The `[changelog]` section allows you to customize how changelogs are generated
 using [Tera](https://keats.github.io/tera/) templating engine.
 
+### Commit Filtering Options
+
+Control which commit types are included in your changelog:
+
+#### `skip_ci` (Optional)
+
+Excludes CI/CD related commits from the changelog. When set to `true`, commits
+with the `ci:` type will not appear in generated changelogs.
+
+```toml
+[changelog]
+skip_ci = true  # Exclude commits like "ci: update workflow"
+```
+
+**Default**: `false`
+
+#### `skip_chore` (Optional)
+
+Excludes chore commits from the changelog. When set to `true`, commits with
+the `chore:` type will not appear in generated changelogs.
+
+```toml
+[changelog]
+skip_chore = true  # Exclude commits like "chore: update dependencies"
+```
+
+**Default**: `false`
+
+#### `skip_miscellaneous` (Optional)
+
+Excludes non-conventional commits from the changelog. When set to `true`,
+commits that don't follow the conventional commit format will not appear in
+generated changelogs.
+
+```toml
+[changelog]
+skip_miscellaneous = true  # Exclude commits without a type prefix
+```
+
+**Default**: `false`
+
+**Example use case**: Use this option to keep your changelog focused on
+conventional commits only, filtering out commits that don't follow the
+`type: description` format.
+
+#### `include_author` (Optional)
+
+Includes the commit author's name in the changelog entries. When set to `true`,
+the `author_name` field will be used in the default `body` template that
+generates the changelog. If you wish to use this field in your own custom
+template, you can access it as part of the commit object `commit.author_name`
+or `commit.author_email`.
+
+```toml
+[changelog]
+include_author = true  # Show author names like "feat: add feature <John Doe>"
+```
+
+**Default**: `false`
+
 ### Available Template
 
 #### `body` (Required)
@@ -151,24 +216,37 @@ tag_prefix = "v"  # Creates tags like v1.0.0, v1.1.0
 The variables / fields available in the tera template to construct the
 changelog for a release are as follows:
 
-- version
-- link
-- sha
-- timestamp
-- commits: `List<Commit>`
-  - id
-  - group
-  - scope
-  - message
-  - body
-  - link
-  - breaking
-  - breaking_description
-  - merge_commit
-  - timestamp
-  - author_name
-  - author_email
-  - raw_message
+- **version** - The semantic version string (e.g., "1.2.3")
+- **link** - URL link to the release
+- **sha** - Git commit SHA for the release
+- **timestamp** - Unix timestamp of the release
+- **include_author** - Boolean flag indicating if author names should be included
+- **commits**: `List<Commit>` - Array of commit objects with the following fields:
+  - **id** - Commit SHA
+  - **group** - Commit category (e.g., "Features", "Bug Fixes", "Chore", "CI/CD")
+  - **scope** - Optional scope from conventional commit (e.g., "api", "ui")
+  - **message** - Commit description
+  - **body** - Optional extended commit body
+  - **link** - URL link to the commit
+  - **breaking** - Boolean indicating if this is a breaking change
+  - **breaking_description** - Optional description of breaking changes
+  - **merge_commit** - Boolean indicating if this is a merge commit
+  - **timestamp** - Unix timestamp of the commit
+  - **author_name** - Name of the commit author
+  - **author_email** - Email of the commit author
+  - **raw_message** - Original unprocessed commit message
+
+### Using the `include_author` Flag in Templates
+
+The `include_author` flag can be used in conditional statements within your
+template to show or hide author information:
+
+```
+{% if include_author %} <{{ commit.author_name }}>{% endif %}
+```
+
+This allows you to control whether author names appear in the changelog without
+modifying the template when you toggle the `include_author` configuration option.
 
 ### Monorepo with Multiple Packages
 

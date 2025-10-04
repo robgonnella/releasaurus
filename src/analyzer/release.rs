@@ -49,6 +49,8 @@ pub struct Release {
     pub sha: String,
     /// Commits included in this release.
     pub commits: Vec<Commit>,
+    /// Whether or not to include author name for each commit in changelog
+    pub include_author: bool,
     /// Generated release notes.
     pub notes: String,
     /// Release timestamp.
@@ -61,6 +63,7 @@ impl std::fmt::Debug for Release {
             .field("tag", &self.tag)
             .field("link", &self.link)
             .field("sha", &self.sha)
+            .field("include_author", &self.include_author)
             .field("timestamp", &self.timestamp)
             .finish()
     }
@@ -80,6 +83,7 @@ impl Serialize for Release {
         s.serialize_field("link", &self.link)?;
         s.serialize_field("version", &tag.semver.to_string())?;
         s.serialize_field("sha", &self.sha)?;
+        s.serialize_field("include_author", &self.include_author)?;
         s.serialize_field("commits", &self.commits)?;
         s.serialize_field("timestamp", &self.timestamp)?;
         s.end()

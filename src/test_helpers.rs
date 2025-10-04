@@ -54,6 +54,10 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
         first_release_search_depth: 100,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
+            skip_ci: false,
+            skip_chore: false,
+            skip_miscellaneous: false,
+            include_author: false,
         },
         packages,
     }
@@ -79,6 +83,10 @@ pub fn create_test_config_simple(packages: Vec<(&str, ReleaseType)>) -> Config {
         first_release_search_depth: 100,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
+            skip_ci: false,
+            skip_chore: false,
+            skip_miscellaneous: false,
+            include_author: false,
         },
         packages: packages
             .into_iter()
@@ -201,6 +209,7 @@ pub fn create_test_release(version: &str, has_tag: bool) -> Release {
         link: String::new(),
         sha: "test-sha".to_string(),
         commits: vec![],
+        include_author: false,
         notes: String::new(),
         timestamp: 0,
     }
@@ -216,6 +225,10 @@ pub fn create_test_analyzer_config() -> AnalyzerConfig {
     AnalyzerConfig {
         tag_prefix: None,
         body: "Release version {{ version }}".to_string(),
+        skip_ci: false,
+        skip_chore: false,
+        skip_miscellaneous: false,
+        include_author: false,
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
     }
@@ -236,6 +249,10 @@ pub fn create_test_analyzer_config_with_prefix(
     AnalyzerConfig {
         tag_prefix,
         body: "Release version {{ version }}".to_string(),
+        skip_ci: false,
+        skip_chore: false,
+        skip_miscellaneous: false,
+        include_author: false,
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
     }

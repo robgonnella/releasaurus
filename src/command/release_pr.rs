@@ -4,7 +4,7 @@ use log::*;
 use std::{collections::HashMap, path::Path};
 
 use crate::{
-    analyzer::{Analyzer, config::AnalyzerConfig, release::Release},
+    analyzer::{Analyzer, release::Release},
     command::common,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
@@ -43,11 +43,11 @@ pub async fn execute(
 
         info!("processing commits for package: {}", package.path);
 
-        let analyzer_config = AnalyzerConfig {
-            body: config.changelog.body.clone(),
-            release_link_base_url: remote_config.release_link_base_url.clone(),
-            tag_prefix: Some(tag_prefix),
-        };
+        let analyzer_config = common::generate_analyzer_config(
+            &config,
+            &remote_config,
+            tag_prefix,
+        );
 
         let analyzer = Analyzer::new(analyzer_config)?;
         let release = analyzer.analyze(commits, current_tag)?;

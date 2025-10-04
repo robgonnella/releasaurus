@@ -1,0 +1,8 @@
+[changelog]
+skip_ci = false
+skip_chore = false
+skip_miscellaneous = false
+include_author = true
+
+[[package]]
+path = "."
