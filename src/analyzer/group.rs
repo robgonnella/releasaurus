@@ -21,7 +21,7 @@ pub enum Group {
     Chore,
     Ci,
     #[default]
-    Other,
+    Miscellaneous,
 }
 
 impl Serialize for Group {
@@ -85,7 +85,7 @@ impl Serialize for Group {
                 10,
                 "<!-- 10 -->⏩ CI/CD",
             ),
-            Group::Other => serializer.serialize_unit_variant(
+            Group::Miscellaneous => serializer.serialize_unit_variant(
                 "Group",
                 11,
                 "<!-- 11 -->⚙️ Miscellaneous Tasks",
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn test_group_default() {
         let group = Group::default();
-        assert_eq!(group, Group::Other);
+        assert_eq!(group, Group::Miscellaneous);
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
         assert_eq!(Group::Fix, Group::Fix);
         assert_eq!(Group::Breaking, Group::Breaking);
         assert_ne!(Group::Feat, Group::Fix);
-        assert_ne!(Group::Breaking, Group::Other);
+        assert_ne!(Group::Breaking, Group::Miscellaneous);
     }
 
     #[test]
@@ -252,7 +252,7 @@ mod tests {
         // Test other orderings
         assert!(Group::Breaking < Group::Feat);
         assert!(Group::Feat < Group::Fix);
-        assert!(Group::Other > Group::Ci); // Other should be last
+        assert!(Group::Miscellaneous > Group::Ci); // Other should be last
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod tests {
             (Group::Test, "🧪 Testing"),
             (Group::Chore, "🧹 Chore"),
             (Group::Ci, "⏩ CI/CD"),
-            (Group::Other, "⚙️ Miscellaneous Tasks"),
+            (Group::Miscellaneous, "⚙️ Miscellaneous Tasks"),
         ];
 
         for (group, expected) in test_cases {
@@ -384,7 +384,7 @@ mod tests {
         let parser = GroupParser::new();
         let commit = create_test_commit("random: unknown type", false);
         let group = parser.parse(&commit);
-        assert_eq!(group, Group::Other);
+        assert_eq!(group, Group::Miscellaneous);
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod tests {
         let parser = GroupParser::new();
         let commit = create_test_commit("", false);
         let group = parser.parse(&commit);
-        assert_eq!(group, Group::Other);
+        assert_eq!(group, Group::Miscellaneous);
     }
 
     #[test]
@@ -414,7 +414,7 @@ mod tests {
 
         // Uppercase should not match (our regexes are case-sensitive)
         let commit2 = create_test_commit("FEAT: uppercase", false);
-        assert_eq!(parser.parse(&commit2), Group::Other);
+        assert_eq!(parser.parse(&commit2), Group::Miscellaneous);
     }
 
     #[test]

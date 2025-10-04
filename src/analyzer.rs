@@ -119,6 +119,10 @@ impl Analyzer {
         // fill out and append to list of releases as we process commits
         let mut release = release::Release::default();
 
+        if self.config.include_author {
+            release.include_author = true;
+        }
+
         // loop commits in reverse oldest -> newest
         for forge_commit in commits.iter() {
             // add commit details to release
@@ -126,6 +130,7 @@ impl Analyzer {
                 &self.group_parser,
                 &mut release,
                 forge_commit,
+                &self.config,
             );
         }
 
@@ -342,5 +347,313 @@ mod tests {
             release.tag.unwrap().semver,
             SemVer::parse("1.1.0").unwrap()
         );
+    }
+
+    #[test]
+    fn test_skip_ci_filters_ci_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "old123".to_string(),
+            name: "1.0.0".to_string(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+        };
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: add new feature", 1000),
+            create_test_forge_commit("def456", "ci: update workflow", 2000),
+            create_test_forge_commit("ghi789", "ci: fix pipeline", 3000),
+            create_test_forge_commit("jkl012", "fix: bug fix", 4000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should only have 2 commits (feat and fix), ci commits filtered out
+        assert_eq!(release.commits.len(), 2);
+        assert!(release.commits.iter().all(|c| c.group != group::Group::Ci));
+    }
+
+    #[test]
+    fn test_skip_ci_false_includes_ci_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = false; // Explicitly set to false
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: add feature", 1000),
+            create_test_forge_commit("def456", "ci: update workflow", 2000),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have both commits
+        assert_eq!(release.commits.len(), 2);
+    }
+
+    #[test]
+    fn test_skip_chore_filters_chore_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_chore = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "old123".to_string(),
+            name: "1.0.0".to_string(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+        };
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: new feature", 1000),
+            create_test_forge_commit(
+                "def456",
+                "chore: update dependencies",
+                2000,
+            ),
+            create_test_forge_commit("ghi789", "chore: cleanup code", 3000),
+            create_test_forge_commit("jkl012", "fix: fix bug", 4000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should only have 2 commits (feat and fix), chore commits filtered out
+        assert_eq!(release.commits.len(), 2);
+        assert!(
+            release
+                .commits
+                .iter()
+                .all(|c| c.group != group::Group::Chore)
+        );
+    }
+
+    #[test]
+    fn test_skip_chore_false_includes_chore_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_chore = false; // Explicitly set to false
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: add feature", 1000),
+            create_test_forge_commit(
+                "def456",
+                "chore: update dependencies",
+                2000,
+            ),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have both commits
+        assert_eq!(release.commits.len(), 2);
+    }
+
+    #[test]
+    fn test_skip_miscellaneous_filters_non_conventional_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_miscellaneous = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "old123".to_string(),
+            name: "1.0.0".to_string(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+        };
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: new feature", 1000),
+            create_test_forge_commit(
+                "def456",
+                "random commit without type",
+                2000,
+            ),
+            create_test_forge_commit("ghi789", "another random commit", 3000),
+            create_test_forge_commit("jkl012", "fix: fix bug", 4000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should only have 2 commits (feat and fix), miscellaneous filtered out
+        assert_eq!(release.commits.len(), 2);
+        assert!(
+            release
+                .commits
+                .iter()
+                .all(|c| c.group != group::Group::Miscellaneous)
+        );
+    }
+
+    #[test]
+    fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_miscellaneous = false; // Explicitly set to false
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: add feature", 1000),
+            create_test_forge_commit("def456", "random commit message", 2000),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have both commits
+        assert_eq!(release.commits.len(), 2);
+    }
+
+    #[test]
+    fn test_skip_multiple_types_combined() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = true;
+        config.skip_chore = true;
+        config.skip_miscellaneous = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "old123".to_string(),
+            name: "1.0.0".to_string(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+        };
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: new feature", 1000),
+            create_test_forge_commit("def456", "ci: update workflow", 2000),
+            create_test_forge_commit("ghi789", "chore: cleanup", 3000),
+            create_test_forge_commit("jkl012", "random commit", 4000),
+            create_test_forge_commit("mno345", "fix: fix bug", 5000),
+            create_test_forge_commit("pqr678", "docs: update readme", 6000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should only have 3 commits (feat, fix, docs)
+        assert_eq!(release.commits.len(), 3);
+        assert!(release.commits.iter().all(|c| c.group != group::Group::Ci));
+        assert!(
+            release
+                .commits
+                .iter()
+                .all(|c| c.group != group::Group::Chore)
+        );
+        assert!(
+            release
+                .commits
+                .iter()
+                .all(|c| c.group != group::Group::Miscellaneous)
+        );
+    }
+
+    #[test]
+    fn test_include_author_sets_release_flag() {
+        let mut config = create_test_analyzer_config();
+        config.include_author = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have include_author set to true
+        assert!(release.include_author);
+    }
+
+    #[test]
+    fn test_include_author_false_by_default() {
+        let config = create_test_analyzer_config();
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have include_author set to false by default
+        assert!(!release.include_author);
+    }
+
+    #[test]
+    fn test_skip_ci_with_no_ci_commits() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: new feature", 1000),
+            create_test_forge_commit("def456", "fix: fix bug", 2000),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have all commits since none are ci
+        assert_eq!(release.commits.len(), 2);
+    }
+
+    #[test]
+    fn test_skip_all_types_results_in_no_release() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = true;
+        config.skip_chore = true;
+        config.skip_miscellaneous = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        // Only commits that would be filtered out
+        let commits = vec![
+            create_test_forge_commit("abc123", "ci: update workflow", 1000),
+            create_test_forge_commit("def456", "chore: cleanup", 2000),
+            create_test_forge_commit("ghi789", "random commit", 3000),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        // Should return None since all commits are filtered out
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_include_author_with_skip_options() {
+        let mut config = create_test_analyzer_config();
+        config.skip_ci = true;
+        config.include_author = true;
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat: new feature", 1000),
+            create_test_forge_commit("def456", "ci: update workflow", 2000),
+        ];
+
+        let result = analyzer.analyze(commits, None).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        // Should have only 1 commit (ci filtered out)
+        assert_eq!(release.commits.len(), 1);
+        // Should have include_author set to true
+        assert!(release.include_author);
     }
 }

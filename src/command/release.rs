@@ -2,7 +2,7 @@
 use log::*;
 
 use crate::{
-    analyzer::{Analyzer, config::AnalyzerConfig},
+    analyzer::Analyzer,
     command::common,
     config,
     forge::{
@@ -53,7 +53,7 @@ async fn process_packages_for_release(
     conf: &config::Config,
 ) -> Result<()> {
     for package in &conf.packages {
-        create_package_release(forge, remote_config, merged_pr, package, conf)
+        create_package_release(conf, remote_config, forge, merged_pr, package)
             .await?
     }
 
@@ -63,22 +63,19 @@ async fn process_packages_for_release(
 /// Analyze commits since last tag, determine next version, create git tag, and
 /// publish release with generated notes.
 async fn create_package_release(
-    forge: &dyn Forge,
+    config: &config::Config,
     remote_config: &RemoteConfig,
+    forge: &dyn Forge,
     merged_pr: &PullRequest,
     package: &config::PackageConfig,
-    config: &config::Config,
 ) -> Result<()> {
     let tag_prefix = common::get_tag_prefix(package);
     let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
     let current_sha = current_tag.clone().map(|t| t.sha);
     let commits = forge.get_commits(&package.path, current_sha).await?;
 
-    let analyzer_config = AnalyzerConfig {
-        body: config.changelog.body.clone(),
-        release_link_base_url: remote_config.release_link_base_url.clone(),
-        tag_prefix: Some(tag_prefix),
-    };
+    let analyzer_config =
+        common::generate_analyzer_config(config, remote_config, tag_prefix);
 
     let analyzer = Analyzer::new(analyzer_config)?;
     let release = analyzer.analyze(commits, current_tag)?;

@@ -88,12 +88,23 @@ first_release_search_depth = 400
 
 ### `[changelog]` Section (Optional)
 
-Controls how changelogs are generated:
+Controls how changelogs are generated and which commits to include:
 
 ```toml
 [changelog]
+skip_ci = false              # Optional: exclude CI commits from changelog
+skip_chore = false           # Optional: exclude chore commits from changelog
+skip_miscellaneous = false   # Optional: exclude non-conventional commits
+include_author = false       # Optional: show commit author names
 # body template is available for advanced users
 ```
+
+**Common changelog options:**
+
+- `skip_ci`: Exclude CI/CD commits (e.g., "ci: update workflow")
+- `skip_chore`: Exclude maintenance commits (e.g., "chore: update deps")
+- `skip_miscellaneous`: Exclude commits without conventional type prefixes
+- `include_author`: Add author names to changelog entries
 
 ### `[[package]]` Sections (Required)
 
@@ -170,6 +181,37 @@ release_type = "Rust"
 tag_prefix = "lib-"
 ```
 
+### Clean Changelog (Filtered Commits)
+
+```toml
+# Focus on user-facing changes only
+[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = true
+
+[[package]]
+path = "."
+release_type = "Rust"
+tag_prefix = "v"
+```
+
+### Changelog with all commits and author attribution
+
+```toml
+# Show who contributed each change
+[changelog]
+skip_ci = false
+skip_chore = false
+skip_miscellaneous = false
+include_author = true
+
+[[package]]
+path = "."
+release_type = "Python"
+tag_prefix = "v"
+```
+
 ## Testing Your Configuration
 
 After creating your configuration file:
@@ -212,6 +254,10 @@ When you don't specify values, these defaults are used:
 first_release_search_depth = 400
 
 [changelog]
+skip_ci = false
+skip_chore = false
+skip_miscellaneous = false
+include_author = false
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}

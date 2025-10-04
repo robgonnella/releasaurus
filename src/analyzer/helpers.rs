@@ -2,7 +2,10 @@ use log::*;
 use regex::Regex;
 
 use crate::{
-    analyzer::{commit::Commit, group::GroupParser, release::Release},
+    analyzer::{
+        commit::Commit, config::AnalyzerConfig, group::GroupParser,
+        release::Release,
+    },
     forge::request::ForgeCommit,
 };
 
@@ -12,9 +15,14 @@ pub fn update_release_with_commit(
     group_parser: &GroupParser,
     release: &mut Release,
     forge_commit: &ForgeCommit,
+    config: &AnalyzerConfig,
 ) {
     // create git_cliff commit from git2 commit
-    let commit = Commit::parse_forge_commit(group_parser, forge_commit);
+    let commit = Commit::parse_forge_commit(group_parser, forge_commit, config);
+    if commit.is_none() {
+        return;
+    }
+    let commit = commit.unwrap();
     let commit_id = commit.id.to_string();
     let lines = commit
         .message
@@ -49,10 +57,12 @@ mod tests {
     use crate::{
         analyzer::{group::GroupParser, release::Release},
         forge::request::ForgeCommit,
+        test_helpers,
     };
 
     #[test]
     fn test_update_release_with_commit() {
+        let analyzer_config = test_helpers::create_test_analyzer_config();
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -76,8 +86,18 @@ mod tests {
             timestamp: 1640995300,
         };
 
-        update_release_with_commit(&group_parser, &mut release, &forge_commit1);
-        update_release_with_commit(&group_parser, &mut release, &forge_commit2);
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &forge_commit1,
+            &analyzer_config,
+        );
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &forge_commit2,
+            &analyzer_config,
+        );
 
         // Should have 2 commits
         assert_eq!(release.commits.len(), 2);
@@ -186,5 +206,344 @@ mod tests {
 
         // Should not be empty
         assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_update_release_with_commit_skip_ci() {
+        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        analyzer_config.skip_ci = true;
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let ci_commit = ForgeCommit {
+            id: "ci123".to_string(),
+            link: "https://example.com/commit/ci123".to_string(),
+            author_name: "CI Bot".to_string(),
+            author_email: "ci@example.com".to_string(),
+            merge_commit: false,
+            message: "ci: update workflow".to_string(),
+            timestamp: 1640995200,
+        };
+
+        let feat_commit = ForgeCommit {
+            id: "feat123".to_string(),
+            link: "https://example.com/commit/feat123".to_string(),
+            author_name: "Developer".to_string(),
+            author_email: "dev@example.com".to_string(),
+            merge_commit: false,
+            message: "feat: add feature".to_string(),
+            timestamp: 1640995300,
+        };
+
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &ci_commit,
+            &analyzer_config,
+        );
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &feat_commit,
+            &analyzer_config,
+        );
+
+        // Should only have 1 commit (feat), ci filtered out
+        assert_eq!(release.commits.len(), 1);
+        assert_eq!(release.commits[0].id, "feat123");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_skip_chore() {
+        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        analyzer_config.skip_chore = true;
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let chore_commit = ForgeCommit {
+            id: "chore123".to_string(),
+            link: "https://example.com/commit/chore123".to_string(),
+            author_name: "Maintainer".to_string(),
+            author_email: "maint@example.com".to_string(),
+            merge_commit: false,
+            message: "chore: update dependencies".to_string(),
+            timestamp: 1640995200,
+        };
+
+        let fix_commit = ForgeCommit {
+            id: "fix123".to_string(),
+            link: "https://example.com/commit/fix123".to_string(),
+            author_name: "Developer".to_string(),
+            author_email: "dev@example.com".to_string(),
+            merge_commit: false,
+            message: "fix: fix bug".to_string(),
+            timestamp: 1640995300,
+        };
+
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &chore_commit,
+            &analyzer_config,
+        );
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &fix_commit,
+            &analyzer_config,
+        );
+
+        // Should only have 1 commit (fix), chore filtered out
+        assert_eq!(release.commits.len(), 1);
+        assert_eq!(release.commits[0].id, "fix123");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_skip_miscellaneous() {
+        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        analyzer_config.skip_miscellaneous = true;
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let misc_commit = ForgeCommit {
+            id: "misc123".to_string(),
+            link: "https://example.com/commit/misc123".to_string(),
+            author_name: "Random User".to_string(),
+            author_email: "random@example.com".to_string(),
+            merge_commit: false,
+            message: "random commit without type".to_string(),
+            timestamp: 1640995200,
+        };
+
+        let feat_commit = ForgeCommit {
+            id: "feat123".to_string(),
+            link: "https://example.com/commit/feat123".to_string(),
+            author_name: "Developer".to_string(),
+            author_email: "dev@example.com".to_string(),
+            merge_commit: false,
+            message: "feat: add feature".to_string(),
+            timestamp: 1640995300,
+        };
+
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &misc_commit,
+            &analyzer_config,
+        );
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &feat_commit,
+            &analyzer_config,
+        );
+
+        // Should only have 1 commit (feat), miscellaneous filtered out
+        assert_eq!(release.commits.len(), 1);
+        assert_eq!(release.commits[0].id, "feat123");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_skip_multiple_types() {
+        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        analyzer_config.skip_ci = true;
+        analyzer_config.skip_chore = true;
+        analyzer_config.skip_miscellaneous = true;
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let commits = vec![
+            ForgeCommit {
+                id: "ci123".to_string(),
+                link: "https://example.com/commit/ci123".to_string(),
+                author_name: "CI Bot".to_string(),
+                author_email: "ci@example.com".to_string(),
+                merge_commit: false,
+                message: "ci: update workflow".to_string(),
+                timestamp: 1640995100,
+            },
+            ForgeCommit {
+                id: "chore123".to_string(),
+                link: "https://example.com/commit/chore123".to_string(),
+                author_name: "Maintainer".to_string(),
+                author_email: "maint@example.com".to_string(),
+                merge_commit: false,
+                message: "chore: cleanup".to_string(),
+                timestamp: 1640995200,
+            },
+            ForgeCommit {
+                id: "misc123".to_string(),
+                link: "https://example.com/commit/misc123".to_string(),
+                author_name: "Random".to_string(),
+                author_email: "random@example.com".to_string(),
+                merge_commit: false,
+                message: "random commit".to_string(),
+                timestamp: 1640995250,
+            },
+            ForgeCommit {
+                id: "feat123".to_string(),
+                link: "https://example.com/commit/feat123".to_string(),
+                author_name: "Developer".to_string(),
+                author_email: "dev@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: add feature".to_string(),
+                timestamp: 1640995300,
+            },
+            ForgeCommit {
+                id: "fix123".to_string(),
+                link: "https://example.com/commit/fix123".to_string(),
+                author_name: "Developer 2".to_string(),
+                author_email: "dev2@example.com".to_string(),
+                merge_commit: false,
+                message: "fix: fix bug".to_string(),
+                timestamp: 1640995400,
+            },
+        ];
+
+        for commit in &commits {
+            update_release_with_commit(
+                &group_parser,
+                &mut release,
+                commit,
+                &analyzer_config,
+            );
+        }
+
+        // Should only have 2 commits (feat and fix)
+        assert_eq!(release.commits.len(), 2);
+        assert_eq!(release.commits[0].id, "feat123");
+        assert_eq!(release.commits[1].id, "fix123");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_preserves_author_info() {
+        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let commit_with_author = ForgeCommit {
+            id: "author123".to_string(),
+            link: "https://example.com/commit/author123".to_string(),
+            author_name: "Jane Smith".to_string(),
+            author_email: "jane.smith@example.com".to_string(),
+            merge_commit: false,
+            message: "feat: add new feature".to_string(),
+            timestamp: 1640995200,
+        };
+
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &commit_with_author,
+            &analyzer_config,
+        );
+
+        assert_eq!(release.commits.len(), 1);
+        assert_eq!(release.commits[0].author_name, "Jane Smith");
+        assert_eq!(release.commits[0].author_email, "jane.smith@example.com");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_author_info_with_skip_options() {
+        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        analyzer_config.skip_ci = true;
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let ci_commit = ForgeCommit {
+            id: "ci123".to_string(),
+            link: "https://example.com/commit/ci123".to_string(),
+            author_name: "CI Bot".to_string(),
+            author_email: "ci@example.com".to_string(),
+            merge_commit: false,
+            message: "ci: update workflow".to_string(),
+            timestamp: 1640995200,
+        };
+
+        let feat_commit = ForgeCommit {
+            id: "feat123".to_string(),
+            link: "https://example.com/commit/feat123".to_string(),
+            author_name: "John Doe".to_string(),
+            author_email: "john.doe@example.com".to_string(),
+            merge_commit: false,
+            message: "feat: add feature".to_string(),
+            timestamp: 1640995300,
+        };
+
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &ci_commit,
+            &analyzer_config,
+        );
+        update_release_with_commit(
+            &group_parser,
+            &mut release,
+            &feat_commit,
+            &analyzer_config,
+        );
+
+        // Should only have feat commit with author info preserved
+        assert_eq!(release.commits.len(), 1);
+        assert_eq!(release.commits[0].author_name, "John Doe");
+        assert_eq!(release.commits[0].author_email, "john.doe@example.com");
+    }
+
+    #[test]
+    fn test_update_release_with_commit_no_skip_includes_all() {
+        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let group_parser = GroupParser::new();
+        let mut release = Release::default();
+
+        let commits = vec![
+            ForgeCommit {
+                id: "ci123".to_string(),
+                link: "https://example.com/commit/ci123".to_string(),
+                author_name: "CI Bot".to_string(),
+                author_email: "ci@example.com".to_string(),
+                merge_commit: false,
+                message: "ci: update workflow".to_string(),
+                timestamp: 1640995100,
+            },
+            ForgeCommit {
+                id: "chore123".to_string(),
+                link: "https://example.com/commit/chore123".to_string(),
+                author_name: "Maintainer".to_string(),
+                author_email: "maint@example.com".to_string(),
+                merge_commit: false,
+                message: "chore: cleanup".to_string(),
+                timestamp: 1640995200,
+            },
+            ForgeCommit {
+                id: "misc123".to_string(),
+                link: "https://example.com/commit/misc123".to_string(),
+                author_name: "Random".to_string(),
+                author_email: "random@example.com".to_string(),
+                merge_commit: false,
+                message: "random commit".to_string(),
+                timestamp: 1640995250,
+            },
+            ForgeCommit {
+                id: "feat123".to_string(),
+                link: "https://example.com/commit/feat123".to_string(),
+                author_name: "Developer".to_string(),
+                author_email: "dev@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: add feature".to_string(),
+                timestamp: 1640995300,
+            },
+        ];
+
+        for commit in &commits {
+            update_release_with_commit(
+                &group_parser,
+                &mut release,
+                commit,
+                &analyzer_config,
+            );
+        }
+
+        // Should have all 4 commits when no skip options are enabled
+        assert_eq!(release.commits.len(), 4);
     }
 }

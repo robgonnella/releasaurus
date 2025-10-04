@@ -160,6 +160,33 @@ if:
   analysis
 - **You're in a CI/CD environment** - Use a smaller depth for faster builds
 
+### Filtering Changelog Commits
+
+You can also control which commits appear in your changelog by adding filtering
+options to the `[changelog]` section:
+
+```toml
+[changelog]
+skip_ci = true              # Exclude CI/CD commits
+skip_chore = true           # Exclude chore/maintenance commits
+skip_miscellaneous = true   # Exclude non-conventional commits
+include_author = true       # Show commit author names
+
+[[package]]
+path = "."
+release_type = "Node"
+```
+
+These options help you:
+
+- **`skip_ci`** - Remove CI/CD related commits (e.g., "ci: update workflow")
+- **`skip_chore`** - Remove maintenance commits (e.g., "chore: update deps")
+- **`skip_miscellaneous`** - Remove commits without conventional type prefixes
+- **`include_author`** - Add author attribution to each changelog entry
+
+This keeps your changelog focused on user-facing changes. See the
+[Configuration](./configuration.md) guide for more details and examples.
+
 ## Common Patterns
 
 ### Workflow Integration
