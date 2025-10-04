@@ -37,13 +37,13 @@ pub enum Framework {
 impl Display for Framework {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Framework::Generic => f.write_str("Generic"),
-            Framework::Java => f.write_str("Java"),
-            Framework::Node => f.write_str("Node"),
-            Framework::Php => f.write_str("Php"),
-            Framework::Python => f.write_str("Python"),
-            Framework::Ruby => f.write_str("Ruby"),
-            Framework::Rust => f.write_str("Rust"),
+            Framework::Generic => f.write_str("generic"),
+            Framework::Java => f.write_str("java"),
+            Framework::Node => f.write_str("node"),
+            Framework::Php => f.write_str("php"),
+            Framework::Python => f.write_str("python"),
+            Framework::Ruby => f.write_str("ruby"),
+            Framework::Rust => f.write_str("rust"),
         }
     }
 }

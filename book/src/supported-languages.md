@@ -13,7 +13,7 @@ enable version file updates:
 ```toml
 [[package]]
 path = "."
-release_type = "Node"  # Specify your language/framework
+release_type = "node"  # Specify your language/framework
 ```
 
 Available release types: `"Rust"`, `"Node"`, `"Python"`, `"Java"`, `"Php"`,
@@ -23,7 +23,7 @@ Available release types: `"Rust"`, `"Node"`, `"Python"`, `"Java"`, `"Php"`,
 
 ### Rust
 
-**Configuration**: `release_type = "Rust"`
+**Configuration**: `release_type = "rust"`
 
 **Updated Files**: `Cargo.toml`, `Cargo.lock` (if present)
 
@@ -36,7 +36,7 @@ version updates.
 ```toml
 [[package]]
 path = "."
-release_type = "Rust"
+release_type = "rust"
 ```
 
 **Example Project Structure**:
@@ -52,7 +52,7 @@ my-rust-project/
 
 ### Node.js
 
-**Configuration**: `release_type = "Node"`
+**Configuration**: `release_type = "node"`
 
 **Updated Files**: `package.json`, `package-lock.json`, `yarn.lock`,
 `pnpm-lock.yaml`
@@ -65,7 +65,7 @@ Supports monorepos, workspaces, and dependency updates.
 ```toml
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 ```
 
 **Example Project Structure**:
@@ -81,7 +81,7 @@ my-node-project/
 
 ### Python
 
-**Configuration**: `release_type = "Python"`
+**Configuration**: `release_type = "python"`
 
 **Updated Files**: `pyproject.toml`, `setup.py`, `setup.cfg`, `__init__.py`,
 `requirements*.txt`
@@ -94,7 +94,7 @@ setuptools. Supports Poetry, setuptools, and custom version patterns.
 ```toml
 [[package]]
 path = "."
-release_type = "Python"
+release_type = "python"
 ```
 
 **Example Project Structure**:
@@ -111,7 +111,7 @@ my-python-project/
 
 ### Java
 
-**Configuration**: `release_type = "Java"`
+**Configuration**: `release_type = "java"`
 
 **Updated Files**: Maven POMs, Gradle build files, version properties
 
@@ -123,7 +123,7 @@ projects, parent POMs, and version property management.
 ```toml
 [[package]]
 path = "."
-release_type = "Java"
+release_type = "java"
 ```
 
 **Example Maven Project**:
@@ -149,7 +149,7 @@ my-gradle-project/
 
 ### PHP
 
-**Configuration**: `release_type = "Php"`
+**Configuration**: `release_type = "php"`
 
 **Updated Files**: `composer.json`, `composer.lock` (regenerated)
 
@@ -161,7 +161,7 @@ applications, and dependency constraint updates.
 ```toml
 [[package]]
 path = "."
-release_type = "Php"
+release_type = "php"
 ```
 
 **Example Project Structure**:
@@ -177,7 +177,7 @@ my-php-project/
 
 ### Ruby
 
-**Configuration**: `release_type = "Ruby"`
+**Configuration**: `release_type = "ruby"`
 
 **Updated Files**: Gemspec files, version files, Gemfile dependencies
 
@@ -189,7 +189,7 @@ version constant management.
 ```toml
 [[package]]
 path = "."
-release_type = "Ruby"
+release_type = "ruby"
 ```
 
 **Example Gem Project**:
@@ -206,7 +206,7 @@ my-ruby-gem/
 
 ### Generic Projects
 
-**Configuration**: `release_type = "Generic"`
+**Configuration**: `release_type = "generic"`
 
 Generic projects receive changelog generation and tagging only. Version files
 are not modified. This is useful for documentation repositories, configuration
@@ -217,7 +217,7 @@ projects, or languages not yet supported.
 ```toml
 [[package]]
 path = "."
-release_type = "Generic"
+release_type = "generic"
 ```
 
 ## Framework-Specific Features
@@ -263,17 +263,17 @@ their respective `release_type`:
 # releasaurus.toml
 [[package]]
 path = "./backend"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "api-v"
 
 [[package]]
 path = "./frontend"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "ui-v"
 
 [[package]]
 path = "./scripts"
-release_type = "Python"
+release_type = "python"
 tag_prefix = "scripts-v"
 ```
 

@@ -43,7 +43,7 @@ The most common setup specifies the release type for version file updates:
 # releasaurus.toml
 [[package]]
 path = "."
-release_type = "Node"  # Options: "Rust", "Node", "Python", "Java", "Php", "Ruby", "Generic"
+release_type = "node"
 tag_prefix = "v"
 ```
 
@@ -58,12 +58,12 @@ For a repository with multiple independently-versioned components:
 # releasaurus.toml
 [[package]]
 path = "./frontend"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "frontend-v"
 
 [[package]]
 path = "./backend"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "backend-v"
 ```
 
@@ -113,12 +113,12 @@ Defines packages in your repository. You can have multiple `[[package]]` section
 ```toml
 [[package]]
 path = "."              # Required: path to package
-release_type = "Node"   # Required: language/framework type
+release_type = "node"   # Required: language/framework type
 tag_prefix = "v"        # Optional: tag prefix
 
 [[package]]
 path = "./other-package"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "other-v"
 ```
 
@@ -130,7 +130,7 @@ tag_prefix = "other-v"
 # Most common setup
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 tag_prefix = "v"
 ```
 
@@ -142,7 +142,7 @@ first_release_search_depth = 200
 
 [[package]]
 path = "."
-release_type = "Python"
+release_type = "python"
 tag_prefix = "v"
 ```
 
@@ -152,12 +152,12 @@ tag_prefix = "v"
 # All packages use same prefix style
 [[package]]
 path = "./app"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "v"
 
 [[package]]
 path = "./lib"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "v"
 ```
 
@@ -167,17 +167,17 @@ tag_prefix = "v"
 # Different prefix for each component
 [[package]]
 path = "./web-app"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "web-"
 
 [[package]]
 path = "./mobile-app"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "mobile-"
 
 [[package]]
 path = "./shared-lib"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "lib-"
 ```
 
@@ -192,7 +192,7 @@ skip_miscellaneous = true
 
 [[package]]
 path = "."
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "v"
 ```
 
@@ -208,7 +208,7 @@ include_author = true
 
 [[package]]
 path = "."
-release_type = "Python"
+release_type = "python"
 tag_prefix = "v"
 ```
 
@@ -278,7 +278,7 @@ body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d"
 
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 tag_prefix = "v"
 ```
 

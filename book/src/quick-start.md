@@ -135,7 +135,7 @@ your project's release type:
 ```toml
 [[package]]
 path = "."
-release_type = "Node"  # or "Rust", "Python", "Java", "Php", "Ruby", "Generic"
+release_type = "node"
 ```
 
 For repositories with extensive commit history, you can also control how many
@@ -147,7 +147,7 @@ first_release_search_depth = 200
 
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 ```
 
 This setting only affects the first release when no previous tags exist.
@@ -174,7 +174,7 @@ include_author = true       # Show commit author names
 
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 ```
 
 These options help you:

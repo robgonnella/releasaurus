@@ -40,6 +40,7 @@ impl Default for ChangelogConfig {
 
 /// Supported release types for updating package files
 #[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReleaseType {
     #[default]
     Generic,

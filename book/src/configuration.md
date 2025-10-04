@@ -68,7 +68,7 @@ body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d"
 
 [[package]]
 path = "."
-release_type = "Node"  # Options: "Rust", "Node", "Python", "Java", "Php", "Ruby", "Generic"
+release_type = "node"
 tag_prefix = "v"
 ```
 
@@ -197,7 +197,7 @@ Specifies which language/framework updater to use for version files. This is
 ```toml
 [[package]]
 path = "."
-release_type = "Node"
+release_type = "node"
 ```
 
 ### `tag_prefix`
@@ -207,7 +207,7 @@ Optional prefix for Git tags. Defaults to `"v"` if not specified.
 ```toml
 [[package]]
 path = "."
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "v"  # Creates tags like v1.0.0, v1.1.0
 ```
 
@@ -254,25 +254,25 @@ modifying the template when you toggle the `include_author` configuration option
 # Frontend package
 [[package]]
 path = "./apps/frontend"
-release_type = "Node"
+release_type = "node"
 tag_prefix = "frontend-v"
 
 # Backend API
 [[package]]
 path = "./apps/api"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "api-v"
 
 # Shared library
 [[package]]
 path = "./packages/shared"
-release_type = "Python"
+release_type = "python"
 tag_prefix = "shared-v"
 
 # CLI tool
 [[package]]
 path = "./packages/cli"
-release_type = "Rust"
+release_type = "rust"
 tag_prefix = "cli-v"
 ```
 
