@@ -12,6 +12,7 @@ pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
 /// Changelog template configuration using Tera syntax.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)] // Use default for missing fields
 pub struct ChangelogConfig {
     /// Main changelog body template.
     pub body: String,
@@ -52,6 +53,7 @@ pub enum ReleaseType {
 
 /// Package configuration for multi-package repositories and monorepos.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)] // Use default for missing fields
 pub struct PackageConfig {
     /// Package directory path relative to repository root.
     pub path: String,

@@ -593,7 +593,6 @@ impl Forge for Github {
                 "{}/repos/{}/{}/git/refs/heads/{}",
                 self.base_uri, self.config.owner, self.config.repo, req.branch
             );
-            info!("patch endpoint --> {endpoint}");
             let _: serde_json::Value = self
                 .instance
                 .patch(
