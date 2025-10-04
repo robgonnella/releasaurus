@@ -2,5 +2,5 @@
 
 use color_eyre::eyre::Result as EyreResult;
 
-/// Type alias for `color_eyre::eyre::Result<T>` with enhanced error reporting.
+/// Type alias for Result with color-eyre error reporting and diagnostics.
 pub type Result<T> = EyreResult<T>;

@@ -1,38 +1,43 @@
 # Supported Languages & Frameworks
 
-Releasaurus provides native support for a wide range of programming languages and frameworks. The tool automatically detects your project's language and framework, then handles version updates across all relevant files without requiring manual configuration.
+Releasaurus provides native support for a wide range of programming languages
+and frameworks. You configure your project's `release_type` in
+`releasaurus.toml`, and Releasaurus handles version updates across all relevant
+files for that language.
 
-## Automatic Detection
+## Configuration
 
-When you run Releasaurus, it automatically scans your project directory to identify:
+Each package in your repository requires a `release_type` configuration to
+enable version file updates:
 
-1. **Primary language/framework** based on manifest files
-2. **Version files** that need updating
-3. **Project structure** and dependencies
-4. **Release patterns** appropriate for your ecosystem
+```toml
+[[package]]
+path = "."
+release_type = "Node"  # Specify your language/framework
+```
 
-This detection happens transparently—you don't need to specify your project type or configure file patterns.
-
-## Detection Priority
-
-When multiple language indicators are present, Releasaurus uses this priority order:
-
-1. **Rust** - `Cargo.toml` presence
-2. **Python** - `pyproject.toml`, `setup.py`, or `setup.cfg`
-3. **Node.js** - `package.json` presence
-4. **PHP** - `composer.json` presence
-5. **Java** - `pom.xml` or `build.gradle*` files
-6. **Ruby** - `Gemfile` or `*.gemspec` files
-7. **Generic** - Custom patterns or unrecognized projects
+Available release types: `"Rust"`, `"Node"`, `"Python"`, `"Java"`, `"Php"`,
+`"Ruby"`, `"Generic"`
 
 ## Supported Languages
 
 ### Rust
 
-**Detection Files**: `Cargo.toml`
+**Configuration**: `release_type = "Rust"`
+
 **Updated Files**: `Cargo.toml`, `Cargo.lock` (if present)
 
-Rust projects using Cargo for dependency management and packaging. Supports both library and binary crates, workspace configurations, and dependency version updates.
+Rust projects using Cargo for dependency management and packaging. Supports
+both library and binary crates, workspace configurations, and dependency
+version updates.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Rust"
+```
 
 **Example Project Structure**:
 
@@ -47,10 +52,21 @@ my-rust-project/
 
 ### Node.js
 
-**Detection Files**: `package.json`
-**Updated Files**: `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+**Configuration**: `release_type = "Node"`
 
-JavaScript and TypeScript projects using npm, Yarn, or pnpm package managers. Supports monorepos, workspaces, and dependency updates.
+**Updated Files**: `package.json`, `package-lock.json`, `yarn.lock`,
+`pnpm-lock.yaml`
+
+JavaScript and TypeScript projects using npm, Yarn, or pnpm package managers.
+Supports monorepos, workspaces, and dependency updates.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Node"
+```
 
 **Example Project Structure**:
 
@@ -65,10 +81,21 @@ my-node-project/
 
 ### Python
 
-**Detection Files**: `pyproject.toml`, `setup.py`, `setup.cfg`
-**Updated Files**: `pyproject.toml`, `setup.py`, `setup.cfg`, `__init__.py`, `requirements*.txt`
+**Configuration**: `release_type = "Python"`
 
-Python projects using modern packaging standards (PEP 518/517) or legacy setuptools. Supports Poetry, setuptools, and custom version patterns.
+**Updated Files**: `pyproject.toml`, `setup.py`, `setup.cfg`, `__init__.py`,
+`requirements*.txt`
+
+Python projects using modern packaging standards (PEP 518/517) or legacy
+setuptools. Supports Poetry, setuptools, and custom version patterns.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Python"
+```
 
 **Example Project Structure**:
 
@@ -84,10 +111,20 @@ my-python-project/
 
 ### Java
 
-**Detection Files**: `pom.xml`, `build.gradle`, `build.gradle.kts`
+**Configuration**: `release_type = "Java"`
+
 **Updated Files**: Maven POMs, Gradle build files, version properties
 
-Java projects using Maven or Gradle build systems. Supports multi-module projects, parent POMs, and version property management.
+Java projects using Maven or Gradle build systems. Supports multi-module
+projects, parent POMs, and version property management.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Java"
+```
 
 **Example Maven Project**:
 
@@ -112,10 +149,20 @@ my-gradle-project/
 
 ### PHP
 
-**Detection Files**: `composer.json`
+**Configuration**: `release_type = "Php"`
+
 **Updated Files**: `composer.json`, `composer.lock` (regenerated)
 
-PHP projects using Composer for dependency management. Supports packages, applications, and dependency constraint updates.
+PHP projects using Composer for dependency management. Supports packages,
+applications, and dependency constraint updates.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Php"
+```
 
 **Example Project Structure**:
 
@@ -130,10 +177,20 @@ my-php-project/
 
 ### Ruby
 
-**Detection Files**: `Gemfile`, `*.gemspec`
+**Configuration**: `release_type = "Ruby"`
+
 **Updated Files**: Gemspec files, version files, Gemfile dependencies
 
-Ruby projects using Bundler and RubyGems. Supports gems, applications, and version constant management.
+Ruby projects using Bundler and RubyGems. Supports gems, applications, and
+version constant management.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Ruby"
+```
 
 **Example Gem Project**:
 
@@ -149,22 +206,31 @@ my-ruby-gem/
 
 ### Generic Projects
 
-**Detection**: Fallback when no specific language is detected
+**Configuration**: `release_type = "Generic"`
 
-Right now anything that falls back to "Generic" will only receive changelog
-updates and tagging. Any specific version manifests will be left untouched.
-In the future we will support the configuration of generic manifest files
-that can be updated via regex-able version properties.
+Generic projects receive changelog generation and tagging only. Version files
+are not modified. This is useful for documentation repositories, configuration
+projects, or languages not yet supported.
+
+**Example Configuration**:
+
+```toml
+[[package]]
+path = "."
+release_type = "Generic"
+```
 
 ## Framework-Specific Features
 
 ### Version File Detection
 
-Each language ecosystem has different conventions for where version information is stored:
+Each language ecosystem has different conventions for where version information
+is stored:
 
 - **Rust**: Single source of truth in `Cargo.toml`
 - **Node.js**: Primary in `package.json`, locks updated automatically
-- **Python**: Multiple possible locations (pyproject.toml, setup.py, **init**.py)
+- **Python**: Multiple possible locations (pyproject.toml, setup.py,
+  **init**.py)
 - **Java**: Maven coordinates or Gradle version properties
 - **PHP**: Composer metadata with semantic versioning
 - **Ruby**: Gemspec version specifications
@@ -190,40 +256,39 @@ Releasaurus integrates with various build systems:
 
 ## Multi-Language Projects
 
-For projects that use multiple languages, Releasaurus can handle them in several ways:
-
-1. **Primary Language Detection**: Uses the highest-priority language found
-2. **Multi-Package Configuration**: Define separate packages for each language
-3. **Generic Fallback**: Use generic patterns for unsupported combinations
-
-Example multi-language project configuration:
+For projects that use multiple languages, configure separate packages with
+their respective `release_type`:
 
 ```toml
 # releasaurus.toml
 [[package]]
-path = "./backend"      # Rust API
+path = "./backend"
+release_type = "Rust"
 tag_prefix = "api-v"
 
 [[package]]
-path = "./frontend"     # Node.js frontend
+path = "./frontend"
+release_type = "Node"
 tag_prefix = "ui-v"
 
 [[package]]
-path = "./scripts"      # Python utilities
+path = "./scripts"
+release_type = "Python"
 tag_prefix = "scripts-v"
 ```
 
+Each package is processed independently with its own version calculation,
+changelog, and release cycle.
+
 ## Adding New Languages
 
-Releasaurus is designed to be extensible. Each language implementation includes:
-
-- **Detector**: Identifies if the language is present
-- **Updater**: Handles version file modifications
-- **Framework Integration**: Language-specific patterns and conventions
-
-See the [Contributing](./contributing.md) guide for information about adding support for new languages and frameworks.
+Releasaurus is designed to be extensible. Each language implementation
+includes an updater that handles version file modifications and
+language-specific patterns. See the [Contributing](./contributing.md) guide
+for information about adding support for new languages and frameworks.
 
 ## Next Steps
 
-- Refer to the language-specific sections above for detailed information about supported features
+- Refer to the language-specific sections above for detailed information about
+  supported features
 - Explore [Configuration](./configuration.md) for customization options

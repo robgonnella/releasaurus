@@ -1,6 +1,9 @@
 # Git Forge Platforms
 
-Releasaurus provides unified support for multiple Git forge platforms, allowing you to use the same workflow regardless of where your repositories are hosted. Whether you're using GitHub, GitLab, Gitea, or self-hosted instances, Releasaurus adapts seamlessly to your platform's API and conventions.
+Releasaurus provides unified support for multiple Git forge platforms,
+allowing you to use the same workflow regardless of where your repositories are
+hosted. Whether you're using GitHub, GitLab, Gitea, or self-hosted instances,
+Releasaurus adapts seamlessly to your platform's API and conventions.
 
 ## Supported Platforms
 
@@ -62,7 +65,7 @@ For automated releases with Gitea Actions workflows, see the dedicated
 
 ## Authentication Methods
 
-All platforms use token-based authentication for security and API access:
+All platforms use token-based authentication for security and API access.
 
 ### Command-Line Tokens
 
@@ -103,7 +106,7 @@ releasaurus release-pr --gitea-repo "https://git.example.com/owner/repo"
 
 ### URL Formats
 
-Always use complete HTTP / HTTPS URLs for repository specification:
+Always use complete HTTP/HTTPS URLs for repository specification:
 
 ```bash
 # Correct formats
@@ -112,13 +115,16 @@ Always use complete HTTP / HTTPS URLs for repository specification:
 --gitea-repo "https://git.example.com/organization/repository"
 
 # Incorrect formats (won't work)
---github-repo "github.com/owner/repo"           # Missing protocol
---github-repo "git@github.com:owner/repo.git"  # SSH format not supported
+--github-repo "github.com/owner/repo"          # Missing protocol
+--github-repo "git@github.com:owner/repo.git"  # SSH not supported
 ```
 
 ## Next Steps
 
-- Refer to the platform-specific sections above for detailed information about supported features
+- Refer to the platform-specific sections above for detailed information
+  about supported features
 - Check [Troubleshooting](./troubleshooting.md) for common issues
 
-The unified forge platform support in Releasaurus means you can focus on your release process rather than platform-specific differences, enabling consistent workflows across your entire organization's repositories.
+The unified forge platform support in Releasaurus means you can focus on your
+release process rather than platform-specific differences, enabling consistent
+workflows across your entire organization's repositories.

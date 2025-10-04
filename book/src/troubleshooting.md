@@ -1,59 +1,67 @@
 # Troubleshooting
 
 This guide helps you diagnose and resolve common issues when using Releasaurus.
-If you encounter problems not covered here, please check the [GitHub issues](https://github.com/robgonnella/releasaurus/issues) or create a new one.
+If you encounter problems not covered here, please check the
+[GitHub issues](https://github.com/robgonnella/releasaurus/issues) or create a
+new one.
 
 ## Common Issues
 
-### Clone Depth Problems
+### First Release History Configuration
 
-#### Issue: "Not enough commit history found"
+#### Issue: "Not enough commit history found" for first release
 
 **Symptoms**:
 
-- Releasaurus can't determine the next version
-- Error messages about missing previous releases
-- Empty or incomplete changelog generation
+- Releasaurus can't determine the next version for first release
+- Error messages about insufficient commit history
+- Empty or incomplete changelog generation on initial release
 
-**Cause**: The default clone depth (250 commits) doesn't include enough history
-for analysis.
+**Cause**: The default `first_release_search_depth` (400 commits) doesn't
+include enough history for your repository's first release analysis.
 
-**Solutions**:
+**Solution**: Increase the search depth in your `releasaurus.toml`:
 
-```bash
-# Option 1: Increase clone depth
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 500
+```toml
+# Increase commit search depth for first release
+first_release_search_depth = 1000
 
-# Option 2: Clone full history
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 0
+[[package]]
+path = "."
 ```
 
-#### Issue: Clone operation is too slow
+**Note**: This setting only affects the first release when no tags exist. Once
+you have a release tag, subsequent releases automatically find all commits
+since the last tag.
+
+#### Issue: Slow first release analysis
 
 **Symptoms**:
 
-- Long wait times during repository cloning
-- Timeouts in CI/CD environments
-- High bandwidth usage
+- Long wait times during first release PR creation
+- Timeouts in CI/CD environments on initial release
+- High API usage during analysis
 
-**Cause**: Repository has extensive history or large binary files.
+**Cause**: Searching through extensive commit history for the first release.
 
-**Solutions**:
+**Solution**: Reduce the search depth in your `releasaurus.toml`:
 
-```bash
-# Reduce clone depth for faster operations
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 50
+```toml
+# Reduce commit search depth for faster first release analysis
+first_release_search_depth = 100
 
-# For CI/CD environments
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 25
+[[package]]
+path = "."
+```
+
+For CI/CD environments with large repositories:
+
+```toml
+# Minimal search depth for CI/CD
+first_release_search_depth = 50
+
+[[package]]
+path = "."
 ```
 
 #### Issue: "Could not find any releases" despite having tags
@@ -66,22 +74,23 @@ releasaurus release-pr \
 
 **Causes**:
 
-- Clone depth is too shallow to reach previous release tags.
-- Configured tag prefixes don't match existing tags
+- Configured tag prefixes in `releasaurus.toml` don't match existing tags
+- Tags exist but don't follow semantic versioning format
 
-**Solution**:
+**Solution**: Ensure configured tag prefixes match existing tag patterns in
+your `releasaurus.toml`:
 
-- Set larger clone depth to ensure last tag is included
-
-```bash
-# Ensure full history is available
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 0
+```toml
+[[package]]
+path = "."
+tag_prefix = "v"  # Must match your existing tags like "v1.0.0"
 ```
 
-- Ensure configured tag prefixes in `releasaurus.toml` match existing tag
-  patterns
+Common prefix patterns:
+
+- `tag_prefix = "v"` for tags like `v1.0.0`, `v2.1.0`
+- `tag_prefix = "api-v"` for tags like `api-v1.0.0`
+- `tag_prefix = ""` for tags like `1.0.0` (no prefix)
 
 ### Authentication Issues
 
@@ -95,7 +104,7 @@ releasaurus release-pr \
 
 **Solutions**:
 
-- **Check token scopes** - Ensure your token has required permissions:
+- **Check token scopes** - Ensure your token has required permissions
 
 #### Issue: "Repository not found" with valid repository
 
@@ -138,4 +147,3 @@ If you're still experiencing issues:
 3. **Include environment details**:
    - Operating system
    - Releasaurus version (`releasaurus --version`)
-   - Git version (`git --version`)

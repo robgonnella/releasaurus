@@ -1,6 +1,7 @@
 # Quick Start
 
-This guide will get you up and running with Releasaurus in just a few minutes. We'll walk through releasing a simple project to demonstrate the core workflow.
+This guide will get you up and running with Releasaurus in just a few minutes.
+We'll walk through releasing a simple project to demonstrate the core workflow.
 
 ## Prerequisites
 
@@ -13,18 +14,21 @@ Before starting, ensure you have:
 
 ## Step 1: Prepare Your Access Token
 
-Releasaurus needs an access token to create pull requests and releases on your behalf.
+Releasaurus needs an access token to create pull requests and releases on your
+behalf.
 
 ### GitHub
 
-1. Go to [GitHub Settings → Personal Access Tokens](https://github.com/settings/tokens)
+1. Go to [GitHub Settings → Personal Access Tokens]
+   (https://github.com/settings/tokens)
 2. Generate a new token with these scopes:
    - `repo` (for private repositories)
    - `public_repo` (for public repositories)
 
 ### GitLab
 
-1. Go to [GitLab User Settings → Access Tokens](https://gitlab.com/-/profile/personal_access_tokens)
+1. Go to [GitLab User Settings → Access Tokens]
+   (https://gitlab.com/-/profile/personal_access_tokens)
 2. Create a token with these scopes:
    - `api`
    - `read_repository`
@@ -37,20 +41,21 @@ Releasaurus needs an access token to create pull requests and releases on your b
 
 ## Step 2: Identify Your Project Repository
 
-You can run Releasaurus from any directory - it automatically clones your repository to a temporary location for analysis and updates. You just need the repository URL and appropriate access permissions.
+Releasaurus works entirely through forge platform APIs—no local repository
+required. You just need the repository URL and appropriate access permissions.
 
-Releasaurus works with any project structure and automatically detects:
+For version file updates, you'll need to specify your project's `release_type`
+in `releasaurus.toml`. Supported types include:
 
-- **Rust**: Projects with `Cargo.toml`
-- **Node.js**: Projects with `package.json`
-- **Python**: Projects with `pyproject.toml`, `setup.py`, or `setup.cfg`
-- **Java**: Projects with `pom.xml` or `build.gradle`
-- **PHP**: Projects with `composer.json`
-- **Ruby**: Projects with `Gemfile` or `.gemspec` files
+- **Rust**: For projects with `Cargo.toml`
+- **Node**: For projects with `package.json`
+- **Python**: For projects with `pyproject.toml`, `setup.py`, or `setup.cfg`
+- **Java**: For projects with `pom.xml` or `build.gradle`
+- **Php**: For projects with `composer.json`
+- **Ruby**: For projects with `Gemfile` or `.gemspec` files
+- **Generic**: (default) For changelog and tagging only (no version file updates)
 
 ## Step 3: Create a Release PR
-
-**Important**: You can run this command from any directory. Releasaurus will automatically clone your repository to analyze it and create the release PR.
 
 Run the release-pr command with your repository information:
 
@@ -73,15 +78,15 @@ releasaurus release-pr \
 
 This command will:
 
-1. **Analyze your commits** since the last release using conventional commit patterns
-2. **Determine the next version** based on the changes (patch, minor, or major)
+1. **Analyze your commits** since the last release using conventional commit
+   patterns
+2. **Determine the next version** based on the changes (patch, minor, or
+   major)
 3. **Update version files** in your project automatically
 4. **Generate a changelog** from your commit history
 5. **Create a pull request** with all the changes ready for review
 
 ## Step 4: Review and Merge
-
-The release PR is created in your repository regardless of where you ran the command from.
 
 1. **Review the pull request** that was created
 2. **Check the changelog** and version updates
@@ -122,35 +127,65 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 ```
 
-## Performance Considerations
+## Basic Configuration
 
-For large repositories or slow network connections, you can control how much git
-history is downloaded:
+To enable version file updates, create a `releasaurus.toml` file specifying
+your project's release type:
 
-```bash
-# Clone only recent history (faster)
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 100
-
-# Clone full history (slower but comprehensive)
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 0
+```toml
+[[package]]
+path = "."
+release_type = "Node"  # or "Rust", "Python", "Java", "Php", "Ruby", "Generic"
 ```
 
-The default clone depth is 250 commits, which works well for most repositories.
-Adjust this if:
+For repositories with extensive commit history, you can also control how many
+commits are analyzed when determining the first release version:
 
-- **Your repository is very large** - Use a smaller depth like `--clone-depth 50`
-- **Releasaurus can't find enough history** - Use `--clone-depth 0` for full history
+```toml
+# Limit commit history search for first release (default: 400)
+first_release_search_depth = 200
+
+[[package]]
+path = "."
+release_type = "Node"
+```
+
+This setting only affects the first release when no previous tags exist.
+Subsequent releases automatically find commits since the last tag. Adjust this
+if:
+
+- **Your repository is very large** - Use a smaller depth like `100` for
+  faster analysis
+- **You need comprehensive history** - Increase to `1000` or more for deeper
+  analysis
 - **You're in a CI/CD environment** - Use a smaller depth for faster builds
+
+## Common Patterns
+
+### Workflow Integration
+
+Many teams integrate Releasaurus into their development workflow:
+
+1. **Develop and commit** using conventional commits to your repository
+2. **When ready to release**, run `releasaurus release-pr` to create a release PR
+3. **Review and merge** the PR when ready
+4. **Publish the release** with `releasaurus release`
+
+Example release workflow:
+
+```bash
+# Create release PR
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# Review, merge, then publish
+releasaurus release --github-repo "https://github.com/owner/repo"
+```
 
 ## What Just Happened?
 
 Congratulations! You've just completed a full release cycle with Releasaurus:
 
-1. ✅ **Automated version detection** - No manual version bumping
+1. ✅ **Automated version calculation** - Determines version bump from commits
 2. ✅ **Automatic file updates** - All version files updated consistently
 3. ✅ **Generated changelog** - Beautiful changelog from your commit history
 4. ✅ **Safe review process** - Changes reviewed via pull request
@@ -160,7 +195,8 @@ Congratulations! You've just completed a full release cycle with Releasaurus:
 
 This quick start used all defaults, but Releasaurus is highly customizable:
 
-- **[Configuration](./configuration.md)** - Customization options and advanced setup
+- **[Configuration](./configuration.md)** - Customization options and advanced
+  setup
 - **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions
 
 ## Common Patterns
@@ -191,7 +227,8 @@ releasaurus release-pr --debug \
   --github-repo "https://github.com/owner/repo"
 ```
 
-This provides detailed information about detection logic, API calls, and file operations.
+This provides detailed information about configuration loading, API calls, and
+file operations.
 
 ### Automation with CI/CD
 
@@ -200,10 +237,10 @@ releases using CI/CD platforms:
 
 #### GitHub Actions
 
-The official [robgonnella/releasaurus-action] automatically creates release PRs
-when you push to your main branch and publishes releases when those PRs are
-merged. See full action [documentation][robgonnella/releasaurus-action] for all
-available options.
+The official [robgonnella/releasaurus-action] automatically creates release
+PRs when you push to your main branch and publishes releases when those PRs
+are merged. See full action [documentation][robgonnella/releasaurus-action]
+for all available options.
 
 Create `.github/workflows/release.yml` in your repository:
 
@@ -227,9 +264,11 @@ jobs:
 With this setup, your releases become completely hands-off:
 
 1. **Push commits** using conventional commit format to your main branch
-2. **GitHub Action automatically creates** a release PR with version updates and changelog
+2. **GitHub Action automatically creates** a release PR with version updates
+   and changelog
 3. **Review and merge** the PR when ready
-4. **GitHub Action automatically publishes** the release with tags and release notes
+4. **GitHub Action automatically publishes** the release with tags and release
+   notes
 
 #### GitLab CI/CD
 
@@ -275,7 +314,8 @@ jobs:
 See the [Gitea Actions](./gitea-actions.md) integration guide for complete setup
 instructions.
 
-Ready to dive deeper? Check out the [Commands](./commands.md) section for detailed information about all available options and features.
+Ready to dive deeper? Check out the [Commands](./commands.md) section for
+detailed information about all available options and features.
 
 [robgonnella/releasaurus-action]: https://github.com/robgonnella/releasaurus-action
 [releasaurus-component]: https://gitlab.com/rgon/releasaurus-component

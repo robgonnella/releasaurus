@@ -166,6 +166,8 @@ struct GiteaCreatedCommit {
     pub commit: Commit,
 }
 
+/// Gitea forge implementation using reqwest for API interactions with
+/// commit history, tags, pull requests, and releases.
 pub struct Gitea {
     config: RemoteConfig,
     commit_search_depth: Arc<Mutex<u64>>,
@@ -174,6 +176,8 @@ pub struct Gitea {
 }
 
 impl Gitea {
+    /// Create Gitea client with token authentication and API base URL
+    /// configuration for self-hosted instances.
     pub fn new(config: RemoteConfig) -> Result<Self> {
         let token = config.token.expose_secret();
 

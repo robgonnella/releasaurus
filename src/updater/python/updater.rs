@@ -13,8 +13,8 @@ use crate::{
     },
 };
 
-/// Python updater - handles various Python packaging formats and build systems
-/// Python package updater supporting pyproject.toml, setup.py, and setup.cfg.
+/// Updates Python package version files including pyproject.toml, setup.py,
+/// and setup.cfg for various build systems.
 pub struct PythonUpdater {
     pyproject: PyProject,
     setuppy: SetupPy,
@@ -22,7 +22,7 @@ pub struct PythonUpdater {
 }
 
 impl PythonUpdater {
-    /// Create a new Python updater
+    /// Create Python updater with handlers for multiple packaging formats.
     pub fn new() -> Self {
         Self {
             pyproject: PyProject::new(),

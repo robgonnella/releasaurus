@@ -1,10 +1,15 @@
 //! Configuration for Git forge platform connections.
 use secrecy::SecretString;
 
+/// Default number of commits to search when finding releases.
 pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
+/// Default branch name prefix for release PRs.
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release";
+/// Default color for releasaurus labels in hex format.
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
+/// Label applied to release PRs after tagging is complete.
 pub const TAGGED_LABEL: &str = "releasaurus:tagged";
+/// Label applied to release PRs while waiting for merge.
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::{
@@ -17,12 +22,13 @@ use crate::{
     result::Result,
 };
 
+/// Remote repository connection configuration for authenticating and
+/// interacting with forge platforms.
 #[derive(Debug, Clone)]
-/// Remote repository connection configuration.
 pub struct RemoteConfig {
-    /// Remote forge host
+    /// Remote forge host (e.g., "github.com").
     pub host: String,
-    /// Remote forge port
+    /// Remote forge port for self-hosted instances.
     pub port: Option<u16>,
     /// URL scheme (http or https).
     pub scheme: String,
@@ -65,6 +71,7 @@ pub enum Remote {
 }
 
 impl Remote {
+    /// Create forge client instance for the configured platform.
     pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
         match self {
             Remote::Github(config) => {
@@ -82,6 +89,8 @@ impl Remote {
         }
     }
 
+    /// Create file loader instance for reading files from the remote
+    /// repository.
     pub async fn get_file_loader(&self) -> Result<Box<dyn FileLoader>> {
         match self {
             Remote::Github(config) => {

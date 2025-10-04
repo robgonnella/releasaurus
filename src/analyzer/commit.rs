@@ -6,7 +6,8 @@ use crate::{
     forge::request::ForgeCommit,
 };
 
-/// Parsed commit with conventional commit information and metadata.
+/// Structured commit with parsed conventional commit fields, author
+/// metadata, and changelog categorization.
 #[derive(Debug, Clone, Serialize)]
 pub struct Commit {
     pub id: String,
@@ -25,7 +26,8 @@ pub struct Commit {
 }
 
 impl Commit {
-    /// Parse git2 commit into structured commit with conventional commit parsing.
+    /// Parse forge commit into structured format, extracting conventional
+    /// commit fields or falling back to plain message parsing.
     pub fn parse_forge_commit(
         group_parser: &GroupParser,
         forge_commit: &ForgeCommit,

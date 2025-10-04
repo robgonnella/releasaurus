@@ -6,7 +6,8 @@ use crate::{
     forge::request::ForgeCommit,
 };
 
-/// Update release with parsed commit information.
+/// Add a parsed commit to the release and update the release SHA and
+/// timestamp to reflect the latest commit.
 pub fn update_release_with_commit(
     group_parser: &GroupParser,
     release: &mut Release,
@@ -35,7 +36,8 @@ pub fn update_release_with_commit(
     release.timestamp = forge_commit.timestamp;
 }
 
-/// Remove excessive blank lines from changelog content.
+/// Normalize changelog formatting by replacing consecutive blank lines (3+)
+/// with double newlines and trimming whitespace.
 pub fn strip_extra_lines(changelog: &str) -> String {
     let pattern = Regex::new(r"\n{3,}").unwrap();
     pattern.replace_all(changelog, "\n\n").trim().to_string()

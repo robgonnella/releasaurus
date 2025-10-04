@@ -61,7 +61,8 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
 
 /// Creates a test Config from a list of (path, ReleaseType) tuples.
 ///
-/// This is a convenience function for tests that don't need custom tag prefixes.
+/// This is a convenience function for tests that don't need custom tag
+/// prefixes.
 ///
 /// # Arguments
 /// * `packages` - Vector of (path, ReleaseType) tuples

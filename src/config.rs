@@ -43,9 +43,9 @@ pub enum ReleaseType {
 pub struct PackageConfig {
     /// Package directory path relative to repository root.
     pub path: String,
-    /// release type for updating package files
+    /// Release type for determining which version files to update.
     pub release_type: Option<ReleaseType>,
-    /// Optional Git tag prefix for this package.
+    /// Git tag prefix for this package (e.g., "v" or "api-v").
     pub tag_prefix: Option<String>,
 }
 
@@ -63,11 +63,12 @@ impl Default for PackageConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// The search depth for commits for the 1st release
+    /// Maximum number of commits to search for the first release when no
+    /// tags exist.
     pub first_release_search_depth: u64,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
-    /// List of packages to manage within this repository.
+    /// Packages to manage in this repository (supports monorepos).
     #[serde(rename = "package")]
     pub packages: Vec<PackageConfig>,
 }
@@ -82,14 +83,12 @@ impl Default for Config {
     }
 }
 
-/// Unit tests for configuration loading.
 #[cfg(test)]
 mod tests {
     use crate::forge::config::DEFAULT_COMMIT_SEARCH_DEPTH;
 
     use super::*;
 
-    /// Test default configuration values.
     #[test]
     fn loads_defaults() {
         let config = Config::default();

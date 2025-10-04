@@ -10,6 +10,7 @@ use crate::{
 pub struct GenericUpdater {}
 
 impl GenericUpdater {
+    /// Create generic updater that performs no version file updates.
     pub fn new() -> Self {
         Self {}
     }

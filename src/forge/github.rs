@@ -205,6 +205,8 @@ struct Tree {
 pub const TREE_BLOB_MODE: &str = "100644";
 pub const TREE_BLOB_TYPE: &str = "blob";
 
+/// GitHub forge implementation using Octocrab for API interactions with
+/// commit history, tags, PRs, and releases.
 pub struct Github {
     config: RemoteConfig,
     commit_search_depth: Arc<Mutex<u64>>,
@@ -213,6 +215,8 @@ pub struct Github {
 }
 
 impl Github {
+    /// Create GitHub client with personal access token authentication and API
+    /// base URL configuration.
     pub fn new(config: RemoteConfig) -> Result<Self> {
         let base_uri = format!("{}://api.{}", config.scheme, config.host);
         let builder = Octocrab::builder()

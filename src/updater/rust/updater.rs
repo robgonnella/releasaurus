@@ -14,13 +14,15 @@ use crate::{
     },
 };
 
-/// Rust package updater for Cargo projects.
+/// Updates Cargo.toml and Cargo.lock files for Rust packages, handling
+/// workspace dependencies and version synchronization.
 pub struct RustUpdater {
     cargo_toml: CargoToml,
     cargo_lock: CargoLock,
 }
 
 impl RustUpdater {
+    /// Create Rust updater with Cargo.toml and Cargo.lock handlers.
     pub fn new() -> Self {
         Self {
             cargo_toml: CargoToml::new(),

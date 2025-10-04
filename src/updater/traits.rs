@@ -6,10 +6,12 @@ use crate::{
     updater::framework::Package,
 };
 
+/// Common interface for updating version files in different language
+/// packages.
 #[async_trait]
-/// Common interface for updating version files in different language packages.
 pub trait PackageUpdater {
-    /// Update version files for packages in the repository.
+    /// Generate file changes to update version numbers across all relevant
+    /// files for the package's language/framework.
     async fn update(
         &self,
         packages: Vec<Package>,
