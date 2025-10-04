@@ -19,11 +19,12 @@ use crate::{
 pub struct RubyUpdater {}
 
 impl RubyUpdater {
+    /// Create Ruby updater for Gem and Bundler projects.
     pub fn new() -> Self {
         Self {}
     }
 
-    /// Load a file's content
+    /// Load file content from repository by path.
     async fn load_file<P: AsRef<Path>>(
         &self,
         file_path: P,
@@ -33,7 +34,7 @@ impl RubyUpdater {
         loader.get_file_content(&file_path).await
     }
 
-    /// Update version in a gemspec file
+    /// Update version string in gemspec file using regex pattern matching.
     fn update_gemspec_version(
         &self,
         content: &str,

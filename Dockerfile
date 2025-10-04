@@ -12,6 +12,6 @@ RUN cargo build --release
 # Final
 ################################################################################
 FROM alpine:3.22
-RUN apk add --update --no-cache bash git openssl ca-certificates
+RUN apk add --update --no-cache bash openssl ca-certificates
 COPY --from=builder /build/target/release/releasaurus /usr/local/bin
 ENTRYPOINT [ "releasaurus" ]

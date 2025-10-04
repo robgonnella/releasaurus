@@ -11,13 +11,16 @@ use crate::{
     updater::framework::Package,
 };
 
+/// Handles Cargo.toml file parsing and version updates for Rust packages.
 pub struct CargoToml {}
 
 impl CargoToml {
+    /// Create Cargo.toml handler for version updates.
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Check if root Cargo.toml defines a Cargo workspace.
     pub async fn is_workspace(
         &self,
         root_path: &Path,
@@ -32,6 +35,8 @@ impl CargoToml {
         Ok(doc.get("workspace").is_some())
     }
 
+    /// Extract package names from Cargo.toml manifests and pair with Package
+    /// structs.
     pub async fn get_packages_with_names(
         &self,
         packages: Vec<Package>,
@@ -52,6 +57,7 @@ impl CargoToml {
         futures::future::join_all(results).await
     }
 
+    /// Update version fields in Cargo.toml files for all Rust packages.
     pub async fn process_packages(
         &self,
         packages: &[(String, Package)],

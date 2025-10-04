@@ -1,6 +1,9 @@
 # Environment Variables
 
-Environment variables provide a secure and flexible way to configure Releasaurus without hardcoding sensitive information or platform-specific settings. This reference covers all supported environment variables and their usage patterns.
+Environment variables provide a secure and flexible way to configure
+Releasaurus without hardcoding sensitive information or platform-specific
+settings. This reference covers all supported environment variables and their
+usage patterns.
 
 ## Authentication Tokens
 
@@ -85,32 +88,14 @@ export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 # Self-hosted Gitea
 releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
 
-# Forgejo instance
+# Forge instance
 releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
 ```
-
-## Command-Line Options vs Environment Variables
-
-While this page focuses on environment variables, note that some configuration
-options are provided via command-line flags rather than environment variables.
-
-### Performance Options
-
-**Clone Depth**: Controls how much git history is downloaded during repository
-operations.
-
-```bash
-# Command-line option (not an environment variable)
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 100
-```
-
-For detailed information about clone depth and other command-line options, see
-the [Commands](./commands.md#clone-depth-control) section.
 
 ## Next Steps
 
 - **[Commands](./commands.md)** - Command-line options and usage patterns
-- **[Basic Configuration](./basic-configuration.md)** - Configuration file setup
-- **[Troubleshooting](./troubleshooting.md#authentication-issues)** - Resolving environment issues
+- **[Basic Configuration](./basic-configuration.md)** - Configuration file
+  setup
+- **[Troubleshooting](./troubleshooting.md#authentication-issues)** -
+  Resolving environment issues

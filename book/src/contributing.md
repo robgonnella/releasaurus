@@ -1,8 +1,9 @@
 # Contributing
 
-We appreciate your interest in contributing to Releasaurus! This guide will help
-you get started with contributing to the project, whether you're fixing bugs,
-adding features, improving documentation, or helping with community support.
+We appreciate your interest in contributing to Releasaurus! This guide will
+help you get started with contributing to the project, whether you're fixing
+bugs, adding features, improving documentation, or helping with community
+support.
 
 ## Ways to Contribute
 
@@ -95,7 +96,7 @@ adding features, improving documentation, or helping with community support.
 ```
 releasaurus/
 ├── src/
-│   ├── analyzer/         # Commit analysis and changelog generation
+│   ├── analyzer/         # Commit analysis
 │   ├── command/          # CLI command implementations
 │   ├── config.rs         # Configuration file handling
 │   ├── forge/            # Git forge platform integrations
@@ -134,7 +135,9 @@ use crate::result::Result;
 // Provide context for errors
 fn update_version_file(path: &Path) -> Result<()> {
     fs::write(path, content)
-        .with_context(|| format!("Failed to write version file: {}", path.display()))?;
+        .with_context(|| {
+            format!("Failed to write version file: {}", path.display())
+        })?;
     Ok(())
 }
 ```
@@ -152,50 +155,19 @@ To add support for a new programming language:
    pub struct NewLangUpdater;
 
    impl PackageUpdater for NewLangUpdater {
-       fn update(&self, root_path: &Path, packages: Vec<Package>) -> Result<()> {
-           // Implementation
+       fn update(
+           &self,
+           packages: Vec<Package>,
+           loader: &dyn FileLoader
+       ) -> Result<Option<Vec<FileChange>>> {
+           // Implementation for updating version files
+           // Return Some(file_changes) if updates were made
+           // Return None if no updates needed
        }
    }
    ```
 
-2. **Add Detection Logic**
-
-   ```rust
-   // src/updater/detection/newlang.rs
-   use crate::updater::detection::traits::FrameworkDetector;
-
-   pub struct NewLangDetector;
-
-   impl FrameworkDetector for NewLangDetector {
-     fn detect(&self, path: &Path) -> Result<FrameworkDetection> {
-         let pattern = DetectionPattern {
-             manifest_files: vec!["<some_manifest_file>"],
-             support_files: vec!["<some_support_file>", "<another_support_file>"],
-             content_patterns: vec![
-                 "[package]",
-                 "[workspace]",
-                 "[dependencies]",
-             ],
-             base_confidence: 0.8,
-         };
-
-         DetectionHelper::analyze_with_pattern(
-             path,
-             pattern.clone(),
-             |support_evidence| FrameworkDetection {
-                 framework: Framework::NewLang,
-                 confidence: DetectionHelper::calculate_confidence(
-                     &pattern,
-                     &support_evidence,
-                 ),
-                 evidence: support_evidence,
-             },
-         )
-     }
-   }
-   ```
-
-3. **Register in Framework System**
+2. **Register in Framework System**
 
    ```rust
    // src/updater/framework.rs
@@ -205,12 +177,30 @@ To add support for a new programming language:
    }
 
    impl Framework {
-       pub fn detection_manager(root_path: PathBuf) -> DetectionManager {
-           let detectors: Vec<Box<dyn FrameworkDetector>> = vec![
-               // ... existing detectors
-               Box::new(NewLangDetector::new()),
-           ];
-           DetectionManager::new(root_path, detectors)
+       pub fn updater(&self) -> Box<dyn PackageUpdater> {
+           match self {
+               // ... existing updaters
+               Framework::NewLang => Box::new(NewLangUpdater::new()),
+           }
+       }
+   }
+   ```
+
+3. **Add to ReleaseType Enum**
+
+   ```rust
+   // src/config.rs
+   pub enum ReleaseType {
+       // ... existing types
+       NewLang,
+   }
+
+   impl From<ReleaseType> for Framework {
+       fn from(value: ReleaseType) -> Self {
+           match value {
+               // ... existing mappings
+               ReleaseType::NewLang => Framework::NewLang,
+           }
        }
    }
    ```
@@ -221,20 +211,25 @@ To add support for a new programming language:
    #[cfg(test)]
    mod tests {
        use super::*;
-       use tempfile::TempDir;
 
-       #[test]
-       fn test_newlang_detection() {
-           let temp_dir = TempDir::new().unwrap();
-           let path = temp_dir.path();
+       #[tokio::test]
+       async fn test_newlang_update() {
+           let package = Package {
+               name: "test".to_string(),
+               path: ".".to_string(),
+               framework: Framework::NewLang,
+               next_version: Tag {
+                   sha: "abc123".to_string(),
+                   name: "v1.0.0".to_string(),
+                   semver: SemVer::parse("1.0.0").unwrap(),
+               },
+           };
 
-           // Create test files
-           std::fs::write(path.join("package.newlang"), "version = \"1.0.0\"").unwrap();
+           let updater = NewLangUpdater::new();
+           let mock_loader = MockFileLoader::new();
+           let result = updater.update(vec![package], &mock_loader).await;
 
-           let detector = NewLangDetector::new();
-           let result = detector.detect(path);
-
-           assert!(matches!(result, DetectionResult::Detected { .. }));
+           assert!(result.is_ok());
        }
    }
    ```
@@ -257,11 +252,17 @@ To add support for a new Git forge platform:
 
    #[async_trait]
    impl ForgeClient for NewForgeClient {
-       async fn create_pull_request(&self, pr: &PullRequest) -> Result<String> {
+       async fn create_pull_request(
+           &self,
+           pr: &PullRequest
+       ) -> Result<String> {
            // Implementation
        }
 
-       async fn create_release(&self, release: &Release) -> Result<String> {
+       async fn create_release(
+           &self,
+           release: &Release
+       ) -> Result<String> {
            // Implementation
        }
    }
@@ -287,9 +288,13 @@ To add support for a new Git forge platform:
 3. **Update Command Logic**
    ```rust
    // src/command/common.rs
-   pub fn determine_forge_client(args: &Args) -> Result<Box<dyn ForgeClient>> {
+   pub fn determine_forge_client(
+       args: &Args
+   ) -> Result<Box<dyn ForgeClient>> {
        if !args.newforge_repo.is_empty() {
-           return Ok(Box::new(NewForgeClient::new(/* config */)?));
+           return Ok(Box::new(
+               NewForgeClient::new(/* config */)?
+           ));
        }
        // ... existing logic
    }
@@ -314,7 +319,8 @@ cargo test -- --nocapture
 
 #### E2E Tests
 
-These tests can be found in [./src/command/tests](../../src/command/tests)
+These tests can be found in
+[./src/command/tests](../../src/command/tests)
 
 ```bash
 # Run e2e tests (requires test tokens)
@@ -364,7 +370,8 @@ Brief description of changes.
 
 - [ ] Bug fix (non-breaking change fixing an issue)
 - [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
+- [ ] Breaking change (fix or feature causing existing functionality to
+      change)
 - [ ] Documentation update
 
 ## Testing

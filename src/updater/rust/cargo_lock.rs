@@ -11,13 +11,18 @@ use crate::{
     updater::framework::Package,
 };
 
+/// Handles Cargo.lock file parsing and version synchronization for Rust
+/// workspace dependencies.
 pub struct CargoLock {}
 
 impl CargoLock {
+    /// Create Cargo.lock handler for lockfile version updates.
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Update package versions in workspace root Cargo.lock file to match
+    /// released versions.
     pub async fn process_workspace_lockfile(
         &self,
         root_path: &Path,

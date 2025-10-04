@@ -13,7 +13,8 @@ use crate::{
     result::Result,
 };
 
-/// Execute release command to create git tags and publish final release.
+/// Execute release command by finding the merged release PR, tagging commits,
+/// and publishing releases to the forge platform.
 pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
     let remote_config = forge.remote_config();
     let merged_pr = forge.get_merged_release_pr().await?;
@@ -44,6 +45,7 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
     Ok(())
 }
 
+/// Iterate through all configured packages and create releases for each one.
 async fn process_packages_for_release(
     forge: &dyn Forge,
     remote_config: &RemoteConfig,
@@ -58,6 +60,8 @@ async fn process_packages_for_release(
     Ok(())
 }
 
+/// Analyze commits since last tag, determine next version, create git tag, and
+/// publish release with generated notes.
 async fn create_package_release(
     forge: &dyn Forge,
     remote_config: &RemoteConfig,

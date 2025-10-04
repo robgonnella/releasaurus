@@ -75,21 +75,21 @@ releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/project"
 releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
 ```
 
-### 🔍 Intelligent Zero-Configuration
+### 🔍 Simple Configuration
 
 **Problem**: Complex setup requirements create barriers to adoption and
 maintenance overhead.
 
-**Solution**: Intelligent detection that works immediately without configuration
-files, setup scripts, or complex onboarding. Releasaurus analyzes your project
-structure and applies appropriate conventions automatically.
+**Solution**: Straightforward configuration that gets you started quickly.
+Specify your project's `release_type` once in `releasaurus.toml` and
+Releasaurus handles all version file updates with sensible defaults.
 
-- **Language Detection**: Automatically identifies Rust, Node.js, Python, Java,
-  PHP, Ruby, or generic projects
-- **Version File Discovery**: Finds and updates all relevant version files for
-  supported languages (generic projects receive changelog and tagging only)
-- **Framework Integration**: Adapts to your project's specific packaging and
-  build systems
+- **Clear Language Specification**: Configure `release_type` for each package
+  (Rust, Node, Python, Java, Php, Ruby, or Generic)
+- **Version File Management**: Updates all relevant version files for the
+  specified language (generic projects receive changelog and tagging only)
+- **Framework Integration**: Handles language-specific packaging and build
+  systems
 - **Sensible Defaults**: Provides beautiful changelogs and workflows
   out-of-the-box
 
@@ -114,11 +114,11 @@ understanding of each ecosystem's manifest files
 
 Releasaurus embodies several key philosophical principles:
 
-### Intelligent Automation Over Configuration
+### Simplicity Over Complexity
 
-Rather than requiring users to specify every detail, Releasaurus makes
-intelligent decisions based on project analysis. Configuration is available for
-customization, but not required for effectiveness.
+Releasaurus requires minimal configuration—just specify your project's
+`release_type` and let the tool handle the rest. Version file patterns,
+changelog generation, and release workflows all work with sensible defaults.
 
 ### Universal Over Specialized
 

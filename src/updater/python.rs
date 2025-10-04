@@ -1,4 +1,5 @@
-//! Python package updater supporting pyproject.toml, setup.py, and setup.cfg projects.
+//! Python package updater supporting pyproject.toml, setup.py, and setup.cfg
+//! projects.
 
 pub mod pyproject;
 pub mod setupcfg;

@@ -10,8 +10,8 @@ Releasaurus commands manually. See component
 
 ### Step 1: Create the Pipeline Configuration
 
-Create a `.gitlab-ci.yml` file in your repository or add the following to your
-existing pipeline:
+Create a `.gitlab-ci.yml` file in your repository or add the following to
+your existing pipeline:
 
 ```yaml
 include:
@@ -25,7 +25,8 @@ include:
 Ensure your GitLab project has the correct permissions:
 
 1. Go to **Settings → CI/CD → Variables**
-2. Add a project variable `GITLAB_TOKEN` with a Personal Access Token that has:
+2. Add a project variable `GITLAB_TOKEN` with a Personal Access Token that
+   has:
    - `api` scope
    - `write_repository` scope
 
@@ -41,5 +42,6 @@ Token:
    - **Scopes**: `api`, `write_repository`
 3. Copy the generated token
 4. Go to **Settings → CI/CD → Variables**
-5. Add variable `GITLAB_TOKEN` with the project access token as the value
+5. Add variable `GITLAB_TOKEN` with the project access token as the
+   value
 6. Mark it as **Protected** and **Masked**

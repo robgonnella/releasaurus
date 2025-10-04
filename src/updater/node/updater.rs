@@ -20,10 +20,12 @@ use crate::{
 pub struct NodeUpdater {}
 
 impl NodeUpdater {
+    /// Create Node.js updater for package.json and lock file management.
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Load and parse JSON file from repository into serde_json Value.
     async fn load_doc<P: AsRef<Path>>(
         &self,
         file_path: P,
@@ -39,6 +41,8 @@ impl NodeUpdater {
         Ok(Some(doc))
     }
 
+    /// Update dependency versions in package.json, skipping workspace
+    /// protocol references.
     fn update_deps(
         &self,
         doc: &mut Value,
@@ -66,6 +70,8 @@ impl NodeUpdater {
         Ok(())
     }
 
+    /// Extract package names from package.json files and pair with Package
+    /// structs.
     async fn get_packages_with_names(
         &self,
         packages: Vec<Package>,

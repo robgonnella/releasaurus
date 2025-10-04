@@ -1,4 +1,4 @@
-//! Framework detection and package management for multi-language support.
+//! Framework and package management for multi-language support.
 
 use crate::analyzer::release::Tag;
 use crate::config::ReleaseType;
@@ -11,7 +11,8 @@ use crate::updater::ruby::updater::RubyUpdater;
 use crate::updater::rust::updater::RustUpdater;
 use crate::updater::traits::PackageUpdater;
 
-/// Supported programming languages and frameworks for version updating.
+/// Programming language and package manager detection for determining which
+/// version files to update.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum Framework {
     /// Rust with Cargo
@@ -46,7 +47,7 @@ impl From<ReleaseType> for Framework {
 }
 
 impl Framework {
-    /// Get package updater for this framework.
+    /// Get language-specific updater implementation for this framework.
     pub fn updater(&self) -> Box<dyn PackageUpdater> {
         match self {
             Framework::Rust => Box::new(RustUpdater::new()),
@@ -60,22 +61,23 @@ impl Framework {
     }
 }
 
-/// A language/framework-agnostic package that needs version updates
+/// Package information with next version and framework details for version
+/// file updates.
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// Package information with version and framework details.
 pub struct Package {
-    /// Package name as defined in the manifest file
+    /// Package name derived from manifest or directory.
     pub name: String,
-    /// Path to the package directory (relative to repository root)
+    /// Path to package directory relative to repository root.
     pub path: String,
-    /// Next version to update to
+    /// Next version to update to based on commit analysis.
     pub next_version: Tag,
-    /// Detected framework/language for this package
+    /// Language/framework for selecting appropriate updater.
     pub framework: Framework,
 }
 
 impl Package {
-    /// Create new package with version and framework information.
+    /// Create package instance with name, path, version, and framework
+    /// detection.
     pub fn new(
         name: String,
         path: String,

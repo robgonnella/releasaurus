@@ -5,7 +5,8 @@ use serde::Serialize;
 
 use crate::analyzer::commit::Commit;
 
-/// Conventional commit types for categorizing changes.
+/// Commit categories based on conventional commit types, used for grouping
+/// changes in the changelog.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Group {
     Breaking,
@@ -152,16 +153,19 @@ fn create_message_group_parser(
     f
 }
 
-/// Parser for determining commit group from conventional commit patterns.
+/// Determines which changelog category a commit belongs to by matching
+/// against conventional commit type patterns.
 pub struct GroupParser {}
 
 impl GroupParser {
-    /// Create new group parser.
+    /// Create new group parser with regex-based conventional commit type
+    /// matchers.
     pub fn new() -> Self {
         Self {}
     }
 
-    /// Parse commit to determine its group category.
+    /// Determine the changelog category for a commit by checking breaking
+    /// changes first, then matching commit type prefixes.
     pub fn parse(&self, commit: &Commit) -> Group {
         let parsers = self.get_parsers();
         for parser in parsers {

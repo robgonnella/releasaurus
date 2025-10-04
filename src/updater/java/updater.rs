@@ -17,11 +17,13 @@ use crate::{
 pub struct JavaUpdater {}
 
 impl JavaUpdater {
+    /// Create Java updater for Maven pom.xml and Gradle build files.
     pub fn new() -> Self {
         Self {}
     }
 
-    /// Process packages and update their build files
+    /// Update version numbers in Maven pom.xml or Gradle build files for Java
+    /// packages.
     async fn process_packages(
         &self,
         packages: &[Package],

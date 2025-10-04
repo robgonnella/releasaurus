@@ -18,7 +18,8 @@ use crate::{
     updater::manager::UpdaterManager,
 };
 
-/// Execute release-pr command to analyze commits and create release pull request.
+/// Analyze commits since last tags, generate changelogs, update version files,
+/// and create or update release PR.
 pub async fn execute(
     forge: Box<dyn Forge>,
     file_loader: Box<dyn FileLoader>,

@@ -48,7 +48,8 @@ mod test_helpers;
 
 use crate::result::Result;
 
-/// Initialize terminal logger with colored output and level filtering.
+/// Initialize terminal logger with debug or info level filtering for
+/// releasaurus output.
 fn initialize_logger(debug: bool) -> Result<()> {
     let filter = if debug {
         simplelog::LevelFilter::Debug
@@ -70,8 +71,9 @@ fn initialize_logger(debug: bool) -> Result<()> {
     Ok(())
 }
 
+/// Main entry point that initializes error handling, logging, and dispatches
+/// commands.
 #[tokio::main]
-/// Main entry point. Initializes error handling, logging, and dispatches commands.
 async fn main() -> Result<()> {
     color_eyre::install()?;
 

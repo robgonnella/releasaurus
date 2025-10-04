@@ -1,10 +1,13 @@
 # Contributing to Releasaurus
 
-Thank you for your interest in contributing to Releasaurus! We welcome contributions from the community.
+Thank you for your interest in contributing to Releasaurus! We welcome
+contributions from the community.
 
 ## Getting Started
 
-For complete contributing guidelines, development setup instructions, and information about how to submit contributions, please visit our contributing documentation:
+For complete contributing guidelines, development setup instructions, and
+information about how to submit contributions, please visit our contributing
+documentation:
 
 **[https://releasaurus.rgon.io/contributing.html](https://releasaurus.rgon.io/contributing.html)**
 

@@ -4,7 +4,7 @@ Releasaurus provides seamless integration with GitHub Actions through the
 official [robgonnella/releasaurus-action]. This action automates your release
 workflow directly in your GitHub repository, eliminating the need to run
 Releasaurus commands manually. See action
-[documentation][robgonnella/releasaurus-action]] for all available options.
+[documentation][robgonnella/releasaurus-action] for all available options.
 
 ## Basic Setup
 

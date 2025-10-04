@@ -19,11 +19,13 @@ use crate::{
 pub struct PhpUpdater {}
 
 impl PhpUpdater {
+    /// Create PHP updater for Composer composer.json files.
     pub fn new() -> Self {
         Self {}
     }
 
-    /// Load a composer.json file as a JSON Value
+    /// Load and parse composer.json file from repository into serde_json
+    /// Value.
     async fn load_doc<P: AsRef<Path>>(
         &self,
         file_path: P,
@@ -39,7 +41,8 @@ impl PhpUpdater {
         Ok(Some(doc))
     }
 
-    /// Process packages and update their composer.json files
+    /// Update version numbers in composer.json files for PHP packages using
+    /// Composer.
     async fn process_packages(
         &self,
         packages: &[Package],

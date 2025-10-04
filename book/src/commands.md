@@ -1,14 +1,20 @@
 # Commands
 
-Releasaurus provides two main commands that work together to create a safe, reviewable release process. This two-stage approach ensures that all changes are reviewed before publication while automating the tedious aspects of version management and changelog generation.
+Releasaurus provides two main commands that work together to create a safe,
+reviewable release process. This two-stage approach ensures that all changes
+are reviewed before publication while automating the tedious aspects of version
+management and changelog generation.
 
-**Important**: Releasaurus operates on remote repositories by automatically cloning them to temporary directories for analysis. You can run these commands from any location - you don't need to navigate to or have a local checkout of your project.
+**Important**: Releasaurus operates entirely through forge platform APIs
+without requiring local repository clones. You can run these commands from any
+location with network access to your forge platform.
 
 ## Command Overview
 
 ### `release-pr`
 
-**Purpose**: Analyze commits, update versions, generate changelog, and create a pull request
+**Purpose**: Analyze commits, update versions, generate changelog, and create
+a pull request
 
 This command does the heavy lifting of release preparation:
 
@@ -31,7 +37,8 @@ This command finalizes the release:
 
 ## Basic Usage Pattern
 
-The typical Releasaurus workflow follows this pattern (can be run from any directory):
+The typical Releasaurus workflow follows this pattern (can be run from any
+directory):
 
 ```bash
 # Step 1: Create release preparation PR (run from anywhere)
@@ -43,7 +50,9 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 ```
 
-**Note**: These commands work by cloning your repository to a temporary directory, analyzing the project structure, making necessary changes, and pushing updates back to the remote. You don't need to be in your project directory or have a local checkout.
+**Note**: These commands work by accessing your repository through the forge
+API, analyzing commits and files, creating branches with updates, and managing
+pull requests—all without requiring a local clone.
 
 ## Global Options
 
@@ -95,51 +104,6 @@ This provides verbose output including:
 - API request/response information
 - Git operations and status
 
-### Clone Depth Control
-
-Control how much git history is cloned during repository operations:
-
-```bash
---clone-depth 100    # Clone only the last 100 commits
---clone-depth 0      # Clone full history (all commits)
-```
-
-**Default**: 250 commits
-
-The clone depth feature helps optimize performance by limiting the amount of git history downloaded during repository analysis. This is particularly useful for:
-
-- **Large repositories** with extensive commit histories
-- **CI/CD environments** where bandwidth and storage are limited
-- **Repositories with non-linear history** where full clones can be very large
-
-**When to adjust clone depth**:
-
-- **Increase the depth** if Releasaurus can't find enough commit history to
-  properly determine version changes
-- **Set to 0 (full clone)** if you need complete history analysis or are
-  working with complex branching patterns
-- **Decrease the depth** for faster operations on repositories where recent
-  history is sufficient
-
-**Examples**:
-
-```bash
-# Quick analysis with minimal history
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 50
-
-# Full history analysis
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --clone-depth 0
-
-# Balanced approach (default)
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo"
-  # Uses default clone-depth of 250
-```
-
 ## Platform-Specific Examples
 
 ### GitHub
@@ -185,13 +149,14 @@ releasaurus release-pr \
 
 ## Environment Variables
 
-For security and convenience, use environment variables instead of command-line tokens:
+For security and convenience, use environment variables instead of
+command-line tokens:
 
-| Variable       | Description                          | Example                      |
-| -------------- | ------------------------------------ | ---------------------------- |
-| `GITHUB_TOKEN` | GitHub personal access token         | `ghp_xxxxxxxxxxxxxxxxxxxx`   |
-| `GITLAB_TOKEN` | GitLab personal/project access token | `glpat_xxxxxxxxxxxxxxxxxxxx` |
-| `GITEA_TOKEN`  | Gitea/Forgejo access token           | `xxxxxxxxxxxxxxxxxx`         |
+| Variable       | Description                          | Example            |
+| -------------- | ------------------------------------ | ------------------ |
+| `GITHUB_TOKEN` | GitHub personal access token         | `ghp_xxxxxxxxxxxx` |
+| `GITLAB_TOKEN` | GitLab personal/project access token | `glpat_xxxxxxxxxx` |
+| `GITEA_TOKEN`  | Gitea/Forgejo access token           | `xxxxxxxxxxxxxxxx` |
 
 When environment variables are set, you can omit the `--*-token` flags:
 
@@ -224,4 +189,5 @@ releasaurus --version
 
 For integration and automation:
 
-- **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting](./troubleshooting.md)** - Common issues and
+  solutions

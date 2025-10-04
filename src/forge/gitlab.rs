@@ -88,6 +88,8 @@ pub struct CreatedCommit {
     pub id: String,
 }
 
+/// GitLab forge implementation using gitlab crate for API interactions with
+/// commit history, tags, merge requests, and releases.
 pub struct Gitlab {
     config: RemoteConfig,
     commit_search_depth: Arc<Mutex<u64>>,
@@ -96,6 +98,8 @@ pub struct Gitlab {
 }
 
 impl Gitlab {
+    /// Create GitLab client with personal access token authentication and
+    /// project ID resolution.
     pub async fn new(config: RemoteConfig) -> Result<Self> {
         let project_id = config.path.clone();
 
@@ -115,6 +119,7 @@ impl Gitlab {
         })
     }
 
+    /// Fetch all labels currently defined in the GitLab repository.
     async fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
         let endpoint = Labels::builder().project(&self.project_id).build()?;
 
@@ -123,6 +128,7 @@ impl Gitlab {
         Ok(labels)
     }
 
+    /// Create a new label in the GitLab repository with default color.
     async fn create_label(&self, label_name: String) -> Result<LabelInfo> {
         let endpoint = CreateLabel::builder()
             .project(&self.project_id)

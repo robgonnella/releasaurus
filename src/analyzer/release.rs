@@ -6,7 +6,8 @@ use serde::{Serialize, ser::SerializeStruct};
 
 use crate::analyzer::commit::Commit;
 
-/// Git tag with associated commit and semantic version information.
+/// Git tag that represents a release version, linking a semantic version to
+/// a specific commit SHA.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tag {
     /// Git commit SHA of the tag.
@@ -36,7 +37,8 @@ impl Serialize for Tag {
     }
 }
 
-/// Release information with commits, notes, and version tag.
+/// Complete release package containing version tag, changelog notes, and all
+/// associated commits for publishing.
 #[derive(Clone, Default)]
 pub struct Release {
     /// Associated version tag.

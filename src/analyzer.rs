@@ -12,14 +12,16 @@ mod group;
 mod helpers;
 pub mod release;
 
-/// Repository analyzer for commit analysis and changelog generation.
+/// Analyzes commits using conventional commit patterns to determine version
+/// bumps and generate changelogs.
 pub struct Analyzer {
     config: config::AnalyzerConfig,
     group_parser: group::GroupParser,
 }
 
 impl Analyzer {
-    /// Create analyzer with configuration and repository.
+    /// Create analyzer with changelog template configuration and tag prefix
+    /// settings.
     pub fn new(config: config::AnalyzerConfig) -> Result<Self> {
         Ok(Self {
             config,
@@ -27,7 +29,8 @@ impl Analyzer {
         })
     }
 
-    /// Analyze commits and generate release information.
+    /// Analyze commits to calculate the next semantic version and generate
+    /// formatted release notes using Tera templates.
     pub fn analyze(
         &self,
         commits: Vec<ForgeCommit>,
@@ -107,7 +110,8 @@ impl Analyzer {
         Ok(Some(release))
     }
 
-    /// Process commits and build release information.
+    /// Parse commits into structured format with conventional commit
+    /// categorization and grouping.
     fn process_commits(
         &self,
         commits: Vec<ForgeCommit>,

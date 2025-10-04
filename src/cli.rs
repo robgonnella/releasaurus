@@ -14,32 +14,32 @@ use crate::{
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    #[arg(long, default_value = "", global = true)]
     /// GitHub repository URL (https://github.com/owner/repo).
+    #[arg(long, default_value = "", global = true)]
     pub github_repo: String,
 
-    #[arg(long, default_value = "", global = true)]
     /// GitHub personal access token. Falls back to GITHUB_TOKEN env var.
+    #[arg(long, default_value = "", global = true)]
     pub github_token: String,
 
-    #[arg(long, default_value = "", global = true)]
     /// GitLab repository URL. Supports GitLab.com and self-hosted instances.
+    #[arg(long, default_value = "", global = true)]
     pub gitlab_repo: String,
 
-    #[arg(long, default_value = "", global = true)]
     /// GitLab personal access token. Falls back to GITLAB_TOKEN env var.
+    #[arg(long, default_value = "", global = true)]
     pub gitlab_token: String,
 
-    #[arg(long, default_value = "", global = true)]
     /// Gitea repository URL for self-hosted instances.
+    #[arg(long, default_value = "", global = true)]
     pub gitea_repo: String,
 
-    #[arg(long, default_value = "", global = true)]
     /// Gitea access token. Falls back to GITEA_TOKEN env var.
+    #[arg(long, default_value = "", global = true)]
     pub gitea_token: String,
 
-    #[arg(long, default_value_t = false, global = true)]
     /// Enable debug logging.
+    #[arg(long, default_value_t = false, global = true)]
     pub debug: bool,
 
     /// Subcommand to execute.
@@ -76,7 +76,8 @@ impl Args {
     }
 }
 
-/// Validate repository URL uses HTTP or HTTPS scheme.
+/// Validate that repository URL uses HTTP or HTTPS scheme, rejecting SSH and
+/// other protocols.
 fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
     match scheme {
         git_url_parse::Scheme::Http => Ok(()),
@@ -87,7 +88,8 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
     }
 }
 
-/// Configure GitHub remote with URL parsing and token resolution.
+/// Configure GitHub remote by parsing repository URL and resolving
+/// authentication token from CLI args or environment.
 fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(github_repo)?;
 
@@ -148,7 +150,8 @@ fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
     Ok(Remote::Github(remote_config.clone()))
 }
 
-/// Configure GitLab remote with URL parsing and token resolution.
+/// Configure GitLab remote by parsing repository URL and resolving
+/// authentication token from CLI args or environment.
 fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitlab_repo)?;
 
@@ -209,7 +212,8 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
     Ok(Remote::Gitlab(remote_config.clone()))
 }
 
-/// Configure Gitea remote with URL parsing and token resolution.
+/// Configure Gitea remote by parsing repository URL and resolving
+/// authentication token from CLI args or environment.
 fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
     let parsed = GitUrl::parse(gitea_repo)?;
 
@@ -272,10 +276,8 @@ fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for CLI argument parsing and remote configuration.
     use super::*;
 
-    /// Test GitHub remote configuration from CLI arguments.
     #[test]
     fn gets_github_remote() {
         let repo = "https://github.com/github_owner/github_repo".to_string();
@@ -300,7 +302,6 @@ mod tests {
         assert!(matches!(remote, Remote::Github(_)));
     }
 
-    /// Test GitLab remote configuration from CLI arguments.
     #[test]
     fn gets_gitlab_remote() {
         let repo = "https://gitlab.com/gitlab_owner/gitlab_repo".to_string();
@@ -325,7 +326,6 @@ mod tests {
         assert!(matches!(remote, Remote::Gitlab(_)));
     }
 
-    /// Test Gitea remote configuration from CLI arguments.
     #[test]
     fn gets_gitea_remote() {
         let repo = "http://gitea.com/gitea_owner/gitea_repo".to_string();
@@ -350,7 +350,6 @@ mod tests {
         assert!(matches!(remote, Remote::Gitea(_)));
     }
 
-    /// Test that only HTTP and HTTPS schemes are supported for repository URLs.
     #[test]
     fn only_supports_http_and_https_schemes() {
         let repo = "git@gitea.com:gitea_owner/gitea_repo".to_string();

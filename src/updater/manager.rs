@@ -12,7 +12,8 @@ use crate::{
     updater::framework::{Framework, Package},
 };
 
-/// Update operation statistics.
+/// Statistics tracking package version update operations across the
+/// repository.
 #[derive(Debug, Default, Clone)]
 pub struct UpdateStats {
     /// Total packages processed.
@@ -33,20 +34,22 @@ impl std::fmt::Display for UpdateStats {
     }
 }
 
-/// Coordinates package updates across different languages and frameworks.
+/// Coordinates version file updates across multiple languages and frameworks
+/// in a monorepo or single-package repository.
 pub struct UpdaterManager {
     repo_name: String,
 }
 
 impl UpdaterManager {
-    /// Create updater manager for repository.
+    /// Create updater manager with repository name for package detection.
     pub fn new(repo_name: &str) -> Self {
         Self {
             repo_name: repo_name.to_string(),
         }
     }
 
-    /// Update packages based on analyzer output and configuration.
+    /// Generate file changes for version updates across all releasable
+    /// packages using language-specific updaters.
     pub async fn update_packages(
         &mut self,
         manifest: &HashMap<String, Release>,
@@ -99,7 +102,8 @@ impl UpdaterManager {
         Ok(Some(file_changes))
     }
 
-    // Private helper methods
+    /// Convert analyzer release manifest into Package structs for version
+    /// updating, filtering out non-releasable entries.
     fn convert_manifest_to_packages(
         &self,
         manifest: &HashMap<String, Release>,
@@ -160,6 +164,8 @@ impl UpdaterManager {
         Ok(packages)
     }
 
+    /// Extract package name from its path, using repository name for root
+    /// packages.
     fn derive_package_name(&self, package_path: &str) -> String {
         let path = Path::new(package_path);
 
@@ -180,6 +186,7 @@ impl UpdaterManager {
         }
     }
 
+    /// Initialize statistics for tracking update operations across packages.
     fn create_initial_stats(
         &self,
         packages: &[Package],

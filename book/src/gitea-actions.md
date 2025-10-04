@@ -44,7 +44,8 @@ Ensure your Gitea repository has the correct permissions:
 
 ### Step 3: Token Permissions (If Using Custom Token)
 
-If you need to use a custom Gitea token instead of the default, ensure it has:
+If you need to use a custom Gitea token instead of the default, ensure it
+has:
 
 - **Contents**: `write` - To create tags and releases
 - **Pull requests**: `write` - To create release pull requests
