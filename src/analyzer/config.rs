@@ -6,7 +6,7 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp 
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} <{{ commit.author_name }}>{% endif %}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% if commit.body -%}
 > {{ commit.body }}
 {% endif -%}
@@ -14,7 +14,7 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp 
 > {{ commit.breaking_description }}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} <{{ commit.author_name }}>{% endif %}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% endif -%}
 {% endfor %}
 {% endfor %}
