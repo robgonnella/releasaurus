@@ -1,5 +1,7 @@
 //! Framework and package management for multi-language support.
 
+use std::fmt::Display;
+
 use crate::analyzer::release::Tag;
 use crate::config::ReleaseType;
 use crate::updater::generic::updater::GenericUpdater;
@@ -30,6 +32,20 @@ pub enum Framework {
     #[default]
     /// Generic framework with custom handling
     Generic,
+}
+
+impl Display for Framework {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Framework::Generic => f.write_str("Generic"),
+            Framework::Java => f.write_str("Java"),
+            Framework::Node => f.write_str("Node"),
+            Framework::Php => f.write_str("Php"),
+            Framework::Python => f.write_str("Python"),
+            Framework::Ruby => f.write_str("Ruby"),
+            Framework::Rust => f.write_str("Rust"),
+        }
+    }
 }
 
 impl From<ReleaseType> for Framework {

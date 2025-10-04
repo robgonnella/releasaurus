@@ -85,9 +85,14 @@ impl UpdaterManager {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for package in packages.iter() {
+            info!(
+                "running package updater: package_name: {}, framework: {}",
+                package.name, package.framework
+            );
             let updater = package.framework.updater();
             let updates = updater.update(packages.clone(), loader).await?;
             if let Some(updates) = updates {
+                debug!("file updates {:#?}", updates);
                 file_changes.extend(updates);
                 stats.updated_packages += 1;
             }
