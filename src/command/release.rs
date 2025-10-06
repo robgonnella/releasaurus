@@ -21,12 +21,12 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
     let config = common::process_config(&repo_name, &mut config);
     let default_branch = forge.default_branch().await?;
 
-    let mut release_branch =
-        format!("{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}");
-
     if config.separate_pull_requests {
         for package in config.packages.iter() {
-            release_branch = format!("{release_branch}-{}", package.name);
+            let release_branch = format!(
+                "{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}-{}",
+                package.name
+            );
             generate_branch_release(
                 forge.as_ref(),
                 &package.name,
@@ -36,6 +36,9 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
             .await?;
         }
     } else {
+        let release_branch =
+            format!("{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}");
+
         generate_branch_release(
             forge.as_ref(),
             &repo_name,
