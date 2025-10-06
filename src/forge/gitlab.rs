@@ -57,7 +57,6 @@ struct MergeRequestInfo {
     iid: u64,
     sha: String,
     merged_at: Option<String>,
-    merge_commit_sha: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -480,15 +479,9 @@ impl Forge for Gitlab {
             ));
         }
 
-        let sha = merge_request
-            .merge_commit_sha
-            .as_ref()
-            .ok_or_else(|| eyre!("no merge_commit_sha found for pr"))?
-            .clone();
-
         Ok(Some(PullRequest {
             number: merge_request.iid,
-            sha,
+            sha: merge_request.sha.clone(),
         }))
     }
 
