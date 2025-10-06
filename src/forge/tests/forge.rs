@@ -684,7 +684,13 @@ async fn test_forge_get_merged_release_pr_impl(
     forge: Box<dyn Forge + Send + Sync>,
     forge_type: ForgeType,
 ) {
-    let result = forge.get_merged_release_pr().await;
+    let default_branch = forge.default_branch().await.unwrap();
+
+    let req = GetPrRequest {
+        base_branch: default_branch,
+        head_branch: "releasaurus-release".into(),
+    };
+    let result = forge.get_merged_release_pr(req).await;
     assert!(
         result.is_ok(),
         "[{}] get_merged_release_pr() should succeed: {:?}",
@@ -792,7 +798,7 @@ async fn test_forge_integration_workflow_impl(
         base_branch: default_branch.clone(),
     };
     let open_pr = forge
-        .get_open_release_pr(pr_req)
+        .get_open_release_pr(pr_req.clone())
         .await
         .expect("Failed to query open PRs");
     println!(
@@ -803,7 +809,7 @@ async fn test_forge_integration_workflow_impl(
 
     // 7. Check for merged PRs
     let merged_pr = forge
-        .get_merged_release_pr()
+        .get_merged_release_pr(pr_req)
         .await
         .expect("Failed to query merged PRs");
     println!(

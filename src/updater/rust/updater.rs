@@ -8,7 +8,7 @@ use crate::{
     forge::{request::FileChange, traits::FileLoader},
     result::Result,
     updater::{
-        framework::{Framework, Package},
+        framework::{Framework, UpdaterPackage},
         rust::{cargo_lock::CargoLock, cargo_toml::CargoToml},
         traits::PackageUpdater,
     },
@@ -35,7 +35,7 @@ impl RustUpdater {
 impl PackageUpdater for RustUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
@@ -43,9 +43,13 @@ impl PackageUpdater for RustUpdater {
         let rust_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Rust))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
         info!("Found {} rust packages", rust_packages.len());
+
+        if rust_packages.is_empty() {
+            return Ok(None);
+        }
 
         let root_path = Path::new(".");
 
@@ -102,8 +106,8 @@ mod tests {
         name: &str,
         path: &str,
         next_version: &str,
-    ) -> Package {
-        Package {
+    ) -> UpdaterPackage {
+        UpdaterPackage {
             name: name.to_string(),
             path: path.to_string(),
             framework: Framework::Rust,
@@ -706,7 +710,7 @@ version = "1.0.0"
 
         let packages = vec![
             create_test_package("rust-crate", "packages/rust", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "python-package".to_string(),
                 path: "packages/python".to_string(),
                 framework: Framework::Python,

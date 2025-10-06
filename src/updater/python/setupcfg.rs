@@ -8,7 +8,7 @@ use crate::{
         traits::FileLoader,
     },
     result::Result,
-    updater::framework::Package,
+    updater::framework::UpdaterPackage,
 };
 
 static VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -24,7 +24,7 @@ impl SetupCfg {
 
     pub async fn process_packages(
         &self,
-        packages: &[Package],
+        packages: &[UpdaterPackage],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];

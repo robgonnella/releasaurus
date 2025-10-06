@@ -10,7 +10,7 @@ use crate::{
     },
     result::Result,
     updater::{
-        framework::{Framework, Package},
+        framework::{Framework, UpdaterPackage},
         traits::PackageUpdater,
     },
 };
@@ -45,7 +45,7 @@ impl PhpUpdater {
     /// Composer.
     async fn process_packages(
         &self,
-        packages: &[Package],
+        packages: &[UpdaterPackage],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
@@ -101,15 +101,19 @@ impl PhpUpdater {
 impl PackageUpdater for PhpUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let php_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Php))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
-        info!("Found {} PHP packages", php_packages.len(),);
+        info!("Found {} PHP packages", php_packages.len());
+
+        if php_packages.is_empty() {
+            return Ok(None);
+        }
 
         self.process_packages(&php_packages, loader).await
     }
@@ -126,8 +130,8 @@ mod tests {
         name: &str,
         path: &str,
         next_version: &str,
-    ) -> Package {
-        Package {
+    ) -> UpdaterPackage {
+        UpdaterPackage {
             name: name.to_string(),
             path: path.to_string(),
             framework: Framework::Php,
@@ -328,7 +332,7 @@ mod tests {
 
         let packages = vec![
             create_test_package("php-package", "packages/php", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "node-package".to_string(),
                 path: "packages/node".to_string(),
                 framework: Framework::Node,

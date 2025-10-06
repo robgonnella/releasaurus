@@ -11,7 +11,7 @@ use crate::{
     },
     result::Result,
     updater::{
-        framework::{Framework, Package},
+        framework::{Framework, UpdaterPackage},
         traits::PackageUpdater,
     },
 };
@@ -47,7 +47,7 @@ impl NodeUpdater {
         &self,
         doc: &mut Value,
         dep_kind: &str,
-        other_packages: &[(String, Package)],
+        other_packages: &[(String, UpdaterPackage)],
     ) -> Result<()> {
         if let Some(deps) = doc[dep_kind].as_object_mut() {
             for (key, value) in deps {
@@ -74,9 +74,9 @@ impl NodeUpdater {
     /// structs.
     async fn get_packages_with_names(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
-    ) -> Vec<(String, Package)> {
+    ) -> Vec<(String, UpdaterPackage)> {
         let results = packages.into_iter().map(|p| async {
             let manifest_path = Path::new(&p.path).join("package.json");
             let content = self.load_doc(manifest_path, loader).await;
@@ -96,8 +96,8 @@ impl NodeUpdater {
     /// Update package-lock.json file for a specific package
     async fn update_package_lock_json_for_package(
         &self,
-        current_package: (&str, &Package),
-        other_packages: &[(String, Package)],
+        current_package: (&str, &UpdaterPackage),
+        other_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let lock_path =
@@ -230,7 +230,7 @@ impl NodeUpdater {
     async fn update_package_lock_json_for_root(
         &self,
         root_path: &Path,
-        all_packages: &[(String, Package)],
+        all_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("package-lock.json");
@@ -331,8 +331,8 @@ impl NodeUpdater {
     /// Update yarn.lock file for a specific package
     async fn update_yarn_lock_for_package(
         &self,
-        current_package: (&str, &Package),
-        other_packages: &[(String, Package)],
+        current_package: (&str, &UpdaterPackage),
+        other_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let lock_path = Path::new(&current_package.1.path).join("yarn.lock");
@@ -413,7 +413,7 @@ impl NodeUpdater {
     async fn update_yarn_lock_for_root(
         &self,
         root_path: &Path,
-        all_packages: &[(String, Package)],
+        all_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("yarn.lock");
@@ -479,8 +479,8 @@ impl NodeUpdater {
     /// Update lock files for a specific package
     async fn update_package_lock_files(
         &self,
-        current_package: (&str, &Package),
-        other_packages: &[(String, Package)],
+        current_package: (&str, &UpdaterPackage),
+        other_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut changes: Vec<FileChange> = vec![];
@@ -518,7 +518,7 @@ impl NodeUpdater {
     async fn update_root_lock_files(
         &self,
         root_path: &Path,
-        all_packages: &[(String, Package)],
+        all_packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut changes: Vec<FileChange> = vec![];
@@ -549,15 +549,19 @@ impl NodeUpdater {
 impl PackageUpdater for NodeUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let node_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Node))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
         info!("Found {} node packages", node_packages.len());
+
+        if node_packages.is_empty() {
+            return Ok(None);
+        }
 
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -577,7 +581,7 @@ impl PackageUpdater for NodeUpdater {
                 .iter()
                 .filter(|(n, _)| n != package_name)
                 .cloned()
-                .collect::<Vec<(String, Package)>>();
+                .collect::<Vec<(String, UpdaterPackage)>>();
 
             self.update_deps(&mut pkg_doc, "dependencies", &other_pkgs)?;
             self.update_deps(&mut pkg_doc, "dev_dependencies", &other_pkgs)?;
@@ -634,8 +638,8 @@ mod tests {
         name: &str,
         path: &str,
         next_version: &str,
-    ) -> Package {
-        Package {
+    ) -> UpdaterPackage {
+        UpdaterPackage {
             name: name.to_string(),
             path: path.to_string(),
             framework: Framework::Node,
@@ -1128,7 +1132,7 @@ mod tests {
 
         let packages = vec![
             create_test_package("node-package", "packages/node", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "java-package".to_string(),
                 path: "packages/java".to_string(),
                 framework: Framework::Java,

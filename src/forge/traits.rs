@@ -67,7 +67,10 @@ pub trait Forge: Any {
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>>;
     /// Find the most recently merged release PR with pending label.
-    async fn get_merged_release_pr(&self) -> Result<Option<PullRequest>>;
+    async fn get_merged_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>>;
     /// Create a new pull request and return its details.
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest>;
     /// Update an existing pull request's title and body.

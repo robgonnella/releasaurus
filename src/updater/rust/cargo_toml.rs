@@ -8,7 +8,7 @@ use crate::{
         traits::FileLoader,
     },
     result::Result,
-    updater::framework::Package,
+    updater::framework::UpdaterPackage,
 };
 
 /// Handles Cargo.toml file parsing and version updates for Rust packages.
@@ -39,9 +39,9 @@ impl CargoToml {
     /// structs.
     pub async fn get_packages_with_names(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
-    ) -> Vec<(String, Package)> {
+    ) -> Vec<(String, UpdaterPackage)> {
         let results = packages.into_iter().map(|p| async {
             let manifest_path = Path::new(&p.path).join("Cargo.toml");
             let doc = self.load_doc(manifest_path, loader).await;
@@ -60,7 +60,7 @@ impl CargoToml {
     /// Update version fields in Cargo.toml files for all Rust packages.
     pub async fn process_packages(
         &self,
-        packages: &[(String, Package)],
+        packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
@@ -91,7 +91,7 @@ impl CargoToml {
                 .iter()
                 .filter(|(n, _)| n != package_name)
                 .cloned()
-                .collect::<Vec<(String, Package)>>();
+                .collect::<Vec<(String, UpdaterPackage)>>();
 
             // loop other packages to check if they current manifest deps
             for (dep_name, dep) in other_pkgs.iter() {
@@ -171,7 +171,11 @@ impl CargoToml {
         }
     }
 
-    fn get_package_name(&self, doc: &DocumentMut, package: &Package) -> String {
+    fn get_package_name(
+        &self,
+        doc: &DocumentMut,
+        package: &UpdaterPackage,
+    ) -> String {
         doc.get("package")
             .and_then(|p| p.as_table())
             .and_then(|t| t.get("name"))

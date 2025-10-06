@@ -435,13 +435,17 @@ impl Forge for Gitlab {
         }
     }
 
-    async fn get_merged_release_pr(&self) -> Result<Option<PullRequest>> {
+    async fn get_merged_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>> {
         info!("looking for closed release prs with pending label");
 
         // Search for closed merge requests with the pending label
         let endpoint = MergeRequests::builder()
             .project(&self.project_id)
             .state(MergeRequestState::Merged)
+            .source_branch(req.head_branch.clone())
             .labels(vec![PENDING_LABEL])
             .build()?;
 
@@ -450,18 +454,18 @@ impl Forge for Gitlab {
 
         if merge_requests.is_empty() {
             warn!(
-                "No merged release PRs with the label {} found. Nothing to release",
-                PENDING_LABEL
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                req.head_branch
             );
             return Ok(None);
         }
 
         if merge_requests.len() > 1 {
             return Err(eyre!(
-                "Found more than one closed release PR with pending label. \
+                "Found more than one closed release PR with pending label for branch {}. \
                 This means either release PRs were closed manually or releasaurus failed to remove tags. \
-                You must remove the {} label from all closed release PRs except for the most recent.",
-                PENDING_LABEL
+                You must remove the {PENDING_LABEL} label from all closed release PRs except for the most recent.",
+                req.head_branch
             ));
         }
 

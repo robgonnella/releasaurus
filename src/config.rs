@@ -56,6 +56,8 @@ pub enum ReleaseType {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)] // Use default for missing fields
 pub struct PackageConfig {
+    /// Name for this package
+    pub name: String,
     /// Package directory path relative to repository root.
     pub path: String,
     /// Release type for determining which version files to update.
@@ -67,7 +69,8 @@ pub struct PackageConfig {
 impl Default for PackageConfig {
     fn default() -> Self {
         Self {
-            path: ".".to_string(),
+            name: "".into(),
+            path: ".".into(),
             release_type: None,
             tag_prefix: None,
         }
@@ -81,6 +84,8 @@ pub struct Config {
     /// Maximum number of commits to search for the first release when no
     /// tags exist.
     pub first_release_search_depth: u64,
+    /// Generates different release PRs for each package defined in config
+    pub separate_pull_requests: bool,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
     /// Packages to manage in this repository (supports monorepos).
@@ -92,6 +97,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            separate_pull_requests: false,
             changelog: ChangelogConfig::default(),
             packages: vec![PackageConfig::default()],
         }

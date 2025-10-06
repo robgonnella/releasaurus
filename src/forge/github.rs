@@ -657,7 +657,10 @@ impl Forge for Github {
         Ok(None)
     }
 
-    async fn get_merged_release_pr(&self) -> Result<Option<PullRequest>> {
+    async fn get_merged_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>> {
         let issues_handler =
             self.instance.issues(&self.config.owner, &self.config.repo);
 
@@ -668,54 +671,53 @@ impl Forge for Github {
             .direction(params::Direction::Descending)
             .labels(&[PENDING_LABEL.into()])
             .state(params::State::Closed)
-            .per_page(2)
             .send()
             .await?;
 
         if issues.items.is_empty() {
             warn!(
-                r"No merged release PRs with the label {} found. Nothing to release",
-                PENDING_LABEL
+                r"No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                req.head_branch
             );
             return Ok(None);
         }
 
-        if issues.items.len() > 1 {
-            return Err(eyre!(format!(
-                r"Found more than one closed release PR with pending label.
-                    This mean either release PR were closed manually or releasaurus failed to remove tags.
-                    You must remove the {} label from all closed release PRs except for the most recent.",
-                PENDING_LABEL
-            )));
+        for issue in issues {
+            let pr = self
+                .instance
+                .pulls(&self.config.owner, &self.config.repo)
+                .get(issue.number)
+                .await?;
+
+            if let Some(label) = pr.head.label
+                && label == req.head_branch
+            {
+                if let Some(merged) = pr.merged
+                    && !merged
+                {
+                    return Err(eyre!(format!(
+                        "found release PR {} but it hasn't been merged yet",
+                        pr.number
+                    )));
+                }
+
+                info!(
+                    "found release pr: {} for branch {}",
+                    issue.number, req.head_branch
+                );
+
+                let sha = pr
+                    .merge_commit_sha
+                    .ok_or(eyre!("no merge_commit_sha found for pr"))?;
+
+                return Ok(Some(PullRequest {
+                    number: pr.number,
+                    sha,
+                }));
+            }
         }
 
-        let issue = issues.items[0].clone();
-
-        info!("found release pr: {}", issue.number);
-
-        let pr = self
-            .instance
-            .pulls(&self.config.owner, &self.config.repo)
-            .get(issue.number)
-            .await?;
-
-        if let Some(merged) = pr.merged
-            && !merged
-        {
-            return Err(eyre!(format!(
-                "found release PR {} but it hasn't been merged yet",
-                pr.number
-            )));
-        }
-
-        let sha = pr
-            .merge_commit_sha
-            .ok_or(eyre!("no merge_commit_sha found for pr"))?;
-
-        Ok(Some(PullRequest {
-            number: pr.number,
-            sha,
-        }))
+        Ok(None)
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {

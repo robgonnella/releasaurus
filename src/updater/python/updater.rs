@@ -7,7 +7,7 @@ use crate::{
     forge::{request::FileChange, traits::FileLoader},
     result::Result,
     updater::{
-        framework::{Framework, Package},
+        framework::{Framework, UpdaterPackage},
         python::{pyproject::PyProject, setupcfg::SetupCfg, setuppy::SetupPy},
         traits::PackageUpdater,
     },
@@ -36,15 +36,19 @@ impl PythonUpdater {
 impl PackageUpdater for PythonUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let python_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Python))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
         info!("Found {} python packages", python_packages.len());
+
+        if python_packages.is_empty() {
+            return Ok(None);
+        }
 
         let mut file_changes: Vec<FileChange> = vec![];
         if let Some(changes) = self
@@ -90,8 +94,8 @@ mod tests {
         name: &str,
         path: &str,
         next_version: &str,
-    ) -> Package {
-        Package {
+    ) -> UpdaterPackage {
+        UpdaterPackage {
             name: name.to_string(),
             path: path.to_string(),
             framework: Framework::Python,
@@ -526,7 +530,7 @@ version = "1.0.0"
 
         let packages = vec![
             create_test_package("python-package", "packages/python", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "rust-package".to_string(),
                 path: "packages/rust".to_string(),
                 framework: Framework::Rust,

@@ -10,7 +10,7 @@ use crate::{
     forge::traits::FileLoader,
     result::Result,
     updater::framework::Framework,
-    updater::{framework::Package, traits::PackageUpdater},
+    updater::{framework::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Java package updater supporting Maven and Gradle projects.
@@ -26,7 +26,7 @@ impl JavaUpdater {
     /// packages.
     async fn process_packages(
         &self,
-        packages: &[Package],
+        packages: &[UpdaterPackage],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
@@ -88,7 +88,7 @@ impl JavaUpdater {
     async fn update_maven_project(
         &self,
         pom_path: &str,
-        package: &Package,
+        package: &UpdaterPackage,
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let content = loader.get_file_content(pom_path).await?;
@@ -164,7 +164,7 @@ impl JavaUpdater {
     async fn update_gradle_project(
         &self,
         build_path: &str,
-        package: &Package,
+        package: &UpdaterPackage,
         is_kotlin: bool,
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
@@ -281,7 +281,7 @@ impl JavaUpdater {
     async fn update_gradle_properties(
         &self,
         props_path: &str,
-        package: &Package,
+        package: &UpdaterPackage,
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let content = loader.get_file_content(props_path).await?;
@@ -331,15 +331,19 @@ impl JavaUpdater {
 impl PackageUpdater for JavaUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let java_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Java))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
-        info!("Found {} Java packages", java_packages.len(),);
+        info!("Found {} Java packages", java_packages.len());
+
+        if java_packages.is_empty() {
+            return Ok(None);
+        }
 
         self.process_packages(&java_packages, loader).await
     }
@@ -352,8 +356,8 @@ mod tests {
     use crate::forge::traits::MockFileLoader;
     use semver::Version as SemVer;
 
-    fn create_test_package(path: &str, next_version: &str) -> Package {
-        Package {
+    fn create_test_package(path: &str, next_version: &str) -> UpdaterPackage {
+        UpdaterPackage {
             name: "test-package".to_string(),
             path: path.to_string(),
             framework: Framework::Java,
@@ -793,7 +797,7 @@ name=test-project
 
         let packages = vec![
             create_test_package("java-project", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "node-project".to_string(),
                 path: "node-project".to_string(),
                 framework: Framework::Node,

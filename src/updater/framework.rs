@@ -1,9 +1,10 @@
 //! Framework and package management for multi-language support.
-
+use color_eyre::eyre::eyre;
 use std::fmt::Display;
 
 use crate::analyzer::release::Tag;
 use crate::config::ReleaseType;
+use crate::result::{ReleasablePackage, Result};
 use crate::updater::generic::updater::GenericUpdater;
 use crate::updater::java::updater::JavaUpdater;
 use crate::updater::node::updater::NodeUpdater;
@@ -80,7 +81,7 @@ impl Framework {
 /// Package information with next version and framework details for version
 /// file updates.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Package {
+pub struct UpdaterPackage {
     /// Package name derived from manifest or directory.
     pub name: String,
     /// Path to package directory relative to repository root.
@@ -91,20 +92,32 @@ pub struct Package {
     pub framework: Framework,
 }
 
-impl Package {
-    /// Create package instance with name, path, version, and framework
-    /// detection.
-    pub fn new(
-        name: String,
-        path: String,
-        next_version: Tag,
-        framework: Framework,
-    ) -> Self {
-        Self {
-            name,
-            path,
-            next_version,
-            framework: framework.clone(),
+impl UpdaterPackage {
+    pub fn from_manifest_package(pkg: &ReleasablePackage) -> Result<Self> {
+        if pkg.release.tag.is_none() {
+            return Err(eyre!("failed to find tag for next release"));
         }
+
+        let next_version = pkg.release.tag.clone().unwrap();
+        let framework = Framework::from(pkg.release_type.clone());
+
+        Ok(Self {
+            name: pkg.name.clone(),
+            path: pkg.path.clone(),
+            next_version,
+            framework,
+        })
     }
+}
+
+pub fn updater_packages_from_manifest(
+    manifest: &[ReleasablePackage],
+) -> Result<Vec<UpdaterPackage>> {
+    let mut packages = vec![];
+
+    for pkg in manifest.iter() {
+        packages.push(UpdaterPackage::from_manifest_package(pkg)?);
+    }
+
+    Ok(packages)
 }
