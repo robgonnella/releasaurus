@@ -8,7 +8,7 @@ use crate::{
         traits::FileLoader,
     },
     result::Result,
-    updater::framework::Package,
+    updater::framework::UpdaterPackage,
 };
 
 /// Handles Cargo.lock file parsing and version synchronization for Rust
@@ -26,7 +26,7 @@ impl CargoLock {
     pub async fn process_workspace_lockfile(
         &self,
         root_path: &Path,
-        packages: &[(String, Package)],
+        packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
         let lock_path = root_path.join("Cargo.lock");
@@ -71,7 +71,7 @@ impl CargoLock {
 
     pub async fn process_packages(
         &self,
-        packages: &[(String, Package)],
+        packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];

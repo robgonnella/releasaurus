@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     forge::{request::FileChange, traits::FileLoader},
     result::Result,
-    updater::framework::Package,
+    updater::framework::UpdaterPackage,
 };
 
 /// Common interface for updating version files in different language
@@ -14,7 +14,7 @@ pub trait PackageUpdater {
     /// files for the package's language/framework.
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>>;
 }

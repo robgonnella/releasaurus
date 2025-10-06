@@ -49,21 +49,27 @@ pub struct Label {
 }
 
 #[derive(Debug, Deserialize)]
-struct PullRequestHead {
+struct PullRequestBranch {
+    label: String,
     sha: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct GiteaPullRequest {
     number: u64,
-    head: PullRequestHead,
-    merged: Option<bool>,
+    head: PullRequestBranch,
     merge_commit_sha: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct Issue {
+#[derive(Debug, Clone, Deserialize)]
+struct GiteaIssuePr {
+    merged: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GiteaIssue {
     number: u64,
+    pull_request: GiteaIssuePr,
 }
 
 #[derive(Debug, Serialize)]
@@ -501,20 +507,20 @@ impl Forge for Gitea {
 
     async fn get_open_release_pr(
         &self,
-        _req: GetPrRequest,
+        req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
         info!("looking for open release prs with pending label");
 
         // Search for open issues with the pending label
         let issues_url = self.base_url.join(&format!(
-            "issues?state=open&type=pulls&labels={}&page=1&limit=2",
+            "issues?state=open&type=pulls&labels={}",
             PENDING_LABEL
         ))?;
 
         let request = self.client.get(issues_url).build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
-        let issues: Vec<Issue> = result.json().await?;
+        let issues: Vec<GiteaIssue> = result.json().await?;
 
         info!("found open PRs --> {:#?}", issues);
 
@@ -522,34 +528,32 @@ impl Forge for Gitea {
             return Ok(None);
         }
 
-        if issues.len() > 1 {
-            return Err(eyre!(
-                "Found more than one open release PR with pending label: {}. \
-                This means either releasaurus incorrectly created more than one open PR, or \
-                the pending label was manually added to another PR and must be removed",
-                PENDING_LABEL
-            ));
+        let mut pr = None;
+
+        for issue in issues.iter() {
+            let pr_url =
+                self.base_url.join(&format!("pulls/{}", issue.number))?;
+            let request = self.client.get(pr_url).build()?;
+            let response = self.client.execute(request).await?;
+            let result = response.error_for_status()?;
+            let found_pr: GiteaPullRequest = result.json().await?;
+            if found_pr.head.label == req.head_branch {
+                pr = Some(found_pr);
+                break;
+            }
         }
 
-        let issue = &issues[0];
-        info!("found open release pr: {}", issue.number);
-
-        // Get the full PR details
-        let pr_url = self.base_url.join(&format!("pulls/{}", issue.number))?;
-        let request = self.client.get(pr_url).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let pr: GiteaPullRequest = result.json().await?;
-
-        // Make sure the PR isn't merged
-        if let Some(merged) = pr.merged
-            && merged
-        {
-            return Err(eyre!(
-                "found release PR {} but it has already been merged",
-                pr.number
-            ));
+        if pr.is_none() {
+            warn!("No open release PRs found for branch {}", req.head_branch);
+            return Ok(None);
         }
+
+        let pr = pr.unwrap();
+
+        info!(
+            "found open release pr: {} for branch {}",
+            pr.number, req.head_branch
+        );
 
         let sha = pr.head.sha;
 
@@ -559,60 +563,68 @@ impl Forge for Gitea {
         }))
     }
 
-    async fn get_merged_release_pr(&self) -> Result<Option<PullRequest>> {
-        info!("looking for closed release prs with pending label");
+    async fn get_merged_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>> {
+        info!("looking for closed release prs with pending label for branch");
 
         // Search for closed issues with the pending label
-        let issues_url = self.base_url.join(&format!(
-            "issues?state=closed&labels={}&page=1&limit=2",
-            PENDING_LABEL
-        ))?;
+        let issues_url = self
+            .base_url
+            .join(&format!("issues?state=closed&labels={} ", PENDING_LABEL))?;
 
         let request = self.client.get(issues_url).build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
-        let issues: Vec<Issue> = result.json().await?;
+        let issues: Vec<GiteaIssue> = result.json().await?;
 
         if issues.is_empty() {
             warn!(
-                "No merged release PRs with the label {} found. Nothing to release",
-                PENDING_LABEL
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                req.head_branch,
             );
             return Ok(None);
         }
 
-        if issues.len() > 1 {
-            return Err(eyre!(
-                "Found more than one closed release PR with pending label. \
-                This means either release PRs were closed manually or releasaurus failed to remove tags. \
-                You must remove the {} label from all closed release PRs except for the most recent.",
-                PENDING_LABEL
-            ));
+        let mut pr = None;
+
+        for issue in issues.iter() {
+            if !issue.pull_request.merged {
+                warn!(
+                    "found unmerged closed pr {} with pending label: skipping",
+                    issue.number
+                );
+                continue;
+            }
+
+            let pr_url =
+                self.base_url.join(&format!("pulls/{}", issue.number))?;
+            let request = self.client.get(pr_url).build()?;
+            let response = self.client.execute(request).await?;
+            let result = response.error_for_status()?;
+            let found_pr: GiteaPullRequest = result.json().await?;
+            if found_pr.head.label == req.head_branch {
+                pr = Some(found_pr);
+                break;
+            }
         }
 
-        let issue = &issues[0];
-        info!("found release pr: {}", issue.number);
-
-        // Get the full PR details
-        let pr_url = self.base_url.join(&format!("pulls/{}", issue.number))?;
-        let request = self.client.get(pr_url).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let pr: GiteaPullRequest = result.json().await?;
-
-        // Check if the PR is actually merged
-        if let Some(merged) = pr.merged
-            && !merged
-        {
-            return Err(eyre!(
-                "found release PR {} but it hasn't been merged yet",
-                pr.number
-            ));
+        if pr.is_none() {
+            warn!(
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                req.head_branch,
+            );
+            return Ok(None);
         }
 
-        let sha = pr
-            .merge_commit_sha
-            .ok_or_else(|| eyre!("no merge_commit_sha found for pr"))?;
+        let pr = pr.unwrap();
+
+        info!("found merged release pr: {}", pr.number);
+
+        let sha = pr.merge_commit_sha.ok_or_else(|| {
+            eyre!("no merge_commit_sha found for pr {}", pr.number)
+        })?;
 
         Ok(Some(PullRequest {
             number: pr.number,

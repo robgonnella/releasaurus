@@ -54,7 +54,7 @@ pub struct ForgeCommit {
 
 /// How to apply file content changes during branch creation.
 #[allow(unused)]
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum FileUpdateType {
     Replace,
     Prepend,

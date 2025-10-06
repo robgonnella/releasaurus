@@ -52,6 +52,7 @@ pub fn create_test_remote_config() -> RemoteConfig {
 pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
     Config {
         first_release_search_depth: 100,
+        separate_pull_requests: false,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -78,9 +79,12 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
 ///     ("packages/two", ReleaseType::Rust),
 /// ]);
 /// ```
-pub fn create_test_config_simple(packages: Vec<(&str, ReleaseType)>) -> Config {
+pub fn create_test_config_simple(
+    packages: Vec<(&str, &str, ReleaseType)>,
+) -> Config {
     Config {
         first_release_search_depth: 100,
+        separate_pull_requests: false,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -90,7 +94,8 @@ pub fn create_test_config_simple(packages: Vec<(&str, ReleaseType)>) -> Config {
         },
         packages: packages
             .into_iter()
-            .map(|(path, release_type)| PackageConfig {
+            .map(|(name, path, release_type)| PackageConfig {
+                name: name.into(),
                 path: path.to_string(),
                 release_type: Some(release_type),
                 tag_prefix: None,
@@ -111,12 +116,14 @@ pub fn create_test_config_simple(packages: Vec<(&str, ReleaseType)>) -> Config {
 /// let package = create_test_package_config(".", Some(ReleaseType::Node), Some("v".to_string()));
 /// ```
 pub fn create_test_package_config(
+    name: &str,
     path: &str,
     release_type: Option<ReleaseType>,
     tag_prefix: Option<String>,
 ) -> PackageConfig {
     PackageConfig {
-        path: path.to_string(),
+        name: name.into(),
+        path: path.into(),
         release_type,
         tag_prefix,
     }
@@ -273,6 +280,7 @@ mod tests {
     #[test]
     fn test_create_test_config() {
         let packages = vec![create_test_package_config(
+            "",
             ".",
             Some(ReleaseType::Node),
             Some("v".to_string()),
@@ -285,8 +293,8 @@ mod tests {
     #[test]
     fn test_create_test_config_simple() {
         let config = create_test_config_simple(vec![
-            ("packages/one", ReleaseType::Node),
-            ("packages/two", ReleaseType::Rust),
+            ("", "packages/one", ReleaseType::Node),
+            ("", "packages/two", ReleaseType::Rust),
         ]);
         assert_eq!(config.packages.len(), 2);
         assert_eq!(config.packages[0].path, "packages/one");

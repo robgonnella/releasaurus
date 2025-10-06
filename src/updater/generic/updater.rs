@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     forge::{request::FileChange, traits::FileLoader},
     result::Result,
-    updater::{framework::Package, traits::PackageUpdater},
+    updater::{framework::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Generic package updater for projects without specific language support.
@@ -20,7 +20,7 @@ impl GenericUpdater {
 impl PackageUpdater for GenericUpdater {
     async fn update(
         &self,
-        _packages: Vec<Package>,
+        _packages: Vec<UpdaterPackage>,
         _loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         // nothing to do for generic updater

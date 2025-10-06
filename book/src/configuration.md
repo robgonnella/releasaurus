@@ -26,6 +26,8 @@ The configuration file uses TOML format with these main sections:
 
 - **`first_release_search_depth`** - Controls commit history depth for initial
   release analysis (optional)
+- **`separate_pull_requests`** - Create separate PRs for each package in
+  monorepos (optional, default: false)
 - **`[changelog]`** - Customizes changelog generation and formatting
   (optional)
   - `body` - Tera template for changelog content
@@ -46,6 +48,9 @@ defined configuration provided.
 
 # Maximum commits to analyze for first release (default: 400)
 first_release_search_depth = 400
+
+# Create separate pull requests for each package (default: false)
+separate_pull_requests = false
 
 [changelog]
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -92,6 +97,137 @@ first_release_search_depth = 400
 **Note**: This setting only affects the first release. Once a tag exists,
 subsequent releases automatically find all commits since the last tag, making
 this setting unnecessary for ongoing releases.
+
+## Separate Pull Requests
+
+The `separate_pull_requests` setting controls whether Releasaurus creates a
+single combined pull request for all packages or separate pull requests for
+each package in a monorepo.
+
+```toml
+# Optional: defaults to false if not specified
+separate_pull_requests = true
+```
+
+### Single PR Mode (Default)
+
+When `separate_pull_requests` is `false` or not specified, Releasaurus creates
+one pull request containing all package updates:
+
+```toml
+separate_pull_requests = false  # or omit this line
+
+[[package]]
+path = "./apps/frontend"
+release_type = "node"
+
+[[package]]
+path = "./apps/backend"
+release_type = "rust"
+```
+
+**Benefits:**
+
+- Single review process for all changes
+- All packages released together atomically
+- Simpler workflow for tightly coupled packages
+
+**Best for:**
+
+- Packages that are always released together
+- Small monorepos with few packages
+- Teams that prefer coordinated releases
+
+### Separate PR Mode
+
+When `separate_pull_requests` is `true`, Releasaurus creates individual pull
+requests for each package that has changes:
+
+```toml
+separate_pull_requests = true
+
+[[package]]
+path = "./apps/frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./apps/backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+```
+
+**Benefits:**
+
+- Independent release cycles for each package
+- Parallel review and merging of changes
+- Teams can release packages at different cadences
+- Easier to track changes per package
+
+**Best for:**
+
+- Large monorepos with many packages
+- Independently versioned packages
+- Packages maintained by different teams
+- When packages have different release schedules
+
+### Branch Naming
+
+The branch names created differ based on this setting:
+
+**Single PR mode:**
+
+```
+releasaurus-release-main
+```
+
+**Separate PR mode:**
+
+```
+releasaurus-release-main-frontend
+releasaurus-release-main-backend
+releasaurus-release-main-shared
+```
+
+### Example: Independent Package Releases
+
+This example shows a monorepo where packages can be released independently:
+
+```toml
+# Allow independent releases
+separate_pull_requests = true
+
+# Frontend app - released frequently
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+
+# Mobile app - released independently
+[[package]]
+path = "./apps/mobile"
+release_type = "node"
+tag_prefix = "mobile-v"
+
+# Core library - released less frequently
+[[package]]
+path = "./packages/core"
+release_type = "rust"
+tag_prefix = "core-v"
+
+# CLI tool - released on demand
+[[package]]
+path = "./packages/cli"
+release_type = "rust"
+tag_prefix = "cli-v"
+```
+
+With this configuration:
+
+- Each package gets its own pull request when it has changes
+- Teams can merge and release packages independently
+- No need to coordinate releases across all packages
+- Each package maintains its own version history
 
 ## Changelog Configuration
 
@@ -179,6 +315,47 @@ The directory path to the package, relative to the repository root.
 path = "."  # Root of repository
 ```
 
+### `name` (Optional)
+
+An explicit name for the package. If not specified, Releasaurus automatically
+derives the package name from the `path`:
+
+- For root packages (`path = "."`), uses the repository name
+- For nested packages, uses the directory name (e.g., `"packages/api"` becomes `"api"`)
+
+```toml
+[[package]]
+name = "my-custom-name"  # Optional: override derived name
+path = "packages/backend"
+release_type = "rust"
+```
+
+**When to use:**
+
+- Override the automatically derived package name
+- Provide a more descriptive name for releases and tags
+- Maintain consistent naming when package directories change
+
+**Note**: The package name is used in PR titles, branch names, and when
+generating tag prefixes in monorepos.
+
+**Example: Custom naming for clearer releases**
+
+```toml
+# Without explicit names, these would derive as "api" and "web"
+[[package]]
+name = "backend-api"      # Clearer than just "api"
+path = "services/api"
+release_type = "rust"
+tag_prefix = "backend-api-v"
+
+[[package]]
+name = "frontend-web"     # Clearer than just "web"
+path = "apps/web"
+release_type = "node"
+tag_prefix = "frontend-web-v"
+```
+
 ### `release_type`
 
 Specifies which language/framework updater to use for version files. This is
@@ -250,26 +427,52 @@ modifying the template when you toggle the `include_author` configuration option
 
 ### Monorepo with Multiple Packages
 
+For monorepos, you can choose between coordinated releases (single PR) or
+independent releases (separate PRs):
+
+#### Coordinated Releases (Single PR)
+
 ```toml
-# Frontend package
+# All packages released together in one PR (default)
+separate_pull_requests = false
+
 [[package]]
 path = "./apps/frontend"
 release_type = "node"
 tag_prefix = "frontend-v"
 
-# Backend API
 [[package]]
 path = "./apps/api"
 release_type = "rust"
 tag_prefix = "api-v"
 
-# Shared library
+[[package]]
+path = "./packages/shared"
+release_type = "python"
+tag_prefix = "shared-v"
+```
+
+#### Independent Releases (Separate PRs)
+
+```toml
+# Each package gets its own PR for independent releases
+separate_pull_requests = true
+
+[[package]]
+path = "./apps/frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./apps/api"
+release_type = "rust"
+tag_prefix = "api-v"
+
 [[package]]
 path = "./packages/shared"
 release_type = "python"
 tag_prefix = "shared-v"
 
-# CLI tool
 [[package]]
 path = "./packages/cli"
 release_type = "rust"

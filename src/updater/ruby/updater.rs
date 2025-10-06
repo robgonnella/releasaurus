@@ -10,7 +10,7 @@ use crate::{
     },
     result::Result,
     updater::{
-        framework::{Framework, Package},
+        framework::{Framework, UpdaterPackage},
         traits::PackageUpdater,
     },
 };
@@ -69,7 +69,7 @@ impl RubyUpdater {
     /// Process packages and update their Ruby version files
     async fn process_packages(
         &self,
-        packages: &[Package],
+        packages: &[UpdaterPackage],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
@@ -103,7 +103,7 @@ impl RubyUpdater {
     /// Process gemspec file for a package
     async fn process_gemspec(
         &self,
-        package: &Package,
+        package: &UpdaterPackage,
         package_path: &Path,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -147,7 +147,7 @@ impl RubyUpdater {
     /// Process version.rb file for a package
     async fn process_version_file(
         &self,
-        package: &Package,
+        package: &UpdaterPackage,
         package_path: &Path,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -199,15 +199,19 @@ impl RubyUpdater {
 impl PackageUpdater for RubyUpdater {
     async fn update(
         &self,
-        packages: Vec<Package>,
+        packages: Vec<UpdaterPackage>,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let ruby_packages = packages
             .into_iter()
             .filter(|p| matches!(p.framework, Framework::Ruby))
-            .collect::<Vec<Package>>();
+            .collect::<Vec<UpdaterPackage>>();
 
         info!("Found {} Ruby packages", ruby_packages.len());
+
+        if ruby_packages.is_empty() {
+            return Ok(None);
+        }
 
         self.process_packages(&ruby_packages, loader).await
     }
@@ -224,8 +228,8 @@ mod tests {
         name: &str,
         path: &str,
         next_version: &str,
-    ) -> Package {
-        Package {
+    ) -> UpdaterPackage {
+        UpdaterPackage {
             name: name.to_string(),
             path: path.to_string(),
             framework: Framework::Ruby,
@@ -643,7 +647,7 @@ VERSION = "1.0.0"
 
         let packages = vec![
             create_test_package("ruby-gem", "packages/ruby", "2.0.0"),
-            Package {
+            UpdaterPackage {
                 name: "node-package".to_string(),
                 path: "packages/node".to_string(),
                 framework: Framework::Node,

@@ -86,6 +86,22 @@ Controls how many commits to analyze for the first release:
 first_release_search_depth = 400
 ```
 
+### `separate_pull_requests` (Optional)
+
+Controls whether to create a single combined PR or separate PRs for each package
+in monorepos:
+
+```toml
+# Optional: defaults to false if not specified
+separate_pull_requests = true
+```
+
+**When to use:**
+
+- `false` (default): All packages released together in one PR - best for tightly
+  coupled packages
+- `true`: Each package gets its own PR - best for independent release cycles
+
 ### `[changelog]` Section (Optional)
 
 Controls how changelogs are generated and which commits to include:
@@ -112,6 +128,7 @@ Defines packages in your repository. You can have multiple `[[package]]` section
 
 ```toml
 [[package]]
+name = "my-package"     # Optional: override derived package name
 path = "."              # Required: path to package
 release_type = "node"   # Required: language/framework type
 tag_prefix = "v"        # Optional: tag prefix
@@ -179,6 +196,28 @@ tag_prefix = "mobile-"
 path = "./shared-lib"
 release_type = "rust"
 tag_prefix = "lib-"
+```
+
+### Independent Package Releases (Monorepo)
+
+```toml
+# Enable separate PRs for independent release cycles
+separate_pull_requests = true
+
+[[package]]
+path = "./apps/frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./apps/backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+
+[[package]]
+path = "./packages/shared"
+release_type = "python"
+tag_prefix = "shared-v"
 ```
 
 ### Clean Changelog (Filtered Commits)
@@ -252,6 +291,7 @@ When you don't specify values, these defaults are used:
 ```toml
 # Implicit defaults (you don't need to write these)
 first_release_search_depth = 400
+separate_pull_requests = false
 
 [changelog]
 skip_ci = false
@@ -277,6 +317,7 @@ body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d"
 {% endfor %}"""
 
 [[package]]
+name = ""
 path = "."
 release_type = "node"
 tag_prefix = "v"
