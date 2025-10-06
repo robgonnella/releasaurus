@@ -21,27 +21,20 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
     let config = common::process_config(&repo_name, &mut config);
     let default_branch = forge.default_branch().await?;
 
-    if config.separate_pull_requests {
-        for package in config.packages.iter() {
-            let release_branch = format!(
+    for package in config.packages.iter() {
+        let mut release_branch =
+            format!("{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}");
+
+        if config.separate_pull_requests {
+            release_branch = format!(
                 "{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}-{}",
                 package.name
             );
-            generate_branch_release(
-                forge.as_ref(),
-                &package.name,
-                &release_branch,
-                &config,
-            )
-            .await?;
         }
-    } else {
-        let release_branch =
-            format!("{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}");
 
         generate_branch_release(
             forge.as_ref(),
-            &repo_name,
+            package,
             &release_branch,
             &config,
         )
@@ -53,7 +46,7 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
 
 async fn generate_branch_release(
     forge: &dyn Forge,
-    package_name: &str,
+    package: &PackageConfig,
     release_branch: &str,
     config: &Config,
 ) -> Result<()> {
@@ -69,14 +62,15 @@ async fn generate_branch_release(
 
     if merged_pr.is_none() {
         warn!(
-            "releases are up-to-date for package {package_name} and branch {release_branch}: nothing to release",
+            "releases are up-to-date for package {} and branch {release_branch}: nothing to release",
+            package.name,
         );
         return Ok(());
     }
 
     let merged_pr = merged_pr.unwrap();
 
-    process_packages_for_release(forge, &remote_config, &merged_pr, config)
+    create_package_release(config, &remote_config, forge, &merged_pr, package)
         .await?;
 
     let req = PrLabelsRequest {
@@ -85,21 +79,6 @@ async fn generate_branch_release(
     };
 
     forge.replace_pr_labels(req).await?;
-
-    Ok(())
-}
-
-/// Iterate through all configured packages and create releases for each one.
-async fn process_packages_for_release(
-    forge: &dyn Forge,
-    remote_config: &RemoteConfig,
-    merged_pr: &PullRequest,
-    conf: &Config,
-) -> Result<()> {
-    for package in &conf.packages {
-        create_package_release(conf, remote_config, forge, merged_pr, package)
-            .await?
-    }
 
     Ok(())
 }
@@ -184,7 +163,7 @@ mod tests {
 
         let result = generate_branch_release(
             &mock_forge,
-            "my-package",
+            &config.packages[0],
             "releasaurus-release-main",
             &config,
         )
@@ -259,7 +238,7 @@ mod tests {
 
         let result = generate_branch_release(
             &mock_forge,
-            "my-package",
+            &config.packages[0],
             "releasaurus-release-main",
             &config,
         )
@@ -350,85 +329,8 @@ mod tests {
 
         let result = generate_branch_release(
             &mock_forge,
-            "my-package",
+            &config.packages[0],
             "releasaurus-release-main",
-            &config,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_process_packages_for_release_multiple_packages() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "package-one",
-                "packages/one",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "package-two",
-                "packages/two",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        // Expectations for package-one
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "package-one-v")
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha-1".to_string(),
-                    name: "package-one-v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge
-            .expect_get_commits()
-            .times(1)
-            .withf(|path, _| path == "packages/one")
-            .returning(|_, _| Ok(vec![]));
-
-        // Expectations for package-two
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "package-two-v")
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha-2".to_string(),
-                    name: "package-two-v2.0.0".to_string(),
-                    semver: SemVer::parse("2.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge
-            .expect_get_commits()
-            .times(1)
-            .withf(|path, _| path == "packages/two")
-            .returning(|_, _| Ok(vec![]));
-
-        let result = process_packages_for_release(
-            &mock_forge,
-            &remote_config,
-            &merged_pr,
             &config,
         )
         .await;
