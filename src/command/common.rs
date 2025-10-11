@@ -27,12 +27,20 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
 }
 
 /// Generates [`AnalyzerConfig`] from [`Config`], [`RemoteConfig`],
-/// and tag_prefix [`String`]
+/// [`PackageConfig`], and tag_prefix [`String`].
+/// Prerelease priority: CLI override > package config > global config
 pub fn generate_analyzer_config(
     config: &Config,
     remote_config: &RemoteConfig,
+    package: &PackageConfig,
     tag_prefix: String,
+    prerelease_override: Option<String>,
 ) -> AnalyzerConfig {
+    // Determine prerelease with priority: override > package > global
+    let prerelease = prerelease_override
+        .or_else(|| package.prerelease.clone())
+        .or_else(|| config.prerelease.clone());
+
     AnalyzerConfig {
         body: config.changelog.body.clone(),
         include_author: config.changelog.include_author,
@@ -41,6 +49,7 @@ pub fn generate_analyzer_config(
         skip_miscellaneous: config.changelog.skip_miscellaneous,
         release_link_base_url: remote_config.release_link_base_url.clone(),
         tag_prefix: Some(tag_prefix),
+        prerelease,
     }
 }
 

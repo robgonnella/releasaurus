@@ -32,12 +32,15 @@ struct ReleasePr {
 pub async fn execute(
     forge: Box<dyn Forge>,
     file_loader: Box<dyn FileLoader>,
+    prerelease_override: Option<String>,
 ) -> Result<()> {
     let mut config = forge.load_config().await?;
     let repo_name = forge.repo_name();
     let config = common::process_config(&repo_name, &mut config);
 
-    let manifest = generate_manifest(&config, forge.as_ref()).await?;
+    let manifest =
+        generate_manifest(&config, forge.as_ref(), prerelease_override.clone())
+            .await?;
 
     debug!("manifest: {:#?}", manifest);
 
@@ -224,6 +227,7 @@ async fn gather_release_prs_by_branch(
 async fn generate_manifest(
     config: &Config,
     forge: &dyn Forge,
+    prerelease_override: Option<String>,
 ) -> Result<Vec<ReleasablePackage>> {
     let repo_name = forge.repo_name();
     let remote_config = forge.remote_config();
@@ -250,7 +254,9 @@ async fn generate_manifest(
         let analyzer_config = common::generate_analyzer_config(
             config,
             &remote_config,
-            tag_prefix,
+            package,
+            tag_prefix.clone(),
+            prerelease_override.clone(),
         );
 
         let analyzer = Analyzer::new(analyzer_config)?;
@@ -856,7 +862,7 @@ mod tests {
                     "https://github.com/test/repo/releases/tag".to_string(),
             });
 
-        let result = generate_manifest(&config, &mock_forge).await;
+        let result = generate_manifest(&config, &mock_forge, None).await;
         assert!(result.is_ok());
         let manifest = result.unwrap();
         assert_eq!(manifest.len(), 0);
@@ -911,7 +917,7 @@ mod tests {
             .times(1)
             .returning(|_, _| Ok(vec![]));
 
-        let result = generate_manifest(&config, &mock_forge).await;
+        let result = generate_manifest(&config, &mock_forge, None).await;
         assert!(result.is_ok());
         let manifest = result.unwrap();
         assert_eq!(manifest.len(), 0);

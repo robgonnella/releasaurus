@@ -37,6 +37,8 @@ pub struct AnalyzerConfig {
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
+    /// Prerelease identifier (e.g., "alpha", "beta", "rc").
+    pub prerelease: Option<String>,
 }
 
 impl Default for AnalyzerConfig {
@@ -49,6 +51,7 @@ impl Default for AnalyzerConfig {
             include_author: false,
             tag_prefix: None,
             release_link_base_url: "".into(),
+            prerelease: None,
         }
     }
 }

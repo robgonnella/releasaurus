@@ -64,6 +64,8 @@ pub struct PackageConfig {
     pub release_type: Option<ReleaseType>,
     /// Git tag prefix for this package (e.g., "v" or "api-v").
     pub tag_prefix: Option<String>,
+    /// Prerelease identifier (e.g., "alpha", "beta", "rc").
+    pub prerelease: Option<String>,
 }
 
 impl Default for PackageConfig {
@@ -73,6 +75,7 @@ impl Default for PackageConfig {
             path: ".".into(),
             release_type: None,
             tag_prefix: None,
+            prerelease: None,
         }
     }
 }
@@ -86,6 +89,9 @@ pub struct Config {
     pub first_release_search_depth: u64,
     /// Generates different release PRs for each package defined in config
     pub separate_pull_requests: bool,
+    /// Global prerelease identifier (e.g., "alpha", "beta", "rc").
+    /// Can be overridden per package.
+    pub prerelease: Option<String>,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
     /// Packages to manage in this repository (supports monorepos).
@@ -98,6 +104,7 @@ impl Default for Config {
         Self {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
+            prerelease: None,
             changelog: ChangelogConfig::default(),
             packages: vec![PackageConfig::default()],
         }
