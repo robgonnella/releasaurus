@@ -7,7 +7,8 @@ We'll walk through releasing a simple project to demonstrate the core workflow.
 
 Before starting, ensure you have:
 
-1. **Releasaurus installed** - See [Installation](./installation.md) if you haven't already
+1. **Releasaurus installed** - See [Installation](./installation.md) if you
+   haven't already
 2. **A Git repository** with some commits to release
 3. **Access token** for your Git forge platform (GitHub, GitLab, or Gitea)
 4. **Push access** to your repository
@@ -90,7 +91,8 @@ This command will:
 
 1. **Review the pull request** that was created
 2. **Check the changelog** and version updates
-3. **Make any necessary adjustments** by pushing additional commits to the PR branch
+3. **Make any necessary adjustments** by pushing additional commits to the PR
+   branch
 4. **Merge the pull request** when you're satisfied
 
 ## Step 5: Publish the Release
@@ -112,7 +114,8 @@ This will:
 
 ## Environment Variables (Alternative)
 
-Instead of passing tokens as command-line arguments, you can use environment variables:
+Instead of passing tokens as command-line arguments, you can use environment
+variables:
 
 ```bash
 # Set your token

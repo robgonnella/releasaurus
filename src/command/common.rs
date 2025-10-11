@@ -26,13 +26,36 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
     package.tag_prefix.clone().unwrap_or(default_for_package)
 }
 
+/// Determines prerelease identifier with consistent priority logic.
+///
+/// This function is used by both `release-pr` and `release` commands to ensure
+/// consistent prerelease version behavior across the entire workflow.
+///
+/// # Priority
+/// CLI override > package config > global config
+pub fn get_prerelease(
+    config: &Config,
+    package: &PackageConfig,
+    cli_override: Option<String>,
+) -> Option<String> {
+    cli_override
+        .or_else(|| package.prerelease.clone())
+        .or_else(|| config.prerelease.clone())
+}
+
 /// Generates [`AnalyzerConfig`] from [`Config`], [`RemoteConfig`],
-/// and tag_prefix [`String`]
+/// [`PackageConfig`], and tag_prefix [`String`].
+/// Prerelease priority: CLI override > package config > global config
 pub fn generate_analyzer_config(
     config: &Config,
     remote_config: &RemoteConfig,
+    package: &PackageConfig,
     tag_prefix: String,
+    prerelease_override: Option<String>,
 ) -> AnalyzerConfig {
+    // Determine prerelease with priority: override > package > global
+    let prerelease = get_prerelease(config, package, prerelease_override);
+
     AnalyzerConfig {
         body: config.changelog.body.clone(),
         include_author: config.changelog.include_author,
@@ -41,6 +64,7 @@ pub fn generate_analyzer_config(
         skip_miscellaneous: config.changelog.skip_miscellaneous,
         release_link_base_url: remote_config.release_link_base_url.clone(),
         tag_prefix: Some(tag_prefix),
+        prerelease,
     }
 }
 
@@ -258,5 +282,137 @@ mod tests {
 
         let name = derive_package_name(&package, "test-repo");
         assert_eq!(name, "explicit-package-name");
+    }
+
+    #[test]
+    fn test_get_prerelease_cli_override_takes_priority() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set all three levels
+        config.prerelease = Some("alpha".to_string());
+        config.packages[0].prerelease = Some("beta".to_string());
+        let cli_override = Some("rc".to_string());
+
+        let result = get_prerelease(&config, &config.packages[0], cli_override);
+
+        // CLI override should win
+        assert_eq!(result, Some("rc".to_string()));
+    }
+
+    #[test]
+    fn test_get_prerelease_package_overrides_global() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set both global and package
+        config.prerelease = Some("alpha".to_string());
+        config.packages[0].prerelease = Some("beta".to_string());
+
+        let result = get_prerelease(&config, &config.packages[0], None);
+
+        // Package should win over global
+        assert_eq!(result, Some("beta".to_string()));
+    }
+
+    #[test]
+    fn test_get_prerelease_uses_global_when_package_not_set() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set only global
+        config.prerelease = Some("alpha".to_string());
+
+        let result = get_prerelease(&config, &config.packages[0], None);
+
+        // Should use global
+        assert_eq!(result, Some("alpha".to_string()));
+    }
+
+    #[test]
+    fn test_get_prerelease_returns_none_when_nothing_set() {
+        let config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Nothing set
+
+        let result = get_prerelease(&config, &config.packages[0], None);
+
+        // Should return None
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_get_prerelease_cli_override_works_alone() {
+        let config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Only CLI override set
+        let cli_override = Some("dev".to_string());
+
+        let result = get_prerelease(&config, &config.packages[0], cli_override);
+
+        // Should use CLI override
+        assert_eq!(result, Some("dev".to_string()));
+    }
+
+    #[test]
+    fn test_get_prerelease_consistency_between_commands() {
+        // This test verifies that both release-pr and release commands
+        // would get the same prerelease value given the same inputs
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+
+        // Scenario 1: Package config overrides global
+        config.prerelease = Some("alpha".to_string());
+        config.packages[0].prerelease = Some("beta".to_string());
+
+        let result_pr = get_prerelease(&config, &config.packages[0], None);
+        let result_release = get_prerelease(&config, &config.packages[0], None);
+
+        assert_eq!(result_pr, result_release);
+        assert_eq!(result_pr, Some("beta".to_string()));
+
+        // Scenario 2: CLI override takes priority
+        let cli_override = Some("rc".to_string());
+
+        let result_pr_cli =
+            get_prerelease(&config, &config.packages[0], cli_override.clone());
+        let result_release_cli =
+            get_prerelease(&config, &config.packages[0], cli_override);
+
+        assert_eq!(result_pr_cli, result_release_cli);
+        assert_eq!(result_pr_cli, Some("rc".to_string()));
     }
 }

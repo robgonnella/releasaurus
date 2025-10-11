@@ -23,6 +23,7 @@ This command does the heavy lifting of release preparation:
 - Updates version files across your project
 - Generates a changelog from commit history
 - Creates a pull request with all changes
+- Supports prerelease versions (alpha, beta, rc, etc.)
 
 ### `release`
 
@@ -34,6 +35,7 @@ This command finalizes the release:
 - Creates a Git tag for the new version
 - Pushes the tag to the remote repository
 - Creates a release on your forge platform
+- Supports prerelease versions (alpha, beta, rc, etc.)
 
 ## Basic Usage Pattern
 
@@ -103,6 +105,47 @@ This provides verbose output including:
 - File modification details
 - API request/response information
 - Git operations and status
+
+### Prerelease Versions
+
+Both `release-pr` and `release` commands support prerelease versions using the `--prerelease` flag:
+
+```bash
+# Create an alpha prerelease PR
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease alpha
+
+# Publish the alpha prerelease (after merging PR)
+releasaurus release \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease alpha
+
+# Create a beta prerelease
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease beta
+
+# Create a release candidate
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease rc
+```
+
+**Prerelease Behavior:**
+
+- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit)
+- **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier)
+- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (different identifier)
+- **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (no prerelease flag)
+
+The `--prerelease` flag overrides any prerelease configuration in
+`releasaurus.toml`, making it ideal for one-time prerelease versions or
+testing different identifiers.
+
+**Important**: When using `--prerelease` with the `release` command, make sure
+to use the same identifier that was used when creating the release PR. This
+ensures the version analysis produces the same tag that was proposed in the PR.
 
 ## Platform-Specific Examples
 

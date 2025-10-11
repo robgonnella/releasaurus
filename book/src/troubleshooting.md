@@ -138,7 +138,7 @@ releasaurus release-pr --debug \
 
 If you're still experiencing issues:
 
-1. **Check existing issues**: [GitHub Issues](https://github.com/robgonnella/releasaurus/issues)
+1. **Check existing issues**: [GitHub Issues]
 2. **Create a new issue** with:
    - Debug output (remove sensitive information)
    - Repository type and structure
@@ -147,3 +147,5 @@ If you're still experiencing issues:
 3. **Include environment details**:
    - Operating system
    - Releasaurus version (`releasaurus --version`)
+
+[GitHub Issues]: https://github.com/robgonnella/releasaurus/issues
