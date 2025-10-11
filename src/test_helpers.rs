@@ -53,6 +53,7 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
     Config {
         first_release_search_depth: 100,
         separate_pull_requests: false,
+        prerelease: None,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -85,6 +86,7 @@ pub fn create_test_config_simple(
     Config {
         first_release_search_depth: 100,
         separate_pull_requests: false,
+        prerelease: None,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -99,6 +101,7 @@ pub fn create_test_config_simple(
                 path: path.to_string(),
                 release_type: Some(release_type),
                 tag_prefix: None,
+                prerelease: None,
             })
             .collect(),
     }
@@ -107,13 +110,14 @@ pub fn create_test_config_simple(
 /// Creates a test PackageConfig.
 ///
 /// # Arguments
+/// * `name` - Package name
 /// * `path` - Package path relative to repository root
 /// * `release_type` - Optional release type
 /// * `tag_prefix` - Optional custom tag prefix
 ///
 /// # Example
 /// ```ignore
-/// let package = create_test_package_config(".", Some(ReleaseType::Node), Some("v".to_string()));
+/// let package = create_test_package_config("my-package", ".", Some(ReleaseType::Node), Some("v".to_string()));
 /// ```
 pub fn create_test_package_config(
     name: &str,
@@ -126,6 +130,7 @@ pub fn create_test_package_config(
         path: path.into(),
         release_type,
         tag_prefix,
+        prerelease: None,
     }
 }
 
@@ -238,6 +243,7 @@ pub fn create_test_analyzer_config() -> AnalyzerConfig {
         include_author: false,
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
+        prerelease: None,
     }
 }
 
@@ -262,6 +268,7 @@ pub fn create_test_analyzer_config_with_prefix(
         include_author: false,
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
+        prerelease: None,
     }
 }
 

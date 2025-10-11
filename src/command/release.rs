@@ -98,8 +98,13 @@ async fn create_package_release(
     let current_sha = current_tag.clone().map(|t| t.sha);
     let commits = forge.get_commits(&package.path, current_sha).await?;
 
-    let analyzer_config =
-        common::generate_analyzer_config(config, remote_config, tag_prefix);
+    let analyzer_config = common::generate_analyzer_config(
+        config,
+        remote_config,
+        package,
+        tag_prefix,
+        None,
+    );
 
     let analyzer = Analyzer::new(analyzer_config)?;
     let release = analyzer.analyze(commits, current_tag)?;

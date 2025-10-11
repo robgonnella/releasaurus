@@ -251,6 +251,58 @@ release_type = "python"
 tag_prefix = "v"
 ```
 
+### Prerelease Versions (Alpha/Beta/RC)
+
+```toml
+# Create alpha prerelease versions
+prerelease = "alpha"
+
+[[package]]
+path = "."
+release_type = "node"
+tag_prefix = "v"
+```
+
+This will create versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
+
+### Monorepo with Mixed Prerelease States
+
+```toml
+# Different packages at different stability levels
+separate_pull_requests = true
+
+[[package]]
+path = "./packages/core"
+release_type = "rust"
+tag_prefix = "core-v"
+# Stable releases only
+
+[[package]]
+path = "./packages/experimental"
+release_type = "rust"
+tag_prefix = "experimental-v"
+prerelease = "alpha"  # Early development
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+prerelease = "beta"  # In beta testing
+```
+
+### CLI Prerelease Override
+
+You can also trigger prerelease versions without configuration:
+
+```bash
+# Create a one-time prerelease version
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease rc
+```
+
+This overrides any configuration file settings for that specific release.
+
 ## Testing Your Configuration
 
 After creating your configuration file:
