@@ -8,6 +8,10 @@
       "type": "number",
       "description": "Configures commit search depth for first release. After the first release releasaurus will always parse all the commits since the last release"
     },
+    "prerelease": {
+      "type": "string",
+      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\"). Can be overridden per package or via CLI flag"
+    },
     "changelog": {
       "type": "object",
       "properties": {
@@ -40,6 +44,10 @@
         "type": "object",
         "description": "package config",
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the package"
+          },
           "path": {
             "type": "string",
             "description": "The relative path to the package directory starting from root of repository"
@@ -52,6 +60,10 @@
           "tag_prefix": {
             "type": "string",
             "description": "The tag prefix to use for this package: default (\"v\")"
+          },
+          "prerelease": {
+            "type": "string",
+            "description": "Prerelease identifier for this package (e.g., \"alpha\", \"beta\", \"rc\"). Overrides global prerelease setting"
           }
         }
       }

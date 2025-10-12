@@ -15,7 +15,10 @@ use crate::{
 
 /// Execute release command by finding the merged release PR, tagging commits,
 /// and publishing releases to the forge platform.
-pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
+pub async fn execute(
+    forge: Box<dyn Forge>,
+    prerelease_override: Option<String>,
+) -> Result<()> {
     let repo_name = forge.repo_name();
     let mut config = forge.load_config().await?;
     let config = common::process_config(&repo_name, &mut config);
@@ -37,6 +40,7 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
             package,
             &release_branch,
             &config,
+            prerelease_override.clone(),
         )
         .await?;
     }
@@ -49,6 +53,7 @@ async fn generate_branch_release(
     package: &PackageConfig,
     release_branch: &str,
     config: &Config,
+    prerelease_override: Option<String>,
 ) -> Result<()> {
     let default_branch = forge.default_branch().await?;
     let remote_config = forge.remote_config();
@@ -70,8 +75,15 @@ async fn generate_branch_release(
 
     let merged_pr = merged_pr.unwrap();
 
-    create_package_release(config, &remote_config, forge, &merged_pr, package)
-        .await?;
+    create_package_release(
+        config,
+        &remote_config,
+        forge,
+        &merged_pr,
+        package,
+        prerelease_override,
+    )
+    .await?;
 
     let req = PrLabelsRequest {
         pr_number: merged_pr.number,
@@ -91,6 +103,7 @@ async fn create_package_release(
     forge: &dyn Forge,
     merged_pr: &PullRequest,
     package: &PackageConfig,
+    prerelease_override: Option<String>,
 ) -> Result<()> {
     let repo_name = forge.repo_name();
     let tag_prefix = common::get_tag_prefix(package, &repo_name);
@@ -98,8 +111,17 @@ async fn create_package_release(
     let current_sha = current_tag.clone().map(|t| t.sha);
     let commits = forge.get_commits(&package.path, current_sha).await?;
 
-    let analyzer_config =
-        common::generate_analyzer_config(config, remote_config, tag_prefix);
+    // Determine prerelease with priority: CLI override > package config > global config
+    let prerelease =
+        common::get_prerelease(config, package, prerelease_override);
+
+    let analyzer_config = common::generate_analyzer_config(
+        config,
+        remote_config,
+        package,
+        tag_prefix,
+        prerelease,
+    );
 
     let analyzer = Analyzer::new(analyzer_config)?;
     let release = analyzer.analyze(commits, current_tag)?;
@@ -166,6 +188,7 @@ mod tests {
             &config.packages[0],
             "releasaurus-release-main",
             &config,
+            None,
         )
         .await;
 
@@ -241,6 +264,7 @@ mod tests {
             &config.packages[0],
             "releasaurus-release-main",
             &config,
+            None,
         )
         .await;
 
@@ -332,6 +356,7 @@ mod tests {
             &config.packages[0],
             "releasaurus-release-main",
             &config,
+            None,
         )
         .await;
 
@@ -403,6 +428,7 @@ mod tests {
             &mock_forge,
             &merged_pr,
             &config.packages[0],
+            None,
         )
         .await;
 
@@ -455,6 +481,7 @@ mod tests {
             &mock_forge,
             &merged_pr,
             &config.packages[0],
+            None,
         )
         .await;
 
@@ -532,6 +559,7 @@ mod tests {
             &mock_forge,
             &merged_pr,
             &config.packages[0],
+            None,
         )
         .await;
 
@@ -603,6 +631,309 @@ mod tests {
             &mock_forge,
             &merged_pr,
             &config.packages[0],
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_with_prerelease_from_package_config() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set prerelease on package
+        config.packages[0].prerelease = Some("alpha".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let merged_pr = PullRequest {
+            number: 42,
+            sha: "merged-pr-sha".to_string(),
+        };
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(Tag {
+                    sha: "tag-sha".to_string(),
+                    name: "v1.0.0".to_string(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                }))
+            });
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![ForgeCommit {
+                id: "commit1".to_string(),
+                link: "https://github.com/test/repo/commit/commit1".to_string(),
+                author_name: "Test Author".to_string(),
+                author_email: "test@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: new feature".to_string(),
+                timestamp: 1000,
+            }])
+        });
+
+        mock_forge
+            .expect_tag_commit()
+            .times(1)
+            .withf(|tag_name, sha| {
+                tag_name == "v1.1.0-alpha.1" && sha == "merged-pr-sha"
+            })
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(1)
+            .withf(|tag_name, _sha, _notes| tag_name == "v1.1.0-alpha.1")
+            .returning(|_, _, _| Ok(()));
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            &config.packages[0],
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_with_prerelease_from_global_config() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set global prerelease
+        config.prerelease = Some("beta".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let merged_pr = PullRequest {
+            number: 42,
+            sha: "merged-pr-sha".to_string(),
+        };
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(Tag {
+                    sha: "tag-sha".to_string(),
+                    name: "v2.0.0".to_string(),
+                    semver: SemVer::parse("2.0.0").unwrap(),
+                }))
+            });
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![ForgeCommit {
+                id: "commit1".to_string(),
+                link: "https://github.com/test/repo/commit/commit1".to_string(),
+                author_name: "Test Author".to_string(),
+                author_email: "test@example.com".to_string(),
+                merge_commit: false,
+                message: "fix: bug fix".to_string(),
+                timestamp: 1000,
+            }])
+        });
+
+        mock_forge
+            .expect_tag_commit()
+            .times(1)
+            .withf(|tag_name, sha| {
+                tag_name == "v2.0.1-beta.1" && sha == "merged-pr-sha"
+            })
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(1)
+            .withf(|tag_name, _sha, _notes| tag_name == "v2.0.1-beta.1")
+            .returning(|_, _, _| Ok(()));
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            &config.packages[0],
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_prerelease_package_overrides_global() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set both global and package prerelease - package should win
+        config.prerelease = Some("alpha".to_string());
+        config.packages[0].prerelease = Some("rc".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let merged_pr = PullRequest {
+            number: 42,
+            sha: "merged-pr-sha".to_string(),
+        };
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(Tag {
+                    sha: "tag-sha".to_string(),
+                    name: "v0.5.0".to_string(),
+                    semver: SemVer::parse("0.5.0").unwrap(),
+                }))
+            });
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![ForgeCommit {
+                id: "commit1".to_string(),
+                link: "https://github.com/test/repo/commit/commit1".to_string(),
+                author_name: "Test Author".to_string(),
+                author_email: "test@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: new feature".to_string(),
+                timestamp: 1000,
+            }])
+        });
+
+        mock_forge
+            .expect_tag_commit()
+            .times(1)
+            .withf(|tag_name, sha| {
+                // Should use "rc" not "alpha"
+                // Feature commit on 0.5.0 bumps to 0.6.0 in 0.x versions
+                tag_name == "v0.6.0-rc.1" && sha == "merged-pr-sha"
+            })
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(1)
+            .withf(|tag_name, _sha, _notes| tag_name == "v0.6.0-rc.1")
+            .returning(|_, _, _| Ok(()));
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            &config.packages[0],
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_cli_override_takes_priority() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+        // Set all three levels - CLI should win
+        config.prerelease = Some("alpha".to_string());
+        config.packages[0].prerelease = Some("beta".to_string());
+        let cli_override = Some("dev".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let merged_pr = PullRequest {
+            number: 42,
+            sha: "merged-pr-sha".to_string(),
+        };
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| {
+                Ok(Some(Tag {
+                    sha: "tag-sha".to_string(),
+                    name: "v1.0.0".to_string(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                }))
+            });
+
+        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+            Ok(vec![ForgeCommit {
+                id: "commit1".to_string(),
+                link: "https://github.com/test/repo/commit/commit1".to_string(),
+                author_name: "Test Author".to_string(),
+                author_email: "test@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: new feature".to_string(),
+                timestamp: 1000,
+            }])
+        });
+
+        mock_forge
+            .expect_tag_commit()
+            .times(1)
+            .withf(|tag_name, sha| {
+                // Should use "dev" from CLI, not "alpha" or "beta"
+                tag_name == "v1.1.0-dev.1" && sha == "merged-pr-sha"
+            })
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(1)
+            .withf(|tag_name, _sha, _notes| tag_name == "v1.1.0-dev.1")
+            .returning(|_, _, _| Ok(()));
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            &config.packages[0],
+            cli_override,
         )
         .await;
 

@@ -1,5 +1,6 @@
 use log::*;
 use regex::Regex;
+use semver::{Prerelease, Version};
 
 use crate::{
     analyzer::{
@@ -49,6 +50,20 @@ pub fn update_release_with_commit(
 pub fn strip_extra_lines(changelog: &str) -> String {
     let pattern = Regex::new(r"\n{3,}").unwrap();
     pattern.replace_all(changelog, "\n\n").trim().to_string()
+}
+
+/// Adds a prerelease identifier to a stable version (e.g., "1.1.0" with "alpha" -> "1.1.0-alpha.1").
+pub fn add_prerelease(mut version: Version, identifier: &str) -> Version {
+    let pre_str = format!("{}.1", identifier);
+    version.pre = Prerelease::new(&pre_str).unwrap();
+    version
+}
+
+/// Removes prerelease identifiers from a version (e.g., "1.0.0-alpha.5" -> "1.0.0").
+pub fn graduate_prerelease(version: &Version) -> Version {
+    let mut new_version = version.clone();
+    new_version.pre = Prerelease::EMPTY;
+    new_version
 }
 
 #[cfg(test)]
@@ -545,5 +560,57 @@ mod tests {
 
         // Should have all 4 commits when no skip options are enabled
         assert_eq!(release.commits.len(), 4);
+    }
+
+    #[test]
+    fn test_add_prerelease() {
+        let version = Version::parse("1.0.0").unwrap();
+        let result = add_prerelease(version, "alpha");
+        assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
+
+        let version = Version::parse("2.3.4").unwrap();
+        let result = add_prerelease(version, "beta");
+        assert_eq!(result, Version::parse("2.3.4-beta.1").unwrap());
+
+        let version = Version::parse("0.1.0").unwrap();
+        let result = add_prerelease(version, "rc");
+        assert_eq!(result, Version::parse("0.1.0-rc.1").unwrap());
+    }
+
+    #[test]
+    fn test_add_prerelease_to_prerelease_version() {
+        // Adding prerelease to an existing prerelease replaces it
+        let version = Version::parse("1.0.0-alpha.5").unwrap();
+        let result = add_prerelease(version, "beta");
+        assert_eq!(result, Version::parse("1.0.0-beta.1").unwrap());
+    }
+
+    #[test]
+    fn test_graduate_prerelease() {
+        let version = Version::parse("1.0.0-alpha.1").unwrap();
+        let result = graduate_prerelease(&version);
+        assert_eq!(result, Version::parse("1.0.0").unwrap());
+
+        let version = Version::parse("2.3.4-beta.5").unwrap();
+        let result = graduate_prerelease(&version);
+        assert_eq!(result, Version::parse("2.3.4").unwrap());
+
+        let version = Version::parse("0.1.0-rc.10").unwrap();
+        let result = graduate_prerelease(&version);
+        assert_eq!(result, Version::parse("0.1.0").unwrap());
+    }
+
+    #[test]
+    fn test_graduate_prerelease_stable_version_unchanged() {
+        let version = Version::parse("1.0.0").unwrap();
+        let result = graduate_prerelease(&version);
+        assert_eq!(result, Version::parse("1.0.0").unwrap());
+    }
+
+    #[test]
+    fn test_graduate_prerelease_preserves_build_metadata() {
+        let version = Version::parse("1.0.0-alpha.1+build.123").unwrap();
+        let result = graduate_prerelease(&version);
+        assert_eq!(result, Version::parse("1.0.0+build.123").unwrap());
     }
 }

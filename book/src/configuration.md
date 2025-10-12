@@ -24,19 +24,31 @@ my-project/
 
 The configuration file uses TOML format with these main sections:
 
-- **`first_release_search_depth`** - Controls commit history depth for initial
-  release analysis (optional)
-- **`separate_pull_requests`** - Create separate PRs for each package in
-  monorepos (optional, default: false)
+- **`first_release_search_depth`** - (optional, default: 400) Controls commit
+  history depth for initial release analysis
+- **`separate_pull_requests`** - (optional, default: false) Create separate PRs
+  for each package in monorepos
+- **`prerelease`** - (optional, default: "") Sets prerelease suffix for all
+  defined packages
 - **`[changelog]`** - Customizes changelog generation and formatting
-  (optional)
-  - `body` - Tera template for changelog content
-  - `skip_ci` - Exclude CI commits from changelog (optional, default: false)
-  - `skip_chore` - Exclude chore commits from changelog (optional, default: false)
-  - `skip_miscellaneous` - Exclude non-conventional commits from changelog (optional, default: false)
-  - `include_author` - Include commit author names in changelog (optional, default: false)
+  - `body` - (optional) Tera template for changelog content
+  - `skip_ci` - (optional, default: false) Exclude CI commits from changelog (optional, default: false)
+  - `skip_chore` - (optional, default: false) Exclude chore commits from
+    changelog (optional, default: false)
+  - `skip_miscellaneous` - (optional, default: false) Exclude non-conventional
+    commits from changelog (optional, default: false)
+  - `include_author` - (optional, default: false) Include commit author names in
+    changelog
 - **`[[package]]`** - Defines packages within the repository with their
-  release type (required, can have multiple)
+  release type (can have multiple)
+  - `name` - (optional) The name for this package. This will be derived from
+    the package path if not provided
+  - `path` - (required) The path to the directory for this package relative to the
+    repository root
+  - `release_type`: (required) The release type for this package, see below for
+    options
+  - `tag_prefix`: (optional) The tag prefix to use for this package
+  - `prerelease`: (optional) The prerelease suffix to use for this package
 
 ## Default Configuration
 
@@ -386,6 +398,117 @@ Optional prefix for Git tags. Defaults to `"v"` if not specified.
 path = "."
 release_type = "rust"
 tag_prefix = "v"  # Creates tags like v1.0.0, v1.1.0
+```
+
+### `prerelease`
+
+Optional prerelease identifier for creating pre-release versions
+(e.g., alpha, beta, rc). Can be configured globally or per-package, and can be
+overridden via CLI flag.
+
+**Configuration Priority:** CLI flag > Package config > Global config
+
+#### Global Prerelease Configuration
+
+Set a prerelease identifier for all packages:
+
+```toml
+# All packages will use alpha prereleases
+prerelease = "alpha"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+With this configuration, version `1.0.0` would become `1.1.0-alpha.1` for a
+feature commit.
+
+#### Per-Package Prerelease Configuration
+
+Override the global setting for specific packages:
+
+```toml
+# Global default is beta
+prerelease = "beta"
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+# Uses global beta prerelease
+
+[[package]]
+path = "./apps/api"
+release_type = "rust"
+prerelease = "rc"  # Override: this package uses rc instead
+```
+
+#### CLI Override
+
+Override configuration with the `--prerelease` flag:
+
+```bash
+# Override config file settings for this release
+releasaurus release-pr --prerelease alpha
+```
+
+#### Prerelease Version Behavior
+
+**Starting a Prerelease:**
+
+- Current: `v1.0.0`
+- With `feat:` commit and `prerelease = "alpha"`
+- Result: `v1.1.0-alpha.1`
+
+**Continuing a Prerelease:**
+
+- Current: `v1.1.0-alpha.1`
+- With `fix:` commit and `prerelease = "alpha"`
+- Result: `v1.1.0-alpha.2`
+
+**Switching Prerelease Identifier:**
+
+- Current: `v1.0.0-alpha.3`
+- With `feat:` commit and `prerelease = "beta"`
+- Result: `v1.1.0-beta.1` (calculates next version and switches identifier)
+
+**Graduating to Stable:**
+
+- Current: `v1.0.0-alpha.5`
+- With `fix:` commit and no prerelease configured
+- Result: `v1.0.0` (removes prerelease suffix)
+
+#### Common Prerelease Identifiers
+
+- **`alpha`** - Early testing phase, expect significant changes
+- **`beta`** - Feature complete, testing and bug fixes
+- **`rc`** - Release candidate, final testing before stable release
+- **`preview`** - Preview release for gathering feedback
+- **`dev`** - Development/nightly builds
+
+#### Example: Monorepo with Mixed Prerelease States
+
+```toml
+# Most packages are stable
+separate_pull_requests = true
+
+[[package]]
+path = "./packages/core"
+release_type = "rust"
+tag_prefix = "core-v"
+# No prerelease - stable releases only
+
+[[package]]
+path = "./packages/experimental"
+release_type = "rust"
+tag_prefix = "experimental-v"
+prerelease = "alpha"  # Experimental features in alpha
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+prerelease = "beta"  # Web app in beta testing
 ```
 
 ## Changelog Body Template Variables

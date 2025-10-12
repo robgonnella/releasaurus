@@ -67,7 +67,8 @@ release_type = "rust"
 tag_prefix = "backend-v"
 ```
 
-This allows you to release the frontend and backend independently, with tags like:
+This allows you to release the frontend and backend independently, with tags
+like:
 
 - `frontend-v1.0.0`, `frontend-v1.1.0`
 - `backend-v1.0.0`, `backend-v2.0.0`
@@ -124,7 +125,8 @@ include_author = false       # Optional: show commit author names
 
 ### `[[package]]` Sections (Required)
 
-Defines packages in your repository. You can have multiple `[[package]]` sections:
+Defines packages in your repository. You can have multiple `[[package]]`
+sections:
 
 ```toml
 [[package]]
@@ -250,6 +252,107 @@ path = "."
 release_type = "python"
 tag_prefix = "v"
 ```
+
+### Prerelease Versions (Alpha/Beta/RC)
+
+```toml
+# Create alpha prerelease versions
+prerelease = "alpha"
+
+[[package]]
+path = "."
+release_type = "node"
+tag_prefix = "v"
+```
+
+This will create versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
+
+### Monorepo with Mixed Prerelease States
+
+```toml
+# Different packages at different stability levels
+separate_pull_requests = true
+
+[[package]]
+path = "./packages/core"
+release_type = "rust"
+tag_prefix = "core-v"
+# Stable releases only
+
+[[package]]
+path = "./packages/experimental"
+release_type = "rust"
+tag_prefix = "experimental-v"
+prerelease = "alpha"  # Early development
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+prerelease = "beta"  # In beta testing
+```
+
+### CLI Prerelease Override
+
+You can also trigger prerelease versions without configuration:
+
+```bash
+# Create a one-time prerelease version
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease rc
+```
+
+This overrides any configuration file settings for that specific release.
+
+### Complete Prerelease Workflow
+
+Here's a complete example showing how to use prereleases with both commands:
+
+```bash
+# Step 1: Create an alpha prerelease PR
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease alpha
+
+# This creates a PR with version like: v1.0.0 -> v1.1.0-alpha.1
+
+# Step 2: Review and merge the PR via web interface
+
+# Step 3: Publish the alpha release using the same identifier
+releasaurus release \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease alpha
+
+# Step 4: Continue with more alpha releases as needed
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease alpha
+
+# This increments: v1.1.0-alpha.1 -> v1.1.0-alpha.2
+
+# Step 5: Switch to beta when ready
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --prerelease beta
+
+# This switches: v1.1.0-alpha.2 -> v1.1.0-beta.1 (with version bump if needed)
+
+# Step 6: Graduate to stable release
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo"
+  # No --prerelease flag
+
+# This graduates: v1.1.0-beta.3 -> v1.1.0
+
+releasaurus release \
+  --github-repo "https://github.com/owner/repo"
+  # No --prerelease flag - publishes stable v1.1.0
+```
+
+**Important**: Always use the same `--prerelease` value (or none) for both
+`release-pr` and `release` commands in the same release cycle. This ensures
+the version calculated during the PR matches the tag created during release.
 
 ## Testing Your Configuration
 

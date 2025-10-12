@@ -51,10 +51,20 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Analyze commits and create a release pull request.
-    ReleasePR,
+    ReleasePR {
+        /// Prerelease identifier (e.g., "alpha", "beta", "rc").
+        /// Overrides config file setting.
+        #[arg(long)]
+        prerelease: Option<String>,
+    },
 
     /// Create a git tag and publish release after PR merge.
-    Release,
+    Release {
+        /// Prerelease identifier (e.g., "alpha", "beta", "rc").
+        /// Overrides config file setting.
+        #[arg(long)]
+        prerelease: Option<String>,
+    },
 }
 
 impl Args {
@@ -291,7 +301,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: repo,
             github_token: token,
-            command: Command::ReleasePR,
+            command: Command::ReleasePR { prerelease: None },
         };
 
         let result = cli_config.get_remote();
@@ -315,7 +325,7 @@ mod tests {
             gitlab_token: token,
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR,
+            command: Command::ReleasePR { prerelease: None },
         };
 
         let result = cli_config.get_remote();
@@ -339,7 +349,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR,
+            command: Command::ReleasePR { prerelease: None },
         };
 
         let result = cli_config.get_remote();
@@ -363,7 +373,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR,
+            command: Command::ReleasePR { prerelease: None },
         };
 
         let result = cli_config.get_remote();
