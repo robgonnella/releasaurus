@@ -8,7 +8,7 @@ test-unit *args:
     cargo test
 
 test-e2e *args:
-  cargo test --features _internal_e2e_tests e2e_test
+  cargo test --features _internal_e2e_tests
 
 test-all *args:
     cargo llvm-cov \
