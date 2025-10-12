@@ -67,4 +67,6 @@ jobs:
         run: |
           git config --global user.name "github-ci"
           git config --global user.email "github-ci@ci.com"
-          cargo test --features _internal_e2e_tests e2e_test
+          cargo llvm-cov \
+            --features _internal_e2e_tests \
+            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
