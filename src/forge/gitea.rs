@@ -11,8 +11,8 @@ use reqwest::{
 };
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::{cmp, path::Path, sync::Arc};
-use tokio::sync::Mutex;
+use std::{cmp, path::Path, sync::Arc, time::Duration};
+use tokio::{sync::Mutex, time::sleep};
 
 use crate::{
     analyzer::release::Tag,
@@ -450,6 +450,9 @@ impl Forge for Gitea {
         // TODO: Once below issue is resolved we can delete this call
         // https://github.com/go-gitea/gitea/issues/35538
         self.delete_branch_if_exists(&req.branch).await?;
+        // pause execution to wait for any PRs that might have been closed as
+        // a result to fully register as closed
+        sleep(Duration::from_millis(3000)).await;
 
         let mut file_changes: Vec<GiteaFileChange> = vec![];
 
