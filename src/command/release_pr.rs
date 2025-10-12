@@ -16,7 +16,7 @@ use crate::{
         },
         traits::{FileLoader, Forge},
     },
-    result::{ReleasablePackage, Result},
+    result::{PendingReleaseError, ReleasablePackage, Result},
     updater::framework::{Framework, updater_packages_from_manifest},
 };
 
@@ -81,6 +81,23 @@ async fn create_branch_release_prs(
 
             body.push(pr.body);
             file_changes.extend(pr.file_changes);
+        }
+
+        let in_process_release_req = GetPrRequest {
+            base_branch: default_branch.clone(),
+            head_branch: release_branch.clone(),
+        };
+
+        let pending_release =
+            forge.get_merged_release_pr(in_process_release_req).await?;
+
+        if let Some(pr) = pending_release {
+            error!("pending release: {:#?}", pr);
+            return Err(PendingReleaseError {
+                branch: release_branch.clone(),
+                pr_number: pr.number,
+            }
+            .into());
         }
 
         info!("creating / updating release branch: {release_branch}");
@@ -640,8 +657,16 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .times(1)
             .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main"
+                    && req.base_branch == "main"
+            })
+            .returning(|_| Ok(None));
 
         mock_forge
             .expect_create_release_branch()
@@ -713,8 +738,16 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .times(1)
             .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main"
+                    && req.base_branch == "main"
+            })
+            .returning(|_| Ok(None));
 
         mock_forge
             .expect_create_release_branch()
@@ -789,8 +822,16 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .times(1)
             .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main"
+                    && req.base_branch == "main"
+            })
+            .returning(|_| Ok(None));
 
         mock_forge
             .expect_create_release_branch()
@@ -832,6 +873,235 @@ mod tests {
 
         let result =
             create_branch_release_prs(prs_by_branch, &mock_forge).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_branch_release_prs_errors_on_pending_release() {
+        let mut prs_by_branch = HashMap::new();
+        prs_by_branch.insert(
+            "releasaurus-release-main".to_string(),
+            vec![ReleasePr {
+                title: "chore(main): release my-package v1.0.0".to_string(),
+                body: "## Changes\n- feat: new feature".to_string(),
+                file_changes: vec![FileChange {
+                    path: "CHANGELOG.md".to_string(),
+                    content: "## Changes\n- feat: new feature\n\n".to_string(),
+                    update_type: FileUpdateType::Prepend,
+                }],
+            }],
+        );
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        // Mock returns Some(PullRequest) indicating there's a merged PR that hasn't been tagged
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main"
+                    && req.base_branch == "main"
+            })
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 123,
+                    sha: "previous-release-sha".to_string(),
+                }))
+            });
+
+        let result =
+            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let pending_err = err.downcast_ref::<PendingReleaseError>();
+        assert!(pending_err.is_some());
+        let pending_err = pending_err.unwrap();
+        assert_eq!(pending_err.branch, "releasaurus-release-main");
+        assert_eq!(pending_err.pr_number, 123);
+    }
+
+    #[tokio::test]
+    async fn test_create_branch_release_prs_errors_on_pending_release_with_separate_branch()
+     {
+        // Simplified test with just one branch that has a pending release
+        let mut prs_by_branch = HashMap::new();
+        prs_by_branch.insert(
+            "releasaurus-release-main-my-package".to_string(),
+            vec![ReleasePr {
+                title: "chore(main): release my-package v1.0.0".to_string(),
+                body: "## Package Changes\n- feat: new feature".to_string(),
+                file_changes: vec![FileChange {
+                    path: "CHANGELOG.md".to_string(),
+                    content: "## Changes\n- feat: new feature\n\n".to_string(),
+                    update_type: FileUpdateType::Prepend,
+                }],
+            }],
+        );
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        // Mock returns Some(PullRequest) indicating there's a merged PR that hasn't been tagged
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-my-package"
+                    && req.base_branch == "main"
+            })
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 789,
+                    sha: "pending-release-sha".to_string(),
+                }))
+            });
+
+        let result =
+            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+
+        // Should error when pending release is detected
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let pending_err = err.downcast_ref::<PendingReleaseError>();
+        assert!(pending_err.is_some());
+        let pending_err = pending_err.unwrap();
+        assert_eq!(pending_err.branch, "releasaurus-release-main-my-package");
+        assert_eq!(pending_err.pr_number, 789);
+    }
+
+    #[tokio::test]
+    async fn test_create_branch_release_prs_separate_prs_no_pending_releases() {
+        let mut prs_by_branch = HashMap::new();
+        prs_by_branch.insert(
+            "releasaurus-release-main-package-one".to_string(),
+            vec![ReleasePr {
+                title: "chore(main): release package-one v1.0.0".to_string(),
+                body: "## Package One\n- feat: feature one".to_string(),
+                file_changes: vec![FileChange {
+                    path: "packages/one/CHANGELOG.md".to_string(),
+                    content: "## Package One\n- feat: feature one\n\n"
+                        .to_string(),
+                    update_type: FileUpdateType::Prepend,
+                }],
+            }],
+        );
+        prs_by_branch.insert(
+            "releasaurus-release-main-package-two".to_string(),
+            vec![ReleasePr {
+                title: "chore(main): release package-two v2.0.0".to_string(),
+                body: "## Package Two\n- feat: feature two".to_string(),
+                file_changes: vec![FileChange {
+                    path: "packages/two/CHANGELOG.md".to_string(),
+                    content: "## Package Two\n- feat: feature two\n\n"
+                        .to_string(),
+                    update_type: FileUpdateType::Prepend,
+                }],
+            }],
+        );
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        // Both branches check - return None (no pending releases)
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(2)
+            .withf(|req| {
+                (req.head_branch == "releasaurus-release-main-package-one"
+                    || req.head_branch
+                        == "releasaurus-release-main-package-two")
+                    && req.base_branch == "main"
+            })
+            .returning(|_| Ok(None));
+
+        // First branch operations
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .withf(|req| req.branch == "releasaurus-release-main-package-one")
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "commit-sha-one".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-package-one"
+            })
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-package-one"
+            })
+            .returning(|_| {
+                Ok(PullRequest {
+                    number: 100,
+                    sha: "pr-sha-one".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .withf(|req| req.pr_number == 100)
+            .returning(|_| Ok(()));
+
+        // Second branch operations
+        mock_forge
+            .expect_create_release_branch()
+            .times(1)
+            .withf(|req| req.branch == "releasaurus-release-main-package-two")
+            .returning(|_| {
+                Ok(Commit {
+                    sha: "commit-sha-two".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_get_open_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-package-two"
+            })
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_create_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-package-two"
+            })
+            .returning(|_| {
+                Ok(PullRequest {
+                    number: 200,
+                    sha: "pr-sha-two".to_string(),
+                })
+            });
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(1)
+            .withf(|req| req.pr_number == 200)
+            .returning(|_| Ok(()));
+
+        let result =
+            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+
+        // Should succeed when no pending releases exist
         assert!(result.is_ok());
     }
 
