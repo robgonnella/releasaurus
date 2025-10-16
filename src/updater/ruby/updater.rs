@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use log::*;
 use regex::Regex;
-use std::path::Path;
 
 use crate::{
     forge::{
@@ -25,13 +24,12 @@ impl RubyUpdater {
     }
 
     /// Load file content from repository by path.
-    async fn load_file<P: AsRef<Path>>(
+    async fn load_file(
         &self,
-        file_path: P,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<String>> {
-        let file_path = file_path.as_ref().display().to_string();
-        loader.get_file_content(&file_path).await
+        loader.get_file_content(file_path).await
     }
 
     /// Update version string in gemspec file using regex pattern matching.
@@ -75,19 +73,15 @@ impl RubyUpdater {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for package in packages {
-            let package_path = Path::new(&package.path);
-
             // Try to update gemspec file
-            if let Some(changes) =
-                self.process_gemspec(package, package_path, loader).await?
+            if let Some(changes) = self.process_gemspec(package, loader).await?
             {
                 file_changes.extend(changes);
             }
 
             // Try to update version.rb file
-            if let Some(changes) = self
-                .process_version_file(package, package_path, loader)
-                .await?
+            if let Some(changes) =
+                self.process_version_file(package, loader).await?
             {
                 file_changes.extend(changes);
             }
@@ -104,17 +98,16 @@ impl RubyUpdater {
     async fn process_gemspec(
         &self,
         package: &UpdaterPackage,
-        package_path: &Path,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         // Look for *.gemspec files
         let gemspec_path =
-            package_path.join(format!("{}.gemspec", package.name));
+            package.get_file_path(&format!("{}.gemspec", package.name));
 
         let content = self.load_file(&gemspec_path, loader).await?;
 
         if let Some(content) = content {
-            info!("found gemspec file for package: {}", gemspec_path.display());
+            info!("found gemspec file for package: {}", gemspec_path);
 
             let updated_content = self.update_gemspec_version(
                 &content,
@@ -124,19 +117,18 @@ impl RubyUpdater {
             if updated_content != content {
                 info!(
                     "updating {} version to {}",
-                    gemspec_path.display(),
-                    package.next_version.semver
+                    gemspec_path, package.next_version.semver
                 );
 
                 return Ok(Some(vec![FileChange {
-                    path: gemspec_path.display().to_string(),
+                    path: gemspec_path,
                     content: updated_content,
                     update_type: FileUpdateType::Replace,
                 }]));
             } else {
                 warn!(
                     "no version found to update in gemspec: {}",
-                    gemspec_path.display()
+                    gemspec_path
                 );
             }
         }
@@ -148,27 +140,20 @@ impl RubyUpdater {
     async fn process_version_file(
         &self,
         package: &UpdaterPackage,
-        package_path: &Path,
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         // Try common version file locations
         let version_paths = vec![
-            package_path
-                .join("lib")
-                .join(&package.name)
-                .join("version.rb"),
-            package_path.join("lib").join("version.rb"),
-            package_path.join("version.rb"),
+            package.get_file_path(&format!("lib/{}/version.rb", package.name)),
+            package.get_file_path("lib/version.rb"),
+            package.get_file_path("version.rb"),
         ];
 
         for version_path in version_paths {
             let content = self.load_file(&version_path, loader).await?;
 
             if let Some(content) = content {
-                info!(
-                    "found version file for package: {}",
-                    version_path.display()
-                );
+                info!("found version.rb file for package: {}", version_path);
 
                 let updated_content = self.update_version_file(
                     &content,
@@ -178,15 +163,19 @@ impl RubyUpdater {
                 if updated_content != content {
                     info!(
                         "updating {} version to {}",
-                        version_path.display(),
-                        package.next_version.semver
+                        version_path, package.next_version.semver
                     );
 
                     return Ok(Some(vec![FileChange {
-                        path: version_path.display().to_string(),
+                        path: version_path,
                         content: updated_content,
                         update_type: FileUpdateType::Replace,
                     }]));
+                } else {
+                    warn!(
+                        "no version found to update in version file: {}",
+                        version_path
+                    );
                 }
             }
         }
@@ -222,24 +211,8 @@ mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
     use semver::Version as SemVer;
-
-    fn create_test_package(
-        name: &str,
-        path: &str,
-        next_version: &str,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            name: name.to_string(),
-            path: path.to_string(),
-            framework: Framework::Ruby,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", next_version),
-                semver: SemVer::parse(next_version).unwrap(),
-            },
-        }
-    }
 
     #[test]
     fn test_update_gemspec_version_double_quotes() {
@@ -331,7 +304,12 @@ end
     #[tokio::test]
     async fn test_process_gemspec_updates_version() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "2.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "2.0.0",
+            Framework::Ruby,
+        );
 
         let gemspec_content = r#"
 Gem::Specification.new do |spec|
@@ -350,7 +328,7 @@ end
             .returning(move |_| Ok(Some(gemspec_content.to_string())));
 
         let result = updater
-            .process_gemspec(&package, Path::new(&package.path), &mock_loader)
+            .process_gemspec(&package, &mock_loader)
             .await
             .unwrap();
 
@@ -364,7 +342,12 @@ end
     #[tokio::test]
     async fn test_process_gemspec_not_found() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "2.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "2.0.0",
+            Framework::Ruby,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -374,7 +357,7 @@ end
             .returning(|_| Ok(None));
 
         let result = updater
-            .process_gemspec(&package, Path::new(&package.path), &mock_loader)
+            .process_gemspec(&package, &mock_loader)
             .await
             .unwrap();
 
@@ -384,7 +367,12 @@ end
     #[tokio::test]
     async fn test_process_version_file_in_lib_gem_name() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "3.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "3.0.0",
+            Framework::Ruby,
+        );
 
         let version_content = r#"
 module MyGem
@@ -402,11 +390,7 @@ end
             .returning(move |_| Ok(Some(version_content.to_string())));
 
         let result = updater
-            .process_version_file(
-                &package,
-                Path::new(&package.path),
-                &mock_loader,
-            )
+            .process_version_file(&package, &mock_loader)
             .await
             .unwrap();
 
@@ -420,7 +404,12 @@ end
     #[tokio::test]
     async fn test_process_version_file_fallback_to_lib_version() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "2.5.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "2.5.0",
+            Framework::Ruby,
+        );
 
         let version_content = r#"
 VERSION = "1.0.0"
@@ -444,11 +433,7 @@ VERSION = "1.0.0"
             .returning(move |_| Ok(Some(version_content.to_string())));
 
         let result = updater
-            .process_version_file(
-                &package,
-                Path::new(&package.path),
-                &mock_loader,
-            )
+            .process_version_file(&package, &mock_loader)
             .await
             .unwrap();
 
@@ -462,7 +447,12 @@ VERSION = "1.0.0"
     #[tokio::test]
     async fn test_process_packages_updates_both_files() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "2.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "2.0.0",
+            Framework::Ruby,
+        );
 
         let gemspec_content = r#"spec.version = "1.0.0""#;
         let version_content = r#"VERSION = "1.0.0""#;
@@ -512,8 +502,18 @@ VERSION = "1.0.0"
     async fn test_process_packages_multiple_packages() {
         let updater = RubyUpdater::new();
         let packages = vec![
-            create_test_package("gem-one", "packages/one", "2.0.0"),
-            create_test_package("gem-two", "packages/two", "3.0.0"),
+            create_test_updater_package(
+                "gem-one",
+                "packages/one",
+                "2.0.0",
+                Framework::Ruby,
+            ),
+            create_test_updater_package(
+                "gem-two",
+                "packages/two",
+                "3.0.0",
+                Framework::Ruby,
+            ),
         ];
 
         let gemspec1 = r#"spec.version = "1.0.0""#;
@@ -600,7 +600,12 @@ VERSION = "1.0.0"
     #[tokio::test]
     async fn test_process_packages_no_files_found() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "2.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "2.0.0",
+            Framework::Ruby,
+        );
 
         let mut mock_loader = MockFileLoader::new();
 
@@ -646,14 +651,20 @@ VERSION = "1.0.0"
         let updater = RubyUpdater::new();
 
         let packages = vec![
-            create_test_package("ruby-gem", "packages/ruby", "2.0.0"),
+            create_test_updater_package(
+                "ruby-gem",
+                "packages/ruby",
+                "2.0.0",
+                Framework::Ruby,
+            ),
             UpdaterPackage {
-                name: "node-package".to_string(),
-                path: "packages/node".to_string(),
+                name: "node-package".into(),
+                path: "packages/node".into(),
+                workspace_root: ".".into(),
                 framework: Framework::Node,
                 next_version: Tag {
-                    sha: "test-sha".to_string(),
-                    name: "v1.0.0".to_string(),
+                    sha: "test-sha".into(),
+                    name: "v1.0.0".into(),
                     semver: SemVer::parse("1.0.0").unwrap(),
                 },
             },
@@ -695,7 +706,12 @@ VERSION = "1.0.0"
     #[tokio::test]
     async fn test_update_with_valid_gemspec() {
         let updater = RubyUpdater::new();
-        let package = create_test_package("my-gem", "packages/my-gem", "3.0.0");
+        let package = create_test_updater_package(
+            "my-gem",
+            "packages/my-gem",
+            "3.0.0",
+            Framework::Ruby,
+        );
 
         let gemspec_content = r#"
 Gem::Specification.new do |spec|

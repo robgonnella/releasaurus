@@ -1,8 +1,7 @@
 //! Cargo updater for handling rust projects
-use std::path::Path;
-
 use async_trait::async_trait;
 use log::*;
+use toml_edit::DocumentMut;
 
 use crate::{
     forge::{request::FileChange, traits::FileLoader},
@@ -29,6 +28,56 @@ impl RustUpdater {
             cargo_lock: CargoLock::new(),
         }
     }
+
+    /// Load and parse TOML file from repository into toml_edit Document.
+    async fn load_doc(
+        &self,
+        file_path: &str,
+        loader: &dyn FileLoader,
+    ) -> Result<Option<DocumentMut>> {
+        let content = loader.get_file_content(file_path).await?;
+        if content.is_none() {
+            return Ok(None);
+        }
+        let content = content.unwrap();
+        let doc = content.parse::<DocumentMut>()?;
+        Ok(Some(doc))
+    }
+
+    fn get_package_name(
+        &self,
+        doc: &DocumentMut,
+        package: &UpdaterPackage,
+    ) -> String {
+        doc.get("package")
+            .and_then(|p| p.as_table())
+            .and_then(|t| t.get("name"))
+            .and_then(|n| n.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or(package.name.clone())
+    }
+
+    /// Extract package names from Cargo.toml manifests and pair with Package
+    /// structs.
+    async fn get_packages_with_names(
+        &self,
+        packages: Vec<UpdaterPackage>,
+        loader: &dyn FileLoader,
+    ) -> Vec<(String, UpdaterPackage)> {
+        let results = packages.into_iter().map(|p| async {
+            let manifest_path = p.get_file_path("Cargo.toml");
+            let doc = self.load_doc(&manifest_path, loader).await;
+            if let Ok(doc) = doc
+                && let Some(doc) = doc
+            {
+                let pkg_name = self.get_package_name(&doc, &p);
+                return (pkg_name, p);
+            }
+            (p.name.clone(), p)
+        });
+
+        futures::future::join_all(results).await
+    }
 }
 
 #[async_trait]
@@ -51,25 +100,8 @@ impl PackageUpdater for RustUpdater {
             return Ok(None);
         }
 
-        let root_path = Path::new(".");
-
-        let packages_with_names = self
-            .cargo_toml
-            .get_packages_with_names(rust_packages, loader)
-            .await;
-
-        if self.cargo_toml.is_workspace(root_path, loader).await?
-            && let Some(change) = self
-                .cargo_lock
-                .process_workspace_lockfile(
-                    root_path,
-                    &packages_with_names,
-                    loader,
-                )
-                .await?
-        {
-            file_changes.push(change);
-        }
+        let packages_with_names =
+            self.get_packages_with_names(rust_packages, loader).await;
 
         if let Some(changes) = self
             .cargo_toml
@@ -100,30 +132,18 @@ mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
     use semver::Version as SemVer;
-
-    fn create_test_package(
-        name: &str,
-        path: &str,
-        next_version: &str,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            name: name.to_string(),
-            path: path.to_string(),
-            framework: Framework::Rust,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", next_version),
-                semver: SemVer::parse(next_version).unwrap(),
-            },
-        }
-    }
 
     #[tokio::test]
     async fn test_update_single_package() {
         let updater = RustUpdater::new();
-        let package =
-            create_test_package("test-crate", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-crate",
+            "packages/test",
+            "2.0.0",
+            Framework::Rust,
+        );
 
         let cargo_toml = r#"[package]
 name = "test-crate"
@@ -135,13 +155,6 @@ serde = "1.0"
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Check for workspace at root
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names
         mock_loader
@@ -163,7 +176,14 @@ serde = "1.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Check for Cargo.lock
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/test/Cargo.lock"))
@@ -185,8 +205,18 @@ serde = "1.0"
     async fn test_update_package_with_dependencies() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
 
         let cargo_a = r#"[package]
@@ -204,13 +234,6 @@ version = "1.0.0"
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names - crate-a
         mock_loader
@@ -252,7 +275,14 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Cargo.lock checks
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock files
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.lock"))
@@ -291,8 +321,18 @@ version = "1.0.0"
     async fn test_update_package_with_dev_dependencies() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
 
         let cargo_a = r#"[package]
@@ -309,13 +349,6 @@ version = "1.0.0"
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names
         mock_loader
@@ -355,7 +388,14 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Cargo.lock checks
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock files
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.lock"))
@@ -384,8 +424,18 @@ version = "1.0.0"
     async fn test_update_package_with_version_object() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
 
         let cargo_a = r#"[package]
@@ -402,13 +452,6 @@ version = "1.0.0"
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names
         mock_loader
@@ -448,7 +491,14 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Cargo.lock checks
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock files
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.lock"))
@@ -478,23 +528,19 @@ version = "1.0.0"
     async fn test_update_workspace_cargo_lock() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
-
-        let workspace_toml = r#"[workspace]
-members = ["packages/a", "packages/b"]
-"#;
-
-        let cargo_a = r#"[package]
-name = "crate-a"
-version = "1.0.0"
-"#;
-
-        let cargo_b = r#"[package]
-name = "crate-b"
-version = "1.0.0"
-"#;
 
         let cargo_lock = r#"version = 3
 
@@ -507,27 +553,17 @@ name = "crate-b"
 version = "1.0.0"
 "#;
 
+        let cargo_a = r#"[package]
+name = "crate-a"
+version = "1.0.0"
+"#;
+
+        let cargo_b = r#"[package]
+name = "crate-b"
+version = "1.0.0"
+"#;
+
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning({
-                let content = workspace_toml.to_string();
-                move |_| Ok(Some(content.clone()))
-            });
-
-        // Workspace Cargo.lock
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.lock"))
-            .times(1)
-            .returning({
-                let content = cargo_lock.to_string();
-                move |_| Ok(Some(content.clone()))
-            });
 
         // Get package names
         mock_loader
@@ -548,7 +584,7 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Process packages
+        // Process packages - Cargo.toml updates
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.toml"))
@@ -567,7 +603,17 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Individual Cargo.lock checks
+        // Workspace-level Cargo.lock check (processed first)
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning({
+                let content = cargo_lock.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        // Individual package Cargo.lock checks
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.lock"))
@@ -588,7 +634,7 @@ version = "1.0.0"
 
         // Check workspace Cargo.lock was updated
         let lock_change =
-            changes.iter().find(|c| c.path == "./Cargo.lock").unwrap();
+            changes.iter().find(|c| c.path == "Cargo.lock").unwrap();
         assert!(lock_change.content.contains("version = \"2.0.0\""));
         assert!(lock_change.content.contains("version = \"3.0.0\""));
     }
@@ -597,8 +643,18 @@ version = "1.0.0"
     async fn test_update_individual_cargo_lock() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
 
         let cargo_a = r#"[package]
@@ -627,13 +683,6 @@ version = "1.0.0"
 
         let mut mock_loader = MockFileLoader::new();
 
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
-
         // Get package names
         mock_loader
             .expect_get_file_content()
@@ -671,6 +720,13 @@ version = "1.0.0"
                 let content = cargo_b.to_string();
                 move |_| Ok(Some(content.clone()))
             });
+
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
 
         // Cargo.lock for crate-a exists
         mock_loader
@@ -709,10 +765,16 @@ version = "1.0.0"
         let updater = RustUpdater::new();
 
         let packages = vec![
-            create_test_package("rust-crate", "packages/rust", "2.0.0"),
+            create_test_updater_package(
+                "rust-crate",
+                "packages/rust",
+                "2.0.0",
+                Framework::Rust,
+            ),
             UpdaterPackage {
                 name: "python-package".to_string(),
                 path: "packages/python".to_string(),
+                workspace_root: ".".into(),
                 framework: Framework::Python,
                 next_version: Tag {
                     sha: "test-sha".to_string(),
@@ -736,8 +798,12 @@ version = "1.0.0"
     #[tokio::test]
     async fn test_update_no_files_found() {
         let updater = RustUpdater::new();
-        let package =
-            create_test_package("test-crate", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-crate",
+            "packages/test",
+            "2.0.0",
+            Framework::Rust,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -753,30 +819,18 @@ version = "1.0.0"
     #[tokio::test]
     async fn test_update_skips_workspace_cargo_toml() {
         let updater = RustUpdater::new();
-        let package = create_test_package("workspace-root", ".", "2.0.0");
+        let package = create_test_updater_package(
+            "workspace-root",
+            ".",
+            "2.0.0",
+            Framework::Rust,
+        );
 
         let workspace_toml = r#"[workspace]
 members = ["packages/a", "packages/b"]
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check at root
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning({
-                let content = workspace_toml.to_string();
-                move |_| Ok(Some(content.clone()))
-            });
-
-        // No workspace Cargo.lock
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.lock"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names
         mock_loader
@@ -798,7 +852,14 @@ members = ["packages/a", "packages/b"]
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Check for Cargo.lock
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("./Cargo.lock"))
@@ -816,8 +877,18 @@ members = ["packages/a", "packages/b"]
     async fn test_update_with_build_dependencies() {
         let updater = RustUpdater::new();
         let packages = vec![
-            create_test_package("crate-a", "packages/a", "2.0.0"),
-            create_test_package("crate-b", "packages/b", "3.0.0"),
+            create_test_updater_package(
+                "crate-a",
+                "packages/a",
+                "2.0.0",
+                Framework::Rust,
+            ),
+            create_test_updater_package(
+                "crate-b",
+                "packages/b",
+                "3.0.0",
+                Framework::Rust,
+            ),
         ];
 
         let cargo_a = r#"[package]
@@ -834,13 +905,6 @@ version = "1.0.0"
 "#;
 
         let mut mock_loader = MockFileLoader::new();
-
-        // Workspace check
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
-            .times(1)
-            .returning(|_| Ok(None));
 
         // Get package names
         mock_loader
@@ -880,7 +944,14 @@ version = "1.0.0"
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Cargo.lock checks
+        // Check for workspace-level Cargo.lock
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("Cargo.lock"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Check for package-level Cargo.lock files
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("packages/a/Cargo.lock"))

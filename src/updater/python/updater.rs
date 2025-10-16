@@ -51,6 +51,7 @@ impl PackageUpdater for PythonUpdater {
         }
 
         let mut file_changes: Vec<FileChange> = vec![];
+
         if let Some(changes) = self
             .pyproject
             .process_packages(&python_packages, loader)
@@ -88,30 +89,18 @@ mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
     use semver::Version as SemVer;
-
-    fn create_test_package(
-        name: &str,
-        path: &str,
-        next_version: &str,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            name: name.to_string(),
-            path: path.to_string(),
-            framework: Framework::Python,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", next_version),
-                semver: SemVer::parse(next_version).unwrap(),
-            },
-        }
-    }
 
     #[tokio::test]
     async fn test_update_pyproject_toml_project_section() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let pyproject_toml = r#"[project]
 name = "test-package"
@@ -156,8 +145,12 @@ requests = "^2.28.0"
     #[tokio::test]
     async fn test_update_pyproject_toml_poetry_section() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "3.0.0",
+            Framework::Python,
+        );
 
         let pyproject_toml = r#"[tool.poetry]
 name = "test-package"
@@ -201,8 +194,12 @@ requests = "^2.28.0"
     #[tokio::test]
     async fn test_update_pyproject_toml_skips_dynamic_version() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let pyproject_toml = r#"[project]
 name = "test-package"
@@ -239,8 +236,12 @@ description = "A test package with dynamic version"
     #[tokio::test]
     async fn test_update_setup_py() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let setup_py = r#"from setuptools import setup, find_packages
 
@@ -285,8 +286,12 @@ setup(
     #[tokio::test]
     async fn test_update_setup_py_with_single_quotes() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "3.0.0",
+            Framework::Python,
+        );
 
         let setup_py = r#"from setuptools import setup
 
@@ -328,8 +333,12 @@ setup(
     #[tokio::test]
     async fn test_update_setup_cfg() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let setup_cfg = r#"[metadata]
 name = test-package
@@ -374,8 +383,12 @@ python_requires = >=3.8
     #[tokio::test]
     async fn test_update_multiple_files_in_one_package() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let pyproject_toml = r#"[project]
 name = "test-package"
@@ -443,8 +456,18 @@ version = 1.0.0
     async fn test_update_multiple_packages() {
         let updater = PythonUpdater::new();
         let packages = vec![
-            create_test_package("package-one", "packages/one", "2.0.0"),
-            create_test_package("package-two", "packages/two", "3.0.0"),
+            create_test_updater_package(
+                "package-one",
+                "packages/one",
+                "2.0.0",
+                Framework::Python,
+            ),
+            create_test_updater_package(
+                "package-two",
+                "packages/two",
+                "3.0.0",
+                Framework::Python,
+            ),
         ];
 
         let pyproject1 = r#"[project]
@@ -529,14 +552,20 @@ version = "1.0.0"
         let updater = PythonUpdater::new();
 
         let packages = vec![
-            create_test_package("python-package", "packages/python", "2.0.0"),
+            create_test_updater_package(
+                "python-package",
+                "packages/python",
+                "2.0.0",
+                Framework::Python,
+            ),
             UpdaterPackage {
-                name: "rust-package".to_string(),
-                path: "packages/rust".to_string(),
+                name: "rust-package".into(),
+                path: "packages/rust".into(),
+                workspace_root: ".".into(),
                 framework: Framework::Rust,
                 next_version: Tag {
-                    sha: "test-sha".to_string(),
-                    name: "v1.0.0".to_string(),
+                    sha: "test-sha".into(),
+                    name: "v1.0.0".into(),
                     semver: SemVer::parse("1.0.0").unwrap(),
                 },
             },
@@ -556,8 +585,12 @@ version = "1.0.0"
     #[tokio::test]
     async fn test_update_no_files_found() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -573,8 +606,12 @@ version = "1.0.0"
     #[tokio::test]
     async fn test_update_setup_py_with_indentation() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.5.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.5.0",
+            Framework::Python,
+        );
 
         let setup_py = r#"from setuptools import setup
 
@@ -618,8 +655,12 @@ setup(
     #[tokio::test]
     async fn test_pyproject_toml_preserves_structure() {
         let updater = PythonUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Python,
+        );
 
         let pyproject_toml = r#"[build-system]
 requires = ["setuptools>=42", "wheel"]

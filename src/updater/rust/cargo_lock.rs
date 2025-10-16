@@ -1,5 +1,4 @@
-use color_eyre::eyre::ContextCompat;
-use std::path::Path;
+use std::collections::HashSet;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -21,65 +20,87 @@ impl CargoLock {
         Self {}
     }
 
-    /// Update package versions in workspace root Cargo.lock file to match
-    /// released versions.
-    pub async fn process_workspace_lockfile(
-        &self,
-        root_path: &Path,
-        packages: &[(String, UpdaterPackage)],
-        loader: &dyn FileLoader,
-    ) -> Result<Option<FileChange>> {
-        let lock_path = root_path.join("Cargo.lock");
-        let lock_doc = self.load_doc(lock_path.as_path(), loader).await?;
-        if lock_doc.is_none() {
-            return Ok(None);
-        }
-        let mut lock_doc = lock_doc.unwrap();
-        let lock_packages = lock_doc["package"]
-            .as_array_of_tables_mut()
-            .wrap_err("Cargo.lock doesn't seem to have any packages")?;
-
-        let mut updated = 0;
-
-        for lock_pkg in lock_packages.iter_mut() {
-            if updated == packages.len() {
-                break;
-            }
-
-            for (package_name, package) in packages.iter() {
-                if let Some(name) = lock_pkg.get("name")
-                    && let Some(name_str) = name.as_str()
-                    && package_name == name_str
-                    && let Some(version) = lock_pkg.get_mut("version")
-                {
-                    *version = value(package.next_version.semver.to_string());
-                    updated += 1;
-                }
-            }
-        }
-
-        if updated > 0 {
-            return Ok(Some(FileChange {
-                path: lock_path.display().to_string(),
-                content: lock_doc.to_string(),
-                update_type: FileUpdateType::Replace,
-            }));
-        }
-
-        Ok(None)
-    }
-
     pub async fn process_packages(
         &self,
         packages: &[(String, UpdaterPackage)],
         loader: &dyn FileLoader,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
+        let mut processed_paths = HashSet::new();
 
+        // First, handle workspace-level Cargo.lock files
+        // Collect unique workspace roots
+        let mut workspace_roots: Vec<&str> = packages
+            .iter()
+            .map(|(_, p)| p.workspace_root.as_str())
+            .collect();
+        workspace_roots.sort_unstable();
+        workspace_roots.dedup();
+
+        for workspace_root in workspace_roots {
+            // Get a package from this workspace to use its helper method
+            let workspace_package = packages
+                .iter()
+                .find(|(_, p)| p.workspace_root == workspace_root)
+                .map(|(_, p)| p);
+
+            if workspace_package.is_none() {
+                continue;
+            }
+
+            let workspace_package = workspace_package.unwrap();
+            let workspace_lock_path =
+                workspace_package.get_workspace_file_path("Cargo.lock");
+
+            let lock_doc = self.load_doc(&workspace_lock_path, loader).await?;
+
+            if let Some(mut lock_doc) = lock_doc {
+                let mut updated = false;
+
+                if let Some(doc_packages) =
+                    lock_doc["package"].as_array_of_tables_mut()
+                {
+                    // Update all packages in this workspace
+                    for (dep_name, dep) in packages.iter() {
+                        if dep.workspace_root == workspace_root
+                            && let Some(found) =
+                                doc_packages.iter_mut().find(|p| {
+                                    let doc_package_name = p
+                                        .get("name")
+                                        .and_then(|item| item.as_str())
+                                        .unwrap_or("");
+                                    doc_package_name == dep_name
+                                })
+                        {
+                            found["version"] =
+                                value(dep.next_version.semver.to_string());
+                            updated = true;
+                        }
+                    }
+                }
+
+                if updated {
+                    processed_paths.insert(workspace_lock_path.clone());
+                    file_changes.push(FileChange {
+                        path: workspace_lock_path,
+                        content: lock_doc.to_string(),
+                        update_type: FileUpdateType::Replace,
+                    });
+                }
+            }
+        }
+
+        // Then handle package-level Cargo.lock files
         for (_package_name, package) in packages.iter() {
+            let path_str = package.get_file_path("Cargo.lock");
+
+            // Skip if we already processed this path as a workspace lock
+            if processed_paths.contains(&path_str) {
+                continue;
+            }
+
             let mut updated = false;
-            let doc_path = Path::new(&package.path).join("Cargo.lock");
-            let lock_doc = self.load_doc(doc_path.as_path(), loader).await?;
+            let lock_doc = self.load_doc(&path_str, loader).await?;
 
             if lock_doc.is_none() {
                 continue;
@@ -111,7 +132,7 @@ impl CargoLock {
 
             if updated {
                 file_changes.push(FileChange {
-                    path: doc_path.display().to_string(),
+                    path: path_str,
                     content: lock_doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -125,13 +146,12 @@ impl CargoLock {
         Ok(Some(file_changes))
     }
 
-    async fn load_doc<P: AsRef<Path>>(
+    async fn load_doc(
         &self,
-        file_path: P,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<DocumentMut>> {
-        let file_path = file_path.as_ref().display().to_string();
-        let content = loader.get_file_content(&file_path).await?;
+        let content = loader.get_file_content(file_path).await?;
         if content.is_none() {
             return Ok(None);
         }

@@ -320,11 +320,90 @@ specifying the `release_type` for version file management.
 
 ### `path`
 
-The directory path to the package, relative to the repository root.
+The directory path to the package, relative to the `workspace_root` path
+(or relative to the repository root if `workspace_root` is not specified).
 
 ```toml
 [[package]]
-path = "."  # Root of repository
+path = "."
+```
+
+```toml
+[[package]]
+workspace_root = "rust-workspace"
+path = "packages/api"  # Relative to rust-workspace directory
+```
+
+### `workspace_root` (Optional)
+
+The directory path to the workspace root for this package, relative to the
+repository root. This allows you to define workspace packages that are in
+subdirectories of the repository.
+
+```toml
+[[package]]
+workspace_root = "."  # Default: repository root
+path = "packages/api"
+release_type = "rust"
+```
+
+**When to use:**
+
+- **Multi-workspace repositories**: When you have multiple independent
+  workspaces in one repository i.e. A rust workspace in a subdirectory
+
+**Default**: If not specified, defaults to `"."` (the repository root).
+
+**How it works:**
+
+The `workspace_root` and `path` are combined to locate package files:
+
+- Version files are located at: `workspace_root + path + <version-file>`
+- Workspace-level files are located at: `workspace_root + <workspace-file>`
+
+**Example: Rust workspace in subdirectory**
+
+```toml
+[[package]]
+name = "api-server-1"
+workspace_root = "backend"  # Workspace is in backend/ directory
+path = "packages/api1"      # Package is in backend/packages/api1/
+release_type = "rust"
+tag_prefix = "api1-v"
+
+name = "api-server-2"
+workspace_root = "backend"  # Workspace is in backend/ directory
+path = "packages/api2"      # Package is in backend/packages/api2/
+release_type = "rust"
+tag_prefix = "api2-v"
+```
+
+This configuration will:
+
+- Update `backend/packages/api1/Cargo.toml`
+- Update `backend/packages/api2/Cargo.toml`
+- Update `backend/Cargo.lock` (workspace-level lock file)
+- Update `backend/packages/api1/Cargo.lock` (if it exists)
+- Update `backend/packages/api2/Cargo.lock` (if it exists)
+
+**Example: Multiple workspaces in one repository**
+
+```toml
+# Rust workspace
+[[package]]
+name = "rust-core"
+workspace_root = "rust-workspace"
+path = "."
+release_type = "rust"
+tag_prefix = "rust-v"
+
+# Node workspace
+[[package]]
+name = "web-app"
+workspace_root = "node-workspace"
+path = "packages/web"
+release_type = "node"
+tag_prefix = "web-v"
 ```
 
 ### `name` (Optional)

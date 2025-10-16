@@ -1,5 +1,5 @@
 use log::*;
-use std::path::Path;
+
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -26,7 +26,7 @@ impl PyProject {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for package in packages {
-            let file_path = Path::new(&package.path).join("pyproject.toml");
+            let file_path = package.get_file_path("pyproject.toml");
 
             let doc = self.load_doc(&file_path, loader).await?;
 
@@ -48,15 +48,14 @@ impl PyProject {
 
                 info!(
                     "updating {} project version to {}",
-                    file_path.display(),
-                    package.next_version.semver
+                    file_path, package.next_version.semver
                 );
 
                 project["version"] =
                     value(package.next_version.semver.to_string());
 
                 file_changes.push(FileChange {
-                    path: file_path.display().to_string(),
+                    path: file_path,
                     content: doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -76,15 +75,14 @@ impl PyProject {
 
                 info!(
                     "updating {} tool.poetry version to {}",
-                    file_path.display(),
-                    package.next_version.semver
+                    file_path, package.next_version.semver
                 );
 
                 project["version"] =
                     value(package.next_version.semver.to_string());
 
                 file_changes.push(FileChange {
-                    path: file_path.display().to_string(),
+                    path: file_path,
                     content: doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -100,11 +98,10 @@ impl PyProject {
 
     async fn load_doc(
         &self,
-        file_path: &Path,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<DocumentMut>> {
-        let file_path = file_path.display().to_string();
-        let content = loader.get_file_content(&file_path).await?;
+        let content = loader.get_file_content(file_path).await?;
         if content.is_none() {
             return Ok(None);
         }

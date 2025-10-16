@@ -13,6 +13,7 @@ use crate::{
         config::RemoteConfig,
         request::{ForgeCommit, PullRequest},
     },
+    updater::framework::{Framework, UpdaterPackage},
 };
 use secrecy::SecretString;
 use semver::Version as SemVer;
@@ -99,6 +100,7 @@ pub fn create_test_config_simple(
             .map(|(name, path, release_type)| PackageConfig {
                 name: name.into(),
                 path: path.to_string(),
+                workspace_root: ".".into(),
                 release_type: Some(release_type),
                 tag_prefix: None,
                 prerelease: None,
@@ -128,6 +130,7 @@ pub fn create_test_package_config(
     PackageConfig {
         name: name.into(),
         path: path.into(),
+        workspace_root: ".".into(),
         release_type,
         tag_prefix,
         prerelease: None,
@@ -272,6 +275,45 @@ pub fn create_test_analyzer_config_with_prefix(
     }
 }
 
+/// Creates a test UpdaterPackage for updater tests.
+///
+/// This helper function eliminates code duplication across updater test modules
+/// by providing a consistent way to create test packages.
+///
+/// # Arguments
+/// * `name` - Package name
+/// * `path` - Package path relative to workspace root
+/// * `next_version` - Next version string (e.g., "2.0.0")
+/// * `framework` - Framework type for the package
+///
+/// # Example
+/// ```ignore
+/// let package = create_test_updater_package(
+///     "test-package",
+///     "packages/test",
+///     "2.0.0",
+///     Framework::Node
+/// );
+/// ```
+pub fn create_test_updater_package(
+    name: &str,
+    path: &str,
+    next_version: &str,
+    framework: Framework,
+) -> UpdaterPackage {
+    UpdaterPackage {
+        name: name.to_string(),
+        path: path.to_string(),
+        workspace_root: ".".to_string(),
+        framework,
+        next_version: Tag {
+            sha: "test-sha".to_string(),
+            name: format!("v{}", next_version),
+            semver: SemVer::parse(next_version).unwrap(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,5 +398,21 @@ mod tests {
         let config =
             create_test_analyzer_config_with_prefix(Some("v".to_string()));
         assert_eq!(config.tag_prefix, Some("v".to_string()));
+    }
+
+    #[test]
+    fn test_create_test_updater_package() {
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Node,
+        );
+        assert_eq!(package.name, "test-package");
+        assert_eq!(package.path, "packages/test");
+        assert_eq!(package.workspace_root, ".");
+        assert_eq!(package.framework, Framework::Node);
+        assert_eq!(package.next_version.name, "v2.0.0");
+        assert_eq!(package.next_version.semver.to_string(), "2.0.0");
     }
 }
