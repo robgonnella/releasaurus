@@ -294,6 +294,7 @@ async fn generate_manifest(
         manifest.push(ReleasablePackage {
             name: package.name.clone(),
             path: package.path.clone(),
+            workspace_root: package.workspace_root.clone(),
             release_type,
             release,
         });
@@ -328,6 +329,7 @@ mod tests {
         ReleasablePackage {
             name: name.to_string(),
             path: path.to_string(),
+            workspace_root: ".".into(),
             release_type: ReleaseType::Generic,
             release: Release {
                 tag: Some(Tag {

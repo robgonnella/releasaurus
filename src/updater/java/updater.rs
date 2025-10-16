@@ -3,7 +3,6 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 use regex::Regex;
-use std::path::Path;
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
@@ -32,12 +31,8 @@ impl JavaUpdater {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for package in packages {
-            let package_path = Path::new(&package.path);
-
             // Try Maven first (pom.xml)
-            let pom_path = package_path.join("pom.xml");
-
-            let pom_path = pom_path.display().to_string();
+            let pom_path = package.get_file_path("pom.xml");
             if let Some(change) = self
                 .update_maven_project(&pom_path, package, loader)
                 .await?
@@ -47,11 +42,7 @@ impl JavaUpdater {
             }
 
             // Try Gradle (build.gradle or build.gradle.kts)
-            let gradle_path = package_path.join("build.gradle");
-            let gradle_path = gradle_path.display().to_string();
-            let gradle_kts_path = package_path.join("build.gradle.kts");
-            let gradle_kts_path = gradle_kts_path.display().to_string();
-
+            let gradle_path = package.get_file_path("build.gradle");
             if let Some(change) = self
                 .update_gradle_project(&gradle_path, package, false, loader)
                 .await?
@@ -59,6 +50,7 @@ impl JavaUpdater {
                 file_changes.push(change);
             }
 
+            let gradle_kts_path = package.get_file_path("build.gradle.kts");
             if let Some(change) = self
                 .update_gradle_project(&gradle_kts_path, package, true, loader)
                 .await?
@@ -67,8 +59,8 @@ impl JavaUpdater {
             }
 
             // Also check for gradle.properties
-            let gradle_props_path = package_path.join("gradle.properties");
-            let gradle_props_path = gradle_props_path.display().to_string();
+            let gradle_props_path = package.get_file_path("gradle.properties");
+
             if let Some(change) = self
                 .update_gradle_properties(&gradle_props_path, package, loader)
                 .await?
@@ -354,25 +346,18 @@ mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
     use semver::Version as SemVer;
-
-    fn create_test_package(path: &str, next_version: &str) -> UpdaterPackage {
-        UpdaterPackage {
-            name: "test-package".to_string(),
-            path: path.to_string(),
-            framework: Framework::Java,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", next_version),
-                semver: SemVer::parse(next_version).unwrap(),
-            },
-        }
-    }
 
     #[tokio::test]
     async fn test_update_maven_project() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -409,7 +394,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_maven_project_with_nested_versions() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "3.0.0",
+            Framework::Java,
+        );
 
         let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -453,7 +443,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_maven_project_file_not_found() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -477,7 +472,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_gradle_project_groovy_double_quotes() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     id 'java'
@@ -518,7 +518,12 @@ repositories {
     #[tokio::test]
     async fn test_update_gradle_project_groovy_single_quotes() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.5.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.5.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     id 'java'
@@ -558,7 +563,12 @@ repositories {
     #[tokio::test]
     async fn test_update_gradle_project_kotlin_dsl() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "3.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     kotlin("jvm") version "1.9.0"
@@ -599,7 +609,12 @@ repositories {
     #[tokio::test]
     async fn test_update_gradle_project_kotlin_val_declaration() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "4.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "4.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     kotlin("jvm") version "1.9.0"
@@ -638,7 +653,12 @@ repositories {
     #[tokio::test]
     async fn test_update_gradle_project_no_version() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     id 'java'
@@ -674,7 +694,12 @@ repositories {
     #[tokio::test]
     async fn test_update_gradle_properties() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let props_content = r#"# Project properties
 version=1.0.0
@@ -710,7 +735,12 @@ name=test-project
     #[tokio::test]
     async fn test_update_gradle_properties_with_spaces() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "3.0.0",
+            Framework::Java,
+        );
 
         let props_content = r#"# Project properties
   version=1.0.0
@@ -741,7 +771,12 @@ group=com.example
     #[tokio::test]
     async fn test_update_gradle_properties_no_version() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let props_content = r#"# Project properties
 group=com.example
@@ -770,7 +805,12 @@ name=test-project
     #[tokio::test]
     async fn test_update_gradle_properties_file_not_found() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -796,10 +836,16 @@ name=test-project
         let updater = JavaUpdater::new();
 
         let packages = vec![
-            create_test_package("java-project", "2.0.0"),
+            create_test_updater_package(
+                "test-package",
+                "java-project",
+                "2.0.0",
+                Framework::Java,
+            ),
             UpdaterPackage {
                 name: "node-project".to_string(),
                 path: "node-project".to_string(),
+                workspace_root: ".".into(),
                 framework: Framework::Node,
                 next_version: Tag {
                     sha: "test-sha".to_string(),
@@ -823,7 +869,12 @@ name=test-project
     #[tokio::test]
     async fn test_update_gradle_project_with_project_prefix() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"plugins {
     id 'java'
@@ -863,7 +914,12 @@ repositories {
     #[tokio::test]
     async fn test_process_packages_with_multiple_gradle_files() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let gradle_content = r#"version = "1.0.0""#;
         let props_content = r#"version=1.0.0"#;
@@ -930,7 +986,12 @@ repositories {
     #[tokio::test]
     async fn test_process_packages_maven_takes_precedence() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "3.0.0",
+            Framework::Java,
+        );
 
         let pom_content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -969,7 +1030,12 @@ repositories {
     #[tokio::test]
     async fn test_process_packages_no_files_found() {
         let updater = JavaUpdater::new();
-        let package = create_test_package("test-project", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "test-project",
+            "2.0.0",
+            Framework::Java,
+        );
 
         let mut mock_loader = MockFileLoader::new();
 

@@ -1,5 +1,4 @@
 use log::*;
-use std::path::Path;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -20,43 +19,6 @@ impl CargoToml {
         Self {}
     }
 
-    /// Check if root Cargo.toml defines a Cargo workspace.
-    pub async fn is_workspace(
-        &self,
-        root_path: &Path,
-        loader: &dyn FileLoader,
-    ) -> Result<bool> {
-        let file_path = root_path.join("Cargo.toml");
-        let doc = self.load_doc(file_path, loader).await?;
-        if doc.is_none() {
-            return Ok(false);
-        }
-        let doc = doc.unwrap();
-        Ok(doc.get("workspace").is_some())
-    }
-
-    /// Extract package names from Cargo.toml manifests and pair with Package
-    /// structs.
-    pub async fn get_packages_with_names(
-        &self,
-        packages: Vec<UpdaterPackage>,
-        loader: &dyn FileLoader,
-    ) -> Vec<(String, UpdaterPackage)> {
-        let results = packages.into_iter().map(|p| async {
-            let manifest_path = Path::new(&p.path).join("Cargo.toml");
-            let doc = self.load_doc(manifest_path, loader).await;
-            if let Ok(doc) = doc
-                && let Some(doc) = doc
-            {
-                let pkg_name = self.get_package_name(&doc, &p);
-                return (pkg_name, p);
-            }
-            (p.name.clone(), p)
-        });
-
-        futures::future::join_all(results).await
-    }
-
     /// Update version fields in Cargo.toml files for all Rust packages.
     pub async fn process_packages(
         &self,
@@ -66,9 +28,9 @@ impl CargoToml {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for (package_name, package) in packages.iter() {
-            let manifest_path = Path::new(&package.path).join("Cargo.toml");
+            let manifest_path = package.get_file_path("Cargo.toml");
 
-            let doc = self.load_doc(manifest_path.as_path(), loader).await?;
+            let doc = self.load_doc(&manifest_path, loader).await?;
 
             if doc.is_none() {
                 continue;
@@ -120,7 +82,7 @@ impl CargoToml {
             }
 
             file_changes.push(FileChange {
-                path: manifest_path.display().to_string(),
+                path: manifest_path,
                 content: doc.to_string(),
                 update_type: FileUpdateType::Replace,
             });
@@ -171,26 +133,12 @@ impl CargoToml {
         }
     }
 
-    fn get_package_name(
+    async fn load_doc(
         &self,
-        doc: &DocumentMut,
-        package: &UpdaterPackage,
-    ) -> String {
-        doc.get("package")
-            .and_then(|p| p.as_table())
-            .and_then(|t| t.get("name"))
-            .and_then(|n| n.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or(package.name.clone())
-    }
-
-    async fn load_doc<P: AsRef<Path>>(
-        &self,
-        file_path: P,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<DocumentMut>> {
-        let file_path = file_path.as_ref().display().to_string();
-        let content = loader.get_file_content(&file_path).await?;
+        let content = loader.get_file_content(file_path).await?;
         if content.is_none() {
             return Ok(None);
         }

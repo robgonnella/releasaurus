@@ -1,6 +1,6 @@
 use log::*;
 use regex::Regex;
-use std::{path::Path, sync::LazyLock};
+use std::sync::LazyLock;
 
 use crate::{
     forge::{
@@ -30,7 +30,7 @@ impl SetupCfg {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for package in packages {
-            let file_path = Path::new(&package.path).join("setup.cfg");
+            let file_path = package.get_file_path("setup.cfg");
 
             let doc = self.load_doc(&file_path, loader).await?;
 
@@ -49,7 +49,7 @@ impl SetupCfg {
                 VERSION_REGEX.replace(&doc, updated_version).to_string();
 
             file_changes.push(FileChange {
-                path: file_path.display().to_string(),
+                path: file_path,
                 content,
                 update_type: FileUpdateType::Replace,
             });
@@ -64,11 +64,10 @@ impl SetupCfg {
 
     async fn load_doc(
         &self,
-        file_path: &Path,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<String>> {
-        let file_path = file_path.display().to_string();
-        let content = loader.get_file_content(&file_path).await?;
+        let content = loader.get_file_content(file_path).await?;
         if content.is_none() {
             return Ok(None);
         }

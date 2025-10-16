@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use log::*;
 use serde_json::{Value, json};
-use std::path::Path;
 
 use crate::{
     forge::{
@@ -9,10 +8,8 @@ use crate::{
         traits::FileLoader,
     },
     result::Result,
-    updater::{
-        framework::{Framework, UpdaterPackage},
-        traits::PackageUpdater,
-    },
+    updater::framework::{Framework, UpdaterPackage},
+    updater::traits::PackageUpdater,
 };
 
 /// PHP package updater for Composer projects.
@@ -26,13 +23,12 @@ impl PhpUpdater {
 
     /// Load and parse composer.json file from repository into serde_json
     /// Value.
-    async fn load_doc<P: AsRef<Path>>(
+    async fn load_doc(
         &self,
-        file_path: P,
+        file_path: &str,
         loader: &dyn FileLoader,
     ) -> Result<Option<Value>> {
-        let file_path = file_path.as_ref().display().to_string();
-        let content = loader.get_file_content(&file_path).await?;
+        let content = loader.get_file_content(file_path).await?;
         if content.is_none() {
             return Ok(None);
         }
@@ -50,7 +46,7 @@ impl PhpUpdater {
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
         for package in packages {
-            let file_path = Path::new(&package.path).join("composer.json");
+            let file_path = package.get_file_path("composer.json");
 
             let doc = self.load_doc(&file_path, loader).await?;
 
@@ -65,8 +61,7 @@ impl PhpUpdater {
             if let Some(obj) = doc.as_object_mut() {
                 info!(
                     "updating {} version to {}",
-                    file_path.display(),
-                    package.next_version.semver
+                    file_path, package.next_version.semver
                 );
 
                 obj.insert(
@@ -77,14 +72,14 @@ impl PhpUpdater {
                 let formatted = serde_json::to_string_pretty(&doc)?;
 
                 file_changes.push(FileChange {
-                    path: file_path.display().to_string(),
+                    path: file_path,
                     content: formatted,
                     update_type: FileUpdateType::Replace,
                 });
             } else {
                 warn!(
                     "composer.json is not a valid JSON object: {}",
-                    file_path.display()
+                    file_path
                 );
             }
         }
@@ -124,24 +119,8 @@ mod tests {
     use super::*;
     use crate::analyzer::release::Tag;
     use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
     use semver::Version as SemVer;
-
-    fn create_test_package(
-        name: &str,
-        path: &str,
-        next_version: &str,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            name: name.to_string(),
-            path: path.to_string(),
-            framework: Framework::Php,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", next_version),
-                semver: SemVer::parse(next_version).unwrap(),
-            },
-        }
-    }
 
     #[tokio::test]
     async fn test_load_doc() {
@@ -193,8 +172,12 @@ mod tests {
     #[tokio::test]
     async fn test_process_packages_single_package() {
         let updater = PhpUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Php,
+        );
 
         let composer_json = r#"{
   "name": "test/package",
@@ -231,8 +214,18 @@ mod tests {
     async fn test_process_packages_multiple_packages() {
         let updater = PhpUpdater::new();
         let packages = vec![
-            create_test_package("package-one", "packages/one", "2.0.0"),
-            create_test_package("package-two", "packages/two", "3.0.0"),
+            create_test_updater_package(
+                "package-one",
+                "packages/one",
+                "2.0.0",
+                Framework::Php,
+            ),
+            create_test_updater_package(
+                "package-two",
+                "packages/two",
+                "3.0.0",
+                Framework::Php,
+            ),
         ];
 
         let composer1_json = r#"{
@@ -291,8 +284,12 @@ mod tests {
     #[tokio::test]
     async fn test_process_packages_composer_not_found() {
         let updater = PhpUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+            Framework::Php,
+        );
 
         let mut mock_loader = MockFileLoader::new();
         mock_loader
@@ -331,10 +328,16 @@ mod tests {
         let updater = PhpUpdater::new();
 
         let packages = vec![
-            create_test_package("php-package", "packages/php", "2.0.0"),
+            create_test_updater_package(
+                "php-package",
+                "packages/php",
+                "2.0.0",
+                Framework::Php,
+            ),
             UpdaterPackage {
                 name: "node-package".to_string(),
                 path: "packages/node".to_string(),
+                workspace_root: ".".into(),
                 framework: Framework::Node,
                 next_version: Tag {
                     sha: "test-sha".to_string(),
@@ -360,8 +363,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_with_valid_composer_json() {
         let updater = PhpUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "3.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "3.0.0",
+            Framework::Php,
+        );
 
         let composer_json = r#"{
   "name": "vendor/package",
@@ -403,8 +410,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_preserves_composer_json_structure() {
         let updater = PhpUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "2.5.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.5.0",
+            Framework::Php,
+        );
 
         let composer_json = r#"{
   "name": "test/package",
@@ -449,8 +460,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_adds_version_if_missing() {
         let updater = PhpUpdater::new();
-        let package =
-            create_test_package("test-package", "packages/test", "1.0.0");
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "1.0.0",
+            Framework::Php,
+        );
 
         // composer.json without a version field
         let composer_json = r#"{
@@ -481,8 +496,18 @@ mod tests {
     async fn test_process_packages_mixed_found_and_not_found() {
         let updater = PhpUpdater::new();
         let packages = vec![
-            create_test_package("package-one", "packages/one", "2.0.0"),
-            create_test_package("package-two", "packages/two", "3.0.0"),
+            create_test_updater_package(
+                "package-one",
+                "packages/one",
+                "2.0.0",
+                Framework::Php,
+            ),
+            create_test_updater_package(
+                "package-two",
+                "packages/two",
+                "3.0.0",
+                Framework::Php,
+            ),
         ];
 
         let composer1_json = r#"{
