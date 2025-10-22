@@ -218,6 +218,9 @@ async fn gather_release_prs_by_branch(
 
         let framework = Framework::from(pkg.release_type.clone());
         let updater = framework.updater();
+
+        // only include other packages that are part of the same
+        // workspace root
         let packages = updater_packages
             .clone()
             .into_iter()
