@@ -835,7 +835,7 @@ members = ["packages/a", "packages/b"]
         // Get package names
         mock_loader
             .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
+            .with(mockall::predicate::eq("Cargo.toml"))
             .times(1)
             .returning({
                 let content = workspace_toml.to_string();
@@ -845,24 +845,25 @@ members = ["packages/a", "packages/b"]
         // Process packages - should skip workspace file
         mock_loader
             .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.toml"))
+            .with(mockall::predicate::eq("Cargo.toml"))
             .times(1)
             .returning({
                 let content = workspace_toml.to_string();
                 move |_| Ok(Some(content.clone()))
             });
 
-        // Check for workspace-level Cargo.lock
+        // Check for workspace-level Cargo.lock (normalized path)
         mock_loader
             .expect_get_file_content()
             .with(mockall::predicate::eq("Cargo.lock"))
             .times(1)
             .returning(|_| Ok(None));
 
-        // Check for package-level Cargo.lock
+        // Check for package-level Cargo.lock (same normalized path, but checked separately
+        // because processed_paths isn't populated when workspace lock doesn't exist)
         mock_loader
             .expect_get_file_content()
-            .with(mockall::predicate::eq("./Cargo.lock"))
+            .with(mockall::predicate::eq("Cargo.lock"))
             .times(1)
             .returning(|_| Ok(None));
 
