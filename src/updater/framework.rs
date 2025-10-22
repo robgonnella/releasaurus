@@ -113,7 +113,7 @@ impl UpdaterPackage {
     }
 
     /// Construct a normalized file path by joining workspace_root, path, and filename.
-    /// Strips leading "./" from the result for consistency.
+    /// Strips "./" from the result for consistency.
     pub fn get_file_path(&self, filename: &str) -> String {
         use std::path::Path;
 
@@ -123,20 +123,20 @@ impl UpdaterPackage {
 
         let path_str = full_path.display().to_string();
 
-        // Strip leading "./" for normalized paths
-        path_str.strip_prefix("./").unwrap_or(&path_str).to_string()
+        // Strip "./" for normalized paths
+        path_str.replace("./", "")
     }
 
     /// Construct a normalized workspace-level file path.
-    /// Strips leading "./" from the result for consistency.
+    /// Strips "./" from the result for consistency.
     pub fn get_workspace_file_path(&self, filename: &str) -> String {
         use std::path::Path;
 
         let full_path = Path::new(&self.workspace_root).join(filename);
         let path_str = full_path.display().to_string();
 
-        // Strip leading "./" for normalized paths
-        path_str.strip_prefix("./").unwrap_or(&path_str).to_string()
+        // Strip "./" for normalized paths
+        path_str.replace("./", "")
     }
 }
 

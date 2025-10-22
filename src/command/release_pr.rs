@@ -17,7 +17,9 @@ use crate::{
         traits::{FileLoader, Forge},
     },
     result::{PendingReleaseError, ReleasablePackage, Result},
-    updater::framework::{Framework, updater_packages_from_manifest},
+    updater::framework::{
+        Framework, UpdaterPackage, updater_packages_from_manifest,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -199,21 +201,34 @@ async fn gather_release_prs_by_branch(
             tag.name, pkg.release.notes
         );
 
+        let package_full_path = Path::new(&pkg.workspace_root)
+            .join(&pkg.path)
+            .display()
+            .to_string();
+
+        let package_full_path = package_full_path.replace("./", "");
+
+        let package_full_path = Path::new(&package_full_path);
+
         let mut file_changes: Vec<FileChange> = vec![FileChange {
             content: format!("{}\n\n", pkg.release.notes),
-            path: Path::new(&pkg.path)
-                .join("CHANGELOG.md")
-                .display()
-                .to_string(),
+            path: package_full_path.join("CHANGELOG.md").display().to_string(),
             update_type: FileUpdateType::Prepend,
         }];
 
         let framework = Framework::from(pkg.release_type.clone());
         let updater = framework.updater();
+        let packages = updater_packages
+            .clone()
+            .into_iter()
+            .filter(|p| {
+                p.framework == framework
+                    && p.workspace_root == pkg.workspace_root
+            })
+            .collect::<Vec<UpdaterPackage>>();
 
-        if let Some(more_file_changes) = updater
-            .update(updater_packages.clone(), file_loader)
-            .await?
+        if let Some(more_file_changes) =
+            updater.update(packages, file_loader).await?
         {
             file_changes.extend(more_file_changes);
         }
@@ -255,16 +270,30 @@ async fn generate_manifest(
         let tag_prefix = common::get_tag_prefix(package, &repo_name);
 
         info!(
-            "processing package: name: {}, path: {}, tag_prefix: {}",
-            package.name, package.path, tag_prefix
+            "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
+            package.name, package.workspace_root, package.path, tag_prefix
         );
 
         let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
 
-        info!("path: {}, current tag {:#?}", package.path, current_tag);
+        info!(
+            "package_name: {}, current tag {:#?}",
+            package.name, current_tag
+        );
 
         let current_sha = current_tag.clone().map(|t| t.sha);
-        let commits = forge.get_commits(&package.path, current_sha).await?;
+
+        let package_full_path =
+            Path::new(&package.workspace_root).join(&package.path);
+
+        let package_full_path = package_full_path
+            .strip_prefix("./")
+            .unwrap_or(package_full_path.as_path())
+            .display()
+            .to_string();
+
+        let commits =
+            forge.get_commits(&package_full_path, current_sha).await?;
 
         info!("processing commits for package: {}", package.name);
 
