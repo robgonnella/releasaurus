@@ -42,11 +42,12 @@ impl RubyUpdater {
         // spec.version = "1.0.0"
         // spec.version = '1.0.0'
         // s.version = "1.0.0"
-        let re = Regex::new(r#"((?:spec|s)\.version\s*=\s*)["']([^"']+)["']"#)
-            .unwrap();
+        let re =
+            Regex::new(r#"((?:spec|s)\.version\s*=\s*)(["'])([^"']+)(["'])"#)
+                .unwrap();
 
         re.replace_all(content, |caps: &regex::Captures| {
-            format!(r#"{}"{}""#, &caps[1], new_version)
+            format!("{}{}{}{}", &caps[1], &caps[2], new_version, &caps[4])
         })
         .to_string()
     }
@@ -56,10 +57,10 @@ impl RubyUpdater {
         // Match patterns like:
         // VERSION = "1.0.0"
         // VERSION = '1.0.0'
-        let re = Regex::new(r#"(VERSION\s*=\s*)["']([^"']+)["']"#).unwrap();
+        let re = Regex::new(r#"(VERSION\s*=\s*)(["'])([^"']+)(["'])"#).unwrap();
 
         re.replace_all(content, |caps: &regex::Captures| {
-            format!(r#"{}"{}""#, &caps[1], new_version)
+            format!("{}{}{}{}", &caps[1], &caps[2], new_version, &caps[4])
         })
         .to_string()
     }
@@ -242,7 +243,7 @@ end
 "#;
 
         let updated = updater.update_gemspec_version(gemspec, "2.5.0");
-        assert!(updated.contains(r#"spec.version = "2.5.0""#));
+        assert!(updated.contains(r#"spec.version = '2.5.0'"#));
     }
 
     #[test]
@@ -284,7 +285,7 @@ end
 "#;
 
         let updated = updater.update_version_file(version_rb, "2.0.0");
-        assert!(updated.contains(r#"VERSION = "2.0.0""#));
+        assert!(updated.contains(r#"VERSION = '2.0.0'"#));
     }
 
     #[test]
@@ -299,6 +300,111 @@ end
 
         let updated = updater.update_version_file(version_rb, "3.0.0");
         assert!(updated.contains(r#"VERSION = "3.0.0""#));
+    }
+
+    #[test]
+    fn test_gemspec_preserves_spacing_around_equals() {
+        let updater = RubyUpdater::new();
+
+        // Test with spaces around =
+        let gemspec_with_spaces = r#"
+  spec.version = "1.0.0"
+"#;
+        let updated =
+            updater.update_gemspec_version(gemspec_with_spaces, "2.0.0");
+        assert!(updated.contains(r#"spec.version = "2.0.0""#));
+
+        // Test with no spaces around =
+        let gemspec_no_spaces = r#"
+  spec.version="1.0.0"
+"#;
+        let updated =
+            updater.update_gemspec_version(gemspec_no_spaces, "2.0.0");
+        assert!(updated.contains(r#"spec.version="2.0.0""#));
+
+        // Test with multiple spaces
+        let gemspec_multi_spaces = r#"
+  spec.version   =   "1.0.0"
+"#;
+        let updated =
+            updater.update_gemspec_version(gemspec_multi_spaces, "2.0.0");
+        assert!(updated.contains(r#"spec.version   =   "2.0.0""#));
+    }
+
+    #[test]
+    fn test_version_file_preserves_spacing_around_equals() {
+        let updater = RubyUpdater::new();
+
+        // Test with spaces around =
+        let version_with_spaces = r#"  VERSION = "1.0.0""#;
+        let updated = updater.update_version_file(version_with_spaces, "2.0.0");
+        assert!(updated.contains(r#"VERSION = "2.0.0""#));
+
+        // Test with no spaces around =
+        let version_no_spaces = r#"  VERSION="1.0.0""#;
+        let updated = updater.update_version_file(version_no_spaces, "2.0.0");
+        assert!(updated.contains(r#"VERSION="2.0.0""#));
+
+        // Test with multiple spaces
+        let version_multi_spaces = r#"  VERSION   =   "1.0.0""#;
+        let updated =
+            updater.update_version_file(version_multi_spaces, "2.0.0");
+        assert!(updated.contains(r#"VERSION   =   "2.0.0""#));
+    }
+
+    #[test]
+    fn test_gemspec_preserves_indentation() {
+        let updater = RubyUpdater::new();
+
+        // Test with 2-space indentation
+        let gemspec_2_spaces = r#"
+Gem::Specification.new do |spec|
+  spec.version = "1.0.0"
+end
+"#;
+        let updated = updater.update_gemspec_version(gemspec_2_spaces, "2.0.0");
+        assert!(updated.contains(r#"  spec.version = "2.0.0""#));
+
+        // Test with 4-space indentation
+        let gemspec_4_spaces = r#"
+Gem::Specification.new do |spec|
+    spec.version = "1.0.0"
+end
+"#;
+        let updated = updater.update_gemspec_version(gemspec_4_spaces, "2.0.0");
+        assert!(updated.contains(r#"    spec.version = "2.0.0""#));
+
+        // Test with tab indentation
+        let gemspec_tabs = r#"
+Gem::Specification.new do |spec|
+	spec.version = "1.0.0"
+end
+"#;
+        let updated = updater.update_gemspec_version(gemspec_tabs, "2.0.0");
+        assert!(updated.contains("	spec.version = \"2.0.0\""));
+    }
+
+    #[test]
+    fn test_version_file_preserves_indentation() {
+        let updater = RubyUpdater::new();
+
+        // Test with 2-space indentation
+        let version_2_spaces = r#"
+module MyGem
+  VERSION = "1.0.0"
+end
+"#;
+        let updated = updater.update_version_file(version_2_spaces, "2.0.0");
+        assert!(updated.contains(r#"  VERSION = "2.0.0""#));
+
+        // Test with 4-space indentation
+        let version_4_spaces = r#"
+module MyGem
+    VERSION = "1.0.0"
+end
+"#;
+        let updated = updater.update_version_file(version_4_spaces, "2.0.0");
+        assert!(updated.contains(r#"    VERSION = "2.0.0""#));
     }
 
     #[tokio::test]
