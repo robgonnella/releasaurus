@@ -1,4 +1,6 @@
 //! Final release publication and tagging command implementation.
+use std::path::Path;
+
 use log::*;
 
 use crate::{
@@ -109,7 +111,15 @@ async fn create_package_release(
     let tag_prefix = common::get_tag_prefix(package, &repo_name);
     let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
     let current_sha = current_tag.clone().map(|t| t.sha);
-    let commits = forge.get_commits(&package.path, current_sha).await?;
+
+    let package_full_path = Path::new(&package.workspace_root)
+        .join(&package.path)
+        .display()
+        .to_string();
+
+    let package_full_path = package_full_path.replace("./", "");
+
+    let commits = forge.get_commits(&package_full_path, current_sha).await?;
 
     // Determine prerelease with priority: CLI override > package config > global config
     let prerelease =

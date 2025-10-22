@@ -1,5 +1,6 @@
 //! Implements the Forge trait for Gitlab
 use async_trait::async_trait;
+use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::{ContextCompat, eyre};
 use gitlab::{
@@ -20,7 +21,7 @@ use gitlab::{
                     CommitAction, CommitActionType, Commits, CommitsOrder,
                     CreateCommit,
                 },
-                files::FileRaw,
+                files::File,
                 tags::{CreateTag, Tags, TagsOrderBy},
             },
         },
@@ -51,6 +52,11 @@ use crate::{
     },
     result::Result,
 };
+
+#[derive(Debug, Deserialize)]
+struct FileInfo {
+    content: String,
+}
 
 #[derive(Debug, Deserialize)]
 struct MergeRequestInfo {
@@ -145,28 +151,28 @@ impl Gitlab {
 #[async_trait]
 impl FileLoader for Gitlab {
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
-        let endpoint = FileRaw::builder()
+        let endpoint = File::builder()
             .project(&self.project_id)
             .file_path(path)
+            .ref_("HEAD")
             .build()?;
 
         let result: std::result::Result<
-            String,
+            FileInfo,
             gitlab::api::ApiError<gitlab::RestError>,
         > = endpoint.query_async(&self.gl).await;
 
         match result {
+            Ok(file_info) => {
+                info!("found file at path: {path}");
+                let decoded = BASE64_STANDARD.decode(file_info.content)?;
+                let content = String::from_utf8(decoded)?;
+                return Ok(Some(content));
+            }
             Err(gitlab::api::ApiError::GitlabService { status, data }) => {
                 if status == StatusCode::NOT_FOUND {
                     info!("no file found for path: {path}");
                     return Ok(None);
-                }
-                // For some reason successful responses are returned in Err
-                // ¯\_(ツ)_/¯
-                if status == StatusCode::OK {
-                    info!("found file at path: {path}");
-                    let content = String::from_utf8(data)?;
-                    return Ok(Some(content));
                 }
                 let msg = format!(
                     "failed to file content from repo: status: {status}, data: {}",
@@ -190,11 +196,6 @@ impl FileLoader for Gitlab {
             Err(err) => {
                 error!("failed to get file from repo: {err}");
                 Err(eyre!("failed to get file from repo: {err}"))
-            }
-            _ => {
-                let msg = "unknown error occurred getting file from repo";
-                error!("{msg}");
-                Err(eyre!(msg))
             }
         }
     }
