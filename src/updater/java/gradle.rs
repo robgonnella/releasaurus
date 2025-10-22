@@ -75,23 +75,32 @@ impl Gradle {
         let new_version = package.next_version.semver.to_string();
 
         // Define regex patterns for different version declaration styles
+        // Each pattern uses capture groups to preserve formatting:
+        // Group 1: prefix (everything before the version string)
+        // Group 2: opening quote
+        // Group 3: version value (to be replaced)
+        // Group 4: closing quote
         let patterns = if is_kotlin {
             vec![
                 // Kotlin DSL patterns
-                Regex::new(r#"version\s*=\s*"[^"]*""#)?,
-                Regex::new(r#"version\s*=\s*'[^']*'"#)?,
-                Regex::new(r#"val\s+version\s*=\s*"[^"]*""#)?,
-                Regex::new(r#"val\s+version\s*=\s*'[^']*'"#)?,
-                Regex::new(r#"project\.version\s*=\s*"[^"]*""#)?,
-                Regex::new(r#"project\.version\s*=\s*'[^']*'"#)?,
+                Regex::new(r#"(version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(version\s*=\s*)(')([^']*)(')"#)?,
+                Regex::new(r#"(val\s+version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(val\s+version\s*=\s*)(')([^']*)(')"#)?,
+                Regex::new(r#"(project\.version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(project\.version\s*=\s*)(')([^']*)(')"#)?,
             ]
         } else {
             vec![
                 // Groovy DSL patterns
-                Regex::new(r#"version\s*=\s*["'][^"']*["']"#)?,
-                Regex::new(r#"version\s+["'][^"']*["']"#)?,
-                Regex::new(r#"def\s+version\s*=\s*["'][^"']*["']"#)?,
-                Regex::new(r#"project\.version\s*=\s*["'][^"']*["']"#)?,
+                Regex::new(r#"(version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(version\s*=\s*)(')([^']*)(')"#)?,
+                Regex::new(r#"(version\s+)(")([^"]*)(")"#)?,
+                Regex::new(r#"(version\s+)(')([^']*)(')"#)?,
+                Regex::new(r#"(def\s+version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(def\s+version\s*=\s*)(')([^']*)(')"#)?,
+                Regex::new(r#"(project\.version\s*=\s*)(")([^"]*)(")"#)?,
+                Regex::new(r#"(project\.version\s*=\s*)(')([^']*)(')"#)?,
             ]
         };
 
@@ -100,57 +109,16 @@ impl Gradle {
 
         for pattern in patterns {
             if pattern.is_match(&content) {
-                if is_kotlin {
-                    updated_content = pattern
-                        .replace_all(
-                            &updated_content,
-                            |caps: &regex::Captures| {
-                                let full_match = caps.get(0).unwrap().as_str();
-                                if full_match.contains('"') {
-                                    format!(
-                                        "{}\"{}\"",
-                                        full_match
-                                            .split('"')
-                                            .next()
-                                            .unwrap_or(""),
-                                        new_version
-                                    )
-                                } else {
-                                    format!(
-                                        "{}'{}\'",
-                                        full_match
-                                            .split('\'')
-                                            .next()
-                                            .unwrap_or(""),
-                                        new_version
-                                    )
-                                }
-                            },
+                // Use capture groups to preserve formatting
+                // $1 = prefix, $2 = opening quote, $3 = old version, $4 = closing quote
+                updated_content = pattern
+                    .replace_all(&updated_content, |caps: &regex::Captures| {
+                        format!(
+                            "{}{}{}{}",
+                            &caps[1], &caps[2], new_version, &caps[4]
                         )
-                        .to_string();
-                } else {
-                    updated_content = pattern
-                        .replace_all(
-                            &updated_content,
-                            |caps: &regex::Captures| {
-                                let full_match = caps.get(0).unwrap().as_str();
-                                let quote_char = if full_match.contains('"') {
-                                    '"'
-                                } else {
-                                    '\''
-                                };
-                                let prefix = full_match
-                                    .split(quote_char)
-                                    .next()
-                                    .unwrap_or("");
-                                format!(
-                                    "{}{}{}{}",
-                                    prefix, quote_char, new_version, quote_char
-                                )
-                            },
-                        )
-                        .to_string();
-                }
+                    })
+                    .to_string();
                 version_found = true;
                 break;
             }
@@ -498,5 +466,98 @@ repositories {
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, "packages/test/build.gradle");
         assert!(changes[0].content.contains(r#"project.version = "2.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_gradle_preserves_spacing_around_equals() {
+        let gradle = Gradle::new();
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+        );
+
+        // Test with spaces around =
+        let build_gradle_spaces = r#"
+plugins {
+    id 'java'
+}
+
+version = "1.0.0"
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/build.gradle"))
+            .times(1)
+            .returning({
+                let content = build_gradle_spaces.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/build.gradle.kts"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let packages = vec![package];
+        let result = gradle
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert!(changes[0].content.contains(r#"version = "2.0.0""#));
+    }
+
+    #[tokio::test]
+    async fn test_gradle_preserves_indentation() {
+        let gradle = Gradle::new();
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+        );
+
+        // Test with 4-space indentation
+        let build_gradle_indented = r#"
+plugins {
+    id 'java'
+}
+
+allprojects {
+    version = "1.0.0"
+}
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/build.gradle"))
+            .times(1)
+            .returning({
+                let content = build_gradle_indented.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/build.gradle.kts"))
+            .times(1)
+            .returning(|_| Ok(None));
+
+        let packages = vec![package];
+        let result = gradle
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        // Should preserve 4-space indentation
+        assert!(changes[0].content.contains(r#"    version = "2.0.0""#));
     }
 }

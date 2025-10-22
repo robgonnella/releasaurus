@@ -1,4 +1,5 @@
 use log::*;
+use regex::Regex;
 
 use crate::{
     forge::{
@@ -67,14 +68,22 @@ impl GradleProperties {
         let new_version = package.next_version.semver.to_string();
 
         // Read all lines and update version property
+        // Regex to capture: indentation, "version", spacing around =, and old version
+        let version_regex = Regex::new(r"^(\s*version\s*=\s*)(.*)$").unwrap();
+
         for line in content.lines() {
             if line.trim_start().starts_with("version") && line.contains('=') {
-                lines.push(format!("version={}", new_version));
-                version_updated = true;
-                info!(
-                    "Updated version in gradle.properties to: {}",
-                    new_version
-                );
+                if let Some(caps) = version_regex.captures(line) {
+                    // Preserve everything before the version value
+                    lines.push(format!("{}{}", &caps[1], new_version));
+                    version_updated = true;
+                    info!(
+                        "Updated version in gradle.properties to: {}",
+                        new_version
+                    );
+                } else {
+                    lines.push(line.to_string());
+                }
             } else {
                 lines.push(line.to_string());
             }
@@ -192,7 +201,7 @@ group = com.example
         assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
-        assert!(changes[0].content.contains("version=2.0.0"));
+        assert!(changes[0].content.contains("version = 2.0.0"));
     }
 
     #[tokio::test]
@@ -252,5 +261,119 @@ description=Test project
             .unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_gradle_properties_preserves_no_spacing() {
+        let gradle_props = GradleProperties::new();
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+        );
+
+        let gradle_properties = r#"
+# Project properties
+version=1.0.0
+group=com.example
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/gradle.properties"))
+            .times(1)
+            .returning({
+                let content = gradle_properties.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        let packages = vec![package];
+        let result = gradle_props
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        // Should preserve no spaces around equals
+        assert!(changes[0].content.contains("version=2.0.0"));
+    }
+
+    #[tokio::test]
+    async fn test_gradle_properties_preserves_multiple_spaces() {
+        let gradle_props = GradleProperties::new();
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+        );
+
+        let gradle_properties = r#"
+# Project properties
+version  =  1.0.0
+group = com.example
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/gradle.properties"))
+            .times(1)
+            .returning({
+                let content = gradle_properties.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        let packages = vec![package];
+        let result = gradle_props
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        // Should preserve multiple spaces around equals
+        assert!(changes[0].content.contains("version  =  2.0.0"));
+    }
+
+    #[tokio::test]
+    async fn test_gradle_properties_preserves_indentation() {
+        let gradle_props = GradleProperties::new();
+        let package = create_test_updater_package(
+            "test-package",
+            "packages/test",
+            "2.0.0",
+        );
+
+        let gradle_properties = r#"
+# Project properties
+  version = 1.0.0
+  group = com.example
+"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/test/gradle.properties"))
+            .times(1)
+            .returning({
+                let content = gradle_properties.to_string();
+                move |_| Ok(Some(content.clone()))
+            });
+
+        let packages = vec![package];
+        let result = gradle_props
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        // Should preserve leading spaces
+        assert!(changes[0].content.contains("  version = 2.0.0"));
     }
 }
