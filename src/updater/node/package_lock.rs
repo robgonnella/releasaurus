@@ -150,6 +150,14 @@ impl PackageLock {
                         && let Some(deps_obj) = deps.as_object_mut()
                     {
                         for (dep_name, dep_info) in deps_obj {
+                            // Skip workspace: and repo: protocol dependencies
+                            if let Some(version_str) = dep_info.as_str()
+                                && (version_str.starts_with("workspace:")
+                                    || version_str.starts_with("repo:"))
+                            {
+                                continue;
+                            }
+
                             if let Some((_, package)) =
                                 all_packages.iter().find(|(n, _)| n == dep_name)
                             {
@@ -167,6 +175,14 @@ impl PackageLock {
                         && let Some(dev_deps_obj) = dev_deps.as_object_mut()
                     {
                         for (dep_name, dep_info) in dev_deps_obj {
+                            // Skip workspace: and repo: protocol dependencies
+                            if let Some(version_str) = dep_info.as_str()
+                                && (version_str.starts_with("workspace:")
+                                    || version_str.starts_with("repo:"))
+                            {
+                                continue;
+                            }
+
                             if let Some((_, package)) =
                                 all_packages.iter().find(|(n, _)| n == dep_name)
                             {

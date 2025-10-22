@@ -122,18 +122,25 @@ impl YarnLock {
         let version_regex = Regex::new(r#"^(\s+version\s+)"(.*)""#)?;
 
         let mut current_yarn_package: Option<String> = None;
+        let mut skip_current_package = false;
 
         for line in content.lines() {
             // Check if this line starts a new package entry
             if let Some(caps) = package_regex.captures(line) {
                 current_yarn_package = Some(caps[1].to_string());
+                // Skip packages using workspace: or repo: protocols
+                skip_current_package =
+                    line.contains("workspace:") || line.contains("repo:");
                 lines.push(line.to_string());
                 continue;
             }
 
             // Check if this is a version line and we're in a relevant package
-            if let (Some(pkg_name), Some(caps)) =
-                (current_yarn_package.as_ref(), version_regex.captures(line))
+            if !skip_current_package
+                && let (Some(pkg_name), Some(caps)) = (
+                    current_yarn_package.as_ref(),
+                    version_regex.captures(line),
+                )
                 && let Some((_, package)) =
                     all_packages.iter().find(|(n, _)| n == pkg_name)
             {
@@ -150,6 +157,7 @@ impl YarnLock {
                     && line.contains(':'))
             {
                 current_yarn_package = None;
+                skip_current_package = false;
             }
 
             lines.push(line.to_string());

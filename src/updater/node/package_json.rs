@@ -82,7 +82,15 @@ impl PackageJson {
         }
 
         if let Some(deps) = doc[dep_type].as_object_mut() {
-            for (dep_name, _) in deps.clone() {
+            for (dep_name, dep_value) in deps.clone() {
+                // Skip workspace: and repo: protocol dependencies
+                if let Some(version_str) = dep_value.as_str()
+                    && (version_str.starts_with("workspace:")
+                        || version_str.starts_with("repo:"))
+                {
+                    continue;
+                }
+
                 if let Some((_, package)) =
                     other_packages.iter().find(|(n, _)| n == &dep_name)
                 {
@@ -107,5 +115,244 @@ impl PackageJson {
         let content = content.unwrap();
         let doc = serde_json::from_str(&content)?;
         Ok(Some(doc))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::forge::traits::MockFileLoader;
+    use crate::test_helpers::create_test_updater_package;
+    use crate::updater::framework::Framework;
+
+    #[tokio::test]
+    async fn test_preserves_workspace_protocol_dependencies() {
+        let package_json_handler = PackageJson::new();
+
+        let package_a = create_test_updater_package(
+            "package-a",
+            "packages/a",
+            "2.0.0",
+            Framework::Node,
+        );
+        let package_b = create_test_updater_package(
+            "package-b",
+            "packages/b",
+            "3.0.0",
+            Framework::Node,
+        );
+
+        let package_json_content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "workspace:*",
+    "external-lib": "^1.0.0"
+  }
+}"#;
+
+        let package_b_content = r#"{
+  "name": "package-b",
+  "version": "2.0.0"
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/a/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_json_content.to_string())));
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/b/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_b_content.to_string())));
+
+        let packages = vec![
+            ("package-a".to_string(), package_a),
+            ("package-b".to_string(), package_b),
+        ];
+
+        let result = package_json_handler
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+
+        // Find the change for package-a
+        let change_a = changes
+            .iter()
+            .find(|c| c.path == "packages/a/package.json")
+            .unwrap();
+        let content = &change_a.content;
+        // workspace:* should be preserved
+        assert!(content.contains("\"package-b\": \"workspace:*\""));
+        // Version should be updated
+        assert!(content.contains("\"version\": \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn test_preserves_repo_protocol_dependencies() {
+        let package_json_handler = PackageJson::new();
+
+        let package_a = create_test_updater_package(
+            "package-a",
+            "packages/a",
+            "2.0.0",
+            Framework::Node,
+        );
+        let package_b = create_test_updater_package(
+            "package-b",
+            "packages/b",
+            "3.0.0",
+            Framework::Node,
+        );
+
+        let package_json_content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "repo:packages/b"
+  },
+  "devDependencies": {
+    "package-b": "repo:*"
+  }
+}"#;
+
+        let package_b_content = r#"{
+  "name": "package-b",
+  "version": "2.0.0"
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/a/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_json_content.to_string())));
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/b/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_b_content.to_string())));
+
+        let packages = vec![
+            ("package-a".to_string(), package_a),
+            ("package-b".to_string(), package_b),
+        ];
+
+        let result = package_json_handler
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+
+        // Find the change for package-a
+        let change_a = changes
+            .iter()
+            .find(|c| c.path == "packages/a/package.json")
+            .unwrap();
+        let content = &change_a.content;
+        // repo: protocols should be preserved
+        assert!(content.contains("\"package-b\": \"repo:packages/b\""));
+        assert!(content.contains("\"package-b\": \"repo:*\""));
+    }
+
+    #[tokio::test]
+    async fn test_updates_normal_dependencies_while_preserving_workspace() {
+        let package_json_handler = PackageJson::new();
+
+        let package_a = create_test_updater_package(
+            "package-a",
+            "packages/a",
+            "2.0.0",
+            Framework::Node,
+        );
+        let package_b = create_test_updater_package(
+            "package-b",
+            "packages/b",
+            "3.0.0",
+            Framework::Node,
+        );
+        let package_c = create_test_updater_package(
+            "package-c",
+            "packages/c",
+            "4.0.0",
+            Framework::Node,
+        );
+
+        let package_json_content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "workspace:*",
+    "package-c": "^1.0.0"
+  }
+}"#;
+
+        let package_b_content = r#"{
+  "name": "package-b",
+  "version": "2.0.0"
+}"#;
+
+        let package_c_content = r#"{
+  "name": "package-c",
+  "version": "3.0.0"
+}"#;
+
+        let mut mock_loader = MockFileLoader::new();
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/a/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_json_content.to_string())));
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/b/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_b_content.to_string())));
+
+        mock_loader
+            .expect_get_file_content()
+            .with(mockall::predicate::eq("packages/c/package.json"))
+            .times(1)
+            .returning(move |_| Ok(Some(package_c_content.to_string())));
+
+        let packages = vec![
+            ("package-a".to_string(), package_a),
+            ("package-b".to_string(), package_b),
+            ("package-c".to_string(), package_c),
+        ];
+
+        let result = package_json_handler
+            .process_packages(&packages, &mock_loader)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 3);
+
+        // Find the change for package-a
+        let change_a = changes
+            .iter()
+            .find(|c| c.path == "packages/a/package.json")
+            .unwrap();
+        let content = &change_a.content;
+        // workspace:* should be preserved
+        assert!(content.contains("\"package-b\": \"workspace:*\""));
+        // Normal dependency should be updated
+        assert!(content.contains("\"package-c\": \"^4.0.0\""));
+        // Version should be updated
+        assert!(content.contains("\"version\": \"2.0.0\""));
     }
 }
