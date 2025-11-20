@@ -123,3 +123,227 @@ impl Gradle {
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+    };
+
+    #[tokio::test]
+    async fn updates_groovy_version_with_double_quotes() {
+        let gradle = Gradle::new();
+        let content = r#"version = "1.0.0""#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let change = result.unwrap();
+        assert_eq!(change.content, r#"version = "2.0.0""#);
+    }
+
+    #[tokio::test]
+    async fn updates_groovy_version_with_single_quotes() {
+        let gradle = Gradle::new();
+        let content = "version = '1.0.0'";
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().content, "version = '2.0.0'");
+    }
+
+    #[tokio::test]
+    async fn updates_kotlin_version() {
+        let gradle = Gradle::new();
+        let content = r#"version = "1.0.0""#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle.kts".to_string(),
+            file_basename: "build.gradle.kts".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v3.5.0", "3.5.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, true)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().content, r#"version = "3.5.0""#);
+    }
+
+    #[tokio::test]
+    async fn updates_project_version_declaration() {
+        let gradle = Gradle::new();
+        let content = r#"project.version = "1.0.0""#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v4.0.0", "4.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().content, r#"project.version = "4.0.0""#);
+    }
+
+    #[tokio::test]
+    async fn returns_none_when_no_version_found() {
+        let gradle = Gradle::new();
+        let content = "dependencies { implementation 'com.example:lib:1.0.0' }";
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn process_package_handles_multiple_manifests() {
+        let gradle = Gradle::new();
+        let groovy_manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: r#"version = "1.0.0""#.to_string(),
+        };
+        let kotlin_manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle.kts".to_string(),
+            file_basename: "build.gradle.kts".to_string(),
+            content: r#"version = "1.0.0""#.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![groovy_manifest, kotlin_manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
+    }
+
+    #[tokio::test]
+    async fn process_package_returns_none_when_no_changes() {
+        let gradle = Gradle::new();
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: "<version>1.0.0</version>".to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn preserves_whitespace_formatting() {
+        let gradle = Gradle::new();
+        let content = "version   =   \"1.0.0\"";
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = gradle
+            .update_gradle_file(&manifest, &package, false)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().content, "version   =   \"2.0.0\"");
+    }
+}

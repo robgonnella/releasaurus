@@ -109,3 +109,240 @@ impl Maven {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+    };
+
+    #[tokio::test]
+    async fn updates_project_version() {
+        let maven = Maven::new();
+        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <version>1.0.0</version>
+</project>"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap().content;
+        assert!(updated.contains("<version>2.0.0</version>"));
+    }
+
+    #[tokio::test]
+    async fn preserves_xml_structure() {
+        let maven = Maven::new();
+        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <groupId>com.example</groupId>
+    <artifactId>my-app</artifactId>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+        </dependency>
+    </dependencies>
+</project>"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap().content;
+        assert!(updated.contains("<groupId>com.example</groupId>"));
+        assert!(updated.contains("<artifactId>my-app</artifactId>"));
+        assert!(updated.contains("<version>2.0.0</version>"));
+        assert!(updated.contains("<groupId>junit</groupId>"));
+        assert!(updated.contains("<version>4.12</version>"));
+    }
+
+    #[tokio::test]
+    async fn only_updates_project_level_version() {
+        let maven = Maven::new();
+        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <version>4.12</version>
+        </dependency>
+    </dependencies>
+</project>"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap().content;
+        assert!(updated.contains("<version>3.0.0</version>"));
+        assert!(updated.contains("<version>4.12</version>"));
+    }
+
+    #[tokio::test]
+    async fn handles_multiline_xml() {
+        let maven = Maven::new();
+        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>test-app</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+</project>"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.5.0", "2.5.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap().content;
+        assert!(updated.contains("<version>2.5.0</version>"));
+        assert!(updated.contains("<modelVersion>4.0.0</modelVersion>"));
+        assert!(updated.contains("<packaging>jar</packaging>"));
+    }
+
+    #[tokio::test]
+    async fn process_package_handles_multiple_pom_files() {
+        let maven = Maven::new();
+        let manifest1 = ManifestFile {
+            is_workspace: false,
+            file_path: "module1/pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
+                .to_string(),
+        };
+        let manifest2 = ManifestFile {
+            is_workspace: false,
+            file_path: "module2/pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
+                .to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest1, manifest2],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
+    }
+
+    #[tokio::test]
+    async fn process_package_returns_none_when_no_pom_files() {
+        let maven = Maven::new();
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "build.gradle".to_string(),
+            file_basename: "build.gradle".to_string(),
+            content: "version = \"1.0.0\"".to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn handles_parent_pom_structure() {
+        let maven = Maven::new();
+        let content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>parent</artifactId>
+        <version>5.0.0</version>
+    </parent>
+    <version>1.0.0</version>
+</project>"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pom.xml".to_string(),
+            file_basename: "pom.xml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
+            framework: Framework::Java,
+        };
+
+        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap().content;
+        assert!(updated.contains("<version>3.0.0</version>"));
+        assert!(updated.contains("<version>5.0.0</version>"));
+    }
+}
