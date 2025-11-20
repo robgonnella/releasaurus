@@ -2,6 +2,7 @@
 use std::fmt::Display;
 
 use color_eyre::eyre::ContextCompat;
+use semver::Version;
 use serde::{Serialize, ser::SerializeStruct};
 
 use crate::analyzer::commit::Commit;
@@ -16,6 +17,16 @@ pub struct Tag {
     pub name: String,
     /// Semantic version parsed from tag name.
     pub semver: semver::Version,
+}
+
+impl Default for Tag {
+    fn default() -> Self {
+        Self {
+            name: "".into(),
+            semver: Version::new(0, 0, 0),
+            sha: "".into(),
+        }
+    }
 }
 
 impl Display for Tag {

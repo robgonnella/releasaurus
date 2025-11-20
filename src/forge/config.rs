@@ -13,12 +13,7 @@ pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::{
-    forge::{
-        gitea::Gitea,
-        github::Github,
-        gitlab::Gitlab,
-        traits::{FileLoader, Forge},
-    },
+    forge::{gitea::Gitea, github::Github, gitlab::Gitlab, traits::Forge},
     result::Result,
 };
 
@@ -73,25 +68,6 @@ pub enum Remote {
 impl Remote {
     /// Create forge client instance for the configured platform.
     pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
-        match self {
-            Remote::Github(config) => {
-                let forge = Github::new(config.clone())?;
-                Ok(Box::new(forge))
-            }
-            Remote::Gitlab(config) => {
-                let forge = Gitlab::new(config.clone()).await?;
-                Ok(Box::new(forge))
-            }
-            Remote::Gitea(config) => {
-                let forge = Gitea::new(config.clone())?;
-                Ok(Box::new(forge))
-            }
-        }
-    }
-
-    /// Create file loader instance for reading files from the remote
-    /// repository.
-    pub async fn get_file_loader(&self) -> Result<Box<dyn FileLoader>> {
         match self {
             Remote::Github(config) => {
                 let forge = Github::new(config.clone())?;

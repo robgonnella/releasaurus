@@ -18,16 +18,6 @@ use crate::{
     result::Result,
 };
 
-/// Interface for loading file contents from remote repositories, used for
-/// reading configuration and version files.
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait FileLoader: Sync {
-    /// Fetch file content from repository by path, returning None if file
-    /// doesn't exist.
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
-}
-
 /// Common interface for Git forge platform operations including repository
 /// access, PR management, tagging, and release publishing.
 #[cfg_attr(test, automock)]
@@ -41,6 +31,9 @@ pub trait Forge: Any {
     async fn load_config(&self) -> Result<Config>;
     /// Fetch the default branch name (e.g., "main" or "master").
     async fn default_branch(&self) -> Result<String>;
+    /// Fetch file content from repository by path, returning None if file
+    /// doesn't exist.
+    async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
     /// Create a new branch with file changes and return the commit SHA.
     async fn create_release_branch(
         &self,

@@ -48,7 +48,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::{FileLoader, Forge},
+        traits::Forge,
     },
     result::Result,
 };
@@ -149,7 +149,15 @@ impl Gitlab {
 }
 
 #[async_trait]
-impl FileLoader for Gitlab {
+impl Forge for Gitlab {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
+    fn remote_config(&self) -> RemoteConfig {
+        self.config.clone()
+    }
+
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let endpoint = File::builder()
             .project(&self.project_id)
@@ -198,17 +206,6 @@ impl FileLoader for Gitlab {
                 Err(eyre!("failed to get file from repo: {err}"))
             }
         }
-    }
-}
-
-#[async_trait]
-impl Forge for Gitlab {
-    fn repo_name(&self) -> String {
-        self.config.repo.clone()
-    }
-
-    fn remote_config(&self) -> RemoteConfig {
-        self.config.clone()
     }
 
     async fn load_config(&self) -> Result<Config> {
@@ -454,7 +451,7 @@ impl Forge for Gitlab {
 
         if merge_requests.is_empty() {
             warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
                 req.head_branch
             );
             return Ok(None);
