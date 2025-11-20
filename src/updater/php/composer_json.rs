@@ -28,40 +28,37 @@ impl ComposerJson {
                 continue;
             }
 
-            let doc = self.load_doc(&manifest.content).await?;
-
-            if doc.is_none() {
-                continue;
-            }
-
-            info!("found composer.json for package: {}", manifest.file_path);
-
-            let mut doc = doc.unwrap();
-
-            // Update the version field
-            if let Some(obj) = doc.as_object_mut() {
+            if let Some(mut doc) = self.load_doc(&manifest.content).await? {
                 info!(
-                    "updating {} version to {}",
-                    manifest.file_path, package.next_version.semver
-                );
-
-                obj.insert(
-                    "version".to_string(),
-                    json!(package.next_version.semver.to_string()),
-                );
-
-                let formatted = serde_json::to_string_pretty(&doc)?;
-
-                file_changes.push(FileChange {
-                    path: manifest.file_path.clone(),
-                    content: formatted,
-                    update_type: FileUpdateType::Replace,
-                });
-            } else {
-                warn!(
-                    "composer.json is not a valid JSON object: {}",
+                    "found composer.json for package: {}",
                     manifest.file_path
                 );
+
+                // Update the version field
+                if let Some(obj) = doc.as_object_mut() {
+                    info!(
+                        "updating {} version to {}",
+                        manifest.file_path, package.next_version.semver
+                    );
+
+                    obj.insert(
+                        "version".to_string(),
+                        json!(package.next_version.semver.to_string()),
+                    );
+
+                    let formatted = serde_json::to_string_pretty(&doc)?;
+
+                    file_changes.push(FileChange {
+                        path: manifest.file_path.clone(),
+                        content: formatted,
+                        update_type: FileUpdateType::Replace,
+                    });
+                } else {
+                    warn!(
+                        "composer.json is not a valid JSON object: {}",
+                        manifest.file_path
+                    );
+                }
             }
         }
 

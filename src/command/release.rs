@@ -65,34 +65,29 @@ async fn generate_branch_release(
         head_branch: release_branch.to_string(),
     };
 
-    let merged_pr = forge.get_merged_release_pr(req).await?;
+    if let Some(merged_pr) = forge.get_merged_release_pr(req).await? {
+        create_package_release(
+            config,
+            &remote_config,
+            forge,
+            &merged_pr,
+            package,
+            prerelease_override,
+        )
+        .await?;
 
-    if merged_pr.is_none() {
+        let req = PrLabelsRequest {
+            pr_number: merged_pr.number,
+            labels: vec![TAGGED_LABEL.into()],
+        };
+
+        forge.replace_pr_labels(req).await?;
+    } else {
         warn!(
             "releases are up-to-date for package {} and branch {release_branch}: nothing to release",
             package.name,
         );
-        return Ok(());
     }
-
-    let merged_pr = merged_pr.unwrap();
-
-    create_package_release(
-        config,
-        &remote_config,
-        forge,
-        &merged_pr,
-        package,
-        prerelease_override,
-    )
-    .await?;
-
-    let req = PrLabelsRequest {
-        pr_number: merged_pr.number,
-        labels: vec![TAGGED_LABEL.into()],
-    };
-
-    forge.replace_pr_labels(req).await?;
 
     Ok(())
 }

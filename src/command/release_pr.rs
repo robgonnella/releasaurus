@@ -184,13 +184,9 @@ async fn gather_release_prs_by_branch(
             start_details = "<details open>";
         }
 
-        if pkg.release.tag.is_none() {
-            return Err(eyre!(
-                "Projected release should have a projected tag but failed to detect one. Please report this issue here: https://github.com/robgonnella/releasaurus/issues"
-            ));
-        }
-
-        let tag = pkg.release.tag.clone().unwrap();
+        let tag = pkg.release.tag.clone().ok_or(eyre!(
+            "Projected release should have a projected tag but failed to detect one. Please report this issue here: https://github.com/robgonnella/releasaurus/issues"
+        ))?;
 
         title = format!("{title} {}", tag.name);
 
@@ -283,27 +279,22 @@ async fn get_releasable_packages(
         );
 
         let analyzer = Analyzer::new(analyzer_config)?;
-        let release = analyzer.analyze(commits, current_tag)?;
+        if let Some(release) = analyzer.analyze(commits, current_tag)? {
+            info!("package: {}, release: {:#?}", package.name, release);
 
-        info!("package: {}, release: {:#?}", package.name, release);
+            let release_type =
+                package.release_type.clone().unwrap_or(ReleaseType::Generic);
 
-        if release.is_none() {
+            manifest.push(ReleasablePackage {
+                name: package.name.clone(),
+                path: package.path.clone(),
+                workspace_root: package.workspace_root.clone(),
+                release_type,
+                release,
+            });
+        } else {
             info!("nothing to release for package: {}", package.name);
-            continue;
         }
-
-        let release = release.unwrap();
-
-        let release_type =
-            package.release_type.clone().unwrap_or(ReleaseType::Generic);
-
-        manifest.push(ReleasablePackage {
-            name: package.name.clone(),
-            path: package.path.clone(),
-            workspace_root: package.workspace_root.clone(),
-            release_type,
-            release,
-        });
     }
 
     Ok(manifest)

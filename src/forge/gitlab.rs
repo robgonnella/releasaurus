@@ -209,26 +209,24 @@ impl Forge for Gitlab {
     }
 
     async fn load_config(&self) -> Result<Config> {
-        let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
+        if let Some(content) =
+            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+        {
+            let config: Config = toml::from_str(&content)?;
 
-        if content.is_none() {
+            let mut config_search_depth = config.first_release_search_depth;
+            if config_search_depth == 0 {
+                config_search_depth = u64::MAX;
+            }
+
+            let mut search_depth = self.commit_search_depth.lock().await;
+            *search_depth = config_search_depth;
+
+            Ok(config)
+        } else {
             info!("repository configuration not found: using default");
-            return Ok(Config::default());
+            Ok(Config::default())
         }
-
-        let content = content.unwrap();
-
-        let config: Config = toml::from_str(&content)?;
-
-        let mut config_search_depth = config.first_release_search_depth;
-        if config_search_depth == 0 {
-            config_search_depth = u64::MAX;
-        }
-
-        let mut search_depth = self.commit_search_depth.lock().await;
-        *search_depth = config_search_depth;
-
-        Ok(config)
     }
 
     async fn default_branch(&self) -> Result<String> {

@@ -42,31 +42,26 @@ impl Gemspec {
 
         for manifest in package.manifest_files.iter() {
             let file_path = Path::new(&manifest.file_basename);
-            let file_ext = file_path.extension();
 
-            if file_ext.is_none() {
-                continue;
-            }
+            if let Some(file_ext) = file_path.extension() {
+                if file_ext.display().to_string() != "gemspec" {
+                    continue;
+                }
 
-            let file_ext = file_ext.unwrap();
+                info!("processing gemspec file: {}", manifest.file_basename);
 
-            if file_ext.display().to_string() != "gemspec" {
-                continue;
-            }
+                let updated_content = self.update_version(
+                    &manifest.content,
+                    &package.next_version.semver.to_string(),
+                );
 
-            info!("processing gemspec file: {}", manifest.file_basename);
-
-            let updated_content = self.update_version(
-                &manifest.content,
-                &package.next_version.semver.to_string(),
-            );
-
-            if updated_content != manifest.content {
-                file_changes.push(FileChange {
-                    path: manifest.file_path.clone(),
-                    content: updated_content,
-                    update_type: FileUpdateType::Replace,
-                });
+                if updated_content != manifest.content {
+                    file_changes.push(FileChange {
+                        path: manifest.file_path.clone(),
+                        content: updated_content,
+                        update_type: FileUpdateType::Replace,
+                    });
+                }
             }
         }
 
