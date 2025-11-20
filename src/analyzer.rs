@@ -59,11 +59,11 @@ impl Analyzer {
 
     fn process_first_release(&self, release: &mut Release) -> Result<()> {
         // this is the first release
-        let mut semver = semver::Version::parse("0.1.0").unwrap();
+        let mut semver = semver::Version::parse("0.1.0")?;
 
         // Handle prerelease for first release
         if let Some(ref prerelease_id) = self.config.prerelease {
-            semver = helpers::add_prerelease(semver, prerelease_id);
+            semver = helpers::add_prerelease(semver, prerelease_id)?;
         }
 
         let mut tag_name = semver.to_string();
@@ -113,7 +113,7 @@ impl Analyzer {
                 &commits,
                 prerelease_id,
                 version_updater,
-            )
+            )?
         } else {
             // No prerelease requested
             if current.semver.pre.is_empty() {
@@ -155,20 +155,21 @@ impl Analyzer {
         commits: &[String],
         prerelease_id: &str,
         version_updater: VersionUpdater,
-    ) -> Version {
+    ) -> Result<Version> {
         // User wants a prerelease
         if current.semver.pre.is_empty() {
             // Currently stable, starting a prerelease
             let next_stable =
                 version_updater.increment(&current.semver, commits);
-            helpers::add_prerelease(next_stable, prerelease_id)
+            let version = helpers::add_prerelease(next_stable, prerelease_id)?;
+            Ok(version)
         } else {
             // Currently in a prerelease
             let current_pre_id =
                 current.semver.pre.as_str().split('.').next().unwrap_or("");
             if current_pre_id == prerelease_id {
                 // Same prerelease identifier - increment it
-                version_updater.increment(&current.semver, commits)
+                Ok(version_updater.increment(&current.semver, commits))
             } else {
                 // Different prerelease identifier - switch to new one
                 // Graduate to stable, calculate next version, then add new prerelease
@@ -176,7 +177,9 @@ impl Analyzer {
                     helpers::graduate_prerelease(&current.semver);
                 let stable_next =
                     version_updater.increment(&stable_current, commits);
-                helpers::add_prerelease(stable_next, prerelease_id)
+                let version =
+                    helpers::add_prerelease(stable_next, prerelease_id)?;
+                Ok(version)
             }
         }
     }
