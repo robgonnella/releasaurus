@@ -295,25 +295,24 @@ impl Forge for Gitea {
     }
 
     async fn load_config(&self) -> Result<Config> {
-        let content = self.get_file_content(DEFAULT_CONFIG_FILE).await?;
+        if let Some(content) =
+            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+        {
+            let config: Config = toml::from_str(&content)?;
 
-        if content.is_none() {
+            let mut config_search_depth = config.first_release_search_depth;
+            if config_search_depth == 0 {
+                config_search_depth = u64::MAX;
+            }
+
+            let mut search_depth = self.commit_search_depth.lock().await;
+            *search_depth = config_search_depth;
+
+            Ok(config)
+        } else {
             info!("configuration not found in repo: using default");
-            return Ok(Config::default());
+            Ok(Config::default())
         }
-
-        let content = content.unwrap();
-        let config: Config = toml::from_str(&content)?;
-
-        let mut config_search_depth = config.first_release_search_depth;
-        if config_search_depth == 0 {
-            config_search_depth = u64::MAX;
-        }
-
-        let mut search_depth = self.commit_search_depth.lock().await;
-        *search_depth = config_search_depth;
-
-        Ok(config)
     }
 
     async fn default_branch(&self) -> Result<String> {
@@ -543,24 +542,22 @@ impl Forge for Gitea {
             }
         }
 
-        if pr.is_none() {
+        if let Some(pr) = pr {
+            info!(
+                "found open release pr: {} for branch {}",
+                pr.number, req.head_branch
+            );
+
+            let sha = pr.head.sha;
+
+            Ok(Some(PullRequest {
+                number: pr.number,
+                sha,
+            }))
+        } else {
             warn!("No open release PRs found for branch {}", req.head_branch);
-            return Ok(None);
+            Ok(None)
         }
-
-        let pr = pr.unwrap();
-
-        info!(
-            "found open release pr: {} for branch {}",
-            pr.number, req.head_branch
-        );
-
-        let sha = pr.head.sha;
-
-        Ok(Some(PullRequest {
-            number: pr.number,
-            sha,
-        }))
     }
 
     async fn get_merged_release_pr(
@@ -610,26 +607,24 @@ impl Forge for Gitea {
             }
         }
 
-        if pr.is_none() {
+        if let Some(pr) = pr {
+            info!("found merged release pr: {}", pr.number);
+
+            let sha = pr.merge_commit_sha.ok_or_else(|| {
+                eyre!("no merge_commit_sha found for pr {}", pr.number)
+            })?;
+
+            Ok(Some(PullRequest {
+                number: pr.number,
+                sha,
+            }))
+        } else {
             warn!(
                 "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
                 req.head_branch,
             );
-            return Ok(None);
+            Ok(None)
         }
-
-        let pr = pr.unwrap();
-
-        info!("found merged release pr: {}", pr.number);
-
-        let sha = pr.merge_commit_sha.ok_or_else(|| {
-            eyre!("no merge_commit_sha found for pr {}", pr.number)
-        })?;
-
-        Ok(Some(PullRequest {
-            number: pr.number,
-            sha,
-        }))
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
