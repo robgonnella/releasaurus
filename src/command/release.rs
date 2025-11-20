@@ -943,4 +943,209 @@ mod tests {
 
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_execute_with_multiple_packages() {
+        let config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "package-a",
+                "packages/a",
+                Some(ReleaseType::Node),
+                None,
+            ),
+            test_helpers::create_test_package_config(
+                "package-b",
+                "packages/b",
+                Some(ReleaseType::Rust),
+                None,
+            ),
+        ]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_default_branch()
+            .times(3) // Once for initial call, twice for each package
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_remote_config()
+            .times(2)
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(2)
+            .returning(|_| Ok(None));
+
+        let result = execute(Box::new(mock_forge), None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_separate_pull_requests() {
+        let mut config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "package-a",
+                "packages/a",
+                Some(ReleaseType::Node),
+                None,
+            ),
+        ]);
+        config.separate_pull_requests = true;
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_load_config()
+            .times(1)
+            .returning(move || Ok(config.clone()));
+
+        mock_forge
+            .expect_default_branch()
+            .times(2)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_remote_config()
+            .times(1)
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.head_branch == "releasaurus-release-main-package-a"
+            })
+            .returning(|_| Ok(None));
+
+        let result = execute(Box::new(mock_forge), None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_with_nested_package_path() {
+        let config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "nested-package",
+                "packages/nested/deep",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_remote_config()
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge
+            .expect_get_commits()
+            .times(1)
+            .withf(|path, _| path == "packages/nested/deep")
+            .returning(|_, _| {
+                Ok(vec![ForgeCommit {
+                    id: "commit1".to_string(),
+                    link: "https://github.com/test/repo/commit/commit1"
+                        .to_string(),
+                    author_name: "Test".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: new feature".to_string(),
+                    timestamp: 1000,
+                }])
+            });
+
+        mock_forge
+            .expect_tag_commit()
+            .times(1)
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(1)
+            .returning(|_, _, _| Ok(()));
+
+        let merged_pr = PullRequest {
+            number: 1,
+            sha: "pr-sha".to_string(),
+        };
+
+        let result = create_package_release(
+            &config,
+            &test_helpers::create_test_remote_config(),
+            &mock_forge,
+            &merged_pr,
+            &config.packages[0],
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_generate_branch_release_with_custom_branch_name() {
+        let config = test_helpers::create_test_config(vec![
+            test_helpers::create_test_package_config(
+                "my-package",
+                ".",
+                Some(ReleaseType::Generic),
+                None,
+            ),
+        ]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .times(1)
+            .returning(|| Ok("develop".to_string()));
+
+        mock_forge
+            .expect_remote_config()
+            .times(1)
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(1)
+            .withf(|req| {
+                req.base_branch == "develop"
+                    && req.head_branch == "custom-release-branch"
+            })
+            .returning(|_| Ok(None));
+
+        let result = generate_branch_release(
+            &mock_forge,
+            &config.packages[0],
+            "custom-release-branch",
+            &config,
+            None,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
 }
