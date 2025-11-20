@@ -22,58 +22,60 @@ impl PyProject {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename == "pyproject.toml" {
-                let mut doc = self.load_doc(&manifest.content)?;
+            if manifest.file_basename != "pyproject.toml" {
+                continue;
+            }
 
-                if let Some(project) = doc["project"].as_table_mut() {
-                    if project.get("dynamic").is_some() {
-                        info!(
-                            "dynamic version found in pyproject.toml: skipping update"
-                        );
-                        continue;
-                    }
+            let mut doc = self.load_doc(&manifest.content)?;
 
+            if let Some(project) = doc["project"].as_table_mut() {
+                if project.get("dynamic").is_some() {
                     info!(
-                        "updating {} project version to {}",
-                        manifest.file_path, package.next_version.semver
+                        "dynamic version found in pyproject.toml: skipping update"
                     );
-
-                    project["version"] =
-                        value(package.next_version.semver.to_string());
-
-                    file_changes.push(FileChange {
-                        path: manifest.file_path.clone(),
-                        content: doc.to_string(),
-                        update_type: FileUpdateType::Replace,
-                    });
-
                     continue;
                 }
 
-                if let Some(tool) = doc["tool"].as_table_mut()
-                    && let Some(project) = tool["poetry"].as_table_mut()
-                {
-                    if project.get("dynamic").is_some() {
-                        info!(
-                            "dynamic version found in pyproject.toml: skipping update"
-                        );
-                        continue;
-                    }
+                info!(
+                    "updating {} project version to {}",
+                    manifest.file_path, package.next_version.semver
+                );
 
+                project["version"] =
+                    value(package.next_version.semver.to_string());
+
+                file_changes.push(FileChange {
+                    path: manifest.file_path.clone(),
+                    content: doc.to_string(),
+                    update_type: FileUpdateType::Replace,
+                });
+
+                continue;
+            }
+
+            if let Some(tool) = doc["tool"].as_table_mut()
+                && let Some(project) = tool["poetry"].as_table_mut()
+            {
+                if project.get("dynamic").is_some() {
                     info!(
-                        "updating {} tool.poetry version to {}",
-                        manifest.file_path, package.next_version.semver
+                        "dynamic version found in pyproject.toml: skipping update"
                     );
-
-                    project["version"] =
-                        value(package.next_version.semver.to_string());
-
-                    file_changes.push(FileChange {
-                        path: manifest.file_path.clone(),
-                        content: doc.to_string(),
-                        update_type: FileUpdateType::Replace,
-                    });
+                    continue;
                 }
+
+                info!(
+                    "updating {} tool.poetry version to {}",
+                    manifest.file_path, package.next_version.semver
+                );
+
+                project["version"] =
+                    value(package.next_version.semver.to_string());
+
+                file_changes.push(FileChange {
+                    path: manifest.file_path.clone(),
+                    content: doc.to_string(),
+                    update_type: FileUpdateType::Replace,
+                });
             }
         }
 
@@ -87,5 +89,240 @@ impl PyProject {
     fn load_doc(&self, content: &str) -> Result<DocumentMut> {
         let doc = content.parse::<DocumentMut>()?;
         Ok(doc)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+    };
+
+    #[tokio::test]
+    async fn updates_project_version() {
+        let pyproject = PyProject::new();
+        let content = r#"[project]
+name = "my-package"
+version = "1.0.0"
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("version = \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn updates_tool_poetry_version() {
+        let pyproject = PyProject::new();
+        let content = r#"[tool.poetry]
+name = "my-package"
+version = "1.0.0"
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("version = \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn skips_dynamic_version_in_project_section() {
+        let pyproject = PyProject::new();
+        let content = r#"[project]
+name = "my-package"
+version = "1.0.0"
+dynamic = ["version"]
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn skips_dynamic_version_in_tool_poetry_section() {
+        let pyproject = PyProject::new();
+        let content = r#"[tool.poetry]
+name = "my-package"
+version = "1.0.0"
+dynamic = ["version"]
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn preserves_other_fields() {
+        let pyproject = PyProject::new();
+        let content = r#"[project]
+name = "my-package"
+version = "1.0.0"
+description = "A test package"
+requires-python = ">=3.8"
+
+[project.dependencies]
+requests = "^2.28.0"
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("version = \"2.0.0\""));
+        assert!(updated.contains("description = \"A test package\""));
+        assert!(updated.contains("requires-python = \">=3.8\""));
+        assert!(updated.contains("requests = \"^2.28.0\""));
+    }
+
+    #[tokio::test]
+    async fn returns_none_when_no_project_or_poetry_sections() {
+        let pyproject = PyProject::new();
+        let content = r#"[build-system]
+requires = ["setuptools", "wheel"]
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn process_package_handles_multiple_pyproject_files() {
+        let pyproject = PyProject::new();
+        let manifest1 = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: "[project]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
+                .to_string(),
+        };
+        let manifest2 = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/b/pyproject.toml".to_string(),
+            file_basename: "pyproject.toml".to_string(),
+            content: "[project]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
+                .to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest1, manifest2],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
+    }
+
+    #[tokio::test]
+    async fn process_package_returns_none_when_no_pyproject_files() {
+        let pyproject = PyProject::new();
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "setup.py".to_string(),
+            file_basename: "setup.py".to_string(),
+            content: "setup(name='my-package', version='1.0.0')".to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Python,
+        };
+
+        let result = pyproject.process_package(&package).await.unwrap();
+
+        assert!(result.is_none());
     }
 }
