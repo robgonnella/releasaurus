@@ -1,6 +1,7 @@
 use log::*;
 use regex::Regex;
 use semver::{Prerelease, Version};
+use std::sync::LazyLock;
 
 use crate::{
     analyzer::{
@@ -8,7 +9,12 @@ use crate::{
         release::Release,
     },
     forge::request::ForgeCommit,
+    result::Result,
 };
+
+/// Matches 3 or more consecutive new lines
+static EXTRA_NEW_LINES_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\n{3,}").unwrap());
 
 /// Add a parsed commit to the release and update the release SHA and
 /// timestamp to reflect the latest commit.
@@ -47,15 +53,20 @@ pub fn update_release_with_commit(
 /// Normalize changelog formatting by replacing consecutive blank lines (3+)
 /// with double newlines and trimming whitespace.
 pub fn strip_extra_lines(changelog: &str) -> String {
-    let pattern = Regex::new(r"\n{3,}").unwrap();
-    pattern.replace_all(changelog, "\n\n").trim().to_string()
+    EXTRA_NEW_LINES_REGEX
+        .replace_all(changelog, "\n\n")
+        .trim()
+        .to_string()
 }
 
 /// Adds a prerelease identifier to a stable version (e.g., "1.1.0" with "alpha" -> "1.1.0-alpha.1").
-pub fn add_prerelease(mut version: Version, identifier: &str) -> Version {
+pub fn add_prerelease(
+    mut version: Version,
+    identifier: &str,
+) -> Result<Version> {
     let pre_str = format!("{}.1", identifier);
-    version.pre = Prerelease::new(&pre_str).unwrap();
-    version
+    version.pre = Prerelease::new(&pre_str)?;
+    Ok(version)
 }
 
 /// Removes prerelease identifiers from a version (e.g., "1.0.0-alpha.5" -> "1.0.0").
@@ -564,15 +575,15 @@ mod tests {
     #[test]
     fn test_add_prerelease() {
         let version = Version::parse("1.0.0").unwrap();
-        let result = add_prerelease(version, "alpha");
+        let result = add_prerelease(version, "alpha").unwrap();
         assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
 
         let version = Version::parse("2.3.4").unwrap();
-        let result = add_prerelease(version, "beta");
+        let result = add_prerelease(version, "beta").unwrap();
         assert_eq!(result, Version::parse("2.3.4-beta.1").unwrap());
 
         let version = Version::parse("0.1.0").unwrap();
-        let result = add_prerelease(version, "rc");
+        let result = add_prerelease(version, "rc").unwrap();
         assert_eq!(result, Version::parse("0.1.0-rc.1").unwrap());
     }
 
@@ -580,7 +591,7 @@ mod tests {
     fn test_add_prerelease_to_prerelease_version() {
         // Adding prerelease to an existing prerelease replaces it
         let version = Version::parse("1.0.0-alpha.5").unwrap();
-        let result = add_prerelease(version, "beta");
+        let result = add_prerelease(version, "beta").unwrap();
         assert_eq!(result, Version::parse("1.0.0-beta.1").unwrap());
     }
 

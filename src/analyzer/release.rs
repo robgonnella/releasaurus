@@ -1,9 +1,7 @@
 //! Data types for releases, tags, and commits.
-use std::fmt::Display;
-
-use color_eyre::eyre::ContextCompat;
 use semver::Version;
 use serde::{Serialize, ser::SerializeStruct};
+use std::fmt::Display;
 
 use crate::analyzer::commit::Commit;
 
@@ -86,11 +84,7 @@ impl Serialize for Release {
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_struct("Release", 5)?;
-        let tag = &self
-            .tag
-            .clone()
-            .wrap_err("failed to find projected tag for release")
-            .unwrap();
+        let tag = &self.tag.clone().unwrap_or_default();
         s.serialize_field("link", &self.link)?;
         s.serialize_field("version", &tag.semver.to_string())?;
         s.serialize_field("sha", &self.sha)?;
