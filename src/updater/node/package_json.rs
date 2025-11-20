@@ -102,3 +102,333 @@ impl PackageJson {
         Ok(doc)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+    };
+
+    #[tokio::test]
+    async fn updates_version_field() {
+        let package_json = PackageJson::new();
+        let content = r#"{"name":"my-package","version":"1.0.0"}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json.process_package(&package, &[]).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"version\": \"2.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn updates_dependencies_to_workspace_packages() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "^1.0.0"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package_a = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+        let package_b = UpdaterPackage {
+            package_name: "package-b".to_string(),
+            workspace_root: "packages/b".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json
+            .process_package(&package_a, &[package_a.clone(), package_b])
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn updates_dev_dependencies_to_workspace_packages() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "devDependencies": {
+    "package-b": "^1.0.0"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package_a = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+        let package_b = UpdaterPackage {
+            package_name: "package-b".to_string(),
+            workspace_root: "packages/b".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json
+            .process_package(&package_a, &[package_a.clone(), package_b])
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn skips_workspace_protocol_dependencies() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "workspace:^1.0.0"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package_a = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+        let package_b = UpdaterPackage {
+            package_name: "package-b".to_string(),
+            workspace_root: "packages/b".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json
+            .process_package(&package_a, &[package_a.clone(), package_b])
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"package-b\": \"workspace:^1.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn skips_repo_protocol_dependencies() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "repo:^1.0.0"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package_a = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+        let package_b = UpdaterPackage {
+            package_name: "package-b".to_string(),
+            workspace_root: "packages/b".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json
+            .process_package(&package_a, &[package_a.clone(), package_b])
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"package-b\": \"repo:^1.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn skips_workspace_root_package_json() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "monorepo",
+  "version": "1.0.0",
+  "workspaces": ["packages/*"],
+  "dependencies": {
+    "package-a": "^1.0.0"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package_root = UpdaterPackage {
+            package_name: "monorepo".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+        let package_a = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json
+            .process_package(&package_root, &[package_root.clone(), package_a])
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"package-a\": \"^1.0.0\""));
+    }
+
+    #[tokio::test]
+    async fn process_package_handles_multiple_package_json_files() {
+        let package_json = PackageJson::new();
+        let manifest1 = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: r#"{"name":"package-a","version":"1.0.0"}"#.to_string(),
+        };
+        let manifest2 = ManifestFile {
+            is_workspace: false,
+            file_path: "packages/a/subdir/package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: r#"{"name":"package-a-sub","version":"1.0.0"}"#
+                .to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "package-a".to_string(),
+            workspace_root: "packages/a".to_string(),
+            manifest_files: vec![manifest1, manifest2],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json.process_package(&package, &[]).await.unwrap();
+
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 2);
+        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
+    }
+
+    #[tokio::test]
+    async fn process_package_returns_none_when_no_package_json_files() {
+        let package_json = PackageJson::new();
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "Cargo.toml".to_string(),
+            file_basename: "Cargo.toml".to_string(),
+            content: "[package]\nversion = \"1.0.0\"".to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json.process_package(&package, &[]).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn preserves_other_fields_in_package_json() {
+        let package_json = PackageJson::new();
+        let content = r#"{
+  "name": "my-package",
+  "version": "1.0.0",
+  "description": "A test package",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  }
+}"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "package.json".to_string(),
+            file_basename: "package.json".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "my-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::Node,
+        };
+
+        let result = package_json.process_package(&package, &[]).await.unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        assert!(updated.contains("\"version\": \"2.0.0\""));
+        assert!(updated.contains("\"description\": \"A test package\""));
+        assert!(updated.contains("\"main\": \"index.js\""));
+        assert!(updated.contains("\"test\": \"jest\""));
+    }
+}
