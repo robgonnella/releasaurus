@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    forge::{request::FileChange, traits::FileLoader},
+    forge::request::FileChange,
     result::Result,
     updater::{framework::UpdaterPackage, traits::PackageUpdater},
 };
@@ -20,8 +20,8 @@ impl GenericUpdater {
 impl PackageUpdater for GenericUpdater {
     async fn update(
         &self,
-        _packages: Vec<UpdaterPackage>,
-        _loader: &dyn FileLoader,
+        _package: &UpdaterPackage,
+        _workspace_packages: Vec<UpdaterPackage>,
     ) -> Result<Option<Vec<FileChange>>> {
         // nothing to do for generic updater
         Ok(None)

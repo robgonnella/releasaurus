@@ -115,9 +115,8 @@ async fn create_package_release(
     let package_full_path = Path::new(&package.workspace_root)
         .join(&package.path)
         .display()
-        .to_string();
-
-    let package_full_path = package_full_path.replace("./", "");
+        .to_string()
+        .replace("./", "");
 
     let commits = forge.get_commits(&package_full_path, current_sha).await?;
 

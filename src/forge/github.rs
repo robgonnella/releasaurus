@@ -70,7 +70,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::{FileLoader, Forge},
+        traits::Forge,
     },
     result::Result,
 };
@@ -308,7 +308,15 @@ impl Github {
 }
 
 #[async_trait]
-impl FileLoader for Github {
+impl Forge for Github {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
+    fn remote_config(&self) -> RemoteConfig {
+        self.config.clone()
+    }
+
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let result = self
             .instance
@@ -354,17 +362,6 @@ impl FileLoader for Github {
                 }
             }
         }
-    }
-}
-
-#[async_trait]
-impl Forge for Github {
-    fn repo_name(&self) -> String {
-        self.config.repo.clone()
-    }
-
-    fn remote_config(&self) -> RemoteConfig {
-        self.config.clone()
     }
 
     async fn load_config(&self) -> Result<Config> {

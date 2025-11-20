@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    forge::{request::FileChange, traits::FileLoader},
-    result::Result,
+    forge::request::FileChange, result::Result,
     updater::framework::UpdaterPackage,
 };
 
@@ -14,7 +13,7 @@ pub trait PackageUpdater {
     /// files for the package's language/framework.
     async fn update(
         &self,
-        packages: Vec<UpdaterPackage>,
-        loader: &dyn FileLoader,
+        package: &UpdaterPackage,
+        workspace_packages: Vec<UpdaterPackage>,
     ) -> Result<Option<Vec<FileChange>>>;
 }

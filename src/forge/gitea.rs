@@ -27,7 +27,7 @@ use crate::{
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
             UpdatePrRequest,
         },
-        traits::{FileLoader, Forge},
+        traits::Forge,
     },
     result::Result,
 };
@@ -272,7 +272,15 @@ impl Gitea {
 }
 
 #[async_trait]
-impl FileLoader for Gitea {
+impl Forge for Gitea {
+    fn repo_name(&self) -> String {
+        self.config.repo.clone()
+    }
+
+    fn remote_config(&self) -> RemoteConfig {
+        self.config.clone()
+    }
+
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let raw_url = self.base_url.join(&format!("raw/{path}"))?;
         let request = self.client.get(raw_url).build()?;
@@ -284,17 +292,6 @@ impl FileLoader for Gitea {
         let result = response.error_for_status()?;
         let content = result.text().await?;
         Ok(Some(content))
-    }
-}
-
-#[async_trait]
-impl Forge for Gitea {
-    fn repo_name(&self) -> String {
-        self.config.repo.clone()
-    }
-
-    fn remote_config(&self) -> RemoteConfig {
-        self.config.clone()
     }
 
     async fn load_config(&self) -> Result<Config> {

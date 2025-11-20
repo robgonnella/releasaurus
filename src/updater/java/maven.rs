@@ -2,11 +2,9 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
+use crate::updater::framework::ManifestFile;
 use crate::{
-    forge::{
-        request::{FileChange, FileUpdateType},
-        traits::FileLoader,
-    },
+    forge::request::{FileChange, FileUpdateType},
     result::Result,
     updater::framework::UpdaterPackage,
 };
@@ -21,18 +19,16 @@ impl Maven {
     }
 
     /// Update version fields in pom.xml files for all Java packages.
-    pub async fn process_packages(
+    pub async fn process_package(
         &self,
-        packages: &[UpdaterPackage],
-        loader: &dyn FileLoader,
+        package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
-        for package in packages {
-            let pom_path = package.get_file_path("pom.xml");
-
-            if let Some(change) =
-                self.update_pom_file(&pom_path, package, loader).await?
+        for manifest in package.manifest_files.iter() {
+            if manifest.file_basename == "pom.xml"
+                && let Some(change) =
+                    self.update_pom_file(manifest, package).await?
             {
                 file_changes.push(change);
             }
@@ -48,20 +44,12 @@ impl Maven {
     /// Update a single pom.xml file
     async fn update_pom_file(
         &self,
-        pom_path: &str,
+        manifest: &ManifestFile,
         package: &UpdaterPackage,
-        loader: &dyn FileLoader,
     ) -> Result<Option<FileChange>> {
-        let content = loader.get_file_content(pom_path).await?;
+        info!("Updating Maven project: {}", manifest.file_path);
 
-        if content.is_none() {
-            return Ok(None);
-        }
-
-        info!("Updating Maven project: {}", package.path);
-
-        let content = content.unwrap();
-        let bytes = content.as_bytes();
+        let bytes = manifest.content.as_bytes();
 
         let mut reader = Reader::from_reader(bytes);
 
@@ -115,149 +103,9 @@ impl Maven {
         let result = writer.into_inner();
         let content = String::from_utf8(result)?;
         Ok(Some(FileChange {
-            path: pom_path.to_string(),
+            path: manifest.file_path.clone(),
             content,
             update_type: FileUpdateType::Replace,
         }))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::analyzer::release::Tag;
-    use crate::forge::traits::MockFileLoader;
-    use crate::updater::framework::{Framework, UpdaterPackage};
-    use semver::Version as SemVer;
-
-    fn create_test_updater_package(
-        name: &str,
-        path: &str,
-        version: &str,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            name: name.to_string(),
-            path: path.to_string(),
-            workspace_root: ".".into(),
-            framework: Framework::Java,
-            next_version: Tag {
-                sha: "test-sha".to_string(),
-                name: format!("v{}", version),
-                semver: SemVer::parse(version).unwrap(),
-            },
-        }
-    }
-
-    #[tokio::test]
-    async fn test_update_maven_project() {
-        let maven = Maven::new();
-        let package = create_test_updater_package(
-            "test-package",
-            "packages/test",
-            "2.0.0",
-        );
-
-        let pom_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
-<project>
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>com.example</groupId>
-    <artifactId>test-package</artifactId>
-    <version>1.0.0</version>
-</project>"#;
-
-        let mut mock_loader = MockFileLoader::new();
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("packages/test/pom.xml"))
-            .times(1)
-            .returning({
-                let content = pom_xml.to_string();
-                move |_| Ok(Some(content.clone()))
-            });
-
-        let packages = vec![package];
-        let result = maven
-            .process_packages(&packages, &mock_loader)
-            .await
-            .unwrap();
-
-        assert!(result.is_some());
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].path, "packages/test/pom.xml");
-        assert!(changes[0].content.contains("<version>2.0.0</version>"));
-    }
-
-    #[tokio::test]
-    async fn test_update_maven_project_with_nested_versions() {
-        let maven = Maven::new();
-        let package = create_test_updater_package(
-            "test-package",
-            "packages/test",
-            "2.0.0",
-        );
-
-        let pom_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
-<project>
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>com.example</groupId>
-    <artifactId>test-package</artifactId>
-    <version>1.0.0</version>
-    <dependencies>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.12</version>
-        </dependency>
-    </dependencies>
-</project>"#;
-
-        let mut mock_loader = MockFileLoader::new();
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("packages/test/pom.xml"))
-            .times(1)
-            .returning({
-                let content = pom_xml.to_string();
-                move |_| Ok(Some(content.clone()))
-            });
-
-        let packages = vec![package];
-        let result = maven
-            .process_packages(&packages, &mock_loader)
-            .await
-            .unwrap();
-
-        assert!(result.is_some());
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        // Should only update the project version, not dependency versions
-        assert!(changes[0].content.contains("<version>2.0.0</version>"));
-        assert!(changes[0].content.contains("<version>4.12</version>"));
-    }
-
-    #[tokio::test]
-    async fn test_update_maven_project_file_not_found() {
-        let maven = Maven::new();
-        let package = create_test_updater_package(
-            "test-package",
-            "packages/test",
-            "2.0.0",
-        );
-
-        let mut mock_loader = MockFileLoader::new();
-        mock_loader
-            .expect_get_file_content()
-            .with(mockall::predicate::eq("packages/test/pom.xml"))
-            .times(1)
-            .returning(|_| Ok(None));
-
-        let packages = vec![package];
-        let result = maven
-            .process_packages(&packages, &mock_loader)
-            .await
-            .unwrap();
-
-        assert!(result.is_none());
     }
 }

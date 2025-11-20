@@ -29,7 +29,7 @@ use crate::{
             CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
             GetPrRequest,
         },
-        traits::{FileLoader, Forge},
+        traits::Forge,
     },
     result::Result,
 };
@@ -135,28 +135,6 @@ async fn create_forge(
         ForgeType::Gitea => {
             let forge = Gitea::new(config)?;
             Ok(Box::new(forge) as Box<dyn Forge + Send + Sync>)
-        }
-    }
-}
-
-/// Creates a file loader instance for the specified type
-async fn create_file_loader(
-    forge_type: ForgeType,
-) -> Result<Box<dyn FileLoader + Send + Sync>> {
-    let config = create_remote_config(forge_type);
-
-    match forge_type {
-        ForgeType::GitHub => {
-            let loader = Github::new(config)?;
-            Ok(Box::new(loader) as Box<dyn FileLoader + Send + Sync>)
-        }
-        ForgeType::GitLab => {
-            let loader = Gitlab::new(config).await?;
-            Ok(Box::new(loader) as Box<dyn FileLoader + Send + Sync>)
-        }
-        ForgeType::Gitea => {
-            let loader = Gitea::new(config)?;
-            Ok(Box::new(loader) as Box<dyn FileLoader + Send + Sync>)
         }
     }
 }
@@ -518,79 +496,6 @@ test_all_forges!(
     test_forge_get_latest_tag_nonexistent_impl
 );
 
-// Test: FileLoader - get file content
-async fn test_forge_file_loader_get_file_impl(
-    _forge: Box<dyn Forge + Send + Sync>,
-    forge_type: ForgeType,
-) {
-    let file_loader = create_file_loader(forge_type)
-        .await
-        .expect("Failed to create file loader");
-
-    let result = file_loader.get_file_content("README.md").await;
-    assert!(
-        result.is_ok(),
-        "[{}] get_file_content() should succeed: {:?}",
-        forge_type.name(),
-        result.err()
-    );
-
-    match result.unwrap() {
-        Some(content) => {
-            assert!(
-                !content.is_empty(),
-                "[{}] README.md should not be empty",
-                forge_type.name()
-            );
-            println!(
-                "[{}] Successfully loaded README.md ({} bytes)",
-                forge_type.name(),
-                content.len()
-            );
-        }
-        None => {
-            println!(
-                "[{}] README.md not found (this is ok)",
-                forge_type.name()
-            );
-        }
-    }
-}
-
-test_all_forges!(
-    test_forge_file_loader_get_file,
-    test_forge_file_loader_get_file_impl
-);
-
-// Test: FileLoader - non-existent file
-async fn test_forge_file_loader_nonexistent_impl(
-    _forge: Box<dyn Forge + Send + Sync>,
-    forge_type: ForgeType,
-) {
-    let file_loader = create_file_loader(forge_type)
-        .await
-        .expect("Failed to create file loader");
-
-    let result = file_loader
-        .get_file_content("this-file-definitely-does-not-exist-xyz-12345.txt")
-        .await;
-    assert!(
-        result.is_ok(),
-        "[{}] get_file_content() should succeed even for non-existent file",
-        forge_type.name()
-    );
-    assert!(
-        result.unwrap().is_none(),
-        "[{}] Should return None for non-existent file",
-        forge_type.name()
-    );
-}
-
-test_all_forges!(
-    test_forge_file_loader_nonexistent,
-    test_forge_file_loader_nonexistent_impl
-);
-
 // Test: Load config
 async fn test_forge_load_config_impl(
     forge: Box<dyn Forge + Send + Sync>,
@@ -767,10 +672,7 @@ async fn test_forge_integration_workflow_impl(
     );
 
     // 4. Try to load a file
-    let file_loader = create_file_loader(forge_type)
-        .await
-        .expect("Failed to create file loader");
-    let readme_result = file_loader.get_file_content("README.md").await;
+    let readme_result = forge.get_file_content("README.md").await;
     println!(
         "[{}] ✓ README.md query: {}",
         forge_type.name(),

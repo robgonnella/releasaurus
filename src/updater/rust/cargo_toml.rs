@@ -2,10 +2,7 @@ use log::*;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
-    forge::{
-        request::{FileChange, FileUpdateType},
-        traits::FileLoader,
-    },
+    forge::request::{FileChange, FileUpdateType},
     result::Result,
     updater::framework::UpdaterPackage,
 };
@@ -20,23 +17,19 @@ impl CargoToml {
     }
 
     /// Update version fields in Cargo.toml files for all Rust packages.
-    pub async fn process_packages(
+    pub async fn process_package(
         &self,
-        packages: &[(String, UpdaterPackage)],
-        loader: &dyn FileLoader,
+        package: &UpdaterPackage,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
+        let mut file_changes = vec![];
 
-        for (package_name, package) in packages.iter() {
-            let manifest_path = package.get_file_path("Cargo.toml");
-
-            let doc = self.load_doc(&manifest_path, loader).await?;
-
-            if doc.is_none() {
+        for manifest in package.manifest_files.iter() {
+            if manifest.file_basename != "Cargo.toml" {
                 continue;
             }
 
-            let mut doc = doc.unwrap();
+            let mut doc = self.load_doc(&manifest.content)?;
 
             if doc.get("workspace").is_some() {
                 debug!("skipping cargo workspace file");
@@ -45,44 +38,47 @@ impl CargoToml {
 
             let next_version = package.next_version.semver.to_string();
 
-            info!("setting version for {package_name} to {next_version}");
+            info!(
+                "setting version for {} to {next_version}",
+                package.package_name
+            );
 
             doc["package"]["version"] = value(&next_version);
 
-            let other_pkgs = packages
+            let other_pkgs = workspace_packages
                 .iter()
-                .filter(|(n, _)| n != package_name)
+                .filter(|p| p.package_name != package.package_name)
                 .cloned()
-                .collect::<Vec<(String, UpdaterPackage)>>();
+                .collect::<Vec<UpdaterPackage>>();
 
             // loop other packages to check if they current manifest deps
-            for (dep_name, dep) in other_pkgs.iter() {
-                let dep_next_version = dep.next_version.semver.to_string();
+            for wkspc_pkg in other_pkgs.iter() {
+                let next_version = wkspc_pkg.next_version.semver.to_string();
 
                 self.process_dependencies(
                     &mut doc,
-                    dep_name,
-                    &dep_next_version,
+                    &wkspc_pkg.package_name,
+                    &next_version,
                     "dependencies",
                 );
 
                 self.process_dependencies(
                     &mut doc,
-                    dep_name,
-                    &dep_next_version,
+                    &wkspc_pkg.package_name,
+                    &next_version,
                     "dev-dependencies",
                 );
 
                 self.process_dependencies(
                     &mut doc,
-                    dep_name,
-                    &dep_next_version,
+                    &wkspc_pkg.package_name,
+                    &next_version,
                     "build-dependencies",
                 );
             }
 
             file_changes.push(FileChange {
-                path: manifest_path,
+                path: manifest.file_path.clone(),
                 content: doc.to_string(),
                 update_type: FileUpdateType::Replace,
             });
@@ -133,17 +129,8 @@ impl CargoToml {
         }
     }
 
-    async fn load_doc(
-        &self,
-        file_path: &str,
-        loader: &dyn FileLoader,
-    ) -> Result<Option<DocumentMut>> {
-        let content = loader.get_file_content(file_path).await?;
-        if content.is_none() {
-            return Ok(None);
-        }
-        let content = content.unwrap();
+    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
         let doc = content.parse::<DocumentMut>()?;
-        Ok(Some(doc))
+        Ok(doc)
     }
 }
