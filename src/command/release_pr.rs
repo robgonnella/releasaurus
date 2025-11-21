@@ -44,7 +44,7 @@ pub async fn execute(
     )
     .await?;
 
-    debug!("releasable packages: {:#?}", releasable_packages);
+    info!("releasable packages: {:#?}", releasable_packages);
 
     let prs_by_branch = gather_release_prs_by_branch(
         &releasable_packages,
@@ -265,8 +265,15 @@ async fn get_releasable_packages(
             .to_string()
             .replace("./", "");
 
+        let mut package_paths = vec![package_full_path];
+
+        if let Some(additional_paths) = package.additional_paths.clone() {
+            package_paths.extend(additional_paths);
+        }
+
         let commits =
-            forge.get_commits(&package_full_path, current_sha).await?;
+            common::get_package_commits(forge, current_sha, &package_paths)
+                .await?;
 
         info!("processing commits for package: {}", package.name);
 
@@ -279,6 +286,7 @@ async fn get_releasable_packages(
         );
 
         let analyzer = Analyzer::new(analyzer_config)?;
+
         if let Some(release) = analyzer.analyze(commits, current_tag)? {
             info!("package: {}, release: {:#?}", package.name, release);
 
@@ -305,7 +313,7 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
-        config::ReleaseType,
+        config::{PackageConfig, ReleaseType},
         forge::{
             request::{ForgeCommit, PullRequest},
             traits::MockForge,
@@ -317,14 +325,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_releasable_packages_returns_packages_with_releases() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
 
         let mut mock_forge = MockForge::new();
         mock_forge
@@ -340,7 +349,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
 
-        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+        mock_forge.expect_get_commits().times(1).returning(|_| {
             Ok(vec![ForgeCommit {
                 id: "abc123".to_string(),
                 link: "https://github.com/test/repo/commit/abc123".to_string(),
@@ -349,6 +358,7 @@ mod tests {
                 merge_commit: false,
                 message: "feat: new feature".to_string(),
                 timestamp: 1000,
+                files: vec!["src/main.rs".to_string()],
             }])
         });
 
@@ -363,14 +373,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_releasable_packages_returns_empty_when_no_changes() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
 
         let mut mock_forge = MockForge::new();
         mock_forge
@@ -389,7 +400,7 @@ mod tests {
         mock_forge
             .expect_get_commits()
             .times(1)
-            .returning(|_, _| Ok(vec![]));
+            .returning(|_| Ok(vec![]));
 
         let result = get_releasable_packages(&config, &mock_forge, None)
             .await
@@ -400,14 +411,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_releasable_packages_applies_prerelease_override() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
 
         let mut mock_forge = MockForge::new();
         mock_forge
@@ -423,7 +435,7 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
 
-        mock_forge.expect_get_commits().times(1).returning(|_, _| {
+        mock_forge.expect_get_commits().times(1).returning(|_| {
             Ok(vec![ForgeCommit {
                 id: "abc123".to_string(),
                 link: "https://github.com/test/repo/commit/abc123".to_string(),
@@ -432,6 +444,7 @@ mod tests {
                 merge_commit: false,
                 message: "feat: new feature".to_string(),
                 timestamp: 1000,
+                files: vec!["src/main.rs".to_string()],
             }])
         });
 
@@ -451,18 +464,24 @@ mod tests {
     #[tokio::test]
     async fn gather_release_prs_creates_single_branch_for_multiple_packages() {
         let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "package-a",
-                "packages/a",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "package-b",
-                "packages/b",
-                Some(ReleaseType::Generic),
-                None,
-            ),
+            PackageConfig {
+                name: "package-a".into(),
+                path: "packages/a".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
+            PackageConfig {
+                name: "package-b".into(),
+                path: "packages/b".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
         ]);
         config.separate_pull_requests = false;
 
@@ -525,18 +544,24 @@ mod tests {
     #[tokio::test]
     async fn gather_release_prs_creates_separate_branches_when_configured() {
         let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "package-a",
-                "packages/a",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "package-b",
-                "packages/b",
-                Some(ReleaseType::Generic),
-                None,
-            ),
+            PackageConfig {
+                name: "package-a".into(),
+                path: "packages/a".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
+            PackageConfig {
+                name: "package-b".into(),
+                path: "packages/b".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
         ]);
         config.separate_pull_requests = true;
 
@@ -600,14 +625,15 @@ mod tests {
 
     #[tokio::test]
     async fn gather_release_prs_creates_changelog_file_changes() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
 
         let packages = vec![ReleasablePackage {
             name: "my-package".to_string(),
@@ -793,5 +819,259 @@ mod tests {
             create_branch_release_prs(prs_by_branch, &mock_forge).await;
 
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_releasable_packages_with_additional_paths() {
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: "packages/core".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: Some(vec!["shared/utils".to_string()]),
+        }]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_remote_config()
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_| {
+            Ok(vec![
+                ForgeCommit {
+                    id: "abc123".to_string(),
+                    link: "https://github.com/test/repo/commit/abc123"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: feature in main package".to_string(),
+                    timestamp: 1000,
+                    files: vec!["packages/core/src/main.rs".to_string()],
+                },
+                ForgeCommit {
+                    id: "def456".to_string(),
+                    link: "https://github.com/test/repo/commit/def456"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: feature in additional path".to_string(),
+                    timestamp: 2000,
+                    files: vec!["shared/utils/helper.rs".to_string()],
+                },
+            ])
+        });
+
+        let result = get_releasable_packages(&config, &mock_forge, None)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-package");
+        assert!(result[0].release.tag.is_some());
+        // Should include commits from both main path and additional path
+        assert_eq!(result[0].release.commits.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_get_releasable_packages_additional_paths_only() {
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: "packages/core".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: Some(vec!["shared/utils".to_string()]),
+        }]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_remote_config()
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        // Only commits in additional_paths, not in main package path
+        mock_forge.expect_get_commits().times(1).returning(|_| {
+            Ok(vec![ForgeCommit {
+                id: "abc123".to_string(),
+                link: "https://github.com/test/repo/commit/abc123".to_string(),
+                author_name: "Test Author".to_string(),
+                author_email: "test@example.com".to_string(),
+                merge_commit: false,
+                message: "feat: feature in shared utils".to_string(),
+                timestamp: 1000,
+                files: vec!["shared/utils/helper.rs".to_string()],
+            }])
+        });
+
+        let result = get_releasable_packages(&config, &mock_forge, None)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-package");
+        assert!(result[0].release.tag.is_some());
+        assert_eq!(result[0].release.commits.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_releasable_packages_ignores_commits_outside_paths() {
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: "packages/core".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: Some(vec!["shared/utils".to_string()]),
+        }]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_remote_config()
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_| {
+            Ok(vec![
+                ForgeCommit {
+                    id: "abc123".to_string(),
+                    link: "https://github.com/test/repo/commit/abc123"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: feature in other package".to_string(),
+                    timestamp: 1000,
+                    files: vec!["packages/other/src/main.rs".to_string()],
+                },
+                ForgeCommit {
+                    id: "def456".to_string(),
+                    link: "https://github.com/test/repo/commit/def456"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: feature in root".to_string(),
+                    timestamp: 2000,
+                    files: vec!["README.md".to_string()],
+                },
+            ])
+        });
+
+        let result = get_releasable_packages(&config, &mock_forge, None)
+            .await
+            .unwrap();
+
+        // Should have no releasable packages since no commits match the paths
+        assert_eq!(result.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_releasable_packages_multiple_additional_paths() {
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: "packages/core".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: Some(vec![
+                "shared/utils".to_string(),
+                "shared/types".to_string(),
+                "docs/api".to_string(),
+            ]),
+        }]);
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_remote_config()
+            .returning(test_helpers::create_test_remote_config);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .times(1)
+            .returning(|_| Ok(None));
+
+        mock_forge.expect_get_commits().times(1).returning(|_| {
+            Ok(vec![
+                ForgeCommit {
+                    id: "abc123".to_string(),
+                    link: "https://github.com/test/repo/commit/abc123"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: add utility function".to_string(),
+                    timestamp: 1000,
+                    files: vec!["shared/utils/helper.rs".to_string()],
+                },
+                ForgeCommit {
+                    id: "def456".to_string(),
+                    link: "https://github.com/test/repo/commit/def456"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "feat: add new type".to_string(),
+                    timestamp: 2000,
+                    files: vec!["shared/types/user.rs".to_string()],
+                },
+                ForgeCommit {
+                    id: "ghi789".to_string(),
+                    link: "https://github.com/test/repo/commit/ghi789"
+                        .to_string(),
+                    author_name: "Test Author".to_string(),
+                    author_email: "test@example.com".to_string(),
+                    merge_commit: false,
+                    message: "docs: update API documentation".to_string(),
+                    timestamp: 3000,
+                    files: vec!["docs/api/endpoints.md".to_string()],
+                },
+            ])
+        });
+
+        let result = get_releasable_packages(&config, &mock_forge, None)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "my-package");
+        assert!(result[0].release.tag.is_some());
+        // Should include commits from all additional paths
+        assert_eq!(result[0].release.commits.len(), 3);
     }
 }

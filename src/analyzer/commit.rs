@@ -138,6 +138,7 @@ mod tests {
             merge_commit,
             message: message.to_string(),
             timestamp,
+            files: vec![],
         }
     }
 
@@ -687,6 +688,7 @@ mod tests {
             merge_commit: true,
             message: "feat: custom forge commit".to_string(),
             timestamp: 9999999999,
+            files: vec![],
         };
 
         let commit = Commit::parse_forge_commit(

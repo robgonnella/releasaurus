@@ -2,7 +2,7 @@
 use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
-use color_eyre::eyre::{ContextCompat, eyre};
+use color_eyre::eyre::{ContextCompat, OptionExt, eyre};
 use gitlab::{
     AsyncGitlab,
     api::{
@@ -29,7 +29,10 @@ use gitlab::{
 };
 use log::*;
 use regex::Regex;
-use reqwest::StatusCode;
+use reqwest::{
+    Client, StatusCode, Url,
+    header::{HeaderMap, HeaderValue},
+};
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 use std::{cmp, sync::Arc};
@@ -40,8 +43,8 @@ use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
-            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
-            RemoteConfig,
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
+            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
@@ -68,6 +71,12 @@ struct MergeRequestInfo {
 #[derive(Debug, Deserialize)]
 struct LabelInfo {
     name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitlabDiff {
+    new_path: Option<String>,
+    old_path: Option<String>,
 }
 
 /// Information about a commit associated with a release.
@@ -99,6 +108,8 @@ pub struct Gitlab {
     config: RemoteConfig,
     commit_search_depth: Arc<Mutex<u64>>,
     gl: AsyncGitlab,
+    base_url: Url,
+    rest_client: Client,
     project_id: String,
 }
 
@@ -114,6 +125,38 @@ impl Gitlab {
             .build_async()
             .await?;
 
+        let endpoint = Project::builder().project(&project_id).build()?;
+        let gl_project: serde_json::Value = endpoint.query_async(&gl).await?;
+        let id = gl_project
+            .as_object()
+            .and_then(|p| p.get("id"))
+            .ok_or_eyre("failed to find project")?
+            .to_string();
+
+        let mut base_url = format!(
+            "{}://{}/api/v4/projects/{id}/",
+            config.scheme, config.host
+        );
+
+        if let Some(port) = config.port {
+            base_url = format!(
+                "{}://{}:{}/api/v4/projects/{id}/",
+                config.scheme, config.host, port
+            );
+        }
+
+        let base_url = Url::parse(&base_url)?;
+
+        let mut headers = HeaderMap::new();
+
+        let token_value = HeaderValue::from_str(token)?;
+
+        headers.append("PRIVATE-TOKEN", token_value);
+
+        let client = reqwest::Client::builder()
+            .default_headers(headers)
+            .build()?;
+
         Ok(Self {
             config,
             commit_search_depth: Arc::new(Mutex::new(
@@ -121,6 +164,8 @@ impl Gitlab {
             )),
             gl,
             project_id,
+            base_url,
+            rest_client: client,
         })
     }
 
@@ -266,7 +311,6 @@ impl Forge for Gitlab {
 
     async fn get_commits(
         &self,
-        path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let search_depth = self.commit_search_depth.lock().await;
@@ -275,7 +319,6 @@ impl Forge for Gitlab {
 
         builder
             .project(&self.project_id)
-            .path(path)
             .order(CommitsOrder::Default);
 
         if let Some(sha) = sha.clone() {
@@ -284,7 +327,8 @@ impl Forge for Gitlab {
         }
 
         let endpoint = builder.build()?;
-        let page_limit = cmp::min(100, *search_depth) as usize;
+        let page_limit =
+            cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth) as usize;
         let search_depth = *search_depth as usize;
 
         let result: Vec<GitlabCommit> = if sha.is_none() {
@@ -297,20 +341,49 @@ impl Forge for Gitlab {
                 .await?
         };
 
-        let forge_commits = result
-            .iter()
-            .map(|c| ForgeCommit {
-                author_email: c.author_email.clone(),
-                author_name: c.author_name.clone(),
-                id: c.id.clone(),
-                link: format!("{}/{}", self.config.commit_link_base_url, c.id),
-                merge_commit: c.parent_ids.len() > 1,
-                message: c.message.clone().trim().into(),
-                timestamp: DateTime::parse_from_rfc3339(&c.created_at)
+        let mut forge_commits = vec![];
+
+        for commit in result.iter() {
+            debug!("backfilling files for commit: {}", commit.id);
+
+            let diff_url = self
+                .base_url
+                .join(&format!("repository/commits/{}/diff", commit.id))?;
+
+            let request = self.rest_client.get(diff_url).build()?;
+
+            let response = self.rest_client.execute(request).await?;
+
+            let result = response.error_for_status()?;
+
+            let diff: Vec<GitlabDiff> = result.json().await?;
+
+            let mut files = vec![];
+
+            for item in diff.iter() {
+                if let Some(file_path) = item.new_path.clone() {
+                    files.push(file_path.clone());
+                } else if let Some(file_path) = item.old_path.clone() {
+                    files.push(file_path);
+                }
+            }
+
+            forge_commits.push(ForgeCommit {
+                author_email: commit.author_email.clone(),
+                author_name: commit.author_name.clone(),
+                id: commit.id.clone(),
+                link: format!(
+                    "{}/{}",
+                    self.config.commit_link_base_url, commit.id
+                ),
+                merge_commit: commit.parent_ids.len() > 1,
+                message: commit.message.clone().trim().into(),
+                timestamp: DateTime::parse_from_rfc3339(&commit.created_at)
                     .unwrap()
                     .timestamp(),
+                files,
             })
-            .collect::<Vec<ForgeCommit>>();
+        }
 
         Ok(forge_commits)
     }

@@ -41,7 +41,7 @@ pub struct PrLabelsRequest {
 
 /// Normalized commit data returned from any forge platform with metadata
 /// and links.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ForgeCommit {
     pub id: String,
     pub link: String,
@@ -50,6 +50,7 @@ pub struct ForgeCommit {
     pub merge_commit: bool,
     pub message: String,
     pub timestamp: i64,
+    pub files: Vec<String>,
 }
 
 /// How to apply file content changes during branch creation.

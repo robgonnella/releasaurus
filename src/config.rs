@@ -68,6 +68,8 @@ pub struct PackageConfig {
     pub tag_prefix: Option<String>,
     /// Prerelease identifier (e.g., "alpha", "beta", "rc").
     pub prerelease: Option<String>,
+    /// Additional directory paths to include commits from
+    pub additional_paths: Option<Vec<String>>,
 }
 
 impl Default for PackageConfig {
@@ -79,6 +81,7 @@ impl Default for PackageConfig {
             release_type: None,
             tag_prefix: None,
             prerelease: None,
+            additional_paths: None,
         }
     }
 }
