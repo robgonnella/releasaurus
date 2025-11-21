@@ -454,6 +454,7 @@ mod tests {
                     sha: "test-sha".to_string(),
                     name: "v1.0.0".to_string(),
                     semver: SemVer::parse("1.0.0").unwrap(),
+                    timestamp: 100,
                 }),
                 link: String::new(),
                 sha: "test-sha".to_string(),

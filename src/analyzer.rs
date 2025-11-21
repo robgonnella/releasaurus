@@ -74,6 +74,7 @@ impl Analyzer {
             sha: release.sha.clone(),
             name: tag_name,
             semver,
+            timestamp: 0,
         };
 
         release.link =
@@ -136,6 +137,7 @@ impl Analyzer {
             sha: release.sha.clone(),
             name: next_tag_name.clone(),
             semver: next,
+            timestamp: 0,
         };
 
         release.link =
@@ -220,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_analyzer_new() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config.clone());
 
         assert!(analyzer.is_ok());
@@ -230,7 +232,7 @@ mod tests {
 
     #[test]
     fn test_analyzer_new_with_tag_prefix() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.tag_prefix = Some("v".to_string());
 
         let analyzer = Analyzer::new(config);
@@ -239,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_analyze_empty_commits() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let result = analyzer.analyze(vec![], None).unwrap();
@@ -248,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_analyze_first_release_no_tag() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits = vec![
@@ -270,13 +272,14 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_patch_bump() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -298,13 +301,14 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_minor_bump() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -326,13 +330,14 @@ mod tests {
 
     #[test]
     fn test_analyze_with_current_tag_major_bump() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -354,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_analyze_with_tag_prefix() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.tag_prefix = Some("v".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -374,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_analyze_generates_release_link() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits = vec![create_test_forge_commit(
@@ -396,13 +401,14 @@ mod tests {
 
     #[test]
     fn test_analyze_multiple_commits() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![
@@ -425,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_skip_ci_filters_ci_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = true;
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -433,6 +439,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![
@@ -453,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_skip_ci_false_includes_ci_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = false; // Explicitly set to false
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -472,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_skip_chore_filters_chore_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_chore = true;
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -480,6 +487,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![
@@ -509,7 +517,7 @@ mod tests {
 
     #[test]
     fn test_skip_chore_false_includes_chore_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_chore = false; // Explicitly set to false
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -532,7 +540,7 @@ mod tests {
 
     #[test]
     fn test_skip_miscellaneous_filters_non_conventional_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_miscellaneous = true;
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -540,6 +548,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![
@@ -569,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_miscellaneous = false; // Explicitly set to false
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -588,7 +597,7 @@ mod tests {
 
     #[test]
     fn test_skip_multiple_types_combined() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = true;
         config.skip_chore = true;
         config.skip_miscellaneous = true;
@@ -598,6 +607,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![
@@ -632,7 +642,7 @@ mod tests {
 
     #[test]
     fn test_include_author_sets_release_flag() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.include_author = true;
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -652,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_include_author_false_by_default() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits = vec![create_test_forge_commit(
@@ -671,7 +681,7 @@ mod tests {
 
     #[test]
     fn test_skip_ci_with_no_ci_commits() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = true;
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -690,7 +700,7 @@ mod tests {
 
     #[test]
     fn test_skip_all_types_results_in_no_release() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = true;
         config.skip_chore = true;
         config.skip_miscellaneous = true;
@@ -711,7 +721,7 @@ mod tests {
 
     #[test]
     fn test_include_author_with_skip_options() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.skip_ci = true;
         config.include_author = true;
         let analyzer = Analyzer::new(config).unwrap();
@@ -733,7 +743,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_start_from_stable() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("alpha".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -741,6 +751,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -761,7 +772,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_continue_same_identifier() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("alpha".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -769,6 +780,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.1.0-alpha.1".to_string(),
             semver: SemVer::parse("1.1.0-alpha.1").unwrap(),
+            timestamp: 0,
         };
 
         let commits =
@@ -786,7 +798,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_graduate_to_stable() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = None; // No prerelease = graduate
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -794,6 +806,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0-alpha.5".to_string(),
             semver: SemVer::parse("1.0.0-alpha.5").unwrap(),
+            timestamp: 0,
         };
 
         let commits =
@@ -811,7 +824,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_switch_identifier() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("beta".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -819,6 +832,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0-alpha.3".to_string(),
             semver: SemVer::parse("1.0.0-alpha.3").unwrap(),
+            timestamp: 0,
         };
 
         let commits =
@@ -837,7 +851,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_first_release() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("alpha".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -856,7 +870,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_breaking_change() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("alpha".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
@@ -864,6 +878,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -885,7 +900,7 @@ mod tests {
 
     #[test]
     fn test_prerelease_with_tag_prefix() {
-        let mut config = create_test_analyzer_config();
+        let mut config = create_test_analyzer_config(None);
         config.prerelease = Some("rc".to_string());
         config.tag_prefix = Some("v".to_string());
         let analyzer = Analyzer::new(config).unwrap();
@@ -894,6 +909,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "v1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: 0,
         };
 
         let commits = vec![create_test_forge_commit(

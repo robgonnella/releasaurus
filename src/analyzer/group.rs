@@ -212,15 +212,17 @@ mod tests {
     fn create_test_commit(raw_message: &str, breaking: bool) -> Commit {
         Commit {
             id: "abc123".to_string(),
+            short_id: "abc".to_string(),
             group: Group::default(),
             scope: None,
-            message: "test message".to_string(),
+            title: "test message".to_string(),
             body: None,
             link: "https://example.com".to_string(),
             breaking,
             breaking_description: None,
             merge_commit: false,
             timestamp: 1640995200,
+            raw_title: "test message".to_string(),
             raw_message: raw_message.to_string(),
             author_name: "".into(),
             author_email: "".into(),

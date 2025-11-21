@@ -1,4 +1,5 @@
 use git_conventional::Commit as ConventionalCommit;
+use log::*;
 use serde::Serialize;
 
 use crate::{
@@ -14,9 +15,10 @@ use crate::{
 #[derive(Debug, Clone, Serialize)]
 pub struct Commit {
     pub id: String,
+    pub short_id: String,
     pub group: Group,
     pub scope: Option<String>,
-    pub message: String,
+    pub title: String,
     pub body: Option<String>,
     pub link: String,
     pub breaking: bool,
@@ -25,6 +27,7 @@ pub struct Commit {
     pub timestamp: i64,
     pub author_name: String,
     pub author_email: String,
+    pub raw_title: String,
     pub raw_message: String,
 }
 
@@ -39,25 +42,45 @@ impl Commit {
         let author_name = forge_commit.author_name.clone();
         let author_email = forge_commit.author_email.clone();
         let commit_id = forge_commit.id.clone();
+        let short_id = forge_commit.short_id.clone();
         let merge_commit = forge_commit.merge_commit;
         let raw_message = forge_commit.message.clone();
         let timestamp = forge_commit.timestamp;
-        let parsed = ConventionalCommit::parse(raw_message.trim_end());
         let link = forge_commit.link.clone();
+
+        let split_msg = forge_commit
+            .message
+            .split_once("\n")
+            .map(|(m, b)| (m.to_string(), b.to_string()));
+
+        let (raw_title, raw_body) = match split_msg {
+            Some((t, b)) => {
+                if b.is_empty() {
+                    (t.trim().to_string(), None)
+                } else {
+                    (t.trim().to_string(), Some(b.trim().to_string()))
+                }
+            }
+            None => (raw_message.to_string(), None),
+        };
+
+        let parsed = ConventionalCommit::parse(raw_message.trim_end());
 
         match parsed {
             Ok(cc) => {
                 let mut commit = Self {
                     id: commit_id,
+                    short_id,
                     scope: cc.scope().map(|s| s.to_string()),
-                    message: cc.description().to_string(),
-                    body: cc.body().map(|b| b.to_string()),
+                    title: cc.description().trim().to_string(),
+                    body: cc.body().map(|b| b.trim().to_string()),
                     merge_commit,
                     breaking: cc.breaking(),
                     breaking_description: cc
                         .breaking_description()
                         .map(|d| d.to_string()),
-                    raw_message: raw_message.to_string(),
+                    raw_title,
+                    raw_message,
                     group: Group::default(),
                     link,
                     timestamp,
@@ -66,46 +89,70 @@ impl Commit {
                 };
                 commit.group = group_parser.parse(&commit);
                 if commit.group == Group::Ci && config.skip_ci {
+                    debug!(
+                        "omitting ci commit: {} : {}",
+                        commit.short_id, commit.raw_title
+                    );
                     return None;
                 }
                 if commit.group == Group::Chore && config.skip_chore {
+                    debug!(
+                        "omitting chore commit: {} : {}",
+                        commit.short_id, commit.raw_title
+                    );
                     return None;
                 }
                 if commit.group == Group::Miscellaneous
                     && config.skip_miscellaneous
                 {
+                    debug!(
+                        "omitting miscellaneous commit: {} : {}",
+                        commit.short_id, commit.raw_title
+                    );
                     return None;
                 }
+                if commit.merge_commit && config.skip_merge_commits {
+                    debug!(
+                        "omitting merge commit: {} : {}",
+                        commit.short_id, commit.raw_title
+                    );
+                    return None;
+                }
+                if config.skip_release_commits
+                    && let Some(matcher) = config.release_commit_matcher.clone()
+                    && matcher.is_match(&commit.raw_title)
+                {
+                    debug!(
+                        "omitting release commit: {} : {}",
+                        commit.short_id, commit.raw_title
+                    );
+
+                    return None;
+                }
+
                 Some(commit)
             }
             Err(_) => {
                 if config.skip_miscellaneous {
                     return None;
                 }
-                let split = raw_message
-                    .split_once("\n")
-                    .map(|(m, b)| (m.to_string(), b.to_string()));
 
-                let (message, body) = match split {
-                    Some((m, b)) => {
-                        if b.is_empty() {
-                            (m, None)
-                        } else {
-                            (m, Some(b))
-                        }
-                    }
-                    None => (raw_message.to_string(), None),
-                };
+                if merge_commit && config.skip_merge_commits {
+                    debug!("omitting merge commit: {short_id} : {raw_title}");
+                    return None;
+                }
 
                 Some(Self {
                     id: commit_id,
+                    short_id,
                     scope: None,
-                    message,
-                    body,
+                    title: raw_title.clone(),
+                    body: raw_body,
                     merge_commit,
                     breaking: false,
                     breaking_description: None,
-                    raw_message: raw_message.to_string(),
+                    raw_title,
+                    raw_message,
                     group: Group::default(),
                     link,
                     timestamp,
@@ -130,8 +177,10 @@ mod tests {
         timestamp: i64,
         merge_commit: bool,
     ) -> ForgeCommit {
+        let short_id = id.split("").take(8).collect::<Vec<&str>>().join("");
         ForgeCommit {
             id: id.to_string(),
+            short_id,
             link: format!("https://github.com/example/repo/commit/{}", id),
             author_name: author_name.to_string(),
             author_email: author_email.to_string(),
@@ -144,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_parse_conventional_feat_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "abc123",
@@ -165,7 +214,7 @@ mod tests {
         assert_eq!(commit.id, "abc123");
         assert_eq!(commit.group, Group::Feat);
         assert_eq!(commit.scope, None);
-        assert_eq!(commit.message, "add new user authentication");
+        assert_eq!(commit.title, "add new user authentication");
         assert_eq!(commit.body, None);
         assert_eq!(
             commit.link,
@@ -182,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_parse_conventional_feat_commit_with_scope() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "def456",
@@ -203,7 +252,7 @@ mod tests {
         assert_eq!(commit.id, "def456");
         assert_eq!(commit.group, Group::Feat);
         assert_eq!(commit.scope, Some("auth".to_string()));
-        assert_eq!(commit.message, "add OAuth2 support");
+        assert_eq!(commit.title, "add OAuth2 support");
         assert_eq!(commit.body, None);
         assert!(!commit.breaking);
         assert_eq!(commit.author_name, "Jane Smith");
@@ -212,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_parse_conventional_fix_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "ghi789",
@@ -231,13 +280,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Fix);
-        assert_eq!(commit.message, "resolve null pointer exception");
+        assert_eq!(commit.title, "resolve null pointer exception");
         assert!(!commit.breaking);
     }
 
     #[test]
     fn test_parse_breaking_change_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "jkl012",
@@ -256,7 +305,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Breaking);
-        assert_eq!(commit.message, "redesign user API");
+        assert_eq!(commit.title, "redesign user API");
         assert_eq!(commit.body, None);
         assert!(commit.breaking);
         assert_eq!(
@@ -267,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_parse_commit_with_body() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let message = "feat: add user registration\n\nThis feature allows new users to register\nwith email verification.";
         let forge_commit = create_test_forge_commit(
@@ -287,14 +336,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Feat);
-        assert_eq!(commit.message, "add user registration");
+        assert_eq!(commit.title, "add user registration");
         assert_eq!(commit.body, Some("This feature allows new users to register\nwith email verification.".to_string()));
         assert!(!commit.breaking);
     }
 
     #[test]
     fn test_parse_non_conventional_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "pqr678",
@@ -314,7 +363,7 @@ mod tests {
 
         assert_eq!(commit.group, Group::Miscellaneous);
         assert_eq!(commit.scope, None);
-        assert_eq!(commit.message, "Update user authentication logic");
+        assert_eq!(commit.title, "Update user authentication logic");
         assert_eq!(commit.body, None);
         assert!(!commit.breaking);
         assert_eq!(commit.breaking_description, None);
@@ -322,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_parse_non_conventional_commit_with_body() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let message = "Update database schema\n\nAdded new indexes for better performance\nand updated user table structure.";
         let forge_commit = create_test_forge_commit(
@@ -342,13 +391,38 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Miscellaneous);
-        assert_eq!(commit.message, "Update database schema");
-        assert_eq!(commit.body, Some("\nAdded new indexes for better performance\nand updated user table structure.".to_string()));
+        assert_eq!(commit.title, "Update database schema");
+        assert_eq!(commit.body, Some("Added new indexes for better performance\nand updated user table structure.".to_string()));
     }
 
     #[test]
-    fn test_parse_merge_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+    fn test_parses_and_omits_merge_commit() {
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
+        let group_parser = GroupParser::new();
+        let forge_commit = create_test_forge_commit(
+            "vwx234",
+            "Merge pull request #123 from feature/auth",
+            "GitHub",
+            "noreply@github.com",
+            1640995900,
+            true,
+        );
+
+        let commit = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(commit.is_none());
+    }
+
+    #[test]
+    fn test_parses_and_includes_merge_commit() {
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
+        analyzer_config.skip_merge_commits = false;
+
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "vwx234",
@@ -368,14 +442,66 @@ mod tests {
 
         assert_eq!(commit.group, Group::Miscellaneous);
         assert!(commit.merge_commit);
-        assert_eq!(commit.message, "Merge pull request #123 from feature/auth");
+        assert_eq!(commit.title, "Merge pull request #123 from feature/auth");
+        assert_eq!(commit.author_name, "GitHub");
+        assert_eq!(commit.author_email, "noreply@github.com");
+    }
+
+    #[test]
+    fn test_parses_and_omits_release_commit() {
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
+        let group_parser = GroupParser::new();
+        let forge_commit = create_test_forge_commit(
+            "vwx234",
+            "chore(main): release test-package test-package-v1.0.0",
+            "GitHub",
+            "noreply@github.com",
+            1640995900,
+            false,
+        );
+
+        let commit = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(commit.is_none());
+    }
+
+    #[test]
+    fn test_parses_and_includes_release_commit() {
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
+        analyzer_config.skip_release_commits = false;
+
+        let group_parser = GroupParser::new();
+        let forge_commit = create_test_forge_commit(
+            "vwx234",
+            "chore(main): release test-package test-package-v1.0.0",
+            "GitHub",
+            "noreply@github.com",
+            1640995900,
+            false,
+        );
+
+        let commit = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        )
+        .unwrap();
+
+        assert_eq!(commit.group, Group::Chore);
+        assert!(!commit.merge_commit);
+        assert_eq!(commit.title, "release test-package test-package-v1.0.0");
         assert_eq!(commit.author_name, "GitHub");
         assert_eq!(commit.author_email, "noreply@github.com");
     }
 
     #[test]
     fn test_parse_empty_message() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "yz567",
@@ -394,14 +520,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Miscellaneous);
-        assert_eq!(commit.message, "");
+        assert_eq!(commit.title, "");
         assert_eq!(commit.body, None);
         assert!(!commit.breaking);
     }
 
     #[test]
     fn test_parse_chore_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "abc890",
@@ -420,12 +546,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Chore);
-        assert_eq!(commit.message, "update dependencies");
+        assert_eq!(commit.title, "update dependencies");
     }
 
     #[test]
     fn test_parse_ci_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "def123",
@@ -444,12 +570,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Ci);
-        assert_eq!(commit.message, "update GitHub Actions workflow");
+        assert_eq!(commit.title, "update GitHub Actions workflow");
     }
 
     #[test]
     fn test_parse_docs_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "ghi456",
@@ -469,14 +595,14 @@ mod tests {
 
         assert_eq!(commit.group, Group::Doc);
         assert_eq!(
-            commit.message,
+            commit.title,
             "update README with installation instructions"
         );
     }
 
     #[test]
     fn test_parse_test_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "jkl789",
@@ -495,12 +621,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Test);
-        assert_eq!(commit.message, "add unit tests for user service");
+        assert_eq!(commit.title, "add unit tests for user service");
     }
 
     #[test]
     fn test_parse_refactor_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "mno012",
@@ -519,12 +645,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Refactor);
-        assert_eq!(commit.message, "simplify authentication logic");
+        assert_eq!(commit.title, "simplify authentication logic");
     }
 
     #[test]
     fn test_parse_perf_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "pqr345",
@@ -543,12 +669,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Perf);
-        assert_eq!(commit.message, "optimize database queries");
+        assert_eq!(commit.title, "optimize database queries");
     }
 
     #[test]
     fn test_parse_style_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "stu678",
@@ -567,12 +693,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Style);
-        assert_eq!(commit.message, "format code with prettier");
+        assert_eq!(commit.title, "format code with prettier");
     }
 
     #[test]
     fn test_parse_revert_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "vwx901",
@@ -591,12 +717,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Revert);
-        assert_eq!(commit.message, "undo breaking changes");
+        assert_eq!(commit.title, "undo breaking changes");
     }
 
     #[test]
     fn test_parse_commit_with_trailing_whitespace() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "xyz234",
@@ -615,14 +741,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Feat);
-        assert_eq!(commit.message, "add new feature");
+        assert_eq!(commit.title, "add new feature");
         // Body should be None since it's just whitespace
         assert_eq!(commit.body, None);
     }
 
     #[test]
     fn test_parse_commit_with_empty_body() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "abc567",
@@ -641,13 +767,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Fix);
-        assert_eq!(commit.message, "resolve issue");
+        assert_eq!(commit.title, "resolve issue");
         assert_eq!(commit.body, None);
     }
 
     #[test]
     fn test_parse_breaking_change_with_conventional_format() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let message = "feat(api)!: remove deprecated endpoints\n\nBREAKING CHANGE: The old v1 API endpoints have been removed";
         let forge_commit = create_test_forge_commit(
@@ -668,7 +794,7 @@ mod tests {
 
         assert_eq!(commit.group, Group::Breaking);
         assert_eq!(commit.scope, Some("api".to_string()));
-        assert_eq!(commit.message, "remove deprecated endpoints");
+        assert_eq!(commit.title, "remove deprecated endpoints");
         assert!(commit.breaking);
         assert_eq!(
             commit.breaking_description,
@@ -678,14 +804,15 @@ mod tests {
 
     #[test]
     fn test_metadata_preservation() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = ForgeCommit {
             id: "unique123".to_string(),
+            short_id: "uni".to_string(),
             link: "https://custom-forge.com/commit/unique123".to_string(),
             author_name: "Custom Author".to_string(),
             author_email: "custom@forge.com".to_string(),
-            merge_commit: true,
+            merge_commit: false,
             message: "feat: custom forge commit".to_string(),
             timestamp: 9999999999,
             files: vec![],
@@ -703,14 +830,14 @@ mod tests {
         assert_eq!(commit.link, "https://custom-forge.com/commit/unique123");
         assert_eq!(commit.author_name, "Custom Author");
         assert_eq!(commit.author_email, "custom@forge.com");
-        assert!(commit.merge_commit);
+        assert!(!commit.merge_commit);
         assert_eq!(commit.timestamp, 9999999999);
         assert_eq!(commit.raw_message, "feat: custom forge commit");
     }
 
     #[test]
     fn test_non_conventional_single_line() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "single123",
@@ -729,7 +856,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.group, Group::Miscellaneous);
-        assert_eq!(commit.message, "Just a simple commit message");
+        assert_eq!(commit.title, "Just a simple commit message");
         assert_eq!(commit.body, None);
         assert_eq!(commit.scope, None);
         assert!(!commit.breaking);
@@ -738,7 +865,7 @@ mod tests {
 
     #[test]
     fn test_malformed_conventional_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "malformed123",
@@ -758,14 +885,14 @@ mod tests {
 
         // Should be treated as non-conventional since it lacks the colon
         assert_eq!(commit.group, Group::Miscellaneous);
-        assert_eq!(commit.message, "feat add feature without colon");
+        assert_eq!(commit.title, "feat add feature without colon");
         assert_eq!(commit.scope, None);
         assert!(!commit.breaking);
     }
 
     #[test]
     fn test_all_conventional_commit_types() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
 
         let test_cases = vec![
@@ -807,7 +934,7 @@ mod tests {
 
     #[test]
     fn test_breaking_takes_precedence_over_type() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "breaking123",
@@ -828,12 +955,13 @@ mod tests {
         // Breaking should take precedence over feat
         assert_eq!(commit.group, Group::Breaking);
         assert!(commit.breaking);
-        assert_eq!(commit.message, "breaking feature change");
+        assert_eq!(commit.title, "breaking feature change");
     }
 
     #[test]
     fn test_skip_ci_filters_ci_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -857,7 +985,8 @@ mod tests {
 
     #[test]
     fn test_skip_ci_false_includes_ci_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = false;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -879,12 +1008,13 @@ mod tests {
         assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Ci);
-        assert_eq!(commit.message, "update github actions workflow");
+        assert_eq!(commit.title, "update github actions workflow");
     }
 
     #[test]
     fn test_skip_chore_filters_chore_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_chore = true;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -908,7 +1038,8 @@ mod tests {
 
     #[test]
     fn test_skip_chore_false_includes_chore_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_chore = false;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -930,12 +1061,13 @@ mod tests {
         assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Chore);
-        assert_eq!(commit.message, "update dependencies");
+        assert_eq!(commit.title, "update dependencies");
     }
 
     #[test]
     fn test_skip_miscellaneous_filters_non_conventional_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_miscellaneous = true;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -959,7 +1091,8 @@ mod tests {
 
     #[test]
     fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_miscellaneous = false;
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
@@ -981,12 +1114,13 @@ mod tests {
         assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Miscellaneous);
-        assert_eq!(commit.message, "random commit message without type");
+        assert_eq!(commit.title, "random commit message without type");
     }
 
     #[test]
     fn test_skip_ci_with_different_ci_formats() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         let group_parser = GroupParser::new();
 
@@ -1019,7 +1153,8 @@ mod tests {
 
     #[test]
     fn test_skip_chore_with_different_chore_formats() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_chore = true;
         let group_parser = GroupParser::new();
 
@@ -1052,7 +1187,8 @@ mod tests {
 
     #[test]
     fn test_skip_options_do_not_affect_other_types() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         analyzer_config.skip_chore = true;
         analyzer_config.skip_miscellaneous = true;
@@ -1098,7 +1234,7 @@ mod tests {
 
     #[test]
     fn test_author_information_preserved() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let forge_commit = create_test_forge_commit(
             "author123",

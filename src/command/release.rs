@@ -1,6 +1,4 @@
 //! Final release publication and tagging command implementation.
-use std::path::Path;
-
 use log::*;
 
 use crate::{
@@ -9,7 +7,7 @@ use crate::{
     config::{Config, PackageConfig},
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, RemoteConfig, TAGGED_LABEL},
-        request::{GetPrRequest, PrLabelsRequest, PullRequest},
+        request::{ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest},
         traits::Forge,
     },
     result::Result,
@@ -25,6 +23,13 @@ pub async fn execute(
     let mut config = forge.load_config().await?;
     let config = common::process_config(&repo_name, &mut config);
     let default_branch = forge.default_branch().await?;
+
+    let commits = common::get_commits_for_all_packages(
+        forge.as_ref(),
+        &config.packages,
+        &repo_name,
+    )
+    .await?;
 
     for package in config.packages.iter() {
         let mut release_branch =
@@ -43,6 +48,7 @@ pub async fn execute(
             &release_branch,
             &config,
             prerelease_override.clone(),
+            &commits,
         )
         .await?;
     }
@@ -56,6 +62,7 @@ async fn generate_branch_release(
     release_branch: &str,
     config: &Config,
     prerelease_override: Option<String>,
+    commits: &[ForgeCommit],
 ) -> Result<()> {
     let default_branch = forge.default_branch().await?;
     let remote_config = forge.remote_config();
@@ -73,6 +80,7 @@ async fn generate_branch_release(
             &merged_pr,
             package,
             prerelease_override,
+            commits,
         )
         .await?;
 
@@ -101,26 +109,14 @@ async fn create_package_release(
     merged_pr: &PullRequest,
     package: &PackageConfig,
     prerelease_override: Option<String>,
+    commits: &[ForgeCommit],
 ) -> Result<()> {
+    let default_branch = forge.default_branch().await?;
     let repo_name = forge.repo_name();
     let tag_prefix = common::get_tag_prefix(package, &repo_name);
     let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
-    let current_sha = current_tag.clone().map(|t| t.sha);
 
-    let package_full_path = Path::new(&package.workspace_root)
-        .join(&package.path)
-        .display()
-        .to_string()
-        .replace("./", "");
-
-    let mut package_paths = vec![package_full_path];
-
-    if let Some(additional_paths) = package.additional_paths.clone() {
-        package_paths.extend(additional_paths);
-    }
-
-    let commits =
-        common::get_package_commits(forge, current_sha, &package_paths).await?;
+    let package_commits = common::filter_commits_for_package(package, commits);
 
     // Determine prerelease with priority: CLI override > package config > global config
     let prerelease =
@@ -129,13 +125,14 @@ async fn create_package_release(
     let analyzer_config = common::generate_analyzer_config(
         config,
         remote_config,
+        &default_branch,
         package,
         tag_prefix,
         prerelease,
     );
 
     let analyzer = Analyzer::new(analyzer_config)?;
-    let release = analyzer.analyze(commits, current_tag)?;
+    let release = analyzer.analyze(package_commits, current_tag)?;
 
     if let Some(release) = release
         && let Some(tag) = release.tag.clone()
@@ -152,55 +149,107 @@ async fn create_package_release(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        analyzer::release::Tag,
-        config::{PackageConfig, ReleaseType},
-        forge::{
-            request::{ForgeCommit, PullRequest},
-            traits::MockForge,
-        },
-        test_helpers,
-    };
-    use semver::Version as SemVer;
+    use crate::{forge::traits::MockForge, test_helpers::*};
 
     #[tokio::test]
-    async fn test_generate_branch_release_no_merged_pr() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
+    async fn test_generate_branch_release_with_merged_pr() {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .times(1)
             .returning(|| Ok("main".to_string()));
 
         mock_forge
             .expect_remote_config()
-            .times(1)
-            .returning(test_helpers::create_test_remote_config);
+            .returning(create_test_remote_config);
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_get_merged_release_pr().returning(|_| {
+            Ok(Some(create_test_pull_request(123, "merged-sha")))
+        });
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
+            });
+
+        mock_forge
+            .expect_tag_commit()
+            .withf(|tag_name, sha| tag_name == "v1.1.0" && sha == "merged-sha")
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .withf(|tag_name, _, _| tag_name == "v1.1.0")
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge.expect_replace_pr_labels().returning(|req| {
+            assert_eq!(req.pr_number, 123);
+            assert_eq!(req.labels, vec![TAGGED_LABEL]);
+            Ok(())
+        });
+
+        let config = create_test_config_simple(vec![(
+            "test-repo",
+            ".",
+            crate::config::ReleaseType::Node,
+        )]);
+
+        let package = &config.packages[0];
+        let mut commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+        commits[0].files = vec!["src/main.rs".to_string()];
+
+        let result = generate_branch_release(
+            &mock_forge,
+            package,
+            "releasaurus-release-main",
+            &config,
+            None,
+            &commits,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_generate_branch_release_without_merged_pr() {
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
 
         mock_forge
             .expect_get_merged_release_pr()
-            .times(1)
-            .withf(|req| {
-                req.base_branch == "main"
-                    && req.head_branch == "releasaurus-release-main"
-            })
             .returning(|_| Ok(None));
 
+        let config = create_test_config_simple(vec![(
+            "test-repo",
+            ".",
+            crate::config::ReleaseType::Node,
+        )]);
+
+        let package = &config.packages[0];
+        let commits = vec![];
+
         let result = generate_branch_release(
             &mock_forge,
-            &config.packages[0],
+            package,
             "releasaurus-release-main",
             &config,
             None,
+            &commits,
         )
         .await;
 
@@ -208,1300 +257,389 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_generate_branch_release_with_merged_pr_no_release() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
+    async fn test_create_package_release_tags_and_publishes() {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .times(1)
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
+            });
+
+        mock_forge
+            .expect_tag_commit()
+            .withf(|tag_name, sha| tag_name == "v1.1.0" && sha == "pr-sha")
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .withf(|tag_name, sha, notes| {
+                tag_name == "v1.1.0" && sha == "abc123" && !notes.is_empty()
+            })
+            .returning(|_, _, _| Ok(()));
+
+        let config = create_test_config_simple(vec![(
+            "test-repo",
+            ".",
+            crate::config::ReleaseType::Node,
+        )]);
+
+        let remote_config = create_test_remote_config();
+        let merged_pr = create_test_pull_request(456, "pr-sha");
+        let package = &config.packages[0];
+
+        let mut commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+        commits[0].files = vec!["src/main.rs".to_string()];
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            package,
+            None,
+            &commits,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_with_prerelease() {
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
+            });
+
+        mock_forge
+            .expect_tag_commit()
+            .withf(|tag_name, _| tag_name.contains("beta"))
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .withf(|tag_name, _, _| tag_name.contains("beta"))
+            .returning(|_, _, _| Ok(()));
+
+        let config = create_test_config_simple(vec![(
+            "test-repo",
+            ".",
+            crate::config::ReleaseType::Node,
+        )]);
+
+        let remote_config = create_test_remote_config();
+        let merged_pr = create_test_pull_request(789, "pr-sha");
+        let package = &config.packages[0];
+
+        let mut commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+        commits[0].files = vec!["src/main.rs".to_string()];
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            package,
+            Some("beta".to_string()),
+            &commits,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_no_commits() {
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current-sha")))
+            });
+
+        let config = create_test_config_simple(vec![(
+            "test-repo",
+            ".",
+            crate::config::ReleaseType::Node,
+        )]);
+
+        let remote_config = create_test_remote_config();
+        let merged_pr = create_test_pull_request(999, "pr-sha");
+        let package = &config.packages[0];
+        let commits = vec![];
+
+        let result = create_package_release(
+            &config,
+            &remote_config,
+            &mock_forge,
+            &merged_pr,
+            package,
+            None,
+            &commits,
+        )
+        .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_single_package() {
+        let mut mock_forge = MockForge::new();
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config_simple(vec![(
+                "test-repo",
+                ".",
+                crate::config::ReleaseType::Node,
+            )]))
+        });
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_default_branch()
             .returning(|| Ok("main".to_string()));
 
         mock_forge
             .expect_remote_config()
-            .times(1)
-            .returning(test_helpers::create_test_remote_config);
+            .returning(create_test_remote_config);
+
+        let mut commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+        commits[0].files = vec!["src/main.rs".to_string()];
+        mock_forge
+            .expect_get_commits()
+            .returning(move |_| Ok(commits.clone()));
 
         mock_forge
-            .expect_get_merged_release_pr()
-            .times(1)
+            .expect_get_latest_tag_for_prefix()
             .returning(|_| {
-                Ok(Some(PullRequest {
-                    number: 42,
-                    sha: "merged-pr-sha".to_string(),
-                }))
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
             });
+
+        mock_forge.expect_get_merged_release_pr().returning(|_| {
+            Ok(Some(create_test_pull_request(100, "merged-sha")))
+        });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+        let result = execute(Box::new(mock_forge), None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_no_merged_pr() {
+        let mut mock_forge = MockForge::new();
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config_simple(vec![(
+                "test-repo",
+                ".",
+                crate::config::ReleaseType::Node,
+            )]))
+        });
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "v")
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge
-            .expect_get_commits()
-            .times(1)
-            .withf(|sha| sha == &Some("tag-sha".to_string()))
-            .returning(|_| Ok(vec![]));
-
-        mock_forge
-            .expect_replace_pr_labels()
-            .times(1)
-            .withf(|req| {
-                req.pr_number == 42 && req.labels == vec!["releasaurus:tagged"]
-            })
-            .returning(|_| Ok(()));
-
-        let result = generate_branch_release(
-            &mock_forge,
-            &config.packages[0],
-            "releasaurus-release-main",
-            &config,
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_generate_branch_release_creates_tag_and_release() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
             .expect_default_branch()
-            .times(1)
             .returning(|| Ok("main".to_string()));
 
         mock_forge
             .expect_remote_config()
-            .times(1)
-            .returning(test_helpers::create_test_remote_config);
+            .returning(create_test_remote_config);
+
+        mock_forge.expect_get_commits().returning(|_| Ok(vec![]));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current-sha")))
+            });
 
         mock_forge
             .expect_get_merged_release_pr()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(PullRequest {
-                    number: 42,
-                    sha: "merged-pr-sha".to_string(),
-                }))
-            });
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "v")
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "old-tag-sha".to_string(),
-                    name: "v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: new feature".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "v1.1.0" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v1.1.0")
-            .returning(|_, _, _| Ok(()));
-
-        mock_forge
-            .expect_replace_pr_labels()
-            .times(1)
-            .withf(|req| req.pr_number == 42)
-            .returning(|_| Ok(()));
-
-        let result = generate_branch_release(
-            &mock_forge,
-            &config.packages[0],
-            "releasaurus-release-main",
-            &config,
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_first_release() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "v")
-            .returning(|_| Ok(None));
-
-        mock_forge
-            .expect_get_commits()
-            .times(1)
-            .withf(|sha| sha.is_none())
-            .returning(|_| {
-                Ok(vec![ForgeCommit {
-                    id: "commit1".to_string(),
-                    link: "https://github.com/test/repo/commit/commit1"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: initial release".to_string(),
-                    timestamp: 1000,
-                    files: vec!["src/main.rs".to_string()],
-                }])
-            });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "v0.1.0" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v0.1.0")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_no_changes() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge
-            .expect_get_commits()
-            .times(1)
-            .returning(|_| Ok(vec![]));
-
-        // No tag_commit or create_release should be called
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_with_custom_tag_prefix() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "api-package".into(),
-            path: "packages/api".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: Some("api-v".to_string()),
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .withf(|prefix| prefix == "api-v")
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "old-tag-sha".to_string(),
-                    name: "api-v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "fix: bug fix".to_string(),
-                timestamp: 1000,
-                files: vec!["packages/api/src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "api-v1.0.1" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "api-v1.0.1")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_major_version_bump() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v1.5.3".to_string(),
-                    semver: SemVer::parse("1.5.3").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat!: breaking change".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "v2.0.0" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v2.0.0")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_with_prerelease_from_package_config() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        // Set prerelease on package
-        config.packages[0].prerelease = Some("alpha".to_string());
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: new feature".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "v1.1.0-alpha.1" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v1.1.0-alpha.1")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_with_prerelease_from_global_config() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        // Set global prerelease
-        config.prerelease = Some("beta".to_string());
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v2.0.0".to_string(),
-                    semver: SemVer::parse("2.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "fix: bug fix".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "v2.0.1-beta.1" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v2.0.1-beta.1")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_prerelease_package_overrides_global() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        // Set both global and package prerelease - package should win
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("rc".to_string());
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v0.5.0".to_string(),
-                    semver: SemVer::parse("0.5.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: new feature".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                // Should use "rc" not "alpha"
-                // Feature commit on 0.5.0 bumps to 0.6.0 in 0.x versions
-                tag_name == "v0.6.0-rc.1" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v0.6.0-rc.1")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_cli_override_takes_priority() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        // Set all three levels - CLI should win
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("beta".to_string());
-        let cli_override = Some("dev".to_string());
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "tag-sha".to_string(),
-                    name: "v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
-            });
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: new feature".to_string(),
-                timestamp: 1000,
-                files: vec!["src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                // Should use "dev" from CLI, not "alpha" or "beta"
-                tag_name == "v1.1.0-dev.1" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "v1.1.0-dev.1")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            cli_override,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_execute_with_multiple_packages() {
-        let config = test_helpers::create_test_config(vec![
-            PackageConfig {
-                name: "package-a".into(),
-                path: "packages/a".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            },
-            PackageConfig {
-                name: "package-b".into(),
-                path: "packages/b".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Rust),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            },
-        ]);
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_load_config()
-            .times(1)
-            .returning(move || Ok(config.clone()));
-
-        mock_forge
-            .expect_default_branch()
-            .times(3) // Once for initial call, twice for each package
-            .returning(|| Ok("main".to_string()));
-
-        mock_forge
-            .expect_remote_config()
-            .times(2)
-            .returning(test_helpers::create_test_remote_config);
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .times(2)
             .returning(|_| Ok(None));
 
         let result = execute(Box::new(mock_forge), None).await;
-
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_execute_with_separate_pull_requests() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "package-a".into(),
-                path: "packages/a".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        config.separate_pull_requests = true;
-
+    async fn test_execute_separate_pull_requests() {
         let mut mock_forge = MockForge::new();
+        mock_forge.expect_load_config().returning(|| {
+            let mut config = create_test_config_simple(vec![
+                ("pkg-a", "packages/a", crate::config::ReleaseType::Node),
+                ("pkg-b", "packages/b", crate::config::ReleaseType::Node),
+            ]);
+            config.separate_pull_requests = true;
+            Ok(config)
+        });
+
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock_forge
-            .expect_load_config()
-            .times(1)
-            .returning(move || Ok(config.clone()));
-
-        mock_forge
             .expect_default_branch()
-            .times(2)
             .returning(|| Ok("main".to_string()));
 
         mock_forge
             .expect_remote_config()
-            .times(1)
-            .returning(test_helpers::create_test_remote_config);
+            .returning(create_test_remote_config);
+
+        let mut commits_a = vec![create_test_forge_commit(
+            "abc123",
+            "feat: feature in a",
+            1000,
+        )];
+        commits_a[0].files = vec!["packages/a/index.js".to_string()];
+
+        let mut commits_b = vec![create_test_forge_commit(
+            "def456",
+            "feat: feature in b",
+            2000,
+        )];
+        commits_b[0].files = vec!["packages/b/index.js".to_string()];
+
+        let mut all_commits = commits_a.clone();
+        all_commits.extend(commits_b.clone());
 
         mock_forge
-            .expect_get_merged_release_pr()
-            .times(1)
-            .withf(|req| {
-                req.head_branch == "releasaurus-release-main-package-a"
-            })
-            .returning(|_| Ok(None));
-
-        let result = execute(Box::new(mock_forge), None).await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_with_nested_package_path() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "nested-package".into(),
-            path: "packages/nested/deep".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_remote_config()
-            .returning(test_helpers::create_test_remote_config);
+            .expect_get_commits()
+            .returning(move |_| Ok(all_commits.clone()));
 
         mock_forge
             .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| Ok(None));
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: new feature".to_string(),
-                timestamp: 1000,
-                files: vec!["packages/nested/deep/src/main.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .returning(|_, _, _| Ok(()));
-
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "pr-sha".to_string(),
-        };
-
-        let result = create_package_release(
-            &config,
-            &test_helpers::create_test_remote_config(),
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_generate_branch_release_with_custom_branch_name() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-        }]);
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| Ok("develop".to_string()));
-
-        mock_forge
-            .expect_remote_config()
-            .times(1)
-            .returning(test_helpers::create_test_remote_config);
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .times(1)
-            .withf(|req| {
-                req.base_branch == "develop"
-                    && req.head_branch == "custom-release-branch"
-            })
-            .returning(|_| Ok(None));
-
-        let result = generate_branch_release(
-            &mock_forge,
-            &config.packages[0],
-            "custom-release-branch",
-            &config,
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_with_additional_paths() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: "packages/core".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: Some(vec!["shared/utils".to_string()]),
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| Ok(None));
-
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![
-                ForgeCommit {
-                    id: "commit1".to_string(),
-                    link: "https://github.com/test/repo/commit/commit1"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: feature in main package".to_string(),
-                    timestamp: 1000,
-                    files: vec!["packages/core/src/main.rs".to_string()],
-                },
-                ForgeCommit {
-                    id: "commit2".to_string(),
-                    link: "https://github.com/test/repo/commit/commit2"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: feature in additional path".to_string(),
-                    timestamp: 2000,
-                    files: vec!["shared/utils/helper.rs".to_string()],
-                },
-            ])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "my-package-v0.1.0" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "my-package-v0.1.0")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_additional_paths_only() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: "packages/core".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: Some(vec!["shared/utils".to_string()]),
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| Ok(None));
-
-        // Only commits in additional_paths, not in main package path
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![ForgeCommit {
-                id: "commit1".to_string(),
-                link: "https://github.com/test/repo/commit/commit1".to_string(),
-                author_name: "Test Author".to_string(),
-                author_email: "test@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: feature in shared utils".to_string(),
-                timestamp: 1000,
-                files: vec!["shared/utils/helper.rs".to_string()],
-            }])
-        });
-
-        mock_forge
-            .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "my-package-v0.1.0" && sha == "merged-pr-sha"
-            })
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "my-package-v0.1.0")
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_ignores_commits_outside_paths() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: "packages/core".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: Some(vec!["shared/utils".to_string()]),
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
-            .returning(|_| Ok(None));
-
-        // Commits that don't match any configured paths
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![
-                ForgeCommit {
-                    id: "commit1".to_string(),
-                    link: "https://github.com/test/repo/commit/commit1"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: feature in other package".to_string(),
-                    timestamp: 1000,
-                    files: vec!["packages/other/src/main.rs".to_string()],
-                },
-                ForgeCommit {
-                    id: "commit2".to_string(),
-                    link: "https://github.com/test/repo/commit/commit2"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: feature in root".to_string(),
-                    timestamp: 2000,
-                    files: vec!["README.md".to_string()],
-                },
-            ])
-        });
-
-        // Should not tag or create release since no matching commits
-        mock_forge.expect_tag_commit().times(0);
-        mock_forge.expect_create_release().times(0);
-
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_multiple_additional_paths() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            path: "packages/core".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: Some(vec![
-                "shared/utils".to_string(),
-                "shared/types".to_string(),
-                "docs/api".to_string(),
-            ]),
-        }]);
-
-        let remote_config = test_helpers::create_test_remote_config();
-        let merged_pr = PullRequest {
-            number: 42,
-            sha: "merged-pr-sha".to_string(),
-        };
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .times(1)
             .returning(|_| {
-                Ok(Some(Tag {
-                    sha: "old-tag-sha".to_string(),
-                    name: "my-package-v1.0.0".to_string(),
-                    semver: SemVer::parse("1.0.0").unwrap(),
-                }))
+                Ok(Some(create_test_tag("pkg-a-v1.0.0", "1.0.0", "old-sha")))
             });
 
-        mock_forge.expect_get_commits().times(1).returning(|_| {
-            Ok(vec![
-                ForgeCommit {
-                    id: "commit1".to_string(),
-                    link: "https://github.com/test/repo/commit/commit1"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: add utility function".to_string(),
-                    timestamp: 1000,
-                    files: vec!["shared/utils/helper.rs".to_string()],
-                },
-                ForgeCommit {
-                    id: "commit2".to_string(),
-                    link: "https://github.com/test/repo/commit/commit2"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "feat: add new type".to_string(),
-                    timestamp: 2000,
-                    files: vec!["shared/types/user.rs".to_string()],
-                },
-                ForgeCommit {
-                    id: "commit3".to_string(),
-                    link: "https://github.com/test/repo/commit/commit3"
-                        .to_string(),
-                    author_name: "Test Author".to_string(),
-                    author_email: "test@example.com".to_string(),
-                    merge_commit: false,
-                    message: "fix: update API documentation".to_string(),
-                    timestamp: 3000,
-                    files: vec!["docs/api/endpoints.md".to_string()],
-                },
-            ])
+        mock_forge.expect_get_merged_release_pr().returning(|req| {
+            if req.head_branch.contains("pkg-a") {
+                Ok(Some(create_test_pull_request(200, "merged-sha-a")))
+            } else if req.head_branch.contains("pkg-b") {
+                Ok(Some(create_test_pull_request(201, "merged-sha-b")))
+            } else {
+                Ok(None)
+            }
+        });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+        let result = execute(Box::new(mock_forge), None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_prerelease_override() {
+        let mut mock_forge = MockForge::new();
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config_simple(vec![(
+                "test-repo",
+                ".",
+                crate::config::ReleaseType::Node,
+            )]))
+        });
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge
+            .expect_default_branch()
+            .returning(|| Ok("main".to_string()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let mut commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+        commits[0].files = vec!["src/main.rs".to_string()];
+        mock_forge
+            .expect_get_commits()
+            .returning(move |_| Ok(commits.clone()));
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
+            });
+
+        mock_forge.expect_get_merged_release_pr().returning(|_| {
+            Ok(Some(create_test_pull_request(300, "merged-sha")))
         });
 
         mock_forge
             .expect_tag_commit()
-            .times(1)
-            .withf(|tag_name, sha| {
-                tag_name == "my-package-v1.1.0" && sha == "merged-pr-sha"
-            })
+            .withf(|tag_name, _| tag_name.contains("rc"))
             .returning(|_, _| Ok(()));
 
         mock_forge
             .expect_create_release()
-            .times(1)
-            .withf(|tag_name, _sha, _notes| tag_name == "my-package-v1.1.0")
+            .withf(|tag_name, _, _| tag_name.contains("rc"))
             .returning(|_, _, _| Ok(()));
 
-        let result = create_package_release(
-            &config,
-            &remote_config,
-            &mock_forge,
-            &merged_pr,
-            &config.packages[0],
-            None,
-        )
-        .await;
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
+        let result =
+            execute(Box::new(mock_forge), Some("rc".to_string())).await;
         assert!(result.is_ok());
     }
 }

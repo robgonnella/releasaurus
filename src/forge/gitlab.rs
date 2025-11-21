@@ -302,6 +302,11 @@ impl Forge for Gitlab {
                         name: t.name,
                         semver: sver,
                         sha: t.commit.id,
+                        timestamp: DateTime::parse_from_rfc3339(
+                            &t.commit.created_at,
+                        )
+                        .unwrap()
+                        .timestamp(),
                     }));
                 }
             }
@@ -372,6 +377,13 @@ impl Forge for Gitlab {
                 author_email: commit.author_email.clone(),
                 author_name: commit.author_name.clone(),
                 id: commit.id.clone(),
+                short_id: commit
+                    .id
+                    .clone()
+                    .split("")
+                    .take(8)
+                    .collect::<Vec<&str>>()
+                    .join(""),
                 link: format!(
                     "{}/{}",
                     self.config.commit_link_base_url, commit.id

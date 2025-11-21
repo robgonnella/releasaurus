@@ -22,6 +22,10 @@ pub struct ChangelogConfig {
     pub skip_chore: bool,
     /// Skips including miscellaneous commits in changelog (default: false)
     pub skip_miscellaneous: bool,
+    /// Skips including merge commits in changelog (default: true)
+    pub skip_merge_commits: bool,
+    /// Skips including release commits in changelog (default: true)
+    pub skip_release_commits: bool,
     /// Includes commit author in default body template (default: false)
     pub include_author: bool,
 }
@@ -33,6 +37,8 @@ impl Default for ChangelogConfig {
             skip_ci: false,
             skip_chore: false,
             skip_miscellaneous: false,
+            skip_merge_commits: true,
+            skip_release_commits: true,
             include_author: false,
         }
     }

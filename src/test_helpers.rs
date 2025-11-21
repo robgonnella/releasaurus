@@ -14,6 +14,7 @@ use crate::{
         request::{ForgeCommit, PullRequest},
     },
 };
+use regex::Regex;
 use secrecy::SecretString;
 use semver::Version as SemVer;
 
@@ -67,6 +68,8 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
             skip_ci: false,
             skip_chore: false,
             skip_miscellaneous: false,
+            skip_merge_commits: true,
+            skip_release_commits: true,
             include_author: false,
         },
         packages,
@@ -100,6 +103,8 @@ pub fn create_test_config_simple(
             skip_ci: false,
             skip_chore: false,
             skip_miscellaneous: false,
+            skip_merge_commits: true,
+            skip_release_commits: true,
             include_author: false,
         },
         packages: packages
@@ -133,6 +138,7 @@ pub fn create_test_tag(name: &str, semver: &str, sha: &str) -> Tag {
         sha: sha.to_string(),
         name: name.to_string(),
         semver: SemVer::parse(semver).unwrap(),
+        timestamp: 0,
     }
 }
 
@@ -154,6 +160,7 @@ pub fn create_test_forge_commit(
 ) -> ForgeCommit {
     ForgeCommit {
         id: id.to_string(),
+        short_id: id.split("").take(8).collect::<Vec<&str>>().join(""),
         link: format!("https://github.com/test/repo/commit/{}", id),
         author_name: "Test Author".to_string(),
         author_email: "test@example.com".to_string(),
@@ -198,6 +205,7 @@ pub fn create_test_release(version: &str, has_tag: bool) -> Release {
                 sha: "test-sha".to_string(),
                 name: format!("v{}", version),
                 semver: SemVer::parse(version).unwrap(),
+                timestamp: 0,
             })
         } else {
             None
@@ -217,30 +225,7 @@ pub fn create_test_release(version: &str, has_tag: bool) -> Release {
 /// ```ignore
 /// let config = create_test_analyzer_config();
 /// ```
-pub fn create_test_analyzer_config() -> AnalyzerConfig {
-    AnalyzerConfig {
-        tag_prefix: None,
-        body: "Release version {{ version }}".to_string(),
-        skip_ci: false,
-        skip_chore: false,
-        skip_miscellaneous: false,
-        include_author: false,
-        release_link_base_url: "https://github.com/test/repo/releases/tag"
-            .to_string(),
-        prerelease: None,
-    }
-}
-
-/// Creates a test AnalyzerConfig with a custom tag prefix.
-///
-/// # Arguments
-/// * `tag_prefix` - Optional tag prefix (e.g., "v", "api-v")
-///
-/// # Example
-/// ```ignore
-/// let config = create_test_analyzer_config_with_prefix(Some("v".to_string()));
-/// ```
-pub fn create_test_analyzer_config_with_prefix(
+pub fn create_test_analyzer_config(
     tag_prefix: Option<String>,
 ) -> AnalyzerConfig {
     AnalyzerConfig {
@@ -249,10 +234,15 @@ pub fn create_test_analyzer_config_with_prefix(
         skip_ci: false,
         skip_chore: false,
         skip_miscellaneous: false,
+        skip_merge_commits: true,
+        skip_release_commits: true,
         include_author: false,
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
         prerelease: None,
+        release_commit_matcher: Some(
+            Regex::new(r#"chore\(main\): release test-package"#).unwrap(),
+        ),
     }
 }
 
@@ -333,15 +323,14 @@ mod tests {
 
     #[test]
     fn test_create_test_analyzer_config() {
-        let config = create_test_analyzer_config();
+        let config = create_test_analyzer_config(None);
         assert!(config.tag_prefix.is_none());
         assert!(!config.body.is_empty());
     }
 
     #[test]
     fn test_create_test_analyzer_config_with_prefix() {
-        let config =
-            create_test_analyzer_config_with_prefix(Some("v".to_string()));
+        let config = create_test_analyzer_config(Some("v".to_string()));
         assert_eq!(config.tag_prefix, Some("v".to_string()));
     }
 }
