@@ -22,7 +22,7 @@ pub async fn execute(
     let repo_name = forge.repo_name();
     let mut config = forge.load_config().await?;
     let config = common::process_config(&repo_name, &mut config);
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
 
     let commits = common::get_commits_for_all_packages(
         forge.as_ref(),
@@ -64,7 +64,7 @@ async fn generate_branch_release(
     prerelease_override: Option<String>,
     commits: &[ForgeCommit],
 ) -> Result<()> {
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
     let remote_config = forge.remote_config();
 
     let req = GetPrRequest {
@@ -111,7 +111,7 @@ async fn create_package_release(
     prerelease_override: Option<String>,
     commits: &[ForgeCommit],
 ) -> Result<()> {
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
     let repo_name = forge.repo_name();
     let tag_prefix = common::get_tag_prefix(package, &repo_name);
     let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
@@ -156,7 +156,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
@@ -224,7 +224,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
@@ -261,7 +261,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -321,7 +321,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -379,7 +379,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -433,7 +433,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
@@ -488,7 +488,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
@@ -528,7 +528,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
@@ -600,7 +600,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()

@@ -27,10 +27,10 @@ pub trait Forge: Any {
     fn repo_name(&self) -> String;
     /// Get remote configuration details including host, owner, and auth.
     fn remote_config(&self) -> RemoteConfig;
+    /// Fetch the default branch name (e.g., "main" or "master").
+    fn default_branch(&self) -> String;
     /// Load releasaurus.toml configuration from repository root.
     async fn load_config(&self) -> Result<Config>;
-    /// Fetch the default branch name (e.g., "main" or "master").
-    async fn default_branch(&self) -> Result<String>;
     /// Fetch file content from repository by path, returning None if file
     /// doesn't exist.
     async fn get_file_content(&self, path: &str) -> Result<Option<String>>;

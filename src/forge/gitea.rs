@@ -180,12 +180,13 @@ pub struct Gitea {
     commit_search_depth: Arc<Mutex<u64>>,
     base_url: Url,
     client: Client,
+    default_branch: String,
 }
 
 impl Gitea {
     /// Create Gitea client with token authentication and API base URL
     /// configuration for self-hosted instances.
-    pub fn new(config: RemoteConfig) -> Result<Self> {
+    pub async fn new(config: RemoteConfig) -> Result<Self> {
         let token = config.token.expose_secret();
 
         let mut headers = HeaderMap::new();
@@ -213,6 +214,14 @@ impl Gitea {
 
         let base_url = Url::parse(&base_url)?;
 
+        let request = client.get(base_url.clone()).build()?;
+        let response = client.execute(request).await?;
+        let result = response.error_for_status()?;
+        let repo: serde_json::Value = result.json().await?;
+        let default_branch = repo["default_branch"]
+            .as_str()
+            .wrap_err("failed to get default branch")?;
+
         Ok(Gitea {
             config,
             commit_search_depth: Arc::new(Mutex::new(
@@ -220,6 +229,7 @@ impl Gitea {
             )),
             client,
             base_url,
+            default_branch: default_branch.into(),
         })
     }
 
@@ -316,15 +326,8 @@ impl Forge for Gitea {
         }
     }
 
-    async fn default_branch(&self) -> Result<String> {
-        let request = self.client.get(self.base_url.clone()).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let repo: serde_json::Value = result.json().await?;
-        let branch = repo["default_branch"]
-            .as_str()
-            .wrap_err("failed to get default branch")?;
-        Ok(branch.into())
+    fn default_branch(&self) -> String {
+        self.default_branch.clone()
     }
 
     async fn get_latest_tag_for_prefix(
