@@ -37,6 +37,10 @@ The configuration file uses TOML format with these main sections:
     changelog (optional, default: false)
   - `skip_miscellaneous` - (optional, default: false) Exclude non-conventional
     commits from changelog (optional, default: false)
+  - `skip_merge_commits` - (optional, default: true) Exclude merge commits from
+    changelog
+  - `skip_release_commits` - (optional, default: true) Exclude release commits
+    from changelog
   - `include_author` - (optional, default: false) Include commit author names in
     changelog
 - **`[[package]]`** - Defines packages within the repository with their
@@ -290,6 +294,40 @@ skip_miscellaneous = true  # Exclude commits without a type prefix
 **Example use case**: Use this option to keep your changelog focused on
 conventional commits only, filtering out commits that don't follow the
 `type: description` format.
+
+#### `skip_merge_commits` (Optional)
+
+Excludes merge commits from the changelog. When set to `true`, commits that are
+identified as merge commits will not appear in generated changelogs.
+
+```toml
+[changelog]
+skip_merge_commits = true  # Exclude merge commits like "Merge pull request #123"
+```
+
+**Default**: `true`
+
+**Example use case**: Merge commits often don't provide meaningful information
+in changelogs since the individual commits being merged are typically more
+relevant. However, you may want to set this to `false` if your workflow relies
+on merge commits for tracking feature integration.
+
+#### `skip_release_commits` (Optional)
+
+Excludes release commits from the changelog. When set to `true`, commits that
+match the release commit pattern (e.g., `chore(<default_branch>): release <package-name>`)
+will not appear in generated changelogs.
+
+```toml
+[changelog]
+skip_release_commits = true  # Exclude commits like "chore(main): release my-package v1.2.0"
+```
+
+**Default**: `true`
+
+**Example use case**: Release commits are typically automated commits created by
+Releasaurus itself and don't represent actual changes to your codebase. Keeping
+them out of the changelog reduces noise and focuses on meaningful changes.
 
 #### `include_author` (Optional)
 
@@ -633,9 +671,10 @@ changelog for a release are as follows:
 - **include_author** - Boolean flag indicating if author names should be included
 - **commits**: `List<Commit>` - Array of commit objects with the following fields:
   - **id** - Commit SHA
+  - **short_id** - Short version of commit SHA
   - **group** - Commit category (e.g., "Features", "Bug Fixes", "Chore", "CI/CD")
   - **scope** - Optional scope from conventional commit (e.g., "api", "ui")
-  - **message** - Commit description
+  - **title** - Commit message title without conventional commit type or scope
   - **body** - Optional extended commit body
   - **link** - URL link to the commit
   - **breaking** - Boolean indicating if this is a breaking change
@@ -644,7 +683,8 @@ changelog for a release are as follows:
   - **timestamp** - Unix timestamp of the commit
   - **author_name** - Name of the commit author
   - **author_email** - Email of the commit author
-  - **raw_message** - Original unprocessed commit message
+  - **raw_title** - Original unprocessed commit title
+  - **raw_message** - Original unprocessed full commit message
 
 ### Using the `include_author` Flag in Templates
 

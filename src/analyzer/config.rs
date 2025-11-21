@@ -1,12 +1,14 @@
 //! Configuration for changelog generation and commit analysis.
 
+use regex::Regex;
+
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% if commit.body -%}
 > {{ commit.body }}
 {% endif -%}
@@ -14,7 +16,7 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp 
 > {{ commit.breaking_description }}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% endif -%}
 {% endfor %}
 {% endfor %}
@@ -31,6 +33,10 @@ pub struct AnalyzerConfig {
     pub skip_chore: bool,
     /// Skips including miscellaneous commits in changelog (default: false)
     pub skip_miscellaneous: bool,
+    /// Skips including merge commits in changelog (default: true)
+    pub skip_merge_commits: bool,
+    /// Skips including release commits in changelog (default: true)
+    pub skip_release_commits: bool,
     /// Includes commit author in default body template (default: false)
     pub include_author: bool,
     /// Optional prefix for package tags.
@@ -39,6 +45,8 @@ pub struct AnalyzerConfig {
     pub release_link_base_url: String,
     /// Prerelease identifier (e.g., "alpha", "beta", "rc").
     pub prerelease: Option<String>,
+    /// regex to match and exclude release commits
+    pub release_commit_matcher: Option<Regex>,
 }
 
 impl Default for AnalyzerConfig {
@@ -48,10 +56,13 @@ impl Default for AnalyzerConfig {
             skip_ci: false,
             skip_chore: false,
             skip_miscellaneous: false,
+            skip_merge_commits: true,
+            skip_release_commits: true,
             include_author: false,
             tag_prefix: None,
             release_link_base_url: "".into(),
             prerelease: None,
+            release_commit_matcher: None,
         }
     }
 }

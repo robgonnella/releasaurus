@@ -28,24 +28,13 @@ pub fn update_release_with_commit(
     if let Some(commit) =
         Commit::parse_forge_commit(group_parser, forge_commit, config)
     {
-        // omit merge commits from release
-        if commit.merge_commit {
-            return;
-        }
-
         let commit_id = commit.id.to_string();
-        let lines = commit
-            .message
-            .split("\n")
-            .map(|l| l.to_string())
-            .collect::<Vec<String>>();
-        let title = lines.first();
 
-        if let Some(t) = title {
-            let short_sha =
-                commit_id.split("").take(8).collect::<Vec<&str>>().join("");
-            info!("processing commit: {} : {}", short_sha, t);
-        }
+        info!(
+            "processing commit: {} : {}",
+            commit.short_id, commit.raw_title
+        );
+
         // add commit to release
         release.commits.push(commit);
         // set release commit - this will keep getting updated until we
@@ -92,12 +81,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let forge_commit1 = ForgeCommit {
             id: "commit1".to_string(),
+            short_id: "comm1".to_string(),
             link: "https://example.com/commit/commit1".to_string(),
             author_name: "Author 1".to_string(),
             author_email: "author1@example.com".to_string(),
@@ -109,6 +99,7 @@ mod tests {
 
         let forge_commit2 = ForgeCommit {
             id: "commit2".to_string(),
+            short_id: "comm2".to_string(),
             link: "https://example.com/commit/commit2".to_string(),
             author_name: "Author 2".to_string(),
             author_email: "author2@example.com".to_string(),
@@ -242,13 +233,15 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_ci() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let ci_commit = ForgeCommit {
             id: "ci123".to_string(),
+            short_id: "ci1".to_string(),
             link: "https://example.com/commit/ci123".to_string(),
             author_name: "CI Bot".to_string(),
             author_email: "ci@example.com".to_string(),
@@ -260,6 +253,7 @@ mod tests {
 
         let feat_commit = ForgeCommit {
             id: "feat123".to_string(),
+            short_id: "feat1".to_string(),
             link: "https://example.com/commit/feat123".to_string(),
             author_name: "Developer".to_string(),
             author_email: "dev@example.com".to_string(),
@@ -289,13 +283,15 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_chore() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_chore = true;
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let chore_commit = ForgeCommit {
             id: "chore123".to_string(),
+            short_id: "cho1".to_string(),
             link: "https://example.com/commit/chore123".to_string(),
             author_name: "Maintainer".to_string(),
             author_email: "maint@example.com".to_string(),
@@ -307,6 +303,7 @@ mod tests {
 
         let fix_commit = ForgeCommit {
             id: "fix123".to_string(),
+            short_id: "fi1".to_string(),
             link: "https://example.com/commit/fix123".to_string(),
             author_name: "Developer".to_string(),
             author_email: "dev@example.com".to_string(),
@@ -336,13 +333,15 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_miscellaneous() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_miscellaneous = true;
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let misc_commit = ForgeCommit {
             id: "misc123".to_string(),
+            short_id: "mi1".to_string(),
             link: "https://example.com/commit/misc123".to_string(),
             author_name: "Random User".to_string(),
             author_email: "random@example.com".to_string(),
@@ -354,6 +353,7 @@ mod tests {
 
         let feat_commit = ForgeCommit {
             id: "feat123".to_string(),
+            short_id: "fe1".to_string(),
             link: "https://example.com/commit/feat123".to_string(),
             author_name: "Developer".to_string(),
             author_email: "dev@example.com".to_string(),
@@ -383,7 +383,8 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_multiple_types() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         analyzer_config.skip_chore = true;
         analyzer_config.skip_miscellaneous = true;
@@ -393,6 +394,7 @@ mod tests {
         let commits = vec![
             ForgeCommit {
                 id: "ci123".to_string(),
+                short_id: "ci1".to_string(),
                 link: "https://example.com/commit/ci123".to_string(),
                 author_name: "CI Bot".to_string(),
                 author_email: "ci@example.com".to_string(),
@@ -403,6 +405,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "chore123".to_string(),
+                short_id: "ch1".to_string(),
                 link: "https://example.com/commit/chore123".to_string(),
                 author_name: "Maintainer".to_string(),
                 author_email: "maint@example.com".to_string(),
@@ -413,6 +416,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "misc123".to_string(),
+                short_id: "mi1".to_string(),
                 link: "https://example.com/commit/misc123".to_string(),
                 author_name: "Random".to_string(),
                 author_email: "random@example.com".to_string(),
@@ -423,6 +427,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "feat123".to_string(),
+                short_id: "fe1".to_string(),
                 link: "https://example.com/commit/feat123".to_string(),
                 author_name: "Developer".to_string(),
                 author_email: "dev@example.com".to_string(),
@@ -433,6 +438,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "fix123".to_string(),
+                short_id: "fi1".to_string(),
                 link: "https://example.com/commit/fix123".to_string(),
                 author_name: "Developer 2".to_string(),
                 author_email: "dev2@example.com".to_string(),
@@ -460,12 +466,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_preserves_author_info() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let commit_with_author = ForgeCommit {
             id: "author123".to_string(),
+            short_id: "au1".to_string(),
             link: "https://example.com/commit/author123".to_string(),
             author_name: "Jane Smith".to_string(),
             author_email: "jane.smith@example.com".to_string(),
@@ -489,13 +496,15 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_author_info_with_skip_options() {
-        let mut analyzer_config = test_helpers::create_test_analyzer_config();
+        let mut analyzer_config =
+            test_helpers::create_test_analyzer_config(None);
         analyzer_config.skip_ci = true;
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let ci_commit = ForgeCommit {
             id: "ci123".to_string(),
+            short_id: "ci1".to_string(),
             link: "https://example.com/commit/ci123".to_string(),
             author_name: "CI Bot".to_string(),
             author_email: "ci@example.com".to_string(),
@@ -507,6 +516,7 @@ mod tests {
 
         let feat_commit = ForgeCommit {
             id: "feat123".to_string(),
+            short_id: "fe1".to_string(),
             link: "https://example.com/commit/feat123".to_string(),
             author_name: "John Doe".to_string(),
             author_email: "john.doe@example.com".to_string(),
@@ -537,13 +547,14 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_no_skip_includes_all() {
-        let analyzer_config = test_helpers::create_test_analyzer_config();
+        let analyzer_config = test_helpers::create_test_analyzer_config(None);
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
         let commits = vec![
             ForgeCommit {
                 id: "ci123".to_string(),
+                short_id: "ci1".to_string(),
                 link: "https://example.com/commit/ci123".to_string(),
                 author_name: "CI Bot".to_string(),
                 author_email: "ci@example.com".to_string(),
@@ -554,6 +565,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "chore123".to_string(),
+                short_id: "ch1".to_string(),
                 link: "https://example.com/commit/chore123".to_string(),
                 author_name: "Maintainer".to_string(),
                 author_email: "maint@example.com".to_string(),
@@ -564,6 +576,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "misc123".to_string(),
+                short_id: "mi1".to_string(),
                 link: "https://example.com/commit/misc123".to_string(),
                 author_name: "Random".to_string(),
                 author_email: "random@example.com".to_string(),
@@ -574,6 +587,7 @@ mod tests {
             },
             ForgeCommit {
                 id: "feat123".to_string(),
+                short_id: "fe1".to_string(),
                 link: "https://example.com/commit/feat123".to_string(),
                 author_name: "Developer".to_string(),
                 author_email: "dev@example.com".to_string(),

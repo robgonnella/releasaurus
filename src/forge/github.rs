@@ -428,10 +428,31 @@ impl Forge for Github {
             if re.is_match(&tag.name) {
                 let stripped = re.replace_all(&tag.name, "").to_string();
                 if let Ok(sver) = semver::Version::parse(&stripped) {
+                    // get tag timestamp
+                    let vars = ShaDateQueryVariables {
+                        owner: self.config.owner.clone(),
+                        repo: self.config.repo.clone(),
+                        sha: tag.commit.sha.clone(),
+                    };
+
+                    let json = serde_json::json!({
+                      "query": SHA_DATE_QUERY,
+                      "variables": vars,
+                    });
+
+                    let result: StartCommitResult =
+                        self.instance.graphql(&json).await?;
+
+                    let created =
+                        result.data.repository.start_commit.committed_date;
+
                     return Ok(Some(Tag {
                         name: tag.name,
                         semver: sver,
                         sha: tag.commit.sha,
+                        timestamp: DateTime::parse_from_rfc3339(&created)
+                            .unwrap()
+                            .timestamp(),
                     }));
                 }
             }
@@ -513,6 +534,14 @@ impl Forge for Github {
                     author_email: e.node.author.email.clone(),
                     author_name: e.node.author.name.clone(),
                     id: e.node.oid.clone(),
+                    short_id: e
+                        .node
+                        .oid
+                        .clone()
+                        .split("")
+                        .take(8)
+                        .collect::<Vec<&str>>()
+                        .join(""),
                     link: format!(
                         "{}/{}",
                         self.config.commit_link_base_url, e.node.oid,

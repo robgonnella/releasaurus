@@ -170,10 +170,12 @@ options to the `[changelog]` section:
 
 ```toml
 [changelog]
-skip_ci = true              # Exclude CI/CD commits
-skip_chore = true           # Exclude chore/maintenance commits
-skip_miscellaneous = true   # Exclude non-conventional commits
-include_author = true       # Show commit author names
+skip_ci = true                # Exclude CI/CD commits
+skip_chore = true             # Exclude chore/maintenance commits
+skip_miscellaneous = true     # Exclude non-conventional commits
+skip_merge_commits = true     # Exclude merge commits (default: true)
+skip_release_commits = true   # Exclude release commits (default: true)
+include_author = true         # Show commit author names
 
 [[package]]
 path = "."
@@ -185,6 +187,8 @@ These options help you:
 - **`skip_ci`** - Remove CI/CD related commits (e.g., "ci: update workflow")
 - **`skip_chore`** - Remove maintenance commits (e.g., "chore: update deps")
 - **`skip_miscellaneous`** - Remove commits without conventional type prefixes
+- **`skip_merge_commits`** - Remove merge commits (default: true)
+- **`skip_release_commits`** - Remove automated release commits (default: true)
 - **`include_author`** - Add author attribution to each changelog entry
 
 This keeps your changelog focused on user-facing changes. See the

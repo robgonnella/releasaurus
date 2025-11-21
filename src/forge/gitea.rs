@@ -132,6 +132,7 @@ struct GiteaCommitQueryObject {
 
 #[derive(Debug, Deserialize)]
 struct GiteaTagCommit {
+    pub created: String,
     pub sha: String,
 }
 
@@ -347,6 +348,11 @@ impl Forge for Gitea {
                         name: tag.name,
                         semver: sver,
                         sha: tag.commit.sha,
+                        timestamp: DateTime::parse_from_rfc3339(
+                            &tag.commit.created,
+                        )
+                        .unwrap()
+                        .timestamp(),
                     }));
                 }
             }
@@ -401,6 +407,13 @@ impl Forge for Gitea {
                     author_email: result.commit.author.email.clone(),
                     author_name: result.commit.author.name.clone(),
                     id: result.sha.clone(),
+                    short_id: result
+                        .sha
+                        .clone()
+                        .split("")
+                        .take(8)
+                        .collect::<Vec<&str>>()
+                        .join(""),
                     link: format!(
                         "{}/{}",
                         self.config.commit_link_base_url, result.sha

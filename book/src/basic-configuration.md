@@ -112,6 +112,8 @@ Controls how changelogs are generated and which commits to include:
 skip_ci = false              # Optional: exclude CI commits from changelog
 skip_chore = false           # Optional: exclude chore commits from changelog
 skip_miscellaneous = false   # Optional: exclude non-conventional commits
+skip_merge_commits = true    # Optional: exclude merge commits from changelog
+skip_release_commits = true  # Optional: exclude release commits from changelog
 include_author = false       # Optional: show commit author names
 # body template is available for advanced users
 ```
@@ -121,6 +123,8 @@ include_author = false       # Optional: show commit author names
 - `skip_ci`: Exclude CI/CD commits (e.g., "ci: update workflow")
 - `skip_chore`: Exclude maintenance commits (e.g., "chore: update deps")
 - `skip_miscellaneous`: Exclude commits without conventional type prefixes
+- `skip_merge_commits`: Exclude merge commits (default: true)
+- `skip_release_commits`: Exclude automated release commits (default: true)
 - `include_author`: Add author names to changelog entries
 
 ### `[[package]]` Sections (Required)
@@ -252,6 +256,8 @@ This ensures packages are released when:
 skip_ci = true
 skip_chore = true
 skip_miscellaneous = true
+skip_merge_commits = true
+skip_release_commits = true
 
 [[package]]
 path = "."
@@ -267,6 +273,8 @@ tag_prefix = "v"
 skip_ci = false
 skip_chore = false
 skip_miscellaneous = false
+skip_merge_commits = false
+skip_release_commits = false
 include_author = true
 
 [[package]]
@@ -422,13 +430,15 @@ separate_pull_requests = false
 skip_ci = false
 skip_chore = false
 skip_miscellaneous = false
+skip_merge_commits = true
+skip_release_commits = true
 include_author = false
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }})
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% if commit.body -%}
 > {{ commit.body }}
 {% endif -%}
@@ -436,7 +446,7 @@ body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d"
 > {{ commit.breaking_description }}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }})
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
 {% endif -%}
 {% endfor %}
 {% endfor %}"""

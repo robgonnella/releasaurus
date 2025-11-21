@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use serde::{Deserialize, Serialize};
 
 /// Release pull request information with PR number and merge commit SHA.
@@ -41,9 +43,10 @@ pub struct PrLabelsRequest {
 
 /// Normalized commit data returned from any forge platform with metadata
 /// and links.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 pub struct ForgeCommit {
     pub id: String,
+    pub short_id: String,
     pub link: String,
     pub author_name: String,
     pub author_email: String,
@@ -51,6 +54,18 @@ pub struct ForgeCommit {
     pub message: String,
     pub timestamp: i64,
     pub files: Vec<String>,
+}
+
+impl PartialEq for ForgeCommit {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for ForgeCommit {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 /// How to apply file content changes during branch creation.

@@ -1,5 +1,7 @@
 //! Common functionality shared between release commands
-use std::path::Path;
+use log::*;
+use regex::Regex;
+use std::{collections::HashSet, path::Path};
 
 use crate::{
     analyzer::config::AnalyzerConfig,
@@ -50,6 +52,7 @@ pub fn get_prerelease(
 pub fn generate_analyzer_config(
     config: &Config,
     remote_config: &RemoteConfig,
+    default_branch: &str,
     package: &PackageConfig,
     tag_prefix: String,
     prerelease_override: Option<String>,
@@ -57,15 +60,27 @@ pub fn generate_analyzer_config(
     // Determine prerelease with priority: override > package > global
     let prerelease = get_prerelease(config, package, prerelease_override);
 
+    let mut release_commit_matcher = None;
+
+    if let Ok(matcher) = Regex::new(&format!(
+        r#"chore\({default_branch}\): release {}"#,
+        package.name
+    )) {
+        release_commit_matcher = Some(matcher);
+    }
+
     AnalyzerConfig {
         body: config.changelog.body.clone(),
         include_author: config.changelog.include_author,
         skip_chore: config.changelog.skip_chore,
         skip_ci: config.changelog.skip_ci,
         skip_miscellaneous: config.changelog.skip_miscellaneous,
+        skip_merge_commits: config.changelog.skip_merge_commits,
+        skip_release_commits: config.changelog.skip_release_commits,
         release_link_base_url: remote_config.release_link_base_url.clone(),
         tag_prefix: Some(tag_prefix),
         prerelease,
+        release_commit_matcher,
     }
 }
 
@@ -96,18 +111,70 @@ pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
     }
 }
 
-/// Retrieves commits for specific package from forge
-pub async fn get_package_commits(
+/// Retrieves all commits for all packages using the oldest found tag across
+/// all packages. We do this once so we don't keep fetching the same commit
+/// redundantly for each package.
+pub async fn get_commits_for_all_packages(
     forge: &dyn Forge,
-    starting_sha: Option<String>,
-    package_paths: &[String],
+    packages: &[PackageConfig],
+    repo_name: &str,
 ) -> Result<Vec<ForgeCommit>> {
-    let commits = forge.get_commits(starting_sha).await?;
+    info!("attempting to get commits for all packages at once");
+    let mut starting_sha = None;
+    let mut oldest_timestamp = i64::MAX;
+
+    for package in packages.iter() {
+        let tag_prefix = get_tag_prefix(package, repo_name);
+
+        if let Some(tag) = forge.get_latest_tag_for_prefix(&tag_prefix).await? {
+            if tag.timestamp < oldest_timestamp {
+                oldest_timestamp = tag.timestamp;
+                starting_sha = Some(tag.sha);
+            }
+        } else {
+            // since we have a package that hasn't been tagged yet, we can't
+            // determine if oldest tag for other packages will sufficiently
+            // capture all the necessary commits for this package so we
+            // must fall back on pull individually for each package
+            warn!("found package that hasn't been tagged yet");
+            starting_sha = None;
+            break;
+        }
+    }
+
+    if starting_sha.is_none() {
+        warn!("falling back to getting commits for each package separately");
+        return get_commits_for_all_packages_separately(
+            forge, packages, repo_name,
+        )
+        .await;
+    }
+
+    info!("getting commits");
+    forge.get_commits(starting_sha).await
+}
+
+/// Filters list of commit to just the commits pertaining to a specific package
+pub fn filter_commits_for_package(
+    package: &PackageConfig,
+    commits: &[ForgeCommit],
+) -> Vec<ForgeCommit> {
+    let package_full_path = Path::new(&package.workspace_root)
+        .join(&package.path)
+        .display()
+        .to_string()
+        .replace("./", "");
+
+    let mut package_paths = vec![package_full_path];
+
+    if let Some(additional_paths) = package.additional_paths.clone() {
+        package_paths.extend(additional_paths);
+    }
 
     let mut package_commits: Vec<ForgeCommit> = vec![];
 
     for commit in commits.iter() {
-        for file in commit.files.iter() {
+        'file_loop: for file in commit.files.iter() {
             let file_path = Path::new(file);
             for package_path in package_paths.iter() {
                 let normalized_path = package_path.replace("./", "");
@@ -116,13 +183,72 @@ pub async fn get_package_commits(
                     normalized_path = Path::new("");
                 }
                 if file_path.starts_with(normalized_path) {
+                    let raw_message = commit.message.to_string();
+                    let split_msg = raw_message
+                        .split_once("\n")
+                        .map(|(m, b)| (m.to_string(), b.to_string()));
+
+                    let (title, _body) = match split_msg {
+                        Some((t, b)) => {
+                            if b.is_empty() {
+                                (t.trim().to_string(), None)
+                            } else {
+                                (
+                                    t.trim().to_string(),
+                                    Some(b.trim().to_string()),
+                                )
+                            }
+                        }
+                        None => (raw_message.to_string(), None),
+                    };
+
+                    debug!(
+                        "{}: including commit : {} : {}",
+                        package.name, commit.short_id, title
+                    );
+
                     package_commits.push(commit.clone());
+                    break 'file_loop;
                 }
             }
         }
     }
 
-    Ok(package_commits)
+    package_commits
+}
+
+/// When we can't determine a common starting point for all packages, we fall
+/// back to pulling commits for each package individually and dedup by storing
+/// in a HashSet
+async fn get_commits_for_all_packages_separately(
+    forge: &dyn Forge,
+    packages: &[PackageConfig],
+    repo_name: &str,
+) -> Result<Vec<ForgeCommit>> {
+    let mut cache: HashSet<ForgeCommit> = HashSet::new();
+
+    for package in packages.iter() {
+        let tag_prefix = get_tag_prefix(package, repo_name);
+
+        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
+
+        let current_sha = current_tag.clone().map(|t| t.sha);
+
+        info!(
+            "{}: current tag sha: {:?} : fetching commits",
+            package.name, current_sha
+        );
+
+        let commits = forge.get_commits(current_sha).await?;
+
+        cache.extend(commits);
+    }
+
+    let mut commits = cache.iter().cloned().collect::<Vec<ForgeCommit>>();
+
+    commits.sort_by(|c1, c2| c1.timestamp.cmp(&c2.timestamp));
+
+    Ok(commits)
 }
 
 #[cfg(test)]
