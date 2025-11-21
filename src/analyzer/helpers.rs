@@ -28,6 +28,11 @@ pub fn update_release_with_commit(
     if let Some(commit) =
         Commit::parse_forge_commit(group_parser, forge_commit, config)
     {
+        // omit merge commits from release
+        if commit.merge_commit {
+            return;
+        }
+
         let commit_id = commit.id.to_string();
         let lines = commit
             .message
@@ -99,6 +104,7 @@ mod tests {
             merge_commit: false,
             message: "fix: first commit".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         let forge_commit2 = ForgeCommit {
@@ -109,6 +115,7 @@ mod tests {
             merge_commit: true,
             message: "feat: second commit".to_string(),
             timestamp: 1640995300,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -125,13 +132,13 @@ mod tests {
         );
 
         // Should have 2 commits
-        assert_eq!(release.commits.len(), 2);
+        assert_eq!(release.commits.len(), 1);
 
         // SHA should be from the last commit
-        assert_eq!(release.sha, "commit2");
+        assert_eq!(release.sha, "commit1");
 
         // Timestamp should be from the last commit
-        assert_eq!(release.timestamp, 1640995300);
+        assert_eq!(release.timestamp, 1640995200);
     }
 
     #[test]
@@ -248,6 +255,7 @@ mod tests {
             merge_commit: false,
             message: "ci: update workflow".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         let feat_commit = ForgeCommit {
@@ -258,6 +266,7 @@ mod tests {
             merge_commit: false,
             message: "feat: add feature".to_string(),
             timestamp: 1640995300,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -293,6 +302,7 @@ mod tests {
             merge_commit: false,
             message: "chore: update dependencies".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         let fix_commit = ForgeCommit {
@@ -303,6 +313,7 @@ mod tests {
             merge_commit: false,
             message: "fix: fix bug".to_string(),
             timestamp: 1640995300,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -338,6 +349,7 @@ mod tests {
             merge_commit: false,
             message: "random commit without type".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         let feat_commit = ForgeCommit {
@@ -348,6 +360,7 @@ mod tests {
             merge_commit: false,
             message: "feat: add feature".to_string(),
             timestamp: 1640995300,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -386,6 +399,7 @@ mod tests {
                 merge_commit: false,
                 message: "ci: update workflow".to_string(),
                 timestamp: 1640995100,
+                files: vec![],
             },
             ForgeCommit {
                 id: "chore123".to_string(),
@@ -395,6 +409,7 @@ mod tests {
                 merge_commit: false,
                 message: "chore: cleanup".to_string(),
                 timestamp: 1640995200,
+                files: vec![],
             },
             ForgeCommit {
                 id: "misc123".to_string(),
@@ -404,6 +419,7 @@ mod tests {
                 merge_commit: false,
                 message: "random commit".to_string(),
                 timestamp: 1640995250,
+                files: vec![],
             },
             ForgeCommit {
                 id: "feat123".to_string(),
@@ -413,6 +429,7 @@ mod tests {
                 merge_commit: false,
                 message: "feat: add feature".to_string(),
                 timestamp: 1640995300,
+                files: vec![],
             },
             ForgeCommit {
                 id: "fix123".to_string(),
@@ -422,6 +439,7 @@ mod tests {
                 merge_commit: false,
                 message: "fix: fix bug".to_string(),
                 timestamp: 1640995400,
+                files: vec![],
             },
         ];
 
@@ -454,6 +472,7 @@ mod tests {
             merge_commit: false,
             message: "feat: add new feature".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -483,6 +502,7 @@ mod tests {
             merge_commit: false,
             message: "ci: update workflow".to_string(),
             timestamp: 1640995200,
+            files: vec![],
         };
 
         let feat_commit = ForgeCommit {
@@ -493,6 +513,7 @@ mod tests {
             merge_commit: false,
             message: "feat: add feature".to_string(),
             timestamp: 1640995300,
+            files: vec![],
         };
 
         update_release_with_commit(
@@ -529,6 +550,7 @@ mod tests {
                 merge_commit: false,
                 message: "ci: update workflow".to_string(),
                 timestamp: 1640995100,
+                files: vec![],
             },
             ForgeCommit {
                 id: "chore123".to_string(),
@@ -538,6 +560,7 @@ mod tests {
                 merge_commit: false,
                 message: "chore: cleanup".to_string(),
                 timestamp: 1640995200,
+                files: vec![],
             },
             ForgeCommit {
                 id: "misc123".to_string(),
@@ -547,6 +570,7 @@ mod tests {
                 merge_commit: false,
                 message: "random commit".to_string(),
                 timestamp: 1640995250,
+                files: vec![],
             },
             ForgeCommit {
                 id: "feat123".to_string(),
@@ -556,6 +580,7 @@ mod tests {
                 merge_commit: false,
                 message: "feat: add feature".to_string(),
                 timestamp: 1640995300,
+                files: vec![],
             },
         ];
 

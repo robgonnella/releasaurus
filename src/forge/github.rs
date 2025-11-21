@@ -15,12 +15,12 @@ use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 
 const COMMITS_QUERY: &str = r#"
-query GetCommits($owner: String!, $repo: String!, $path: String!, $page_limit: Int!, $since: GitTimestamp, $cursor: String) {
+query GetCommits($owner: String!, $repo: String!, $page_limit: Int!, $since: GitTimestamp, $cursor: String) {
   repository(owner: $owner, name: $repo) {
     defaultBranchRef {
       target {
         ... on Commit {
-          history(first: $page_limit, path: $path, after: $cursor, since: $since) {
+          history(first: $page_limit, after: $cursor, since: $since) {
             pageInfo {
               hasNextPage
               endCursor
@@ -36,6 +36,12 @@ query GetCommits($owner: String!, $repo: String!, $path: String!, $page_limit: I
                 }
                 parents {
                   totalCount
+                }
+                committedDate
+                tree {
+                  entries {
+                    path
+                  }
                 }
               }
             }
@@ -62,8 +68,8 @@ use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
-            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
-            RemoteConfig,
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
+            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
@@ -110,6 +116,16 @@ struct CommitsQueryAuthor {
 }
 
 #[derive(Debug, Deserialize)]
+struct CommitsQueryTreeEntry {
+    pub path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitsQueryTree {
+    pub entries: Vec<CommitsQueryTreeEntry>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CommitsQueryNode {
     pub oid: String,
     pub message: String,
@@ -117,6 +133,7 @@ struct CommitsQueryNode {
     pub committed_date: String,
     pub author: CommitsQueryAuthor,
     pub parents: CommitsQueryParents,
+    pub tree: CommitsQueryTree,
 }
 
 #[derive(Debug, Deserialize)]
@@ -169,7 +186,6 @@ struct CommitsQueryResult {
 struct CommitsQueryVariables {
     pub owner: String,
     pub repo: String,
-    pub path: String,
     pub cursor: Option<String>,
     pub since: Option<String>,
     pub page_limit: u64,
@@ -371,6 +387,7 @@ impl Forge for Github {
             let config: Config = toml::from_str(&content)?;
 
             let mut config_search_depth = config.first_release_search_depth;
+
             if config_search_depth == 0 {
                 config_search_depth = u64::MAX;
             }
@@ -425,11 +442,10 @@ impl Forge for Github {
 
     async fn get_commits(
         &self,
-        path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let search_depth = self.commit_search_depth.lock().await;
-        let page_limit = cmp::min(100, *search_depth);
+        let page_limit = cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth);
         let mut commits: Vec<ForgeCommit> = vec![];
         let mut since_date = None;
 
@@ -466,23 +482,26 @@ impl Forge for Github {
                 owner: self.config.owner.clone(),
                 repo: self.config.repo.clone(),
                 cursor: cursor.clone(),
-                path: path.into(),
                 since: since_date.clone(),
                 page_limit,
             };
 
-            let result2: CommitsQueryResult = self.instance
+            let result: CommitsQueryResult = self.instance
                     .graphql(&serde_json::json!({ "query": COMMITS_QUERY, "variables": vars }))
                     .await?;
 
-            let forge_commits = result2
+            let edges = result
                 .data
                 .repository
                 .default_branch_ref
                 .target
                 .history
-                .edges
+                .edges;
+
+            let forge_commits = edges
                 .iter()
+                // filter out starting sha: we only want commits after starting sha
+                // filter out merge commits
                 .filter(|e| {
                     if let Some(sha) = sha.clone() {
                         e.node.oid != sha
@@ -505,12 +524,19 @@ impl Forge for Github {
                     )
                     .unwrap()
                     .timestamp(),
+                    files: e
+                        .node
+                        .tree
+                        .entries
+                        .iter()
+                        .map(|e| e.path.clone())
+                        .collect::<Vec<String>>(),
                 })
                 .collect::<Vec<ForgeCommit>>();
 
             commits.extend(forge_commits);
 
-            if !result2
+            if !result
                 .data
                 .repository
                 .default_branch_ref
@@ -521,7 +547,7 @@ impl Forge for Github {
                 .is_empty()
             {
                 cursor = Some(
-                    result2
+                    result
                         .data
                         .repository
                         .default_branch_ref
@@ -532,7 +558,7 @@ impl Forge for Github {
                 );
             }
 
-            has_more = result2
+            has_more = result
                 .data
                 .repository
                 .default_branch_ref

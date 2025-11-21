@@ -3,6 +3,8 @@ use secrecy::SecretString;
 
 /// Default number of commits to search when finding releases.
 pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
+/// Default page size for paginated commit queries
+pub const DEFAULT_PAGE_SIZE: u8 = 100;
 /// Default branch name prefix for release PRs.
 pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release";
 /// Default color for releasaurus labels in hex format.

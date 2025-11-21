@@ -46,7 +46,15 @@ pub fn create_test_remote_config() -> RemoteConfig {
 /// # Example
 /// ```ignore
 /// let config = create_test_config(vec![
-///     create_test_package_config(".", Some(ReleaseType::Node), Some("v".to_string()))
+///     PackageConfig {
+///         name: "my-package".into(),
+///         path: ".".into(),
+///         workspace_root: ".".into(),
+///         release_type: Some(ReleaseType::Node),
+///         tag_prefix: Some("v".to_string()),
+///         prerelease: None,
+///         additional_paths: None,
+///     }
 /// ]);
 /// ```
 pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
@@ -103,36 +111,9 @@ pub fn create_test_config_simple(
                 release_type: Some(release_type),
                 tag_prefix: None,
                 prerelease: None,
+                additional_paths: None,
             })
             .collect(),
-    }
-}
-
-/// Creates a test PackageConfig.
-///
-/// # Arguments
-/// * `name` - Package name
-/// * `path` - Package path relative to repository root
-/// * `release_type` - Optional release type
-/// * `tag_prefix` - Optional custom tag prefix
-///
-/// # Example
-/// ```ignore
-/// let package = create_test_package_config("my-package", ".", Some(ReleaseType::Node), Some("v".to_string()));
-/// ```
-pub fn create_test_package_config(
-    name: &str,
-    path: &str,
-    release_type: Option<ReleaseType>,
-    tag_prefix: Option<String>,
-) -> PackageConfig {
-    PackageConfig {
-        name: name.into(),
-        path: path.into(),
-        workspace_root: ".".into(),
-        release_type,
-        tag_prefix,
-        prerelease: None,
     }
 }
 
@@ -179,6 +160,7 @@ pub fn create_test_forge_commit(
         merge_commit: false,
         message: message.to_string(),
         timestamp,
+        files: vec![],
     }
 }
 
@@ -288,12 +270,15 @@ mod tests {
 
     #[test]
     fn test_create_test_config() {
-        let packages = vec![create_test_package_config(
-            "",
-            ".",
-            Some(ReleaseType::Node),
-            Some("v".to_string()),
-        )];
+        let packages = vec![PackageConfig {
+            name: "".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: Some("v".to_string()),
+            prerelease: None,
+            additional_paths: None,
+        }];
         let config = create_test_config(packages);
         assert_eq!(config.packages.len(), 1);
         assert_eq!(config.packages[0].path, ".");

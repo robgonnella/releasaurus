@@ -4,7 +4,8 @@ use std::path::Path;
 use crate::{
     analyzer::config::AnalyzerConfig,
     config::{Config, PackageConfig},
-    forge::config::RemoteConfig,
+    forge::{config::RemoteConfig, request::ForgeCommit, traits::Forge},
+    result::Result,
 };
 
 pub fn process_config(repo_name: &str, config: &mut Config) -> Config {
@@ -95,9 +96,41 @@ pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
     }
 }
 
+/// Retrieves commits for specific package from forge
+pub async fn get_package_commits(
+    forge: &dyn Forge,
+    starting_sha: Option<String>,
+    package_paths: &[String],
+) -> Result<Vec<ForgeCommit>> {
+    let commits = forge.get_commits(starting_sha).await?;
+
+    let mut package_commits: Vec<ForgeCommit> = vec![];
+
+    for commit in commits.iter() {
+        for file in commit.files.iter() {
+            let file_path = Path::new(file);
+            for package_path in package_paths.iter() {
+                let normalized_path = package_path.replace("./", "");
+                let mut normalized_path = Path::new(&normalized_path);
+                if package_path == "." {
+                    normalized_path = Path::new("");
+                }
+                if file_path.starts_with(normalized_path) {
+                    package_commits.push(commit.clone());
+                }
+            }
+        }
+    }
+
+    Ok(package_commits)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{config::ReleaseType, test_helpers};
+    use crate::{
+        config::{PackageConfig, ReleaseType},
+        test_helpers,
+    };
 
     use super::*;
 
@@ -105,12 +138,15 @@ mod tests {
     fn test_get_tag_prefix_using_standard_default() {
         let repo_name = "test-repo";
 
-        let package = test_helpers::create_test_package_config(
-            "my-package",
-            ".",
-            Some(ReleaseType::Generic),
-            None,
-        );
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
 
@@ -121,12 +157,15 @@ mod tests {
     fn test_get_tag_prefix_using_name() {
         let repo_name = "test-repo";
 
-        let package = test_helpers::create_test_package_config(
-            "my-package",
-            "packages/my-package",
-            Some(ReleaseType::Generic),
-            None,
-        );
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: "packages/my-package".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
 
@@ -137,12 +176,15 @@ mod tests {
     fn test_get_tag_prefix_using_path() {
         let repo_name = "test-repo";
 
-        let package = test_helpers::create_test_package_config(
-            "",
-            "packages/my-package",
-            Some(ReleaseType::Generic),
-            None,
-        );
+        let package = PackageConfig {
+            name: "".into(),
+            path: "packages/my-package".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
 
@@ -153,12 +195,15 @@ mod tests {
     fn test_get_tag_prefix_using_configured_prefix() {
         let repo_name = "test-repo";
 
-        let package = test_helpers::create_test_package_config(
-            "my-package",
-            "packages/my-package",
-            Some(ReleaseType::Generic),
-            Some("my-special-tag-prefix-v".into()),
-        );
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: "packages/my-package".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: Some("my-special-tag-prefix-v".into()),
+            prerelease: None,
+            additional_paths: None,
+        };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
 
@@ -167,12 +212,15 @@ mod tests {
 
     #[test]
     fn test_derive_package_name_from_directory() {
-        let mut package = test_helpers::create_test_package_config(
-            "",
-            "packages/my-package",
-            Some(ReleaseType::Generic),
-            Some("v".into()),
-        );
+        let mut package = PackageConfig {
+            name: "".into(),
+            path: "packages/my-package".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: Some("v".into()),
+            prerelease: None,
+            additional_paths: None,
+        };
         // Test with simple directory name
         let name = derive_package_name(&package, "test-repo");
         assert_eq!(name, "my-package");
@@ -201,18 +249,24 @@ mod tests {
         let repo_name = "test-repo";
 
         let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "",
-                "packages/api",
-                Some(ReleaseType::Node),
-                None,
-            ),
+            PackageConfig {
+                name: "".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
+            PackageConfig {
+                name: "".into(),
+                path: "packages/api".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
         ]);
 
         let processed = process_config(repo_name, &mut config);
@@ -226,18 +280,24 @@ mod tests {
         let repo_name = "test-repo";
 
         let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-custom-name",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "another-name",
-                "packages/api",
-                Some(ReleaseType::Node),
-                None,
-            ),
+            PackageConfig {
+                name: "my-custom-name".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
+            PackageConfig {
+                name: "another-name".into(),
+                path: "packages/api".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
         ]);
 
         let processed = process_config(repo_name, &mut config);
@@ -251,18 +311,24 @@ mod tests {
         let repo_name = "test-repo";
 
         let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "explicit-name",
-                "packages/frontend",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-            test_helpers::create_test_package_config(
-                "",
-                "packages/backend",
-                Some(ReleaseType::Node),
-                None,
-            ),
+            PackageConfig {
+                name: "explicit-name".into(),
+                path: "packages/frontend".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
+            PackageConfig {
+                name: "".into(),
+                path: "packages/backend".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            },
         ]);
 
         let processed = process_config(repo_name, &mut config);
@@ -273,12 +339,15 @@ mod tests {
 
     #[test]
     fn test_derive_package_name_with_explicit_name() {
-        let package = test_helpers::create_test_package_config(
-            "explicit-package-name",
-            "packages/something",
-            Some(ReleaseType::Generic),
-            None,
-        );
+        let package = PackageConfig {
+            name: "explicit-package-name".into(),
+            path: "packages/something".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        };
 
         let name = derive_package_name(&package, "test-repo");
         assert_eq!(name, "explicit-package-name");
@@ -286,14 +355,16 @@ mod tests {
 
     #[test]
     fn test_get_prerelease_cli_override_takes_priority() {
-        let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            }]);
         // Set all three levels
         config.prerelease = Some("alpha".to_string());
         config.packages[0].prerelease = Some("beta".to_string());
@@ -307,14 +378,16 @@ mod tests {
 
     #[test]
     fn test_get_prerelease_package_overrides_global() {
-        let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            }]);
         // Set both global and package
         config.prerelease = Some("alpha".to_string());
         config.packages[0].prerelease = Some("beta".to_string());
@@ -327,14 +400,16 @@ mod tests {
 
     #[test]
     fn test_get_prerelease_uses_global_when_package_not_set() {
-        let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            }]);
         // Set only global
         config.prerelease = Some("alpha".to_string());
 
@@ -346,14 +421,15 @@ mod tests {
 
     #[test]
     fn test_get_prerelease_returns_none_when_nothing_set() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
         // Nothing set
 
         let result = get_prerelease(&config, &config.packages[0], None);
@@ -364,14 +440,15 @@ mod tests {
 
     #[test]
     fn test_get_prerelease_cli_override_works_alone() {
-        let config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Generic),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+        }]);
         // Only CLI override set
         let cli_override = Some("dev".to_string());
 
@@ -385,14 +462,16 @@ mod tests {
     fn test_get_prerelease_consistency_between_commands() {
         // This test verifies that both release-pr and release commands
         // would get the same prerelease value given the same inputs
-        let mut config = test_helpers::create_test_config(vec![
-            test_helpers::create_test_package_config(
-                "my-package",
-                ".",
-                Some(ReleaseType::Generic),
-                None,
-            ),
-        ]);
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Generic),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+            }]);
 
         // Scenario 1: Package config overrides global
         config.prerelease = Some("alpha".to_string());

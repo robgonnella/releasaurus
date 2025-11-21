@@ -11,7 +11,7 @@ use reqwest::{
 };
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::{cmp, path::Path, sync::Arc, time::Duration};
+use std::{cmp, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use crate::{
@@ -19,8 +19,8 @@ use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
-            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
-            RemoteConfig,
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
+            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
@@ -357,12 +357,11 @@ impl Forge for Gitea {
 
     async fn get_commits(
         &self,
-        path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut page = 1;
         let search_depth = self.commit_search_depth.lock().await;
-        let page_limit = cmp::min(100, *search_depth);
+        let page_limit = cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth);
         let mut has_more = true;
         let mut count = 0;
         let mut commits: Vec<ForgeCommit> = vec![];
@@ -385,38 +384,22 @@ impl Forge for Gitea {
             let result = response.error_for_status()?;
             let results: Vec<GiteaCommitQueryObject> = result.json().await?;
 
-            for result in results {
+            for result in results.iter() {
                 // only apply search depth if this is the first release
                 if sha.is_none() && count >= *search_depth {
                     return Ok(commits);
                 }
 
+                // we've reached the target sha stopping point
                 if let Some(sha) = sha.clone()
                     && sha == result.sha
                 {
                     return Ok(commits);
                 }
 
-                if path != "." {
-                    let p = Path::new(path);
-                    let mut keep = false;
-
-                    for file in result.files {
-                        let file_path = Path::new(&file.filename);
-                        if file_path.starts_with(p) {
-                            keep = true;
-                            break;
-                        }
-                    }
-
-                    if !keep {
-                        continue;
-                    }
-                }
-
                 let forge_commit = ForgeCommit {
-                    author_email: result.commit.author.email,
-                    author_name: result.commit.author.name,
+                    author_email: result.commit.author.email.clone(),
+                    author_name: result.commit.author.name.clone(),
                     id: result.sha.clone(),
                     link: format!(
                         "{}/{}",
@@ -427,6 +410,11 @@ impl Forge for Gitea {
                     timestamp: DateTime::parse_from_rfc3339(&result.created)
                         .unwrap()
                         .timestamp(),
+                    files: result
+                        .files
+                        .iter()
+                        .map(|f| f.filename.clone())
+                        .collect::<Vec<String>>(),
                 };
 
                 commits.push(forge_commit);

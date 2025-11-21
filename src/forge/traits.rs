@@ -51,7 +51,6 @@ pub trait Forge: Any {
     /// SHA.
     async fn get_commits(
         &self,
-        path: &str,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>>;
     /// Find an open release PR matching the given branch criteria.
