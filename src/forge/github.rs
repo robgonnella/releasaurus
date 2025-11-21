@@ -1,7 +1,7 @@
 //! Implements the Forge trait for Github
 use async_trait::async_trait;
 use chrono::DateTime;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{OptionExt, eyre};
 use log::*;
 use octocrab::{
     Octocrab,
@@ -228,17 +228,25 @@ pub struct Github {
     commit_search_depth: Arc<Mutex<u64>>,
     base_uri: String,
     instance: Octocrab,
+    default_branch: String,
 }
 
 impl Github {
     /// Create GitHub client with personal access token authentication and API
     /// base URL configuration.
-    pub fn new(config: RemoteConfig) -> Result<Self> {
+    pub async fn new(config: RemoteConfig) -> Result<Self> {
         let base_uri = format!("{}://api.{}", config.scheme, config.host);
         let builder = Octocrab::builder()
             .personal_token(config.token.clone())
             .base_uri(base_uri.clone())?;
         let instance = builder.build()?;
+
+        let repo = instance.repos(&config.owner, &config.repo).get().await?;
+        let err_msg = format!(
+            "failed to find default branch for gitea repo: {}",
+            config.path
+        );
+        let default_branch = repo.default_branch.ok_or_eyre(err_msg)?;
 
         Ok(Self {
             config,
@@ -247,6 +255,7 @@ impl Github {
             )),
             base_uri,
             instance,
+            default_branch,
         })
     }
 
@@ -333,6 +342,32 @@ impl Forge for Github {
         self.config.clone()
     }
 
+    fn default_branch(&self) -> String {
+        self.default_branch.clone()
+    }
+
+    async fn load_config(&self) -> Result<Config> {
+        if let Some(content) =
+            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+        {
+            let config: Config = toml::from_str(&content)?;
+
+            let mut config_search_depth = config.first_release_search_depth;
+
+            if config_search_depth == 0 {
+                config_search_depth = u64::MAX;
+            }
+
+            let mut search_depth = self.commit_search_depth.lock().await;
+            *search_depth = config_search_depth;
+
+            Ok(config)
+        } else {
+            info!("no configuration found: using default");
+            Ok(Config::default())
+        }
+    }
+
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let result = self
             .instance
@@ -378,37 +413,6 @@ impl Forge for Github {
                 }
             }
         }
-    }
-
-    async fn load_config(&self) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
-        {
-            let config: Config = toml::from_str(&content)?;
-
-            let mut config_search_depth = config.first_release_search_depth;
-
-            if config_search_depth == 0 {
-                config_search_depth = u64::MAX;
-            }
-
-            let mut search_depth = self.commit_search_depth.lock().await;
-            *search_depth = config_search_depth;
-
-            Ok(config)
-        } else {
-            info!("no configuration found: using default");
-            Ok(Config::default())
-        }
-    }
-
-    async fn default_branch(&self) -> Result<String> {
-        let repo = self
-            .instance
-            .repos(&self.config.owner, &self.config.repo)
-            .get()
-            .await?;
-        Ok(repo.default_branch.unwrap_or("main".into()))
     }
 
     async fn get_latest_tag_for_prefix(
@@ -604,7 +608,7 @@ impl Forge for Github {
         &self,
         req: CreateBranchRequest,
     ) -> Result<Commit> {
-        let default_branch = self.default_branch().await?;
+        let default_branch = self.default_branch();
 
         let default_ref = self
             .instance

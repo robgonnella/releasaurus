@@ -2,7 +2,7 @@
 use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
-use color_eyre::eyre::{ContextCompat, OptionExt, eyre};
+use color_eyre::eyre::{ContextCompat, eyre};
 use gitlab::{
     AsyncGitlab,
     api::{
@@ -111,6 +111,7 @@ pub struct Gitlab {
     base_url: Url,
     rest_client: Client,
     project_id: String,
+    default_branch: String,
 }
 
 impl Gitlab {
@@ -127,10 +128,15 @@ impl Gitlab {
 
         let endpoint = Project::builder().project(&project_id).build()?;
         let gl_project: serde_json::Value = endpoint.query_async(&gl).await?;
-        let id = gl_project
-            .as_object()
-            .and_then(|p| p.get("id"))
-            .ok_or_eyre("failed to find project")?
+
+        let default_branch = gl_project["default_branch"]
+            .as_str()
+            .wrap_err("failed to find default branch")?
+            .to_string();
+
+        let id = gl_project["id"]
+            .as_str()
+            .wrap_err("failed to find project")?
             .to_string();
 
         let mut base_url = format!(
@@ -166,6 +172,7 @@ impl Gitlab {
             project_id,
             base_url,
             rest_client: client,
+            default_branch,
         })
     }
 
@@ -274,13 +281,8 @@ impl Forge for Gitlab {
         }
     }
 
-    async fn default_branch(&self) -> Result<String> {
-        let endpoint = Project::builder().project(&self.project_id).build()?;
-        let result: serde_json::Value = endpoint.query_async(&self.gl).await?;
-        let default_branch = result["default_branch"]
-            .as_str()
-            .wrap_err("failed to find default branch")?;
-        Ok(default_branch.to_string())
+    fn default_branch(&self) -> String {
+        self.default_branch.clone()
     }
 
     /// Get the latest release for the project
@@ -404,7 +406,7 @@ impl Forge for Gitlab {
         &self,
         req: CreateBranchRequest,
     ) -> Result<Commit> {
-        let default_branch_name = self.default_branch().await?;
+        let default_branch_name = self.default_branch();
 
         let mut actions: Vec<CommitAction> = vec![];
 

@@ -72,7 +72,7 @@ impl Remote {
     pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
         match self {
             Remote::Github(config) => {
-                let forge = Github::new(config.clone())?;
+                let forge = Github::new(config.clone()).await?;
                 Ok(Box::new(forge))
             }
             Remote::Gitlab(config) => {
@@ -80,7 +80,7 @@ impl Remote {
                 Ok(Box::new(forge))
             }
             Remote::Gitea(config) => {
-                let forge = Gitea::new(config.clone())?;
+                let forge = Gitea::new(config.clone()).await?;
                 Ok(Box::new(forge))
             }
         }

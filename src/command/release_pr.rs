@@ -66,7 +66,7 @@ async fn create_branch_release_prs(
     prs_by_branch: HashMap<String, Vec<ReleasePr>>,
     forge: &dyn Forge,
 ) -> Result<()> {
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
     // create a single pr per branch
     for (release_branch, prs) in prs_by_branch {
         let single_pr = prs.len() == 1;
@@ -158,7 +158,7 @@ async fn gather_release_prs_by_branch(
     forge: &dyn Forge,
     config: &Config,
 ) -> Result<HashMap<String, Vec<ReleasePr>>> {
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
 
     let mut prs_by_branch: HashMap<String, Vec<ReleasePr>> = HashMap::new();
 
@@ -237,7 +237,7 @@ async fn get_releasable_packages(
     forge: &dyn Forge,
     prerelease_override: Option<String>,
 ) -> Result<Vec<ReleasablePackage>> {
-    let default_branch = forge.default_branch().await?;
+    let default_branch = forge.default_branch();
     let repo_name = forge.repo_name();
     let remote_config = forge.remote_config();
 
@@ -354,7 +354,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
@@ -401,7 +401,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
@@ -444,7 +444,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
@@ -485,7 +485,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
@@ -528,7 +528,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -570,7 +570,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -610,7 +610,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge.expect_get_merged_release_pr().returning(|_| {
             Ok(Some(create_test_pull_request(789, "merged-sha")))
@@ -647,7 +647,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -684,7 +684,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -727,7 +727,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -763,7 +763,7 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_repo_name()
@@ -822,7 +822,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .returning(|| Ok("main".to_string()));
+            .returning(|| "main".to_string());
 
         mock_forge
             .expect_remote_config()
