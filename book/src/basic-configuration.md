@@ -222,6 +222,28 @@ release_type = "python"
 tag_prefix = "shared-v"
 ```
 
+### Packages with Shared Dependencies
+
+```toml
+# Packages that depend on shared code or resources
+[[package]]
+path = "packages/web-app"
+release_type = "node"
+tag_prefix = "web-v"
+additional_paths = ["shared/types", "shared/utils"]
+
+[[package]]
+path = "packages/api"
+release_type = "node"
+tag_prefix = "api-v"
+additional_paths = ["shared/types"]
+```
+
+This ensures packages are released when:
+
+- Their own code changes
+- Any of their `additional_paths` change (e.g., shared utilities or types)
+
 ### Clean Changelog (Filtered Commits)
 
 ```toml

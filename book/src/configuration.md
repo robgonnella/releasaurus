@@ -479,6 +479,37 @@ release_type = "rust"
 tag_prefix = "v"  # Creates tags like v1.0.0, v1.1.0
 ```
 
+### `additional_paths`
+
+Optional list of additional directory paths whose commits should be included
+when determining if a release is needed for this package. This is useful when a
+package depends on shared code or resources outside its main directory.
+
+**When to use:**
+
+- **Shared utilities**: Package depends on a shared utilities directory
+- **Shared types**: Multiple packages depend on common type definitions
+- **Documentation**: Package should release when its documentation changes
+- **Configuration**: Package should release when shared configuration changes
+
+```toml
+[[package]]
+path = "packages/api"
+release_type = "node"
+additional_paths = ["shared/utils", "shared/types", "docs/api"]
+```
+
+**How it works:**
+
+When Releasaurus checks for changes since the last release, it will include
+commits that modify files in:
+
+1. The package's main `path` (always included)
+2. Any paths listed in `additional_paths` (if specified)
+
+If any releasable commit touches files in these paths, the package will be
+included in the release.
+
 ### `prerelease`
 
 Optional prerelease identifier for creating pre-release versions
