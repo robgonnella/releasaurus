@@ -5,5 +5,4 @@ skip_miscellaneous = false
 include_author = true
 
 [[package]]
-path = "."
 release_type = "rust"

@@ -73,10 +73,10 @@ pub enum ReleaseType {
 pub struct PackageConfig {
     /// Name for this package
     pub name: String,
-    /// Path to package directory relative to workspace_root path
-    pub path: String,
     /// Path to the workspace root directory for this package relative to the repository root
     pub workspace_root: String,
+    /// Path to package directory relative to workspace_root path
+    pub path: String,
     /// Release type for determining which version files to update.
     pub release_type: Option<ReleaseType>,
     /// Git tag prefix for this package (e.g., "v" or "api-v").
