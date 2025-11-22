@@ -140,7 +140,7 @@ pub fn create_test_tag(name: &str, semver: &str, sha: &str) -> Tag {
         sha: sha.to_string(),
         name: name.to_string(),
         semver: SemVer::parse(semver).unwrap(),
-        timestamp: 0,
+        timestamp: None,
     }
 }
 
@@ -208,7 +208,7 @@ pub fn create_test_release(version: &str, has_tag: bool) -> Release {
                 sha: "test-sha".to_string(),
                 name: format!("v{}", version),
                 semver: SemVer::parse(version).unwrap(),
-                timestamp: 0,
+                timestamp: None,
             })
         } else {
             None

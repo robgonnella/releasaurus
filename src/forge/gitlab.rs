@@ -307,8 +307,8 @@ impl Forge for Gitlab {
                         timestamp: DateTime::parse_from_rfc3339(
                             &t.commit.created_at,
                         )
-                        .unwrap()
-                        .timestamp(),
+                        .map(|t| t.timestamp())
+                        .ok(),
                     }));
                 }
             }

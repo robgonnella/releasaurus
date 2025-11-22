@@ -355,8 +355,8 @@ impl Forge for Gitea {
                         timestamp: DateTime::parse_from_rfc3339(
                             &tag.commit.created,
                         )
-                        .unwrap()
-                        .timestamp(),
+                        .map(|t| t.timestamp())
+                        .ok(),
                     }));
                 }
             }
