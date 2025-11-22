@@ -115,9 +115,11 @@ pub async fn get_commits_for_all_packages(
     for package in packages.iter() {
         let tag_prefix = get_tag_prefix(package, repo_name);
 
-        if let Some(tag) = forge.get_latest_tag_for_prefix(&tag_prefix).await? {
-            if tag.timestamp < oldest_timestamp {
-                oldest_timestamp = tag.timestamp;
+        if let Some(tag) = forge.get_latest_tag_for_prefix(&tag_prefix).await?
+            && let Some(timestamp) = tag.timestamp
+        {
+            if timestamp < oldest_timestamp {
+                oldest_timestamp = timestamp;
                 starting_sha = Some(tag.sha);
             }
         } else {
@@ -165,7 +167,8 @@ pub fn filter_commits_for_package(
 
     for commit in commits.iter() {
         if let Some(tag) = tag.clone()
-            && commit.timestamp < tag.timestamp
+            && let Some(tag_timestamp) = tag.timestamp
+            && commit.timestamp < tag_timestamp
         {
             // commit is older than package's previous release starting point
             continue;
@@ -552,7 +555,7 @@ mod tests {
         // Create tag with timestamp 2000
         let mut tag =
             test_helpers::create_test_tag("v1.0.0", "1.0.0", "tag-sha");
-        tag.timestamp = 2000;
+        tag.timestamp = Some(2000);
 
         // Create commits with various timestamps
         let mut old_commit = test_helpers::create_test_forge_commit(

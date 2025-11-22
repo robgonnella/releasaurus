@@ -455,8 +455,8 @@ impl Forge for Github {
                         semver: sver,
                         sha: tag.commit.sha,
                         timestamp: DateTime::parse_from_rfc3339(&created)
-                            .unwrap()
-                            .timestamp(),
+                            .map(|t| t.timestamp())
+                            .ok(),
                     }));
                 }
             }

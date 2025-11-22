@@ -74,7 +74,7 @@ impl Analyzer {
             sha: release.sha.clone(),
             name: tag_name,
             semver,
-            timestamp: 0,
+            timestamp: None,
         };
 
         release.link =
@@ -137,7 +137,7 @@ impl Analyzer {
             sha: release.sha.clone(),
             name: next_tag_name.clone(),
             semver: next,
-            timestamp: 0,
+            timestamp: None,
         };
 
         release.link =
@@ -279,7 +279,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -308,7 +308,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -337,7 +337,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -408,7 +408,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![
@@ -439,7 +439,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![
@@ -487,7 +487,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![
@@ -548,7 +548,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![
@@ -607,7 +607,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![
@@ -751,7 +751,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -780,7 +780,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.1.0-alpha.1".to_string(),
             semver: SemVer::parse("1.1.0-alpha.1").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits =
@@ -806,7 +806,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0-alpha.5".to_string(),
             semver: SemVer::parse("1.0.0-alpha.5").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits =
@@ -832,7 +832,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0-alpha.3".to_string(),
             semver: SemVer::parse("1.0.0-alpha.3").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits =
@@ -878,7 +878,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(
@@ -909,7 +909,7 @@ mod tests {
             sha: "old123".to_string(),
             name: "v1.0.0".to_string(),
             semver: SemVer::parse("1.0.0").unwrap(),
-            timestamp: 0,
+            timestamp: None,
         };
 
         let commits = vec![create_test_forge_commit(

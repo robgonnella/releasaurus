@@ -16,7 +16,7 @@ pub struct Tag {
     /// Semantic version parsed from tag name.
     pub semver: semver::Version,
     /// Timestamp of tag
-    pub timestamp: i64,
+    pub timestamp: Option<i64>,
 }
 
 impl Default for Tag {
@@ -25,7 +25,7 @@ impl Default for Tag {
             name: "".into(),
             semver: Version::new(0, 0, 0),
             sha: "".into(),
-            timestamp: 0,
+            timestamp: None,
         }
     }
 }
