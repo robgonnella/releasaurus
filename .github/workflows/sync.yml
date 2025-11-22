@@ -1,0 +1,22 @@
+name: forge-sync
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: "github.com,gitlab.com,gitea.com"
+      - name: push to mirrors
+        run: |
+          git remote add gitlab git@gitlab.com:rgon/releasaurus.git
+          git push gitlab main
+          git remote add gitea git@gitea.com:rgon/releasaurus.git
+          git push gitea main
