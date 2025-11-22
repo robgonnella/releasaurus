@@ -8,6 +8,10 @@
       "type": "number",
       "description": "Configures commit search depth for first release. After the first release releasaurus will always parse all the commits since the last release"
     },
+    "separate_pull_requests": {
+      "type": "boolean",
+      "description": "Generates different release PRs for each package defined in config"
+    },
     "prerelease": {
       "type": "string",
       "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\"). Can be overridden per package or via CLI flag"
@@ -31,9 +35,21 @@
           "type": "boolean",
           "description": "Skips including miscellaneous commits in changelog. Miscellaneous commits are commits that do not conform to conventional commits standard"
         },
+        "skip_merge_commits": {
+          "type": "boolean",
+          "description": "Skips including merge commits in changelog"
+        },
+        "skip_release_commits": {
+          "type": "boolean",
+          "description": "Skips including release commits in changelog"
+        },
         "include_author": {
           "type": "boolean",
           "description": "Includes the author name for each commit in the generated changelog"
+        },
+        "release_start_regex": {
+          "type": "string",
+          "description": "A regex pattern used to identify the beginning of each release section in the generated changelog. This is used during the `release` command to parse the changelog and extract release notes"
         }
       }
     },
@@ -48,9 +64,13 @@
             "type": "string",
             "description": "The name of the package"
           },
+          "workspace_root": {
+            "type": "string",
+            "description": "The the root directory to use for this package. e.g. \"./packages\""
+          },
           "path": {
             "type": "string",
-            "description": "The relative path to the package directory starting from root of repository"
+            "description": "Path to the package directory relative to the workspace_root"
           },
           "release_type": {
             "type": "string",
@@ -64,6 +84,14 @@
           "prerelease": {
             "type": "string",
             "description": "Prerelease identifier for this package (e.g., \"alpha\", \"beta\", \"rc\"). Overrides global prerelease setting"
+          },
+          "additional_paths": {
+            "type": "array",
+            "description": "Additional directory paths in repo to include commits from when calculating next release version and changelog updates",
+            "items": {
+              "type": "string",
+              "description": "A directory path to include commits from when calculating release version and changelog updates for this package"
+            }
           }
         }
       }
