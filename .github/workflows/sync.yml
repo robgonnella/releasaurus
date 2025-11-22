@@ -10,12 +10,15 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-strict: false
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: push to mirrors
+        env:
+          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
         run: |
+          git clone git@github.com:robgonnella/releasaurus.git
+          cd releasaurus
           git remote add gitlab git@gitlab.com:rgon/releasaurus.git
           git push gitlab main
           git remote add gitea git@gitea.com:rgon/releasaurus.git
