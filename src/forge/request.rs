@@ -2,12 +2,13 @@ use std::hash::Hash;
 
 use serde::{Deserialize, Serialize};
 
-/// Release pull request information with PR number and merge commit SHA.
+/// Release pull request information with PR number, sha, and body
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct PullRequest {
     pub number: u64,
     pub sha: String,
+    pub body: String,
 }
 
 /// Request to find a pull request by comparing head and base branch names.

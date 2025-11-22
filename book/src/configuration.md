@@ -28,7 +28,7 @@ The configuration file uses TOML format with these main sections:
   history depth for initial release analysis
 - **`separate_pull_requests`** - (optional, default: false) Create separate PRs
   for each package in monorepos
-- **`prerelease`** - (optional, default: "") Sets prerelease suffix for all
+- **`prerelease`** - (optional, default: "") Sets prerelease identifier for all
   defined packages
 - **`[changelog]`** - Customizes changelog generation and formatting
   - `body` - (optional) Tera template for changelog content
@@ -43,6 +43,8 @@ The configuration file uses TOML format with these main sections:
     from changelog
   - `include_author` - (optional, default: false) Include commit author names in
     changelog
+  - `release_start_regex` - (optional, default: "^#\\s\\[") Regex pattern to
+    match the start of each release in the changelog
 - **`[[package]]`** - Defines packages within the repository with their
   release type (can have multiple)
   - `name` - (optional) The name for this package. This will be derived from
@@ -68,7 +70,22 @@ first_release_search_depth = 400
 # Create separate pull requests for each package (default: false)
 separate_pull_requests = false
 
+# Global prerelease identifier (default: none)
+# prerelease = ""
+
 [changelog]
+# Commit filtering options (defaults shown)
+skip_ci = false
+skip_chore = false
+skip_miscellaneous = false
+skip_merge_commits = true
+skip_release_commits = true
+include_author = false
+
+# Regex pattern to match release headers in changelog (default: "^#\\s\\[")
+release_start_regex = "^#\\s\\["
+
+# Changelog body template (default template shown)
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
@@ -88,9 +105,24 @@ body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d"
 {% endfor %}"""
 
 [[package]]
+# Package name (default: derived from <workspace_root>/<path>)
+name = ""
+# Path to package directory (default: ".")
 path = "."
-release_type = "node"
-tag_prefix = "v"
+# Workspace root directory (default: ".")
+workspace_root = "."
+# Release type (default: none - must be specified for version file updates)
+# release_type = ""
+# Tag prefix (default: derived based on conditions described below)
+# - if name is set or workspace_root or path are set to a directory
+#   - "<name>-v"
+# - if name is not set and workspace_root and path are both "."
+#   - "v"
+# tag_prefix = ""
+# Package-specific prerelease identifier (default: none)
+# prerelease = ""
+# Additional paths to include commits from (default: none)
+# additional_paths = []
 ```
 
 ## First Release Search Depth
@@ -346,10 +378,96 @@ include_author = true  # Show author names like "feat: add feature <John Doe>"
 
 ### Available Template
 
-#### `body` (Required)
+#### `body` (Optional)
 
 The main changelog content template. This defines how each release section is
 formatted.
+
+**Default**: The default template creates entries starting with
+`# [version](link) - date`
+
+#### `release_start_regex` (Optional)
+
+A regex pattern used to identify the beginning of each release section in the
+generated changelog. This is used during the `release` command to parse the
+changelog and extract release notes.
+
+```toml
+[changelog]
+release_start_regex = "^#\\s\\["  # Matches lines starting with "# ["
+```
+
+**Default**: `"^#\\s\\["` - Matches the default body template which starts each
+release with `# [version](link)`
+
+**When to customize**: Only change this if you significantly modify the `body`
+template. The regex must match the beginning of each release entry in your
+custom changelog format.
+
+**Examples:**
+
+For a custom template starting with `## Release`:
+
+```toml
+[changelog]
+body = """## Release {{ version }}
+...your custom template..."""
+release_start_regex = "^##\\s+Release"
+```
+
+For a custom template starting with `### Version`:
+
+```toml
+[changelog]
+body = """### Version {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+...your custom template..."""
+release_start_regex = "^###\\s+Version"
+```
+
+**Complete Example with Custom Body Template:**
+
+Here's a full example showing a custom changelog format with matching regex:
+
+```toml
+[changelog]
+# Custom body template with distinct release header
+body = """
+## 🚀 Release {{ version }} ({{ timestamp | date(format="%B %d, %Y") }})
+
+{% for group, commits in commits | group_by(attribute="group") %}
+#### {{ group }}
+{% for commit in commits %}
+- {{ commit.title }} ([{{ commit.short_id }}]({{ commit.link }}))
+{% endfor %}
+{% endfor %}
+"""
+
+# Regex matches "## 🚀 Release" at the start of lines
+release_start_regex = "^##\\s+🚀\\s+Release"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+This produces changelog entries like:
+
+```markdown
+## 🚀 Release 1.2.0 (January 15, 2024)
+
+#### Features
+
+- Add user authentication ([a1b2c3d4](https://github.com/owner/repo/commit/a1b2c3d4))
+- Implement dashboard ([e5f6g7h8](https://github.com/owner/repo/commit/e5f6g7h8))
+
+#### Bug Fixes
+
+- Fix login validation ([i9j0k1l2](https://github.com/owner/repo/commit/i9j0k1l2))
+```
+
+**Important**: The regex must uniquely identify release section headers and not
+match other content in your changelog. Test your regex pattern to ensure it
+correctly identifies all release boundaries.
 
 ## Package Configuration
 
@@ -447,9 +565,9 @@ tag_prefix = "web-v"
 ### `name` (Optional)
 
 An explicit name for the package. If not specified, Releasaurus automatically
-derives the package name from the `path`:
+derives the package name from the `<workspace_root>/<path>`:
 
-- For root packages (`path = "."`), uses the repository name
+- For root packages (`workspace_root="." path = "."`), uses the repository name
 - For nested packages, uses the directory name (e.g., `"packages/api"` becomes `"api"`)
 
 ```toml
@@ -508,7 +626,13 @@ release_type = "node"
 
 ### `tag_prefix`
 
-Optional prefix for Git tags. Defaults to `"v"` if not specified.
+Optional prefix for Git tags. If not specified, the default is derived based
+on the following conditions.
+
+- if name is set or workspace_root or path are set to a directory
+  - `<name>-v`
+- if name is not set and workspace_root and path are both "."
+  - `v`
 
 ```toml
 [[package]]
@@ -551,10 +675,9 @@ included in the release.
 ### `prerelease`
 
 Optional prerelease identifier for creating pre-release versions
-(e.g., alpha, beta, rc). Can be configured globally or per-package, and can be
-overridden via CLI flag.
+(e.g., alpha, beta, rc). Can be configured globally or per-package.
 
-**Configuration Priority:** CLI flag > Package config > Global config
+**Configuration Priority:** Package config > Global config
 
 #### Global Prerelease Configuration
 
@@ -589,15 +712,6 @@ release_type = "node"
 path = "./apps/api"
 release_type = "rust"
 prerelease = "rc"  # Override: this package uses rc instead
-```
-
-#### CLI Override
-
-Override configuration with the `--prerelease` flag:
-
-```bash
-# Override config file settings for this release
-releasaurus release-pr --prerelease alpha
 ```
 
 #### Prerelease Version Behavior
@@ -685,6 +799,26 @@ changelog for a release are as follows:
   - **author_email** - Email of the commit author
   - **raw_title** - Original unprocessed commit title
   - **raw_message** - Original unprocessed full commit message
+
+### Custom Body Templates and release_start_regex
+
+If you customize the `body` template, you must ensure the `release_start_regex`
+pattern matches the beginning of each release section in your custom format.
+This regex is used by the `release` command to parse the changelog and extract
+release notes.
+
+**Example:** If your custom template starts releases with `## Release v1.0.0`:
+
+```toml
+[changelog]
+body = """## Release v{{ version }}
+...your custom template..."""
+release_start_regex = "^##\\s+Release"
+```
+
+The regex must uniquely identify release headers without matching other content.
+Always test your custom template and regex together to ensure proper changelog
+parsing during releases.
 
 ### Using the `include_author` Flag in Templates
 

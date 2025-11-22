@@ -66,6 +66,7 @@ struct MergeRequestInfo {
     iid: u64,
     sha: String,
     merged_at: Option<String>,
+    description: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,9 +136,8 @@ impl Gitlab {
             .to_string();
 
         let id = gl_project["id"]
-            .as_str()
-            .wrap_err("failed to find project")?
-            .to_string();
+            .as_u64()
+            .wrap_err("failed to find project ID")?;
 
         let mut base_url = format!(
             "{}://{}/api/v4/projects/{id}/",
@@ -351,7 +351,7 @@ impl Forge for Gitlab {
         let mut forge_commits = vec![];
 
         for commit in result.iter() {
-            debug!("backfilling files for commit: {}", commit.id);
+            debug!("backfilling file paths for commit: {}", commit.id);
 
             let diff_url = self
                 .base_url
@@ -498,6 +498,7 @@ impl Forge for Gitlab {
                 Ok(Some(PullRequest {
                     number: merge_request.iid,
                     sha: merge_request.sha.clone(),
+                    body: merge_request.description.clone(),
                 }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
@@ -565,6 +566,7 @@ impl Forge for Gitlab {
         Ok(Some(PullRequest {
             number: merge_request.iid,
             sha: merge_request.sha.clone(),
+            body: merge_request.description.clone(),
         }))
     }
 
@@ -585,6 +587,7 @@ impl Forge for Gitlab {
         Ok(PullRequest {
             number: merge_request.iid,
             sha: merge_request.sha.clone(),
+            body: merge_request.description.clone(),
         })
     }
 

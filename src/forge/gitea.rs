@@ -59,6 +59,7 @@ struct GiteaPullRequest {
     number: u64,
     head: PullRequestBranch,
     merge_commit_sha: Option<String>,
+    body: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -557,6 +558,7 @@ impl Forge for Gitea {
             Ok(Some(PullRequest {
                 number: pr.number,
                 sha,
+                body: pr.body,
             }))
         } else {
             warn!("No open release PRs found for branch {}", req.head_branch);
@@ -621,6 +623,7 @@ impl Forge for Gitea {
             Ok(Some(PullRequest {
                 number: pr.number,
                 sha,
+                body: pr.body,
             }))
         } else {
             warn!(
@@ -647,6 +650,7 @@ impl Forge for Gitea {
         Ok(PullRequest {
             number: pr.number,
             sha: pr.head.sha,
+            body: pr.body,
         })
     }
 

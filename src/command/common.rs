@@ -4,7 +4,7 @@ use regex::Regex;
 use std::{collections::HashSet, path::Path};
 
 use crate::{
-    analyzer::config::AnalyzerConfig,
+    analyzer::{config::AnalyzerConfig, release::Tag},
     config::{Config, PackageConfig},
     forge::{config::RemoteConfig, request::ForgeCommit, traits::Forge},
     result::Result,
@@ -23,7 +23,7 @@ pub fn process_config(repo_name: &str, config: &mut Config) -> Config {
 pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
     let mut default_for_package = "v".to_string();
     let name = derive_package_name(package, repo_name);
-    if package.path != "." {
+    if package.workspace_root != "." || package.path != "." {
         default_for_package = format!("{}-v", name);
     }
     package.tag_prefix.clone().unwrap_or(default_for_package)
@@ -35,14 +35,14 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
 /// consistent prerelease version behavior across the entire workflow.
 ///
 /// # Priority
-/// CLI override > package config > global config
+/// package config > global config
 pub fn get_prerelease(
     config: &Config,
     package: &PackageConfig,
-    cli_override: Option<String>,
 ) -> Option<String> {
-    cli_override
-        .or_else(|| package.prerelease.clone())
+    package
+        .prerelease
+        .clone()
         .or_else(|| config.prerelease.clone())
 }
 
@@ -55,10 +55,9 @@ pub fn generate_analyzer_config(
     default_branch: &str,
     package: &PackageConfig,
     tag_prefix: String,
-    prerelease_override: Option<String>,
 ) -> AnalyzerConfig {
     // Determine prerelease with priority: override > package > global
-    let prerelease = get_prerelease(config, package, prerelease_override);
+    let prerelease = get_prerelease(config, package);
 
     let mut release_commit_matcher = None;
 
@@ -91,24 +90,14 @@ pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
         return package.name.to_string();
     }
 
-    let path = Path::new(&package.path);
+    let path = Path::new(&package.workspace_root).join(&package.path);
 
     if let Some(name) = path.file_name() {
         return name.display().to_string();
     }
 
-    if package.path == "." {
-        // For root package, use repository directory name as fallback
-        repo_name.into()
-    } else {
-        // Extract name from path (e.g., "crates/my-package" -> "my-package")
-        package
-            .path
-            .split('/')
-            .next_back()
-            .unwrap_or(&package.path)
-            .to_string()
-    }
+    // if all else fails just return the name of the repository
+    repo_name.into()
 }
 
 /// Retrieves all commits for all packages using the oldest found tag across
@@ -157,6 +146,7 @@ pub async fn get_commits_for_all_packages(
 /// Filters list of commit to just the commits pertaining to a specific package
 pub fn filter_commits_for_package(
     package: &PackageConfig,
+    tag: Option<Tag>,
     commits: &[ForgeCommit],
 ) -> Vec<ForgeCommit> {
     let package_full_path = Path::new(&package.workspace_root)
@@ -174,6 +164,12 @@ pub fn filter_commits_for_package(
     let mut package_commits: Vec<ForgeCommit> = vec![];
 
     for commit in commits.iter() {
+        if let Some(tag) = tag.clone()
+            && commit.timestamp < tag.timestamp
+        {
+            // commit is older than package's previous release starting point
+            continue;
+        }
         'file_loop: for file in commit.files.iter() {
             let file_path = Path::new(file);
             for package_path in package_paths.iter() {
@@ -480,29 +476,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_prerelease_cli_override_takes_priority() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
-        // Set all three levels
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("beta".to_string());
-        let cli_override = Some("rc".to_string());
-
-        let result = get_prerelease(&config, &config.packages[0], cli_override);
-
-        // CLI override should win
-        assert_eq!(result, Some("rc".to_string()));
-    }
-
-    #[test]
     fn test_get_prerelease_package_overrides_global() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
@@ -518,7 +491,7 @@ mod tests {
         config.prerelease = Some("alpha".to_string());
         config.packages[0].prerelease = Some("beta".to_string());
 
-        let result = get_prerelease(&config, &config.packages[0], None);
+        let result = get_prerelease(&config, &config.packages[0]);
 
         // Package should win over global
         assert_eq!(result, Some("beta".to_string()));
@@ -539,7 +512,7 @@ mod tests {
         // Set only global
         config.prerelease = Some("alpha".to_string());
 
-        let result = get_prerelease(&config, &config.packages[0], None);
+        let result = get_prerelease(&config, &config.packages[0]);
 
         // Should use global
         assert_eq!(result, Some("alpha".to_string()));
@@ -558,15 +531,15 @@ mod tests {
         }]);
         // Nothing set
 
-        let result = get_prerelease(&config, &config.packages[0], None);
+        let result = get_prerelease(&config, &config.packages[0]);
 
         // Should return None
         assert_eq!(result, None);
     }
 
     #[test]
-    fn test_get_prerelease_cli_override_works_alone() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
+    fn test_filter_commits_for_package_filters_by_tag_timestamp() {
+        let package = PackageConfig {
             name: "my-package".into(),
             path: ".".into(),
             workspace_root: ".".into(),
@@ -574,50 +547,42 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
-        }]);
-        // Only CLI override set
-        let cli_override = Some("dev".to_string());
+        };
 
-        let result = get_prerelease(&config, &config.packages[0], cli_override);
+        // Create tag with timestamp 2000
+        let mut tag =
+            test_helpers::create_test_tag("v1.0.0", "1.0.0", "tag-sha");
+        tag.timestamp = 2000;
 
-        // Should use CLI override
-        assert_eq!(result, Some("dev".to_string()));
-    }
+        // Create commits with various timestamps
+        let mut old_commit = test_helpers::create_test_forge_commit(
+            "old-commit",
+            "feat: old feature",
+            1000, // Before tag
+        );
+        old_commit.files = vec!["src/main.rs".to_string()];
 
-    #[test]
-    fn test_get_prerelease_consistency_between_commands() {
-        // This test verifies that both release-pr and release commands
-        // would get the same prerelease value given the same inputs
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-            }]);
+        let mut equal_commit = test_helpers::create_test_forge_commit(
+            "equal-commit",
+            "feat: equal feature",
+            2000, // Equal to tag
+        );
+        equal_commit.files = vec!["src/lib.rs".to_string()];
 
-        // Scenario 1: Package config overrides global
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("beta".to_string());
+        let mut new_commit = test_helpers::create_test_forge_commit(
+            "new-commit",
+            "feat: new feature",
+            3000, // After tag
+        );
+        new_commit.files = vec!["src/utils.rs".to_string()];
 
-        let result_pr = get_prerelease(&config, &config.packages[0], None);
-        let result_release = get_prerelease(&config, &config.packages[0], None);
+        let commits = vec![old_commit, equal_commit, new_commit];
 
-        assert_eq!(result_pr, result_release);
-        assert_eq!(result_pr, Some("beta".to_string()));
+        // Filter with tag - should exclude commits older than tag timestamp
+        let result = filter_commits_for_package(&package, Some(tag), &commits);
 
-        // Scenario 2: CLI override takes priority
-        let cli_override = Some("rc".to_string());
-
-        let result_pr_cli =
-            get_prerelease(&config, &config.packages[0], cli_override.clone());
-        let result_release_cli =
-            get_prerelease(&config, &config.packages[0], cli_override);
-
-        assert_eq!(result_pr_cli, result_release_cli);
-        assert_eq!(result_pr_cli, Some("rc".to_string()));
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].id, "equal-commit");
+        assert_eq!(result[1].id, "new-commit");
     }
 }

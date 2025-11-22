@@ -115,6 +115,7 @@ skip_miscellaneous = false   # Optional: exclude non-conventional commits
 skip_merge_commits = true    # Optional: exclude merge commits from changelog
 skip_release_commits = true  # Optional: exclude release commits from changelog
 include_author = false       # Optional: show commit author names
+release_start_regex = "^#\\s\\["  # Optional: regex to match release headers (only needed with custom body template)
 # body template is available for advanced users
 ```
 
@@ -126,6 +127,7 @@ include_author = false       # Optional: show commit author names
 - `skip_merge_commits`: Exclude merge commits (default: true)
 - `skip_release_commits`: Exclude automated release commits (default: true)
 - `include_author`: Add author names to changelog entries
+- `release_start_regex`: Pattern to match release headers in changelog (only customize if you modify the `body` template)
 
 ### `[[package]]` Sections (Required)
 
@@ -322,67 +324,69 @@ tag_prefix = "web-v"
 prerelease = "beta"  # In beta testing
 ```
 
-### CLI Prerelease Override
-
-You can also trigger prerelease versions without configuration:
-
-```bash
-# Create a one-time prerelease version
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease rc
-```
-
-This overrides any configuration file settings for that specific release.
-
 ### Complete Prerelease Workflow
 
-Here's a complete example showing how to use prereleases with both commands:
+Here's a complete example showing how to manage prereleases through configuration:
+
+**Step 1: Configure alpha prereleases**
+
+Update your `releasaurus.toml`:
+
+```toml
+prerelease = "alpha"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+**Step 2: Create and publish alpha releases**
 
 ```bash
-# Step 1: Create an alpha prerelease PR
+# Create an alpha prerelease PR
 releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease alpha
+  --github-repo "https://github.com/owner/repo"
 
 # This creates a PR with version like: v1.0.0 -> v1.1.0-alpha.1
 
-# Step 2: Review and merge the PR via web interface
+# Review and merge the PR via web interface
 
-# Step 3: Publish the alpha release using the same identifier
-releasaurus release \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease alpha
-
-# Step 4: Continue with more alpha releases as needed
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease alpha
-
-# This increments: v1.1.0-alpha.1 -> v1.1.0-alpha.2
-
-# Step 5: Switch to beta when ready
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease beta
-
-# This switches: v1.1.0-alpha.2 -> v1.1.0-beta.1 (with version bump if needed)
-
-# Step 6: Graduate to stable release
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo"
-  # No --prerelease flag
-
-# This graduates: v1.1.0-beta.3 -> v1.1.0
-
+# Publish the alpha release
 releasaurus release \
   --github-repo "https://github.com/owner/repo"
-  # No --prerelease flag - publishes stable v1.1.0
+
+# Continue with more alpha releases as needed
+# Each new PR will increment: v1.1.0-alpha.1 -> v1.1.0-alpha.2
 ```
 
-**Important**: Always use the same `--prerelease` value (or none) for both
-`release-pr` and `release` commands in the same release cycle. This ensures
-the version calculated during the PR matches the tag created during release.
+**Step 3: Switch to beta when ready**
+
+Update your configuration:
+
+```toml
+prerelease = "beta"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+Then create a new PR. This switches: v1.1.0-alpha.2 → v1.1.0-beta.1 (with version bump if needed)
+
+**Step 4: Graduate to stable release**
+
+Remove the prerelease configuration:
+
+```toml
+# Remove or comment out the prerelease line
+# prerelease = "beta"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+This graduates: v1.1.0-beta.3 → v1.1.0
 
 ## Testing Your Configuration
 
@@ -433,6 +437,7 @@ skip_miscellaneous = false
 skip_merge_commits = true
 skip_release_commits = true
 include_author = false
+release_start_regex = "^#\\s\\["
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}

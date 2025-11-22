@@ -71,6 +71,7 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
             skip_merge_commits: true,
             skip_release_commits: true,
             include_author: false,
+            release_start_regex: r"^#\s\[".into(),
         },
         packages,
     }
@@ -106,6 +107,7 @@ pub fn create_test_config_simple(
             skip_merge_commits: true,
             skip_release_commits: true,
             include_author: false,
+            release_start_regex: r"^#\s\[".into(),
         },
         packages: packages
             .into_iter()
@@ -185,6 +187,7 @@ pub fn create_test_pull_request(number: u64, sha: &str) -> PullRequest {
     PullRequest {
         number,
         sha: sha.to_string(),
+        body: "".into(),
     }
 }
 

@@ -85,11 +85,7 @@ async fn main() -> Result<()> {
     let forge = remote.get_forge().await?;
 
     match args.command {
-        cli::Command::ReleasePR { prerelease } => {
-            command::release_pr::execute(forge, prerelease).await
-        }
-        cli::Command::Release { prerelease } => {
-            command::release::execute(forge, prerelease).await
-        }
+        cli::Command::ReleasePR => command::release_pr::execute(forge).await,
+        cli::Command::Release => command::release::execute(forge).await,
     }
 }
