@@ -705,6 +705,7 @@ impl Forge for Github {
                 return Ok(Some(PullRequest {
                     number: pr.number,
                     sha: pr.head.sha,
+                    body: pr.body.unwrap_or_default(),
                 }));
             }
         }
@@ -768,6 +769,7 @@ impl Forge for Github {
                 return Ok(Some(PullRequest {
                     number: pr.number,
                     sha,
+                    body: pr.body.unwrap_or_default(),
                 }));
             }
         }
@@ -787,6 +789,7 @@ impl Forge for Github {
         Ok(PullRequest {
             number: pr.number,
             sha: pr.head.sha,
+            body: pr.body.unwrap_or_default(),
         })
     }
 

@@ -28,6 +28,14 @@ pub struct ChangelogConfig {
     pub skip_release_commits: bool,
     /// Includes commit author in default body template (default: false)
     pub include_author: bool,
+    /// Used to parse notes from changelog during release phase. This way
+    /// you are free to make manual updates to CHANGELOG.md as needed and
+    /// these will be reflected in the final release notes. You don't need
+    /// to change this value unless you make significant changes to "body"
+    /// in which case you just want to make sure this regex string matches
+    /// the start pattern for each release in your custom body.
+    /// (default: "^#\s\[")
+    pub release_start_regex: String,
 }
 
 impl Default for ChangelogConfig {
@@ -40,6 +48,7 @@ impl Default for ChangelogConfig {
             skip_merge_commits: true,
             skip_release_commits: true,
             include_author: false,
+            release_start_regex: r"^#\s\[".into(),
         }
     }
 }

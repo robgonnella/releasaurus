@@ -51,20 +51,10 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Analyze commits and create a release pull request.
-    ReleasePR {
-        /// Prerelease identifier (e.g., "alpha", "beta", "rc").
-        /// Overrides config file setting.
-        #[arg(long)]
-        prerelease: Option<String>,
-    },
+    ReleasePR,
 
     /// Create a git tag and publish release after PR merge.
-    Release {
-        /// Prerelease identifier (e.g., "alpha", "beta", "rc").
-        /// Overrides config file setting.
-        #[arg(long)]
-        prerelease: Option<String>,
-    },
+    Release,
 }
 
 impl Args {
@@ -205,7 +195,7 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
         format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
 
     let release_link_base_url =
-        format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
+        format!("{}/{}/{}/-/releases", link_base_url, owner, parsed.name);
 
     let remote_config = RemoteConfig {
         host,
@@ -301,7 +291,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: repo,
             github_token: token,
-            command: Command::ReleasePR { prerelease: None },
+            command: Command::ReleasePR,
         };
 
         let result = cli_config.get_remote();
@@ -325,7 +315,7 @@ mod tests {
             gitlab_token: token,
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR { prerelease: None },
+            command: Command::ReleasePR,
         };
 
         let result = cli_config.get_remote();
@@ -349,7 +339,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR { prerelease: None },
+            command: Command::ReleasePR,
         };
 
         let result = cli_config.get_remote();
@@ -373,7 +363,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
-            command: Command::ReleasePR { prerelease: None },
+            command: Command::ReleasePR,
         };
 
         let result = cli_config.get_remote();

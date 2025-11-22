@@ -108,44 +108,44 @@ This provides verbose output including:
 
 ### Prerelease Versions
 
-Both `release-pr` and `release` commands support prerelease versions using the `--prerelease` flag:
+Both `release-pr` and `release` commands support prerelease versions configured
+in your `releasaurus.toml` file:
 
-```bash
-# Create an alpha prerelease PR
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease alpha
+```toml
+# Global prerelease for all packages
+prerelease = "alpha"
 
-# Publish the alpha prerelease (after merging PR)
-releasaurus release \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease alpha
+[[package]]
+path = "."
+release_type = "node"
+```
 
-# Create a beta prerelease
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease beta
+Or configure per-package:
 
-# Create a release candidate
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --prerelease rc
+```toml
+[[package]]
+path = "./packages/stable"
+release_type = "rust"
+# No prerelease - stable releases
+
+[[package]]
+path = "./packages/experimental"
+release_type = "rust"
+prerelease = "beta"  # Beta releases for this package
 ```
 
 **Prerelease Behavior:**
 
-- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit)
-- **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier)
-- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (different identifier)
-- **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (no prerelease flag)
+- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `prerelease = "alpha"`)
+- **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier in config)
+- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change `prerelease = "beta"` in config)
+- **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (remove `prerelease` from config)
 
-The `--prerelease` flag overrides any prerelease configuration in
-`releasaurus.toml`, making it ideal for one-time prerelease versions or
-testing different identifiers.
+To change prerelease identifiers or graduate to stable, update your
+configuration file and create a new release PR.
 
-**Important**: When using `--prerelease` with the `release` command, make sure
-to use the same identifier that was used when creating the release PR. This
-ensures the version analysis produces the same tag that was proposed in the PR.
+See the [Configuration](./configuration.md) guide for complete prerelease
+configuration details.
 
 ## Platform-Specific Examples
 

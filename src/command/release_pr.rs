@@ -1,5 +1,4 @@
 //! Release pull request creation command implementation.
-
 use color_eyre::eyre::eyre;
 use log::*;
 use std::{collections::HashMap, path::Path};
@@ -29,20 +28,13 @@ struct ReleasePr {
 
 /// Analyze commits since last tags, generate changelogs, update version files,
 /// and create or update release PR.
-pub async fn execute(
-    forge: Box<dyn Forge>,
-    prerelease_override: Option<String>,
-) -> Result<()> {
+pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
     let mut config = forge.load_config().await?;
     let repo_name = forge.repo_name();
     let config = common::process_config(&repo_name, &mut config);
 
-    let releasable_packages = get_releasable_packages(
-        &config,
-        forge.as_ref(),
-        prerelease_override.clone(),
-    )
-    .await?;
+    let releasable_packages =
+        get_releasable_packages(&config, forge.as_ref()).await?;
 
     info!("releasable packages: {:#?}", releasable_packages);
 
@@ -190,9 +182,16 @@ async fn gather_release_prs_by_branch(
 
         title = format!("{title} {}", tag.name);
 
+        let metadata = format!(
+            r#"
+<!--{{"metadata": {{"tag": "{}","sha": "{}"}}}}-->
+"#,
+            tag.name, tag.sha
+        );
+
         // create the drop down
         let body = format!(
-            "{start_details}<summary>{}</summary>\n\n{}</details>",
+            "{metadata}{start_details}<summary>{}</summary>\n\n{}</details>",
             tag.name, pkg.release.notes
         );
 
@@ -235,7 +234,6 @@ async fn gather_release_prs_by_branch(
 async fn get_releasable_packages(
     config: &Config,
     forge: &dyn Forge,
-    prerelease_override: Option<String>,
 ) -> Result<Vec<ReleasablePackage>> {
     let default_branch = forge.default_branch();
     let repo_name = forge.repo_name();
@@ -252,6 +250,7 @@ async fn get_releasable_packages(
 
     for package in config.packages.iter() {
         let tag_prefix = common::get_tag_prefix(package, &repo_name);
+        let tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         info!(
             "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
@@ -266,7 +265,7 @@ async fn get_releasable_packages(
         );
 
         let package_commits =
-            common::filter_commits_for_package(package, &commits);
+            common::filter_commits_for_package(package, tag, &commits);
 
         info!("processing commits for package: {}", package.name);
 
@@ -276,7 +275,6 @@ async fn get_releasable_packages(
             &default_branch,
             package,
             tag_prefix.clone(),
-            prerelease_override.clone(),
         );
 
         let analyzer = Analyzer::new(analyzer_config)?;
@@ -713,9 +711,8 @@ mod tests {
             ReleaseType::Node,
         )]);
 
-        let result = get_releasable_packages(&config, &mock_forge, None)
-            .await
-            .unwrap();
+        let result =
+            get_releasable_packages(&config, &mock_forge).await.unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-repo");
@@ -751,9 +748,8 @@ mod tests {
             ReleaseType::Node,
         )]);
 
-        let result = get_releasable_packages(&config, &mock_forge, None)
-            .await
-            .unwrap();
+        let result =
+            get_releasable_packages(&config, &mock_forge).await.unwrap();
 
         assert_eq!(result.len(), 0);
     }
@@ -786,19 +782,16 @@ mod tests {
                 Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
             });
 
-        let config = create_test_config_simple(vec![(
+        let mut config = create_test_config_simple(vec![(
             "test-repo",
             ".",
             ReleaseType::Node,
         )]);
 
-        let result = get_releasable_packages(
-            &config,
-            &mock_forge,
-            Some("alpha".to_string()),
-        )
-        .await
-        .unwrap();
+        config.packages[0].prerelease = Some("alpha".to_string());
+
+        let result =
+            get_releasable_packages(&config, &mock_forge).await.unwrap();
 
         assert_eq!(result.len(), 1);
         let tag = result[0].release.tag.as_ref().unwrap();
@@ -836,7 +829,7 @@ mod tests {
                 Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current-sha")))
             });
 
-        let result = execute(Box::new(mock_forge), None).await;
+        let result = execute(Box::new(mock_forge)).await;
         assert!(result.is_ok());
     }
 }
