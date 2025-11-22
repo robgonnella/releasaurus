@@ -13,7 +13,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: "github.com,gitlab.com,gitea.com"
           ssh-strict: false
       - name: push to mirrors
         run: |
