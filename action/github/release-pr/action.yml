@@ -18,8 +18,12 @@ inputs:
 outputs: {}
 runs:
   using: docker
-  image: rgonnella/releasaurus:${{ github.action_ref }}
+  image: ../../../Dockerfile
   env:
     RELEASAURUS_DEBUG: ${{ inputs.debug }}
   args:
-    - release-pr --github-repo ${{ inputs.repo }} --github-token ${{ inputs.token }}
+    - release-pr
+    - --github-repo
+    - ${{ inputs.repo }}
+    - --github-token
+    - ${{ inputs.token }}
