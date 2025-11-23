@@ -48,6 +48,8 @@ mod test_helpers;
 
 use crate::result::Result;
 
+const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
+
 /// Initialize terminal logger with debug or info level filtering for
 /// releasaurus output.
 fn initialize_logger(debug: bool) -> Result<()> {
@@ -79,7 +81,13 @@ async fn main() -> Result<()> {
 
     let args = cli::Args::parse();
 
-    initialize_logger(args.debug)?;
+    let mut debug = args.debug;
+
+    if std::env::var(DEBUG_ENV_VAR).is_ok() {
+        debug = true;
+    }
+
+    initialize_logger(debug)?;
 
     let remote = args.get_remote()?;
     let forge = remote.get_forge().await?;

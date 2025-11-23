@@ -1,0 +1,25 @@
+name: 🦕 releasaurus release-pr
+description: Runs "releasaurus release-pr" for gitea repositories to automate management of release PRs
+inputs:
+  repo:
+    description: The gitea repo to affect
+    default: ${{ gitea.server_url }}/${{ gitea.repository }}
+  token:
+    description: The gitea token to use. This token will need privileges to create PRs, tags, labels, and releases
+  debug:
+    description: Enables debug logs
+    default: "false"
+  git_user_name:
+    description: The git user name to use when committing and creating tags
+    default: "ReleasaurusCI"
+  git_user_email:
+    description: The git user email to use when committing and creating tags
+    default: releasaurus-ci@noreply.com
+outputs: {}
+runs:
+  using: docker
+  image: Dockerfile
+  env:
+    RELEASAURUS_DEBUG: ${{ inputs.debug }}
+  args:
+    - release-pr --gitea-repo ${{ inputs.repo }} --gitea-token ${{ inputs.token }}

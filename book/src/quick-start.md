@@ -257,12 +257,17 @@ releasaurus release --github-repo "https://github.com/owner/repo"
 If something isn't working as expected, enable debug logging:
 
 ```bash
+# Via command line flag
 releasaurus release-pr --debug \
   --github-repo "https://github.com/owner/repo"
+
+# Or via environment variable
+export RELEASAURUS_DEBUG=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
 ```
 
-This provides detailed information about configuration loading, API calls, and
-file operations.
+See the [Environment Variables](./environment-variables.md#releasaurus_debug)
+guide for more details.
 
 ### Automation with CI/CD
 

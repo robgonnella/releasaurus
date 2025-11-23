@@ -92,6 +92,38 @@ releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
 releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
 ```
 
+## Debug Configuration
+
+### `RELEASAURUS_DEBUG`
+
+**Purpose**: Enable detailed debug logging for troubleshooting
+
+**Values**:
+
+- Any value (including `true`, `false`, `1`, `0`, etc.) - Enable debug mode
+- Unset or empty - Disable debug mode (default)
+
+**Example**:
+
+```bash
+export RELEASAURUS_DEBUG=true
+```
+
+**Usage**:
+
+```bash
+# Enable debug mode via environment variable
+export RELEASAURUS_DEBUG=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# Alternative: use the --debug flag
+releasaurus release-pr --github-repo "https://github.com/owner/repo" --debug
+```
+
+**Note**: Debug mode is enabled whenever `RELEASAURUS_DEBUG` is set to any
+value. To disable debug mode, the variable must be unset or empty. The `--debug`
+flag will always enable debug mode regardless of the environment variable value.
+
 ## Next Steps
 
 - **[Commands](./commands.md)** - Command-line options and usage patterns

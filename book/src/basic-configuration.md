@@ -392,8 +392,8 @@ This graduates: v1.1.0-beta.3 → v1.1.0
 
 After creating your configuration file:
 
-1. **Validate syntax**: Run any Releasaurus command with `--debug` to check
-   for configuration errors
+1. **Validate syntax**: Run any Releasaurus command with `--debug` flag or
+   `RELEASAURUS_DEBUG` environment variable to check for configuration errors
 2. **Review output**: Check that tag names and changelog format match your
    expectations
 
@@ -401,9 +401,14 @@ Example validation:
 
 ```bash
 # This will load and validate your configuration
+# Via command line flag
 releasaurus release-pr \
   --github-repo "https://github.com/owner/repo" \
   --debug
+
+# Or via environment variable
+export RELEASAURUS_DEBUG=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
 ```
 
 If there are configuration errors, you'll see clear error messages explaining

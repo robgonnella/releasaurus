@@ -130,9 +130,17 @@ incorrect.
 When troubleshooting any issue, enable debug mode for detailed information:
 
 ```bash
+# Via command line flag
 releasaurus release-pr --debug \
   --github-repo "https://github.com/owner/repo"
+
+# Or via environment variable
+export RELEASAURUS_DEBUG=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
 ```
+
+See the [Environment Variables](./environment-variables.md#releasaurus_debug)
+guide for more details on `RELEASAURUS_DEBUG`.
 
 ## Getting Help
 

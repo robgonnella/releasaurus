@@ -1,10 +1,12 @@
 # Releasaurus
 
-A comprehensive release automation tool that streamlines the software release process across multiple programming languages and forge platforms.
+A comprehensive release automation tool that streamlines the software release
+process across multiple programming languages and forge platforms.
 
 ## Documentation
 
-For complete documentation, installation instructions, and usage examples, please visit:
+For complete documentation, installation instructions, and usage examples,
+please visit:
 
 **[https://releasaurus.rgon.io](https://releasaurus.rgon.io)**
 
