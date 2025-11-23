@@ -4,9 +4,6 @@ on:
   push:
     branches: ["main"]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   releasaurus:
     runs-on: ubuntu-latest
@@ -15,7 +12,6 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v5
       - uses: robgonnella/releasaurus/action/github@main
         with:
           token: ${{ secrets.GH_TEST_TOKEN }}
