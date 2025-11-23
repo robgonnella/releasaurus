@@ -85,6 +85,14 @@ pub struct PackageConfig {
     pub prerelease: Option<String>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
+    /// Always increments major version on breaking commits
+    pub breaking_always_increment_major: Option<bool>,
+    /// Always increments minor version on feature commits
+    pub features_always_increment_minor: Option<bool>,
+    /// Custom commit type regex matcher to increment major version
+    pub custom_major_increment_regex: Option<String>,
+    /// Custom commit type regex matcher to increment minor version
+    pub custom_minor_increment_regex: Option<String>,
 }
 
 impl Default for PackageConfig {
@@ -97,6 +105,10 @@ impl Default for PackageConfig {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         }
     }
 }
@@ -113,6 +125,14 @@ pub struct Config {
     /// Global prerelease identifier (e.g., "alpha", "beta", "rc").
     /// Can be overridden per package.
     pub prerelease: Option<String>,
+    /// Always increments major version on breaking commits
+    pub breaking_always_increment_major: bool,
+    /// Always increments minor version on feature commits
+    pub features_always_increment_minor: bool,
+    /// Custom commit type regex matcher to increment major version
+    pub custom_major_increment_regex: Option<String>,
+    /// Custom commit type regex matcher to increment minor version
+    pub custom_minor_increment_regex: Option<String>,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
     /// Packages to manage in this repository (supports monorepos).
@@ -126,6 +146,10 @@ impl Default for Config {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
             prerelease: None,
+            breaking_always_increment_major: true,
+            features_always_increment_minor: true,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
             changelog: ChangelogConfig::default(),
             packages: vec![PackageConfig::default()],
         }

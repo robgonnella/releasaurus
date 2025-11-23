@@ -73,6 +73,12 @@ separate_pull_requests = false
 # Global prerelease identifier (default: none)
 # prerelease = ""
 
+# Version increment behavior (defaults shown)
+breaking_always_increment_major = true
+features_always_increment_minor = true
+# custom_major_increment_regex = ""
+# custom_minor_increment_regex = ""
+
 [changelog]
 # Commit filtering options (defaults shown)
 skip_ci = false
@@ -123,6 +129,11 @@ workspace_root = "."
 # prerelease = ""
 # Additional paths to include commits from (default: none)
 # additional_paths = []
+# Package-specific version increment behavior (default: uses global settings)
+# breaking_always_increment_major = true
+# features_always_increment_minor = true
+# custom_major_increment_regex = ""
+# custom_minor_increment_regex = ""
 ```
 
 ## First Release Search Depth
@@ -771,6 +782,99 @@ path = "./apps/web"
 release_type = "node"
 tag_prefix = "web-v"
 prerelease = "beta"  # Web app in beta testing
+```
+
+### Version Increment Configuration
+
+Control how commits trigger version bumps. Can be configured globally or
+per-package.
+
+**Configuration Priority:** Package config > Global config
+
+#### `breaking_always_increment_major`
+
+When `true` (default), breaking changes (`feat!:` or `BREAKING CHANGE:` footer)
+increment the major version. When `false`, they're treated as regular commits.
+
+```toml
+# Disable automatic major bumps for breaking changes
+breaking_always_increment_major = false
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+#### `features_always_increment_minor`
+
+When `true` (default), feature commits (`feat:`) increment the minor version.
+When `false`, they're treated as patch-level changes.
+
+```toml
+# Treat features as patch bumps
+features_always_increment_minor = false
+
+[[package]]
+path = "."
+release_type = "rust"
+```
+
+#### `custom_major_increment_regex`
+
+Define a custom regex pattern to trigger major version bumps. Works
+**additively** with conventional commit syntax when
+`breaking_always_increment_major` is enabled.
+
+```toml
+# Major bump for commits containing "MAJOR" anywhere in message
+custom_major_increment_regex = "MAJOR"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+Example commit messages that trigger major bumps:
+
+- `MAJOR: Complete rewrite` (custom regex)
+- `feat!: breaking change` (conventional syntax, if enabled)
+
+#### `custom_minor_increment_regex`
+
+Define a custom regex pattern to trigger minor version bumps. Works
+**additively** with `feat:` syntax when `features_always_increment_minor`
+is enabled.
+
+```toml
+# Minor bump for commits containing "FEATURE" anywhere in message
+custom_minor_increment_regex = "FEATURE"
+
+[[package]]
+path = "."
+release_type = "rust"
+```
+
+#### Per-Package Override Example
+
+```toml
+# Global: strict conventional commits
+breaking_always_increment_major = true
+features_always_increment_minor = true
+
+[[package]]
+path = "./packages/stable"
+release_type = "rust"
+tag_prefix = "stable-v"
+# Uses global settings
+
+[[package]]
+path = "./packages/experimental"
+release_type = "node"
+tag_prefix = "exp-v"
+# Override: custom patterns for this package
+breaking_always_increment_major = false
+custom_major_increment_regex = "\\[BREAKING\\]"
+custom_minor_increment_regex = "\\[FEATURE\\]"
 ```
 
 ## Changelog Body Template Variables

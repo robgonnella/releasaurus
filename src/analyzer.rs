@@ -102,9 +102,23 @@ impl Analyzer {
             .map(|c| c.raw_message.to_string())
             .collect::<Vec<String>>();
 
-        let version_updater = VersionUpdater::new()
-            .with_breaking_always_increment_major(true)
-            .with_features_always_increment_minor(true);
+        let mut version_updater = VersionUpdater::new()
+            .with_breaking_always_increment_major(
+                self.config.breaking_always_increment_major,
+            )
+            .with_features_always_increment_minor(
+                self.config.features_always_increment_minor,
+            );
+
+        if let Some(value) = self.config.custom_major_increment_regex.clone() {
+            version_updater =
+                version_updater.with_custom_major_increment_regex(&value)?;
+        }
+
+        if let Some(value) = self.config.custom_minor_increment_regex.clone() {
+            version_updater =
+                version_updater.with_custom_minor_increment_regex(&value)?;
+        }
 
         // Handle prerelease transitions
         let next = if let Some(ref prerelease_id) = self.config.prerelease {
@@ -925,5 +939,255 @@ mod tests {
         let tag = release.tag.unwrap();
         assert_eq!(tag.semver, SemVer::parse("1.1.0-rc.1").unwrap());
         assert_eq!(tag.name, "v1.1.0-rc.1");
+    }
+
+    #[test]
+    fn test_breaking_always_increment_major_disabled() {
+        let mut config = create_test_analyzer_config(None);
+        config.breaking_always_increment_major = false;
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat!: breaking change",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // In 0.x versions with breaking_always_increment_major=false,
+        // breaking changes bump minor instead of major
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.2.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_custom_major_regex_works_with_breaking_syntax() {
+        let mut config = create_test_analyzer_config(None);
+        config.custom_major_increment_regex = Some("MAJOR".to_string());
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        // Conventional breaking syntax still works even with custom regex
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat!: breaking change",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+        let release = result.unwrap();
+
+        // Breaking syntax still triggers major bump (custom regex is additive)
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("1.0.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_custom_major_increment_regex() {
+        let mut config = create_test_analyzer_config(None);
+        config.custom_major_increment_regex = Some("doc".to_string());
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "doc: this should bump major",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // Custom regex matches "doc" in commit message, bumps major
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("1.0.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_features_always_increment_minor_disabled() {
+        let mut config = create_test_analyzer_config(None);
+        config.features_always_increment_minor = false;
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // In 0.x versions with features_always_increment_minor=false,
+        // features bump patch instead of minor
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.1.1").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_custom_minor_increment_regex() {
+        let mut config = create_test_analyzer_config(None);
+        config.custom_minor_increment_regex = Some("ci".to_string());
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "ci: this should bump minor",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // Custom regex matches "ci" in commit message, bumps minor
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.2.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_custom_minor_regex_works_with_feat_syntax() {
+        let mut config = create_test_analyzer_config(None);
+        config.custom_minor_increment_regex = Some("ci".to_string());
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        // Conventional feat syntax still works even with custom regex
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // Feat syntax still triggers minor bump (custom regex is additive)
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.2.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_both_boolean_flags_disabled_minor_bump() {
+        let mut config = create_test_analyzer_config(None);
+        config.breaking_always_increment_major = false;
+        config.features_always_increment_minor = false;
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        // With both flags disabled, only minor bump should occur
+        let commits = vec![
+            create_test_forge_commit("abc123", "feat!: breaking feature", 1000),
+            create_test_forge_commit("def456", "feat: regular feature", 2000),
+            create_test_forge_commit("ghi789", "fix: bug fix", 3000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // With both flags disabled, only minor bump
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.2.0").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_both_boolean_flags_disabled_path_bump() {
+        let mut config = create_test_analyzer_config(None);
+        config.breaking_always_increment_major = false;
+        config.features_always_increment_minor = false;
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        // With both flags disabled, only patch bump should occur
+        let commits = vec![
+            create_test_forge_commit("def456", "feat: regular feature", 1000),
+            create_test_forge_commit("ghi789", "fix: bug fix", 2000),
+        ];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // With both flags disabled, only patch bump
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("0.1.1").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_custom_regex_matches_non_conventional_commit() {
+        let mut config = create_test_analyzer_config(None);
+        config.custom_major_increment_regex = Some("wow".to_string());
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = create_test_tag("0.1.0", "0.1.0", "old123");
+
+        // Non-conventional commit message that matches custom regex
+        let commits = vec![create_test_forge_commit(
+            "abc123",
+            "wow: complete rewrite of core functionality",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+        assert!(result.is_some());
+
+        let release = result.unwrap();
+
+        // Custom regex matches "wow" and triggers major bump
+        assert_eq!(
+            release.tag.unwrap().semver,
+            SemVer::parse("1.0.0").unwrap()
+        );
     }
 }
