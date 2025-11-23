@@ -64,6 +64,10 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
         first_release_search_depth: 100,
         separate_pull_requests: false,
         prerelease: None,
+        breaking_always_increment_major: true,
+        features_always_increment_minor: true,
+        custom_major_increment_regex: None,
+        custom_minor_increment_regex: None,
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -100,6 +104,11 @@ pub fn create_test_config_simple(
         first_release_search_depth: 100,
         separate_pull_requests: false,
         prerelease: None,
+        breaking_always_increment_major: true,
+        features_always_increment_minor: true,
+        custom_major_increment_regex: None,
+        custom_minor_increment_regex: None,
+
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,
@@ -119,6 +128,11 @@ pub fn create_test_config_simple(
                 release_type: Some(release_type),
                 tag_prefix: None,
                 prerelease: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+
                 additional_paths: None,
             })
             .collect(),
@@ -244,6 +258,11 @@ pub fn create_test_analyzer_config(
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
         prerelease: None,
+        breaking_always_increment_major: true,
+        features_always_increment_minor: true,
+        custom_major_increment_regex: None,
+        custom_minor_increment_regex: None,
+
         release_commit_matcher: Some(
             Regex::new(r#"chore\(main\): release test-package"#).unwrap(),
         ),
@@ -271,6 +290,10 @@ mod tests {
             release_type: Some(ReleaseType::Node),
             tag_prefix: Some("v".to_string()),
             prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
             additional_paths: None,
         }];
         let config = create_test_config(packages);

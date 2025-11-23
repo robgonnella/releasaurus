@@ -68,6 +68,24 @@ pub fn generate_analyzer_config(
         release_commit_matcher = Some(matcher);
     }
 
+    let breaking_always_increment_major = package
+        .breaking_always_increment_major
+        .unwrap_or(config.breaking_always_increment_major);
+
+    let features_always_increment_minor = package
+        .features_always_increment_minor
+        .unwrap_or(config.features_always_increment_minor);
+
+    let custom_major_increment_regex = package
+        .custom_major_increment_regex
+        .clone()
+        .or(config.custom_major_increment_regex.clone());
+
+    let custom_minor_increment_regex = package
+        .custom_minor_increment_regex
+        .clone()
+        .or(config.custom_minor_increment_regex.clone());
+
     AnalyzerConfig {
         body: config.changelog.body.clone(),
         include_author: config.changelog.include_author,
@@ -80,6 +98,10 @@ pub fn generate_analyzer_config(
         tag_prefix: Some(tag_prefix),
         prerelease,
         release_commit_matcher,
+        breaking_always_increment_major,
+        features_always_increment_minor,
+        custom_major_increment_regex,
+        custom_minor_increment_regex,
     }
 }
 
@@ -271,6 +293,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -290,6 +316,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -309,6 +339,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -328,6 +362,10 @@ mod tests {
             tag_prefix: Some("my-special-tag-prefix-v".into()),
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -345,6 +383,10 @@ mod tests {
             tag_prefix: Some("v".into()),
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
         // Test with simple directory name
         let name = derive_package_name(&package, "test-repo");
@@ -382,6 +424,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
             PackageConfig {
                 name: "".into(),
@@ -391,6 +437,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
         ]);
 
@@ -413,6 +463,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
             PackageConfig {
                 name: "another-name".into(),
@@ -422,6 +476,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
         ]);
 
@@ -444,6 +502,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
             PackageConfig {
                 name: "".into(),
@@ -453,6 +515,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             },
         ]);
 
@@ -472,6 +538,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         let name = derive_package_name(&package, "test-repo");
@@ -489,6 +559,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             }]);
         // Set both global and package
         config.prerelease = Some("alpha".to_string());
@@ -511,6 +585,10 @@ mod tests {
                 tag_prefix: None,
                 prerelease: None,
                 additional_paths: None,
+                breaking_always_increment_major: Some(true),
+                features_always_increment_minor: Some(true),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
             }]);
         // Set only global
         config.prerelease = Some("alpha".to_string());
@@ -531,6 +609,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         }]);
         // Nothing set
 
@@ -550,6 +632,10 @@ mod tests {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            breaking_always_increment_major: Some(true),
+            features_always_increment_minor: Some(true),
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         };
 
         // Create tag with timestamp 2000
@@ -587,5 +673,150 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].id, "equal-commit");
         assert_eq!(result[1].id, "new-commit");
+    }
+
+    #[test]
+    fn test_generate_analyzer_config_uses_global_defaults() {
+        let config = test_helpers::create_test_config(vec![PackageConfig {
+            name: "test-pkg".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: None,
+            prerelease: None,
+            additional_paths: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+        }]);
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let analyzer_config = generate_analyzer_config(
+            &config,
+            &remote_config,
+            "main",
+            &config.packages[0],
+            "v".to_string(),
+        );
+
+        assert!(analyzer_config.breaking_always_increment_major);
+        assert!(analyzer_config.features_always_increment_minor);
+        assert_eq!(analyzer_config.custom_major_increment_regex, None);
+        assert_eq!(analyzer_config.custom_minor_increment_regex, None);
+    }
+
+    #[test]
+    fn test_generate_analyzer_config_package_overrides_boolean_flags() {
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "test-pkg".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+                breaking_always_increment_major: Some(false),
+                features_always_increment_minor: Some(false),
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+            }]);
+
+        // Global config has defaults true
+        config.breaking_always_increment_major = true;
+        config.features_always_increment_minor = true;
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let analyzer_config = generate_analyzer_config(
+            &config,
+            &remote_config,
+            "main",
+            &config.packages[0],
+            "v".to_string(),
+        );
+
+        // Package config should override global
+        assert!(!analyzer_config.breaking_always_increment_major);
+        assert!(!analyzer_config.features_always_increment_minor);
+    }
+
+    #[test]
+    fn test_generate_analyzer_config_package_overrides_custom_regex() {
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "test-pkg".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: Some("PKG_MAJOR".to_string()),
+                custom_minor_increment_regex: Some("PKG_MINOR".to_string()),
+            }]);
+
+        // Set global custom regex
+        config.custom_major_increment_regex = Some("GLOBAL_MAJOR".to_string());
+        config.custom_minor_increment_regex = Some("GLOBAL_MINOR".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let analyzer_config = generate_analyzer_config(
+            &config,
+            &remote_config,
+            "main",
+            &config.packages[0],
+            "v".to_string(),
+        );
+
+        // Package config should override global
+        assert_eq!(
+            analyzer_config.custom_major_increment_regex,
+            Some("PKG_MAJOR".to_string())
+        );
+        assert_eq!(
+            analyzer_config.custom_minor_increment_regex,
+            Some("PKG_MINOR".to_string())
+        );
+    }
+
+    #[test]
+    fn test_generate_analyzer_config_uses_global_when_package_not_set() {
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "test-pkg".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: None,
+                prerelease: None,
+                additional_paths: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+            }]);
+
+        // Set only global config
+        config.breaking_always_increment_major = false;
+        config.custom_major_increment_regex = Some("MAJOR".to_string());
+
+        let remote_config = test_helpers::create_test_remote_config();
+        let analyzer_config = generate_analyzer_config(
+            &config,
+            &remote_config,
+            "main",
+            &config.packages[0],
+            "v".to_string(),
+        );
+
+        // Should use global config
+        assert!(!analyzer_config.breaking_always_increment_major);
+        assert_eq!(
+            analyzer_config.custom_major_increment_regex,
+            Some("MAJOR".to_string())
+        );
     }
 }

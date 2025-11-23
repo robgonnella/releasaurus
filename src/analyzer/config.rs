@@ -47,6 +47,14 @@ pub struct AnalyzerConfig {
     pub prerelease: Option<String>,
     /// regex to match and exclude release commits
     pub release_commit_matcher: Option<Regex>,
+    /// Always increments major version on breaking commits
+    pub breaking_always_increment_major: bool,
+    /// Always increments minor version on feature commits
+    pub features_always_increment_minor: bool,
+    /// Custom commit type regex matcher to increment major version
+    pub custom_major_increment_regex: Option<String>,
+    /// Custom commit type regex matcher to increment minor version
+    pub custom_minor_increment_regex: Option<String>,
 }
 
 impl Default for AnalyzerConfig {
@@ -63,6 +71,10 @@ impl Default for AnalyzerConfig {
             release_link_base_url: "".into(),
             prerelease: None,
             release_commit_matcher: None,
+            breaking_always_increment_major: true,
+            features_always_increment_minor: true,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
         }
     }
 }
