@@ -15,7 +15,10 @@ pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::{
-    forge::{gitea::Gitea, github::Github, gitlab::Gitlab, traits::Forge},
+    forge::{
+        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
+        traits::Forge,
+    },
     result::Result,
 };
 
@@ -68,6 +71,7 @@ pub enum Remote {
     Github(RemoteConfig),
     Gitlab(RemoteConfig),
     Gitea(RemoteConfig),
+    Local(String),
 }
 
 impl Remote {
@@ -84,6 +88,10 @@ impl Remote {
             }
             Remote::Gitea(config) => {
                 let forge = Gitea::new(config.clone()).await?;
+                Ok(Box::new(forge))
+            }
+            Remote::Local(repo_path) => {
+                let forge = LocalRepo::new(repo_path.to_string())?;
                 Ok(Box::new(forge))
             }
         }

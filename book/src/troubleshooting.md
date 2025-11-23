@@ -150,6 +150,32 @@ maximum visibility.
 
 See the [Commands](./commands.md#dry-run-mode) guide for complete details.
 
+## Local Repository Mode
+
+Test your configuration and diagnose issues against your local repository
+without requiring authentication or making remote changes:
+
+```bash
+# Test from current directory
+releasaurus release-pr --local-repo "."
+
+# Test from specific path
+releasaurus release-pr --local-repo "/path/to/your/repo"
+```
+
+**Use local repository mode for:**
+
+- **Configuration validation** - Test `releasaurus.toml` changes before
+  committing
+- **Version detection issues** - Verify tag prefix matching and version
+  calculation
+- **Changelog preview** - See what changelog would be generated from local
+  commits
+- **Quick diagnostics** - Test without authentication setup or network access
+
+See the [Commands](./commands.md#local-repository-mode) guide for complete
+details.
+
 ## Getting Help
 
 If you're still experiencing issues:

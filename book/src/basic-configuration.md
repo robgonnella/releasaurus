@@ -127,7 +127,8 @@ release_start_regex = "^#\\s\\["  # Optional: regex to match release headers (on
 - `skip_merge_commits`: Exclude merge commits (default: true)
 - `skip_release_commits`: Exclude automated release commits (default: true)
 - `include_author`: Add author names to changelog entries
-- `release_start_regex`: Pattern to match release headers in changelog (only customize if you modify the `body` template)
+- `release_start_regex`: Pattern to match release headers in changelog (only
+  customize if you modify the `body` template)
 
 ### `[[package]]` Sections (Required)
 
@@ -390,17 +391,59 @@ This graduates: v1.1.0-beta.3 → v1.1.0
 
 ## Testing Your Configuration
 
-After creating your configuration file:
+After creating or modifying your configuration file, test it locally before
+pushing changes to your remote forge.
 
-1. **Validate syntax**: Run any Releasaurus command with `--debug` flag or
-   `RELEASAURUS_DEBUG` environment variable to check for configuration errors
-2. **Review output**: Check that tag names and changelog format match your
-   expectations
+### Local Repository Testing (Recommended)
 
-Example validation:
+Test your configuration against your local repository without requiring
+authentication or making remote changes:
 
 ```bash
-# This will load and validate your configuration
+# Test from current directory
+releasaurus release-pr --local-repo "."
+
+# Review the output to verify:
+# - Configuration loads correctly
+# - Version detection works as expected
+# - Changelog format looks good
+# - Tag prefixes match your setup
+```
+
+**Benefits of local testing:**
+
+- ✅ No authentication required
+- ✅ No remote changes made
+- ✅ Instant feedback on configuration
+- ✅ Perfect for iterating on config changes
+
+**Typical workflow:**
+
+```bash
+# 1. Edit your configuration
+vim releasaurus.toml
+
+# 2. Test locally
+releasaurus release-pr --local-repo "."
+
+# 3. Review output, adjust config if needed
+
+# 4. Commit and run against remote
+git add releasaurus.toml
+git commit -m "chore: update release config"
+git push
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+```
+
+See the [Commands](./commands.md#local-repository-mode) guide for complete
+details on local repository mode.
+
+### Remote Testing with Debug Mode
+
+Alternatively, validate configuration against your remote forge with debug
+logging enabled:
+
+```bash
 # Via command line flag
 releasaurus release-pr \
   --github-repo "https://github.com/owner/repo" \
@@ -470,7 +513,8 @@ tag_prefix = "v"
 
 ## Environment-Specific Configuration
 
-While the configuration file handles project settings, environment-specific settings use environment variables:
+While the configuration file handles project settings, environment-specific
+settings use environment variables:
 
 ```bash
 # Authentication tokens
