@@ -36,6 +36,7 @@ pub fn create_test_remote_config() -> RemoteConfig {
         commit_link_base_url: "https://github.com/test/repo/commit".to_string(),
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
+        dry_run: false,
     }
 }
 

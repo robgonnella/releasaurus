@@ -49,6 +49,7 @@ mod test_helpers;
 use crate::result::Result;
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
+const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
 
 /// Initialize terminal logger with debug or info level filtering for
 /// releasaurus output.
@@ -79,15 +80,21 @@ fn initialize_logger(debug: bool) -> Result<()> {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let args = cli::Args::parse();
-
-    let mut debug = args.debug;
+    let mut args = cli::Args::parse();
 
     if std::env::var(DEBUG_ENV_VAR).is_ok() {
-        debug = true;
+        args.debug = true;
     }
 
-    initialize_logger(debug)?;
+    if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
+        args.dry_run = true;
+    }
+
+    if args.dry_run {
+        args.debug = true;
+    }
+
+    initialize_logger(args.debug)?;
 
     let remote = args.get_remote()?;
     let forge = remote.get_forge().await?;

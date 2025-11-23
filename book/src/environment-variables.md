@@ -124,6 +124,49 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo" --debug
 value. To disable debug mode, the variable must be unset or empty. The `--debug`
 flag will always enable debug mode regardless of the environment variable value.
 
+### `RELEASAURUS_DRY_RUN`
+
+**Purpose**: Enable dry-run mode to test release workflows without making actual
+changes
+
+**Values**:
+
+- Any value (including `true`, `false`, `1`, `0`, etc.) - Enable dry-run mode
+- Unset or empty - Disable dry-run mode (default)
+
+**Behavior**:
+
+- Performs all analysis and validation steps
+- Logs detailed information about what would happen
+- Prevents any modifications to your forge platform (branches, PRs, tags, releases)
+- **Automatically enables debug mode** for maximum visibility
+
+**Example**:
+
+```bash
+export RELEASAURUS_DRY_RUN=true
+```
+
+**Usage**:
+
+```bash
+# Enable dry-run mode via environment variable
+export RELEASAURUS_DRY_RUN=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release --github-repo "https://github.com/owner/repo"
+
+# Alternative: use the --dry-run flag
+releasaurus release-pr --dry-run --github-repo "https://github.com/owner/repo"
+```
+
+**Output**: Produces detailed debug logs prefixed with `dry_run:` showing
+exactly what operations would be performed, including PR titles, version
+numbers, file changes, and release notes.
+
+**Note**: Dry-run mode automatically enables debug logging regardless of the
+`RELEASAURUS_DEBUG` setting. This ensures you have maximum visibility into what
+would happen during the release process.
+
 ## Next Steps
 
 - **[Commands](./commands.md)** - Command-line options and usage patterns

@@ -269,6 +269,39 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 See the [Environment Variables](./environment-variables.md#releasaurus_debug)
 guide for more details.
 
+### Dry Run Mode
+
+Before making actual changes to your repository, test your release workflow with
+dry-run mode:
+
+```bash
+# Via command line flag
+releasaurus release-pr --dry-run \
+  --github-repo "https://github.com/owner/repo"
+
+# Via environment variable
+export RELEASAURUS_DRY_RUN=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+
+# Review the logs, then run for real
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+```
+
+Dry-run mode performs all analysis (commit history, version calculation,
+changelog generation) and logs what would be created or modified, but prevents
+any actual changes to your repository. **Note:** Dry-run mode automatically
+enables debug logging for maximum visibility into the release process.
+
+This is especially useful for:
+
+- **Testing configuration** - Verify your `releasaurus.toml` settings produce
+  expected results
+- **Troubleshooting** - Diagnose issues without affecting your repository
+- **CI/CD setup** - Test automation workflows before going live
+
+See the [Commands](./commands.md#dry-run-mode) guide for complete details on
+dry-run mode.
+
 ### Automation with CI/CD
 
 While the manual workflow above works great, you can fully automate your
