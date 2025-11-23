@@ -42,6 +42,10 @@ pub struct Args {
     #[arg(long, default_value_t = false, global = true)]
     pub debug: bool,
 
+    /// Execute in dry-run mode
+    #[arg(long, default_value_t = false, global = true)]
+    pub dry_run: bool,
+
     /// Subcommand to execute.
     #[command(subcommand)]
     pub command: Command,
@@ -61,15 +65,27 @@ impl Args {
     /// Configure remote repository connection from CLI arguments.
     pub fn get_remote(&self) -> Result<Remote> {
         if !self.github_repo.is_empty() {
-            return get_github_remote(&self.github_repo, &self.github_token);
+            return get_github_remote(
+                &self.github_repo,
+                &self.github_token,
+                self.dry_run,
+            );
         }
 
         if !self.gitlab_repo.is_empty() {
-            return get_gitlab_remote(&self.gitlab_repo, &self.gitlab_token);
+            return get_gitlab_remote(
+                &self.gitlab_repo,
+                &self.gitlab_token,
+                self.dry_run,
+            );
         }
 
         if !self.gitea_repo.is_empty() {
-            return get_gitea_remote(&self.gitea_repo, &self.gitea_token);
+            return get_gitea_remote(
+                &self.gitea_repo,
+                &self.gitea_token,
+                self.dry_run,
+            );
         }
 
         Err(eyre!("must configure a remote"))
@@ -90,7 +106,11 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 
 /// Configure GitHub remote by parsing repository URL and resolving
 /// authentication token from CLI args or environment.
-fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
+fn get_github_remote(
+    github_repo: &str,
+    github_token: &str,
+    dry_run: bool,
+) -> Result<Remote> {
     let parsed = GitUrl::parse(github_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -145,6 +165,7 @@ fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
+        dry_run,
     };
 
     Ok(Remote::Github(remote_config.clone()))
@@ -152,7 +173,11 @@ fn get_github_remote(github_repo: &str, github_token: &str) -> Result<Remote> {
 
 /// Configure GitLab remote by parsing repository URL and resolving
 /// authentication token from CLI args or environment.
-fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
+fn get_gitlab_remote(
+    gitlab_repo: &str,
+    gitlab_token: &str,
+    dry_run: bool,
+) -> Result<Remote> {
     let parsed = GitUrl::parse(gitlab_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -207,6 +232,7 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
+        dry_run,
     };
 
     Ok(Remote::Gitlab(remote_config.clone()))
@@ -214,7 +240,11 @@ fn get_gitlab_remote(gitlab_repo: &str, gitlab_token: &str) -> Result<Remote> {
 
 /// Configure Gitea remote by parsing repository URL and resolving
 /// authentication token from CLI args or environment.
-fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
+fn get_gitea_remote(
+    gitea_repo: &str,
+    gitea_token: &str,
+    dry_run: bool,
+) -> Result<Remote> {
     let parsed = GitUrl::parse(gitea_repo)?;
 
     validate_scheme(parsed.scheme)?;
@@ -269,6 +299,7 @@ fn get_gitea_remote(gitea_repo: &str, gitea_token: &str) -> Result<Remote> {
         commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
+        dry_run,
     };
 
     Ok(Remote::Gitea(remote_config.clone()))
@@ -291,6 +322,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: repo,
             github_token: token,
+            dry_run: false,
             command: Command::ReleasePR,
         };
 
@@ -315,6 +347,7 @@ mod tests {
             gitlab_token: token,
             github_repo: "".into(),
             github_token: "".into(),
+            dry_run: false,
             command: Command::ReleasePR,
         };
 
@@ -339,6 +372,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
+            dry_run: false,
             command: Command::ReleasePR,
         };
 
@@ -363,6 +397,7 @@ mod tests {
             gitlab_token: "".into(),
             github_repo: "".into(),
             github_token: "".into(),
+            dry_run: false,
             command: Command::ReleasePR,
         };
 

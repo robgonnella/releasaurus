@@ -142,6 +142,14 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 See the [Environment Variables](./environment-variables.md#releasaurus_debug)
 guide for more details on `RELEASAURUS_DEBUG`.
 
+## Dry Run Mode
+
+Before making changes to your repository, use dry-run mode to safely test and
+diagnose issues. **Note:** Dry-run mode automatically enables debug logging for
+maximum visibility.
+
+See the [Commands](./commands.md#dry-run-mode) guide for complete details.
+
 ## Getting Help
 
 If you're still experiencing issues:

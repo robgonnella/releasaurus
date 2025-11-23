@@ -24,6 +24,7 @@ This command does the heavy lifting of release preparation:
 - Generates a changelog from commit history
 - Creates a pull request with all changes
 - Supports prerelease versions (alpha, beta, rc, etc.)
+- Supports dry-run mode for testing
 
 ### `release`
 
@@ -36,6 +37,7 @@ This command finalizes the release:
 - Pushes the tag to the remote repository
 - Creates a release on your forge platform
 - Supports prerelease versions (alpha, beta, rc, etc.)
+- Supports dry-run mode for testing
 
 ## Basic Usage Pattern
 
@@ -75,6 +77,49 @@ Choose your Git forge platform by specifying the repository URL:
 --gitea-repo "https://git.example.com/owner/repo"
 ```
 
+### Dry Run Mode
+
+Test your release workflow without making any actual changes to your repository.
+Dry-run mode performs all analysis and validation steps while logging what
+actions would be taken, but prevents any modifications to your forge platform.
+
+**Note:** Dry-run mode automatically enables debug logging for maximum
+visibility into what would happen.
+
+**What dry-run mode does:**
+
+- ✅ Analyzes commit history since the last release
+- ✅ Determines version bumps based on conventional commits
+- ✅ Generates changelog content
+- ✅ Validates configuration and file formats
+- ✅ Logs detailed information about what would be created/modified
+
+**What dry-run mode prevents:**
+
+- ❌ Creating or updating branches
+- ❌ Creating or updating pull requests
+- ❌ Creating Git tags
+- ❌ Publishing releases
+- ❌ Modifying repository labels
+
+**Usage:**
+
+```bash
+# Via command line flag
+releasaurus release-pr --dry-run --github-repo "https://github.com/owner/repo"
+releasaurus release --dry-run --github-repo "https://github.com/owner/repo"
+
+# Via environment variable
+export RELEASAURUS_DRY_RUN=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release --github-repo "https://github.com/owner/repo"
+```
+
+**Output:** Dry-run mode produces detailed debug logs prefixed with `dry_run:`
+that show exactly what operations would be performed, including PR titles,
+version numbers, file changes, and release notes. Debug mode is automatically
+enabled to provide maximum visibility.
+
 ### Authentication
 
 Provide access tokens for API authentication:
@@ -109,6 +154,9 @@ This provides verbose output including:
 - File modification details
 - API request/response information
 - Git operations and status
+
+**Note:** Debug mode is automatically enabled when using `--dry-run` or
+`RELEASAURUS_DRY_RUN=true`.
 
 See the [Environment Variables](./environment-variables.md#releasaurus_debug) guide for more details on `RELEASAURUS_DEBUG`.
 
@@ -201,11 +249,13 @@ releasaurus release-pr \
 For security and convenience, use environment variables instead of
 command-line tokens:
 
-| Variable       | Description                          | Example            |
-| -------------- | ------------------------------------ | ------------------ |
-| `GITHUB_TOKEN` | GitHub personal access token         | `ghp_xxxxxxxxxxxx` |
-| `GITLAB_TOKEN` | GitLab personal/project access token | `glpat_xxxxxxxxxx` |
-| `GITEA_TOKEN`  | Gitea/Forgejo access token           | `xxxxxxxxxxxxxxxx` |
+| Variable              | Description                              | Example            |
+| --------------------- | ---------------------------------------- | ------------------ |
+| `GITHUB_TOKEN`        | GitHub personal access token             | `ghp_xxxxxxxxxxxx` |
+| `GITLAB_TOKEN`        | GitLab personal/project access token     | `glpat_xxxxxxxxxx` |
+| `GITEA_TOKEN`         | Gitea/Forgejo access token               | `xxxxxxxxxxxxxxxx` |
+| `RELEASAURUS_DEBUG`   | Enable debug logging                     | `true`             |
+| `RELEASAURUS_DRY_RUN` | Enable dry-run mode (auto-enables debug) | `true`             |
 
 When environment variables are set, you can omit the `--*-token` flags:
 
