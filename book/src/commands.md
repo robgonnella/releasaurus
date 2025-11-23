@@ -96,7 +96,11 @@ export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 Enable detailed logging for troubleshooting:
 
 ```bash
+# Via command line flag
 --debug
+
+# Via environment variable
+export RELEASAURUS_DEBUG=true
 ```
 
 This provides verbose output including:
@@ -105,6 +109,8 @@ This provides verbose output including:
 - File modification details
 - API request/response information
 - Git operations and status
+
+See the [Environment Variables](./environment-variables.md#releasaurus_debug) guide for more details on `RELEASAURUS_DEBUG`.
 
 ### Prerelease Versions
 

@@ -1,0 +1,33 @@
+spec:
+  component: [name, version, reference]
+  inputs:
+    repo:
+      description: The gitlab repo to affect
+      default: $CI_PROJECT_URL
+    token:
+      description: The gitlab token to use. This token will need privileges to create MRs, tags, labels, and releases
+    debug:
+      description: Enables debug logs
+      default: ""
+    git_user_name:
+      description: The git user name to use when committing and creating tags
+      default: "ReleasaurusCI"
+    git_user_email:
+      description: The git user email to use when committing and creating tags
+      default: releasaurus-ci@noreply.com
+---
+include:
+  - component: $CI_SERVER_FQDN/rgon/releasaurus/release-pr@$[[ component.version ]]
+    inputs:
+      repo: $[[ inputs.repo ]]
+      debug: $[[ inputs.debug ]]
+      token: $[[ inputs.token ]]
+      git_user_name: $[[ inputs.git_user_name ]]
+      git_user_email: $[[ inputs.git_user_email ]]
+  - component: $CI_SERVER_FQDN/rgon/releasaurus/release@$[[ component.version ]]
+    inputs:
+      repo: $[[ inputs.repo ]]
+      debug: $[[ inputs.debug ]]
+      token: $[[ inputs.token ]]
+      git_user_name: $[[ inputs.git_user_name ]]
+      git_user_email: $[[ inputs.git_user_email ]]

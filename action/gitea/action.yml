@@ -1,0 +1,35 @@
+name: 🦕 releasaurus
+description: Releasaurus worflow to fully manage release process for gitea repositories
+inputs:
+  repo:
+    description: The gitea repo to affect
+    default: ${{ gitea.server_url }}/${{ gitea.repository }}
+  token:
+    description: The gitea token to use. This token will need privileges to create PRs, tags, labels, and releases
+  debug:
+    description: Enables debug logs
+    default: "false"
+  git_user_name:
+    description: The git user name to use when committing and creating tags
+    default: "ReleasaurusCI"
+  git_user_email:
+    description: The git user email to use when committing and creating tags
+    default: releasaurus-ci@noreply.com
+outputs: {}
+runs:
+  using: "composite"
+  steps:
+    - uses: robgonnella/releasaurus/action/gitea/release@v1
+      with:
+        repo: ${{ inputs.repo }}
+        token: ${{ inputs.token }}
+        debug: ${{ inputs.debug }}
+        git_user_name: ${{ inputs.git_user_name }}
+        git_user_email: ${{ inputs.git_user_email }}
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v1
+      with:
+        repo: ${{ inputs.repo }}
+        token: ${{ inputs.token }}
+        debug: ${{ inputs.debug }}
+        git_user_name: ${{ inputs.git_user_name }}
+        git_user_email: ${{ inputs.git_user_email }}

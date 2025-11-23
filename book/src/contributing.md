@@ -412,7 +412,7 @@ Report any unacceptable behavior to the project maintainers.
 - **Documentation**: Start with this book
 - **Search Issues**: Check if your question has been asked
 - **Ask Questions**: Create a discussion or issue
-- **Debug Mode**: Use `--debug` for troubleshooting
+- **Debug Mode**: Use `--debug` flag or `RELEASAURUS_DEBUG` environment variable for troubleshooting
 
 Thank you for contributing to Releasaurus!
 
