@@ -8,6 +8,7 @@ pub mod config;
 pub mod gitea;
 pub mod github;
 pub mod gitlab;
+pub mod local;
 pub mod request;
 pub mod traits;
 

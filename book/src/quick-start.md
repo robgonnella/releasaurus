@@ -302,6 +302,43 @@ This is especially useful for:
 See the [Commands](./commands.md#dry-run-mode) guide for complete details on
 dry-run mode.
 
+### Local Repository Testing
+
+Before pushing configuration changes to your remote forge, test them against
+your local repository. Local repository mode validates your `releasaurus.toml`
+settings without requiring authentication or making remote changes:
+
+```bash
+# Test your config locally first
+releasaurus release-pr --local-repo "."
+
+# Review the output, then run against remote
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+```
+
+**What gets tested:**
+
+- Configuration validation
+- Version detection and bumping logic
+- Changelog generation from local commits
+- Tag prefix matching
+
+**What doesn't happen:**
+
+- No remote API calls or authentication required
+- No branches, PRs, tags, or releases created
+
+This is perfect for:
+
+- **Testing configuration changes** - Verify your `releasaurus.toml` updates
+  before committing
+- **Learning Releasaurus** - Experiment safely without affecting remote
+  repositories
+- **Quick validation** - Check version detection and changelog output instantly
+
+See the [Commands](./commands.md#local-repository-mode) guide for complete
+details.
+
 ### Automation with CI/CD
 
 While the manual workflow above works great, you can fully automate your

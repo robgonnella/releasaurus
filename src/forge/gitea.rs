@@ -223,7 +223,7 @@ impl Gitea {
             .as_str()
             .wrap_err("failed to get default branch")?;
 
-        Ok(Gitea {
+        Ok(Self {
             config,
             commit_search_depth: Arc::new(Mutex::new(
                 DEFAULT_COMMIT_SEARCH_DEPTH,

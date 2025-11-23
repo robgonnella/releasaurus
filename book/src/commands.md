@@ -120,6 +120,71 @@ that show exactly what operations would be performed, including PR titles,
 version numbers, file changes, and release notes. Debug mode is automatically
 enabled to provide maximum visibility.
 
+### Local Repository Mode
+
+Test your release workflow against a local repository without making any changes
+to remote forge platforms. Local repository mode is ideal for testing
+configuration changes before committing them.
+
+**Use case:** Validate your `releasaurus.toml` configuration, version detection,
+and changelog generation against your local working directory before pushing
+changes to your remote forge.
+
+**What local repository mode does:**
+
+- ✅ Reads configuration and files from your local repository
+- ✅ Analyzes local commit history and tags
+- ✅ Determines version bumps based on local commits
+- ✅ Generates changelog content from local history
+- ✅ Validates configuration and file formats
+- ✅ Logs what would be created (PRs, tags, releases)
+
+**What local repository mode prevents:**
+
+- ❌ Creating or updating remote branches
+- ❌ Creating or updating pull requests on forge platforms
+- ❌ Creating or pushing Git tags to remote
+- ❌ Publishing releases to forge platforms
+- ❌ Any modifications to remote repositories
+
+**Usage:**
+
+```bash
+# Test from current directory
+releasaurus release-pr --local-repo "."
+
+# Test from specific path
+releasaurus release-pr --local-repo "/path/to/your/repo"
+
+# Works with release command too
+releasaurus release --local-repo "."
+```
+
+**Typical workflow:**
+
+```bash
+# 1. Make changes to releasaurus.toml
+vim releasaurus.toml
+
+# 2. Test locally to verify configuration
+releasaurus release-pr --local-repo "."
+
+# 3. Review the logs to ensure everything looks correct
+
+# 4. Commit your config changes
+git add releasaurus.toml
+git commit -m "chore: update release configuration"
+git push
+
+# 5. Run against remote forge
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+```
+
+**Note:** Local repository mode operates on your working directory's Git
+repository and does not require forge authentication tokens. See the
+[Troubleshooting](./troubleshooting.md) guide for help diagnosing configuration
+issues.
+
 ### Authentication
 
 Provide access tokens for API authentication:
@@ -158,7 +223,8 @@ This provides verbose output including:
 **Note:** Debug mode is automatically enabled when using `--dry-run` or
 `RELEASAURUS_DRY_RUN=true`.
 
-See the [Environment Variables](./environment-variables.md#releasaurus_debug) guide for more details on `RELEASAURUS_DEBUG`.
+See the [Environment Variables](./environment-variables.md#releasaurus_debug)
+guide for more details on `RELEASAURUS_DEBUG`.
 
 ### Prerelease Versions
 

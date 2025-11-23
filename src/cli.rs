@@ -38,6 +38,10 @@ pub struct Args {
     #[arg(long, default_value = "", global = true)]
     pub gitea_token: String,
 
+    /// Local repository path. For testing config changes against local repo
+    #[arg(long, default_value = "", global = true)]
+    pub local_repo: String,
+
     /// Enable debug logging.
     #[arg(long, default_value_t = false, global = true)]
     pub debug: bool,
@@ -64,6 +68,10 @@ pub enum Command {
 impl Args {
     /// Configure remote repository connection from CLI arguments.
     pub fn get_remote(&self) -> Result<Remote> {
+        if !self.local_repo.is_empty() {
+            return Ok(Remote::Local(self.local_repo.clone()));
+        }
+
         if !self.github_repo.is_empty() {
             return get_github_remote(
                 &self.github_repo,
@@ -155,7 +163,7 @@ fn get_github_remote(
     let release_link_base_url =
         format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name);
 
-    let remote_config = RemoteConfig {
+    Ok(Remote::Github(RemoteConfig {
         host,
         port: parsed.port,
         scheme: parsed.scheme.to_string(),
@@ -166,9 +174,7 @@ fn get_github_remote(
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
-    };
-
-    Ok(Remote::Github(remote_config.clone()))
+    }))
 }
 
 /// Configure GitLab remote by parsing repository URL and resolving
@@ -222,7 +228,7 @@ fn get_gitlab_remote(
     let release_link_base_url =
         format!("{}/{}/{}/-/releases", link_base_url, owner, parsed.name);
 
-    let remote_config = RemoteConfig {
+    Ok(Remote::Gitlab(RemoteConfig {
         host,
         port: parsed.port,
         scheme: parsed.scheme.to_string(),
@@ -233,9 +239,7 @@ fn get_gitlab_remote(
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
-    };
-
-    Ok(Remote::Gitlab(remote_config.clone()))
+    }))
 }
 
 /// Configure Gitea remote by parsing repository URL and resolving
@@ -289,7 +293,7 @@ fn get_gitea_remote(
     let release_link_base_url =
         format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
 
-    let remote_config = RemoteConfig {
+    Ok(Remote::Gitea(RemoteConfig {
         host,
         port: parsed.port,
         scheme: parsed.scheme.to_string(),
@@ -300,9 +304,7 @@ fn get_gitea_remote(
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
-    };
-
-    Ok(Remote::Gitea(remote_config.clone()))
+    }))
 }
 
 #[cfg(test)]
@@ -316,6 +318,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            local_repo: "".into(),
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: "".into(),
@@ -341,6 +344,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            local_repo: "".into(),
             gitea_repo: "".into(),
             gitea_token: "".into(),
             gitlab_repo: repo,
@@ -366,6 +370,7 @@ mod tests {
 
         let cli_config = Args {
             debug: true,
+            local_repo: "".into(),
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
@@ -385,12 +390,38 @@ mod tests {
     }
 
     #[test]
+    fn gets_local_remote() {
+        let repo = ".".to_string();
+
+        let cli_config = Args {
+            debug: true,
+            local_repo: repo,
+            gitea_repo: "".into(),
+            gitea_token: "".into(),
+            gitlab_repo: "".into(),
+            gitlab_token: "".into(),
+            github_repo: "".into(),
+            github_token: "".into(),
+            command: Command::ReleasePR,
+            dry_run: false,
+        };
+
+        let result = cli_config.get_remote();
+        assert!(result.is_ok());
+
+        let remote = result.unwrap();
+
+        assert!(matches!(remote, Remote::Local(_)));
+    }
+
+    #[test]
     fn only_supports_http_and_https_schemes() {
         let repo = "git@gitea.com:gitea_owner/gitea_repo".to_string();
         let token = "gitea_token".to_string();
 
         let cli_config = Args {
             debug: true,
+            local_repo: "".into(),
             gitea_repo: repo,
             gitea_token: token,
             gitlab_repo: "".into(),
