@@ -4,6 +4,9 @@ on:
   push:
     branches: ["main"]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   releasaurus:
     runs-on: ubuntu-latest
@@ -12,6 +15,21 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: robgonnella/releasaurus/action/github@main
-        with:
-          token: ${{ secrets.GH_TEST_TOKEN }}
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+      - name: set git user
+        run: |
+          git config --global user.name "ReleasaurusCI"
+          git config --global user.email "releasaurus-ci@noreply.com"
+      - name: release
+        run: |
+          cargo run -- release \
+            --github-repo ${{ github.server_url }}/${{ github.repository }} \
+            --github-token ${{ secrets.GH_TEST_TOKEN }} \
+            --debug
+      - name: release-pr
+        run: |
+          cargo run -- release-pr \
+            --github-repo ${{ github.server_url }}/${{ github.repository }} \
+            --github-token ${{ secrets.GH_TEST_TOKEN }} \
+            --debug

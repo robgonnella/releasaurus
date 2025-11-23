@@ -18,7 +18,7 @@ inputs:
 outputs: {}
 runs:
   using: docker
-  image: Dockerfile
+  image: rgonnella/releasaurus:v0.3.0
   env:
     RELEASAURUS_DEBUG: ${{ inputs.debug }}
   args:
