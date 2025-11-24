@@ -3,7 +3,7 @@ use color_eyre::eyre::OptionExt;
 use log::*;
 use regex::Regex;
 use serde::Deserialize;
-use std::{path::Path, sync::LazyLock};
+use std::sync::LazyLock;
 
 use crate::{
     command::common,
@@ -16,13 +16,15 @@ use crate::{
     result::Result,
 };
 
-static METADATA_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"(?m)^<!--(?<metadata>.*)-->$"#).unwrap());
+static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)^<!--(?<metadata>.*)-->\n<details>"#).unwrap()
+});
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct Metadata {
+    pub name: String,
     pub tag: String,
-    pub sha: String,
+    pub notes: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,13 +59,7 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
         };
 
         if let Some(merged_pr) = forge.get_merged_release_pr(req).await? {
-            create_package_release(
-                forge.as_ref(),
-                package,
-                &merged_pr,
-                &config.changelog.release_start_regex,
-            )
-            .await?;
+            create_package_release(forge.as_ref(), package, &merged_pr).await?;
 
             let req = PrLabelsRequest {
                 pr_number: merged_pr.number,
@@ -82,90 +78,54 @@ async fn create_package_release(
     forge: &dyn Forge,
     package: &PackageConfig,
     merged_pr: &PullRequest,
-    release_start_regex: &str,
 ) -> Result<()> {
-    let meta_caps = METADATA_REGEX
-        .captures(&merged_pr.body)
-        .ok_or_eyre("failed to detect release metadata in merged PR")?;
+    let meta_caps = METADATA_REGEX.captures_iter(&merged_pr.body);
 
-    let metadata_str = meta_caps
-        .name("metadata")
-        .ok_or_eyre("failed to parse metadata from PR body")?
-        .as_str();
+    let mut metadata = None;
 
-    debug!("found pr metadata string: {metadata_str}");
+    for cap in meta_caps {
+        let metadata_str = cap
+            .name("metadata")
+            .ok_or_eyre("failed to parse metadata from PR body")?
+            .as_str();
 
-    let json: MetadataJson = serde_json::from_str(metadata_str)?;
-    let metadata = json.metadata;
+        debug!("parsing metadata string: {:#?}", metadata_str);
 
-    let changelog_path = Path::new(&package.workspace_root)
-        .join(&package.path)
-        .join("CHANGELOG.md")
-        .display()
-        .to_string()
-        .replace("./", "");
+        let json: MetadataJson = serde_json::from_str(metadata_str)?;
+        let pkg_meta = json.metadata;
 
-    info!("fetching current changelog content");
-
-    let changelog_content = forge
-        .get_file_content(&changelog_path)
-        .await?
-        .ok_or_eyre("failed to find CHANGELOG.md for package")?;
-
-    info!(
-        "parsing changelog notes for release: tag: {}, sha: {}",
-        metadata.tag, metadata.sha
-    );
-
-    // The logic below handles 2 cases, single release in changelog, and
-    // multiple releases in changelog. When there is a single release in the
-    // changelog we using the following regex to capture the notes
-    // ({release_start_regex}.*)
-    // When there are 2 or more releases in the changelog, we use the following
-    // regex to capture only the latest release's notes
-    // ({release_start_regex}.*)\n*{release_start_regex}
-
-    // First we count the occurrences of the release_start_regex matcher
-    // to find out which case we need to account for
-    let start_regex =
-        Regex::new(&format!(r#"(?ms)(?<start>{release_start_regex})"#))?;
-
-    let release_count = start_regex.find_iter(&changelog_content).count();
-
-    // Set notes_regex to match case for multiple releases in changelog
-    let mut notes_regex = Regex::new(&format!(
-        r#"(?ms)(?<notes>{release_start_regex}.*)\n*{release_start_regex}"#,
-    ))?;
-
-    // update regex if we only have 1 release in changelog
-    if release_count == 1 {
-        notes_regex =
-            Regex::new(&format!(r#"(?ms)(?<notes>{release_start_regex}.*)"#,))?;
+        if pkg_meta.name == package.name {
+            metadata = Some(pkg_meta);
+            break;
+        }
     }
 
-    let caps = notes_regex
-        .captures(&changelog_content)
-        .ok_or_eyre("failed to capture release notes from CHANGELOG.md")?;
+    let metadata_err = format!(
+        "failed to find metadata for package {} in pr {}",
+        package.name, merged_pr.number,
+    );
 
-    let notes = caps
-        .name("notes")
-        .ok_or_eyre("failed to parse notes from CHANGELOG.md")?
-        .as_str();
+    let metadata = metadata.ok_or_eyre(metadata_err)?;
+
+    debug!(
+        "found package metadata from pr {}: {:#?}",
+        merged_pr.number, metadata
+    );
 
     info!(
         "tagging commit: tag: {}, sha: {}",
-        metadata.tag, metadata.sha
+        metadata.tag, merged_pr.sha
     );
 
     forge.tag_commit(&metadata.tag, &merged_pr.sha).await?;
 
     info!(
         "creating release: tag: {}, sha: {}",
-        metadata.tag, metadata.sha
+        metadata.tag, merged_pr.sha
     );
 
     forge
-        .create_release(&metadata.tag, &metadata.sha, notes.trim())
+        .create_release(&metadata.tag, &merged_pr.sha, metadata.notes.trim())
         .await?;
 
     Ok(())
@@ -178,76 +138,67 @@ mod tests {
         config::ReleaseType, forge::traits::MockForge, test_helpers::*,
     };
 
-    fn create_pr_body_with_metadata(tag: &str, sha: &str) -> String {
-        format!(
-            r#"Release PR body
-
-<!--{{"metadata":{{"tag":"{}","sha":"{}"}}}}-->
-"#,
-            tag, sha
-        )
-    }
-
     #[tokio::test]
-    async fn test_execute_single_package_with_merged_pr() {
+    async fn test_execute_creates_release_for_merged_pr() {
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                prerelease: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+                additional_paths: None,
+            }]))
+        });
+
         mock_forge
             .expect_default_branch()
             .times(2)
             .returning(|| "main".to_string());
 
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        mock_forge
-            .expect_load_config()
-            .returning(move || Ok(config.clone()));
-
-        let pr_body = create_pr_body_with_metadata("v1.0.0", "abc123");
-
         mock_forge
             .expect_get_merged_release_pr()
-            .returning(move |_| {
+            .withf(|req| {
+                req.base_branch == "main"
+                    && req.head_branch == "releasaurus-release-main"
+            })
+            .returning(|_| {
                 Ok(Some(PullRequest {
                     number: 42,
-                    sha: "merge-sha".to_string(),
-                    body: pr_body.clone(),
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"## Changes\\n\\n- feat: new feature\"}}-->\n<details>".to_string(),
                 }))
             });
 
-        mock_forge.expect_get_file_content().returning(|path| {
-            if path.contains("CHANGELOG.md") {
-                Ok(Some("# [1.0.0]\n\n## Features\n- New feature".to_string()))
-            } else {
-                Ok(None)
-            }
-        });
-
         mock_forge
             .expect_tag_commit()
-            .withf(|tag, sha| tag == "v1.0.0" && sha == "merge-sha")
+            .withf(|tag, sha| tag == "v1.0.0" && sha == "abc123")
             .returning(|_, _| Ok(()));
 
         mock_forge
             .expect_create_release()
             .withf(|tag, sha, notes| {
-                tag == "v1.0.0" && sha == "abc123" && notes.contains("1.0.0")
+                tag == "v1.0.0"
+                    && sha == "abc123"
+                    && notes == "## Changes\n\n- feat: new feature"
             })
             .returning(|_, _, _| Ok(()));
 
         mock_forge
             .expect_replace_pr_labels()
             .withf(|req| {
-                req.pr_number == 42
-                    && req.labels.contains(&TAGGED_LABEL.to_string())
+                req.pr_number == 42 && req.labels == vec!["releasaurus:tagged"]
             })
             .returning(|_| Ok(()));
 
@@ -256,121 +207,56 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_execute_multiple_packages() {
+    async fn test_execute_handles_separate_pull_requests() {
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge
-            .expect_default_branch()
-            .times(3)
-            .returning(|| "main".to_string());
-
-        let config = create_test_config_simple(vec![
-            ("pkg-a", "packages/a", ReleaseType::Node),
-            ("pkg-b", "packages/b", ReleaseType::Rust),
-        ]);
-        mock_forge
-            .expect_load_config()
-            .returning(move || Ok(config.clone()));
-
-        let pr_body_a = create_pr_body_with_metadata("pkg-a-v1.0.0", "sha-a");
-        let pr_body_b = create_pr_body_with_metadata("pkg-b-v2.0.0", "sha-b");
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .times(2)
-            .returning(move |_| {
-                static mut CALL_COUNT: usize = 0;
-                unsafe {
-                    CALL_COUNT += 1;
-                    if CALL_COUNT == 1 {
-                        Ok(Some(PullRequest {
-                            number: 10,
-                            sha: "merge-sha-a".to_string(),
-                            body: pr_body_a.clone(),
-                        }))
-                    } else {
-                        Ok(Some(PullRequest {
-                            number: 20,
-                            sha: "merge-sha-b".to_string(),
-                            body: pr_body_b.clone(),
-                        }))
-                    }
-                }
-            });
-
-        mock_forge.expect_get_file_content().returning(|path| {
-            if path.contains("CHANGELOG.md") {
-                Ok(Some("# [1.0.0]\n\nRelease notes".to_string()))
-            } else {
-                Ok(None)
-            }
+        mock_forge.expect_load_config().returning(|| {
+            let mut config = create_test_config(vec![PackageConfig {
+                name: "pkg-a".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
+                prerelease: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+                additional_paths: None,
+            }]);
+            config.separate_pull_requests = true;
+            Ok(config)
         });
 
         mock_forge
-            .expect_tag_commit()
-            .times(2)
-            .returning(|_, _| Ok(()));
-
-        mock_forge
-            .expect_create_release()
-            .times(2)
-            .returning(|_, _, _| Ok(()));
-
-        mock_forge
-            .expect_replace_pr_labels()
-            .times(2)
-            .returning(|_| Ok(()));
-
-        let result = execute(Box::new(mock_forge)).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_execute_separate_pull_requests() {
-        let mut mock_forge = MockForge::new();
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
             .expect_default_branch()
             .times(2)
             .returning(|| "main".to_string());
 
-        let mut config =
-            create_test_config_simple(vec![("pkg-a", ".", ReleaseType::Node)]);
-        config.separate_pull_requests = true;
-
-        mock_forge
-            .expect_load_config()
-            .returning(move || Ok(config.clone()));
-
-        let pr_body = create_pr_body_with_metadata("v1.0.0", "sha");
-
         mock_forge
             .expect_get_merged_release_pr()
-            .withf(|req| req.head_branch == "releasaurus-release-main-pkg-a")
-            .returning(move |_| {
+            .withf(|req| {
+                req.base_branch == "main"
+                    && req.head_branch == "releasaurus-release-main-pkg-a"
+            })
+            .returning(|_| {
                 Ok(Some(PullRequest {
-                    number: 99,
-                    sha: "merge-sha".to_string(),
-                    body: pr_body.clone(),
+                    number: 10,
+                    sha: "def456".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"pkg-a\",\"tag\":\"pkg-a-v2.0.0\",\"notes\":\"Breaking changes\"}}-->\n<details>".to_string(),
                 }))
             });
 
-        mock_forge
-            .expect_get_file_content()
-            .returning(|_| Ok(Some("# [1.0.0]\n\nNotes".to_string())));
-
         mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
         mock_forge
             .expect_create_release()
             .returning(|_, _, _| Ok(()));
+
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
         let result = execute(Box::new(mock_forge)).await;
@@ -378,235 +264,390 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_execute_skips_package_without_merged_pr() {
+    async fn test_execute_skips_packages_without_merged_pr() {
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                path: ".".into(),
+                workspace_root: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                prerelease: None,
+                breaking_always_increment_major: None,
+                features_always_increment_minor: None,
+                custom_major_increment_regex: None,
+                custom_minor_increment_regex: None,
+                additional_paths: None,
+            }]))
+        });
+
         mock_forge
             .expect_default_branch()
             .times(2)
             .returning(|| "main".to_string());
 
-        let config =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
-        mock_forge
-            .expect_load_config()
-            .returning(move || Ok(config.clone()));
-
         mock_forge
             .expect_get_merged_release_pr()
             .returning(|_| Ok(None));
 
-        // Should not call any release-related methods
+        // Should not call tag_commit, create_release, or replace_pr_labels
+
         let result = execute(Box::new(mock_forge)).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_create_package_release_single_release_in_changelog() {
+    async fn test_execute_processes_multiple_packages() {
         let mut mock_forge = MockForge::new();
 
-        let package = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )])
-        .packages[0]
-            .clone();
-
-        let pr_body = create_pr_body_with_metadata("v1.0.0", "sha123");
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "merge-sha".to_string(),
-            body: pr_body,
-        };
-
-        let changelog =
-            "# [1.0.0] - 2024-01-01\n\n## Features\n- Added feature";
         mock_forge
-            .expect_get_file_content()
-            .returning(move |_| Ok(Some(changelog.to_string())));
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config(vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    path: "packages/a".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("pkg-a-v".to_string()),
+                    prerelease: None,
+                    breaking_always_increment_major: None,
+                    features_always_increment_minor: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    additional_paths: None,
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    path: "packages/b".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Rust),
+                    tag_prefix: Some("pkg-b-v".to_string()),
+                    prerelease: None,
+                    breaking_always_increment_major: None,
+                    features_always_increment_minor: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    additional_paths: None,
+                },
+            ]))
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(3)
+            .returning(|| "main".to_string());
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(2)
+            .returning(|req| {
+                if req.head_branch == "releasaurus-release-main" {
+                    Ok(Some(PullRequest {
+                        number: 1,
+                        sha: "sha1".to_string(),
+                        body: "<!--{\"metadata\":{\"name\":\"pkg-a\",\"tag\":\"pkg-a-v1.0.0\",\"notes\":\"Release pkg-a\"}}-->\n<details>\n<!--{\"metadata\":{\"name\":\"pkg-b\",\"tag\":\"pkg-b-v2.0.0\",\"notes\":\"Release pkg-b\"}}-->\n<details>".to_string(),
+                    }))
+                } else {
+                    Ok(None)
+                }
+            });
 
         mock_forge
             .expect_tag_commit()
-            .withf(|tag, sha| tag == "v1.0.0" && sha == "merge-sha")
+            .times(2)
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .times(2)
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .times(2)
+            .returning(|_| Ok(()));
+
+        let result = execute(Box::new(mock_forge)).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_matches_correct_package_by_name() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_tag_commit()
+            .withf(|tag, sha| tag == "pkg-b-v2.0.0" && sha == "test-sha")
             .returning(|_, _| Ok(()));
 
         mock_forge
             .expect_create_release()
             .withf(|tag, sha, notes| {
-                tag == "v1.0.0"
-                    && sha == "sha123"
-                    && notes.contains("[1.0.0]")
-                    && notes.contains("Features")
+                tag == "pkg-b-v2.0.0"
+                    && sha == "test-sha"
+                    && notes == "Release notes for pkg-b"
             })
             .returning(|_, _, _| Ok(()));
 
-        let result = create_package_release(
-            &mock_forge,
-            &package,
-            &merged_pr,
-            r"^#\s\[",
-        )
-        .await;
+        let package = PackageConfig {
+            name: "pkg-b".into(),
+            path: "packages/b".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Rust),
+            tag_prefix: Some("pkg-b-v".to_string()),
+            prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+            additional_paths: None,
+        };
 
+        let pr = PullRequest {
+            number: 42,
+            sha: "test-sha".to_string(),
+            body: "<!--{\"metadata\":{\"name\":\"pkg-a\",\"tag\":\"pkg-a-v1.0.0\",\"notes\":\"Release notes for pkg-a\"}}-->\n<details>\n<!--{\"metadata\":{\"name\":\"pkg-b\",\"tag\":\"pkg-b-v2.0.0\",\"notes\":\"Release notes for pkg-b\"}}-->\n<details>".to_string(),
+        };
+
+        let result =
+            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
+                .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_create_package_release_multiple_releases_in_changelog() {
+    async fn test_create_package_release_trims_notes() {
         let mut mock_forge = MockForge::new();
-
-        let package = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )])
-        .packages[0]
-            .clone();
-
-        let pr_body = create_pr_body_with_metadata("v2.0.0", "sha456");
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "merge-sha".to_string(),
-            body: pr_body,
-        };
-
-        let changelog = r#"# [2.0.0] - 2024-02-01
-
-## Breaking Changes
-- Breaking change
-
-# [1.0.0] - 2024-01-01
-
-## Features
-- Initial release"#;
-
-        mock_forge
-            .expect_get_file_content()
-            .returning(move |_| Ok(Some(changelog.to_string())));
 
         mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
 
         mock_forge
             .expect_create_release()
-            .withf(|_, _, notes| {
-                notes.contains("[2.0.0]")
-                    && notes.contains("Breaking")
-                    && !notes.contains("[1.0.0]")
-            })
+            .withf(|_, _, notes| notes == "Trimmed notes")
             .returning(|_, _, _| Ok(()));
 
-        let result = create_package_release(
-            &mock_forge,
-            &package,
-            &merged_pr,
-            r"^#\s\[",
-        )
-        .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_create_package_release_nested_package_path() {
-        let mut mock_forge = MockForge::new();
-
-        let package = create_test_config_simple(vec![(
-            "nested-pkg",
-            "packages/nested",
-            ReleaseType::Node,
-        )])
-        .packages[0]
-            .clone();
-
-        let pr_body = create_pr_body_with_metadata("v1.0.0", "sha");
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "merge-sha".to_string(),
-            body: pr_body,
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: Some("v".to_string()),
+            prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+            additional_paths: None,
         };
 
-        mock_forge
-            .expect_get_file_content()
-            .withf(|path| path == "packages/nested/CHANGELOG.md")
-            .returning(|_| Ok(Some("# [1.0.0]\n\nNotes".to_string())));
+        let pr = PullRequest {
+            number: 42,
+            sha: "test-sha".to_string(),
+            body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"  Trimmed notes  \\n  \"}}-->\n<details>".to_string(),
+        };
 
-        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
-        mock_forge
-            .expect_create_release()
-            .returning(|_, _, _| Ok(()));
-
-        let result = create_package_release(
-            &mock_forge,
-            &package,
-            &merged_pr,
-            r"^#\s\[",
-        )
-        .await;
-
+        let result =
+            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
+                .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_create_package_release_fails_without_metadata() {
+    async fn test_create_package_release_fails_when_metadata_missing() {
         let mock_forge = MockForge::new();
 
-        let package =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)])
-                .packages[0]
-                .clone();
-
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "merge-sha".to_string(),
-            body: "PR body without metadata".to_string(),
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: Some("v".to_string()),
+            prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+            additional_paths: None,
         };
 
-        let result = create_package_release(
-            &mock_forge,
-            &package,
-            &merged_pr,
-            r"^#\s\[",
-        )
-        .await;
+        let pr = PullRequest {
+            number: 42,
+            sha: "test-sha".to_string(),
+            body: "No metadata here".to_string(),
+        };
 
+        let result =
+            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
+                .await;
         assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("metadata"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("failed to find metadata")
+        );
     }
 
     #[tokio::test]
-    async fn test_create_package_release_fails_without_changelog() {
-        let mut mock_forge = MockForge::new();
+    async fn test_create_package_release_fails_when_metadata_malformed() {
+        let mock_forge = MockForge::new();
 
-        let package =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)])
-                .packages[0]
-                .clone();
-
-        let pr_body = create_pr_body_with_metadata("v1.0.0", "sha");
-        let merged_pr = PullRequest {
-            number: 1,
-            sha: "merge-sha".to_string(),
-            body: pr_body,
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: Some("v".to_string()),
+            prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+            additional_paths: None,
         };
 
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+        let pr = PullRequest {
+            number: 42,
+            sha: "test-sha".to_string(),
+            body: "<!--{\"invalid json\"}-->\n<details>".to_string(),
+        };
 
-        let result = create_package_release(
-            &mock_forge,
-            &package,
-            &merged_pr,
-            r"^#\s\[",
-        )
-        .await;
-
+        let result =
+            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
+                .await;
         assert!(result.is_err());
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("CHANGELOG.md"));
+    }
+
+    #[tokio::test]
+    async fn test_create_package_release_fails_when_package_name_not_found() {
+        let mock_forge = MockForge::new();
+
+        let package = PackageConfig {
+            name: "my-package".into(),
+            path: ".".into(),
+            workspace_root: ".".into(),
+            release_type: Some(ReleaseType::Node),
+            tag_prefix: Some("v".to_string()),
+            prerelease: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
+            custom_major_increment_regex: None,
+            custom_minor_increment_regex: None,
+            additional_paths: None,
+        };
+
+        let pr = PullRequest {
+            number: 42,
+            sha: "test-sha".to_string(),
+            body: "<!--{\"metadata\":{\"name\":\"other-package\",\"tag\":\"v1.0.0\",\"notes\":\"Release notes\"}}-->\n<details>".to_string(),
+        };
+
+        let result =
+            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
+                .await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("failed to find metadata for package my-package")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_multiple_packages_single_pr() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|| {
+            Ok(create_test_config(vec![
+                PackageConfig {
+                    name: "api".into(),
+                    path: "packages/api".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("api-v".to_string()),
+                    prerelease: None,
+                    breaking_always_increment_major: None,
+                    features_always_increment_minor: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    additional_paths: None,
+                },
+                PackageConfig {
+                    name: "web".into(),
+                    path: "packages/web".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("web-v".to_string()),
+                    prerelease: None,
+                    breaking_always_increment_major: None,
+                    features_always_increment_minor: None,
+                    custom_major_increment_regex: None,
+                    custom_minor_increment_regex: None,
+                    additional_paths: None,
+                },
+            ]))
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(3)
+            .returning(|| "main".to_string());
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .times(2)
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 99,
+                    sha: "multi-sha".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"api\",\"tag\":\"api-v1.2.0\",\"notes\":\"## API Changes\\n\\n- feat: new endpoint\"}}-->\n<details>\n<summary>api v1.2.0</summary>\nAPI release details\n</details>\n\n<!--{\"metadata\":{\"name\":\"web\",\"tag\":\"web-v2.5.0\",\"notes\":\"## Web Changes\\n\\n- fix: ui bug\"}}-->\n<details>\n<summary>web v2.5.0</summary>\nWeb release details\n</details>".to_string(),
+                }))
+            });
+
+        mock_forge
+            .expect_tag_commit()
+            .withf(|tag, sha| {
+                (tag == "api-v1.2.0" || tag == "web-v2.5.0")
+                    && sha == "multi-sha"
+            })
+            .times(2)
+            .returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .withf(|tag, sha, notes| {
+                sha == "multi-sha"
+                    && ((tag == "api-v1.2.0"
+                        && notes == "## API Changes\n\n- feat: new endpoint")
+                        || (tag == "web-v2.5.0"
+                            && notes == "## Web Changes\n\n- fix: ui bug"))
+            })
+            .times(2)
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge
+            .expect_replace_pr_labels()
+            .withf(|req| {
+                req.pr_number == 99 && req.labels == vec!["releasaurus:tagged"]
+            })
+            .times(2)
+            .returning(|_| Ok(()));
+
+        let result = execute(Box::new(mock_forge)).await;
+        assert!(result.is_ok());
     }
 }
