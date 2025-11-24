@@ -769,7 +769,7 @@ impl Forge for Github {
                 .await?;
 
             if let Some(label) = pr.head.label
-                && label == req.head_branch
+                && label.contains(&req.head_branch)
             {
                 if let Some(merged) = pr.merged
                     && !merged
