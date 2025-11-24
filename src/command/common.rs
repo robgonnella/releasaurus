@@ -1,7 +1,20 @@
 //! Common functionality shared between release commands
 use log::*;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::Path};
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct PRMetadataFields {
+    pub name: String,
+    pub tag: String,
+    pub notes: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PRMetadata {
+    pub metadata: PRMetadataFields,
+}
 
 use crate::{
     analyzer::{config::AnalyzerConfig, release::Tag},

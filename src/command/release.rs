@@ -2,11 +2,10 @@
 use color_eyre::eyre::OptionExt;
 use log::*;
 use regex::Regex;
-use serde::Deserialize;
 use std::sync::LazyLock;
 
 use crate::{
-    command::common,
+    command::common::{self, PRMetadata},
     config::PackageConfig,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, TAGGED_LABEL},
@@ -17,20 +16,8 @@ use crate::{
 };
 
 static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)^<!--(?<metadata>.*)-->\n<details>"#).unwrap()
+    Regex::new(r#"(?ms)^<!--(?<metadata>.*?)-->\n*<details"#).unwrap()
 });
-
-#[derive(Debug, Deserialize, Default)]
-struct Metadata {
-    pub name: String,
-    pub tag: String,
-    pub notes: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MetadataJson {
-    pub metadata: Metadata,
-}
 
 /// Execute release command by finding the merged release PR, tagging commits,
 /// and publishing releases to the forge platform.
@@ -91,7 +78,7 @@ async fn create_package_release(
 
         debug!("parsing metadata string: {:#?}", metadata_str);
 
-        let json: MetadataJson = serde_json::from_str(metadata_str)?;
+        let json: PRMetadata = serde_json::from_str(metadata_str)?;
         let pkg_meta = json.metadata;
 
         if pkg_meta.name == package.name {
