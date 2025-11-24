@@ -1,6 +1,6 @@
 [changelog]
-skip_ci = false
-skip_chore = false
+skip_ci = true
+skip_chore = true
 skip_miscellaneous = false
 include_author = true
 
