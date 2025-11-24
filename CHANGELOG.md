@@ -1,3 +1,9 @@
+# [0.3.4](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.4) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- fixes issue with parsing PR metadata [_(b29ad7c)_](https://github.com/robgonnella/releasaurus/commit/b29ad7c300418596e8fbbf1aa610044d8d4c542f) (Rob Gonnella)
+
 # [0.3.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.3) - 2025-11-24
 
 ### 🐛 Bug Fixes
