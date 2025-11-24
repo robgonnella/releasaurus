@@ -42,7 +42,7 @@ releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
 **CI/CD Integration**:
 
 For automated releases with GitLab CI/CD pipelines, see the dedicated
-[GitLab CI/CD](./gitlab-ci.md) integration guide.
+[CI/CD Integration](./ci-cd-integration.md#gitlab-cicd) guide.
 
 ### Gitea
 
@@ -61,7 +61,7 @@ releasaurus release --gitea-repo "https://git.company.com/team/project"
 **Actions Integration**:
 
 For automated releases with Gitea Actions workflows, see the dedicated
-[Gitea Actions](./gitea-actions.md) integration guide.
+[CI/CD Integration](./ci-cd-integration.md#gitea-actions) guide.
 
 ## Authentication Methods
 

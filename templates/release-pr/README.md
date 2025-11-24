@@ -6,7 +6,7 @@ Runs `releasaurus release-pr` to automate the creation and management of release
 
 ```yaml
 include:
-  - component: $CI_SERVER_FQDN/rgon/releasaurus/release-pr@vX.X.X
+  - component: gitlab.com/rgon/releasaurus/release-pr@vX.X.X
     inputs:
       token: $GITLAB_TOKEN
 ```

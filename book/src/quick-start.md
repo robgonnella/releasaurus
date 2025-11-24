@@ -40,13 +40,14 @@ behalf.
 1. Go to your Gitea instance → User Settings → Applications
 2. Generate a new token with repository read/write permissions
 
-## Step 2: Identify Your Project Repository
+## Step 2: Configure Your Project (Optional)
 
-Releasaurus works entirely through forge platform APIs—no local repository
-required. You just need the repository URL and appropriate access permissions.
+Releasaurus works with zero configuration for changelog generation and tagging.
+However, if you want version file updates, you'll need to create a
+`releasaurus.toml` file in your repository root specifying your project's
+`release_type`.
 
-For version file updates, you'll need to specify your project's `release_type`
-in `releasaurus.toml`. Supported types include:
+**Supported release types:**
 
 - **Rust**: For projects with `Cargo.toml`
 - **Node**: For projects with `package.json`
@@ -54,7 +55,20 @@ in `releasaurus.toml`. Supported types include:
 - **Java**: For projects with `pom.xml` or `build.gradle`
 - **Php**: For projects with `composer.json`
 - **Ruby**: For projects with `Gemfile` or `.gemspec` files
-- **Generic**: (default) For changelog and tagging only (no version file updates)
+- **Generic**: For changelog and tagging only (no version file updates)
+
+**Minimal configuration example:**
+
+```toml
+# releasaurus.toml
+[[package]]
+path = "."
+release_type = "node"
+```
+
+For more configuration options including changelog filtering, monorepo support,
+prerelease versions, and custom version increment patterns, see the
+[Configuration](./configuration.md) guide.
 
 ## Step 3: Create a Release PR
 
@@ -130,7 +144,7 @@ releasaurus release-pr --github-repo "https://github.com/owner/repo"
 releasaurus release --github-repo "https://github.com/owner/repo"
 ```
 
-## Basic Configuration
+## Configuration
 
 To enable version file updates, create a `releasaurus.toml` file specifying
 your project's release type:
@@ -141,79 +155,9 @@ path = "."
 release_type = "node"
 ```
 
-For repositories with extensive commit history, you can also control how many
-commits are analyzed when determining the first release version:
-
-```toml
-# Limit commit history search for first release (default: 400)
-first_release_search_depth = 200
-
-[[package]]
-path = "."
-release_type = "node"
-```
-
-This setting only affects the first release when no previous tags exist.
-Subsequent releases automatically find commits since the last tag. Adjust this
-if:
-
-- **Your repository is very large** - Use a smaller depth like `100` for
-  faster analysis
-- **You need comprehensive history** - Increase to `1000` or more for deeper
-  analysis
-- **You're in a CI/CD environment** - Use a smaller depth for faster builds
-
-### Filtering Changelog Commits
-
-You can also control which commits appear in your changelog by adding filtering
-options to the `[changelog]` section:
-
-```toml
-[changelog]
-skip_ci = true                # Exclude CI/CD commits
-skip_chore = true             # Exclude chore/maintenance commits
-skip_miscellaneous = true     # Exclude non-conventional commits
-skip_merge_commits = true     # Exclude merge commits (default: true)
-skip_release_commits = true   # Exclude release commits (default: true)
-include_author = true         # Show commit author names
-
-[[package]]
-path = "."
-release_type = "node"
-```
-
-These options help you:
-
-- **`skip_ci`** - Remove CI/CD related commits (e.g., "ci: update workflow")
-- **`skip_chore`** - Remove maintenance commits (e.g., "chore: update deps")
-- **`skip_miscellaneous`** - Remove commits without conventional type prefixes
-- **`skip_merge_commits`** - Remove merge commits (default: true)
-- **`skip_release_commits`** - Remove automated release commits (default: true)
-- **`include_author`** - Add author attribution to each changelog entry
-
-This keeps your changelog focused on user-facing changes. See the
-[Configuration](./configuration.md) guide for more details and examples.
-
-## Common Patterns
-
-### Workflow Integration
-
-Many teams integrate Releasaurus into their development workflow:
-
-1. **Develop and commit** using conventional commits to your repository
-2. **When ready to release**, run `releasaurus release-pr` to create a release PR
-3. **Review and merge** the PR when ready
-4. **Publish the release** with `releasaurus release`
-
-Example release workflow:
-
-```bash
-# Create release PR
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-
-# Review, merge, then publish
-releasaurus release --github-repo "https://github.com/owner/repo"
-```
+For more configuration options including changelog filtering, tag prefixes,
+monorepo setups, and prerelease versions, see the
+[Configuration](./configuration.md) guide.
 
 ## What Just Happened?
 
@@ -346,10 +290,11 @@ releases using CI/CD platforms:
 
 #### GitHub Actions
 
-The official [robgonnella/releasaurus-action] automatically creates release
-PRs when you push to your main branch and publishes releases when those PRs
-are merged. See full action [documentation][robgonnella/releasaurus-action]
-for all available options.
+Releasaurus provides an official GitHub Action that automatically creates
+release PRs when you push to your main branch and publishes releases when those
+PRs are merged. See the
+[CI/CD Integration](./ci-cd-integration.md#github-actions) guide for all
+available options.
 
 Create `.github/workflows/release.yml` in your repository:
 
@@ -365,9 +310,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Release
-        uses: robgonnella/releasaurus-action@v1
+        uses: robgonnella/releasaurus/action/github@vX.X.X
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 With this setup, your releases become completely hands-off:
@@ -381,21 +326,23 @@ With this setup, your releases become completely hands-off:
 
 #### GitLab CI/CD
 
-For GitLab projects, use the official [releasaurus-component] that integrates
+For GitLab projects, Releasaurus provides an official component that integrates
 seamlessly with GitLab CI/CD pipelines. Create `.gitlab-ci.yml` in your
 repository:
 
 ```yaml
 include:
-  - component: gitlab.com/rgon/releasaurus-component/releasaurus@~latest
+  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
+    inputs:
+      token: $RELEASE_TOKEN
 ```
 
-See the [GitLab CI/CD](./gitlab-ci.md) integration guide for complete setup
+See the [CI/CD Integration](./ci-cd-integration.md#gitlab-cicd) guide for complete setup
 instructions.
 
 #### Gitea Actions
 
-For Gitea repositories, use the official [releasaurus-gitea-action] that
+For Gitea repositories, Releasaurus provides an official action that
 integrates seamlessly with Gitea Actions workflows. Create
 `.gitea/workflows/release.yml` in your repository:
 
@@ -417,15 +364,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Run Releasaurus
-        uses: https://gitea.com/rgon/releasaurus-gitea-action@v1
+        uses: https://gitea.com/rgon/releasaurus/action/gitea@vX.X.X
 ```
 
-See the [Gitea Actions](./gitea-actions.md) integration guide for complete setup
+See the [CI/CD Integration](./ci-cd-integration.md#gitea-actions) guide for complete setup
 instructions.
 
 Ready to dive deeper? Check out the [Commands](./commands.md) section for
 detailed information about all available options and features.
-
-[robgonnella/releasaurus-action]: https://github.com/robgonnella/releasaurus-action
-[releasaurus-component]: https://gitlab.com/rgon/releasaurus-component
-[releasaurus-gitea-action]: https://gitea.com/rgon/releasaurus-gitea-action

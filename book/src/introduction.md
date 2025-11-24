@@ -39,9 +39,9 @@ One tool for all your repositories, regardless of where they're hosted.
 
 Complete automation through official integrations:
 
-- **GitHub Actions**: [robgonnella/releasaurus-action]
-- **GitLab CI/CD**: [releasaurus-component]
-- **Gitea Actions**: [releasaurus-gitea-action]
+- **GitHub Actions**: [GitHub Actions Integration](./ci-cd-integration.md#github-actions)
+- **GitLab CI/CD**: [GitLab CI/CD Integration](./ci-cd-integration.md#gitlab-cicd)
+- **Gitea Actions**: [Gitea Actions Integration](./ci-cd-integration.md#gitea-actions)
 
 Automatically create release PRs on push and publish releases when merged—no
 manual intervention required.
@@ -116,6 +116,10 @@ Releasaurus brings together the best ideas from these tools while providing:
 - **Minimal configuration** - Intelligent defaults that work immediately
 - **Consistent experience** - Same workflow regardless of language or
   platform
+- **Flexible commit format** - While conventional commits enable version
+  detection, non-conventional commits can still be included in changelogs
+- **Non-linear history support** - Works with merge-based workflows by
+  filtering merge commits when needed
 
 ## Credit and Inspiration
 
@@ -137,7 +141,3 @@ the [Quick Start](./quick-start.md) tutorial to see Releasaurus in action.
 Whether you're maintaining a single-language project or a complex monorepo,
 Releasaurus adapts to your workflow while maintaining the reliability and
 safety that production releases demand.
-
-[robgonnella/releasaurus-action]: https://github.com/robgonnella/releasaurus-action
-[releasaurus-component]: https://gitlab.com/rgon/releasaurus-component
-[releasaurus-gitea-action]: https://gitea.com/rgon/releasaurus-gitea-action

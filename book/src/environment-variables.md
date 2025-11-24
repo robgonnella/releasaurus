@@ -170,7 +170,6 @@ would happen during the release process.
 ## Next Steps
 
 - **[Commands](./commands.md)** - Command-line options and usage patterns
-- **[Basic Configuration](./basic-configuration.md)** - Configuration file
-  setup
+- **[Configuration](./configuration.md)** - Configuration file setup
 - **[Troubleshooting](./troubleshooting.md#authentication-issues)** -
   Resolving environment issues

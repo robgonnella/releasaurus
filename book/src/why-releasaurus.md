@@ -21,6 +21,16 @@ traditionally require significant manual effort:
 While several excellent tools address parts of this challenge, none provided a
 complete, universal solution that works seamlessly across all environments.
 
+## Quick Comparison Table
+
+| Tool                 | Platforms             | Languages                                                 | Config Required   | Process              | Best For                                 |
+| -------------------- | --------------------- | --------------------------------------------------------- | ----------------- | -------------------- | ---------------------------------------- |
+| **Releasaurus**      | GitHub, GitLab, Gitea | Rust, Node.js, Python, Java, PHP, Ruby, Generic (limited) | Minimal           | Release PR → Publish | Universal, multi-platform, simple config |
+| **release-please**   | GitHub only           | Many (via plugins)                                        | Required for most | Release PR → Publish | GitHub-only orgs                         |
+| **release-plz**      | GitHub, crates.io     | Rust only                                                 | Minimal           | Release PR → Publish | Rust projects, Cargo ecosystems          |
+| **git-cliff**        | Any Git host          | Language agnostic                                         | Required          | Manual changelog     | Changelog generation only                |
+| **semantic-release** | GitHub, GitLab, npm   | JavaScript-focused                                        | Required          | Direct publish       | Node.js projects, automated releases     |
+
 ## The Existing Landscape
 
 Before Releasaurus, developers had to choose between specialized tools, each

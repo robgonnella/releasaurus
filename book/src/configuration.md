@@ -6,6 +6,21 @@ configuration file. This file allows you to customize changelog generation,
 define multiple packages within a repository, and fine-tune the release process
 to match your project's specific needs.
 
+## Do You Need Configuration?
+
+### You DON'T need configuration if:
+
+- You only need changelog generation and tagging (no version file updates)
+- You're happy with the default changelog format
+- You're happy with the default tag prefix "v" (e.g., `v1.0.0`, `v2.1.0`)
+
+### You DO need configuration if:
+
+- You want version file updates (requires specifying `release_type`)
+- You want custom changelog templates or formatting
+- You have multiple packages in one repository (monorepo)
+- You want custom prefixed tags (e.g., `cli-v1.0.0` or `api-v1.0.0`)
+
 ## Configuration File Location
 
 Releasaurus looks for a `releasaurus.toml` file in your project's root
@@ -19,6 +34,73 @@ my-project/
 ├── README.md
 └── ...
 ```
+
+## Creating Your First Configuration
+
+If you need configuration, create a file called `releasaurus.toml` in your
+project's root directory and start with one of the basic examples below.
+
+## Basic Configuration Examples
+
+### Single Package with Version Updates
+
+The most common setup specifies the release type for version file updates:
+
+```toml
+# releasaurus.toml
+[[package]]
+path = "."
+release_type = "node"
+```
+
+### Simple Multi-Package Setup
+
+For a repository with multiple independently-versioned components:
+
+```toml
+# releasaurus.toml
+[[package]]
+path = "./frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+```
+
+This allows you to release the frontend and backend independently, with tags
+like `frontend-v1.0.0` and `backend-v1.0.0`.
+
+### Clean Changelog (Filtered Commits)
+
+Focus on user-facing changes only:
+
+```toml
+[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = true
+
+[[package]]
+path = "."
+release_type = "rust"
+```
+
+### Prerelease Versions (Alpha/Beta/RC)
+
+Create alpha prerelease versions:
+
+```toml
+prerelease = "alpha"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
 
 ## Configuration Structure
 
@@ -990,9 +1072,60 @@ release_type = "rust"
 tag_prefix = "cli-v"
 ```
 
+## Testing Your Configuration
+
+After creating or modifying your configuration file, test it locally before
+pushing changes to your remote forge.
+
+### Local Repository Testing (Recommended)
+
+Test your configuration against your local repository without requiring
+authentication or making remote changes:
+
+```bash
+# Test from current directory
+releasaurus release-pr --local-repo "."
+
+# Review the output to verify:
+# - Configuration loads correctly
+# - Version detection works as expected
+# - Changelog format looks good
+# - Tag prefixes match your setup
+```
+
+**Benefits:**
+
+- No authentication required
+- No remote changes made
+- Instant feedback on configuration
+- Perfect for iterating on config changes
+
+See the [Commands](./commands.md#local-repository-mode) guide for complete
+details on local repository mode.
+
+### Remote Testing with Debug Mode
+
+Alternatively, validate configuration against your remote forge with debug
+logging enabled:
+
+```bash
+# Via command line flag
+releasaurus release-pr \
+  --github-repo "https://github.com/owner/repo" \
+  --debug
+
+# Or via environment variable
+export RELEASAURUS_DEBUG=true
+releasaurus release-pr --github-repo "https://github.com/owner/repo"
+```
+
+If there are configuration errors, you'll see clear error messages explaining
+what needs to be fixed.
+
 ## Next Steps
 
 - Check [Environment Variables](./environment-variables.md) for runtime
   configuration options
 - Review [Troubleshooting](./troubleshooting.md) for common configuration
   issues
+- See [Commands](./commands.md) for detailed command usage
