@@ -1,3 +1,9 @@
+# [0.3.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.1) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- fixes issues [_(0fffb0d)_](https://github.com/robgonnella/releasaurus/commit/0fffb0dd652a5ecc37eb2cc890f8e8c114e5c64a) (Rob Gonnella)
+
 # [0.3.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.0) - 2025-09-18
 
 ### 🐛 Bug Fixes
