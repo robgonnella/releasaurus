@@ -8,7 +8,7 @@ inputs:
     description: The gitea token to use. This token will need privileges to create PRs, tags, labels, and releases
   debug:
     description: Enables debug logs
-    default: "false"
+    default: ""
   git_user_name:
     description: The git user name to use when committing and creating tags
     default: "ReleasaurusCI"
@@ -18,7 +18,7 @@ inputs:
 outputs: {}
 runs:
   using: docker
-  image: docker://rgonnella/releasaurus:v0.3.4
+  image: docker://rgonnella/releasaurus:v0.3.5
   env:
     RELEASAURUS_DEBUG: ${{ inputs.debug }}
   args:
