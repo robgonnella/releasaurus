@@ -87,6 +87,9 @@ impl Forge for LocalRepo {
 
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let full_path = Path::new(&self.repo_path).join(path);
+        if !full_path.exists() {
+            return Ok(None);
+        }
         let content = fs::read_to_string(full_path).await?;
         Ok(Some(content))
     }
