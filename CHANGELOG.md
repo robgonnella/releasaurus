@@ -4,12 +4,6 @@
 
 - fixes issues in release command [_(f0d527c)_](https://github.com/robgonnella/releasaurus/commit/f0d527cf8940a27e33a00b31d323b9b8abc38fef) (Rob Gonnella)
 
-# [0.3.6](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.6) - 2025-11-24
-
-### 🐛 Bug Fixes
-
-- fixes issues in release command [_(f0d527c)_](https://github.com/robgonnella/releasaurus/commit/f0d527cf8940a27e33a00b31d323b9b8abc38fef) (Rob Gonnella)
-
 # [0.3.5](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.5) - 2025-11-24
 
 ### 🐛 Bug Fixes
@@ -66,15 +60,15 @@
 
 - improves commit author display [_(5a8bcb2)_](https://github.com/robgonnella/releasaurus/commit/5a8bcb2fdaac533a2c9c5f14e46698e487b5f24b) (Rob Gonnella)
 
-- another fix for release_type configuration [_(5956632)_](https://github.com/robgonnella/releasaurus/commit/5956632d418d62b6b66705226b37ac0cfd10f58b) (Rob Gonnella)
+- another fix for release*type configuration [*(5956632)\_](https://github.com/robgonnella/releasaurus/commit/5956632d418d62b6b66705226b37ac0cfd10f58b) (Rob Gonnella)
 
-- adds release_type and more logging [_(dd4fffe)_](https://github.com/robgonnella/releasaurus/commit/dd4fffe50eaaa3fe18583e927c1775766b84de9c) (Rob Gonnella)
+- adds release*type and more logging [*(dd4fffe)\_](https://github.com/robgonnella/releasaurus/commit/dd4fffe50eaaa3fe18583e927c1775766b84de9c) (Rob Gonnella)
 
 - fixes issue with generating changelog [_(3943d7c)_](https://github.com/robgonnella/releasaurus/commit/3943d7ce75a9808b79966d278195cb26b7375086) (Rob Gonnella)
 
 - re-implements ruby updater [_(5d9b29c)_](https://github.com/robgonnella/releasaurus/commit/5d9b29c5cda6a72670f796f1fb1a3c8cd60d40d5) (Rob Gonnella)
 
-- fixes issue with processing tag_prefix [_(12aa60c)_](https://github.com/robgonnella/releasaurus/commit/12aa60c307e79226a05eb35470c07bcc1a1e2004) (Rob Gonnella)
+- fixes issue with processing tag*prefix [*(12aa60c)\_](https://github.com/robgonnella/releasaurus/commit/12aa60c307e79226a05eb35470c07bcc1a1e2004) (Rob Gonnella)
 
 ### 📚 Documentation
 
@@ -82,7 +76,7 @@
 
 - updates contributing doc [_(828fb2c)_](https://github.com/robgonnella/releasaurus/commit/828fb2ce2ba219c163708eab536acb489cd008ce) (Rob Gonnella)
 
-- updates documentation for additional_paths feature [_(1a59909)_](https://github.com/robgonnella/releasaurus/commit/1a5990928be0e5b3507d60edf586d4d079e802e1) (Rob Gonnella)
+- updates documentation for additional*paths feature [*(1a59909)\_](https://github.com/robgonnella/releasaurus/commit/1a5990928be0e5b3507d60edf586d4d079e802e1) (Rob Gonnella)
 
 - updates all documentation (#89) [_(ba48d6a)_](https://github.com/robgonnella/releasaurus/commit/ba48d6acf80d37161748b289ef72e885a950387f) (Rob Gonnella)
 
@@ -98,13 +92,13 @@
 
 - adds new options to changelog config [_(bcd2c7b)_](https://github.com/robgonnella/releasaurus/commit/bcd2c7bcec5095486882a113a44c06b9c4cdda0f) (Rob Gonnella)
 
-- implements additional_paths [_(11ed7ef)_](https://github.com/robgonnella/releasaurus/commit/11ed7efde2cfc643a3c5d47725abea216d9bd38b) (Rob Gonnella)
+- implements additional*paths [*(11ed7ef)\_](https://github.com/robgonnella/releasaurus/commit/11ed7efde2cfc643a3c5d47725abea216d9bd38b) (Rob Gonnella)
 
-- adds support for workspace_root config option (#96) [_(f44ede1)_](https://github.com/robgonnella/releasaurus/commit/f44ede18d2f3dbebdc028f4be57f2aac217d1c6d) (Rob Gonnella)
+- adds support for workspace*root config option (#96) [*(f44ede1)\_](https://github.com/robgonnella/releasaurus/commit/f44ede18d2f3dbebdc028f4be57f2aac217d1c6d) (Rob Gonnella)
 
 - adds prerelease feature (#93) [_(52c8c48)_](https://github.com/robgonnella/releasaurus/commit/52c8c489b61e501d8d38571920e6e8499a787358) (Rob Gonnella)
 
-- implements separate_pull_requests feature (#92) [_(891cb4e)_](https://github.com/robgonnella/releasaurus/commit/891cb4e2722531d16daa6ddfd682eff806a92b98) (Rob Gonnella)
+- implements separate*pull_requests feature (#92) [*(891cb4e)\_](https://github.com/robgonnella/releasaurus/commit/891cb4e2722531d16daa6ddfd682eff806a92b98) (Rob Gonnella)
 
 - add support for skipping some groups and including author (#90) [_(553c215)_](https://github.com/robgonnella/releasaurus/commit/553c215787b2af66b0d80cd4b45533fb6a380a2c) (Rob Gonnella)
 
@@ -114,13 +108,13 @@
 
 - use hard coded versions for github / gitea actions [_(42de0d8)_](https://github.com/robgonnella/releasaurus/commit/42de0d8063c01fd1701caa43783841f8bbb8f3f8) (Rob Gonnella)
 
-- trying env.action_ref instead [_(72cf563)_](https://github.com/robgonnella/releasaurus/commit/72cf563c598891182decbdccfb8bc3b4aad37da3) (Rob Gonnella)
+- trying env.action*ref instead [*(72cf563)\_](https://github.com/robgonnella/releasaurus/commit/72cf563c598891182decbdccfb8bc3b4aad37da3) (Rob Gonnella)
 
-- try to use env.GITHUB_ACTION_REF in github action [_(2bbbfaf)_](https://github.com/robgonnella/releasaurus/commit/2bbbfaf7ce4cb108cda1d678317d89b74a240511) (Rob Gonnella)
+- try to use env.GITHUB*ACTION_REF in github action [*(2bbbfaf)\_](https://github.com/robgonnella/releasaurus/commit/2bbbfaf7ce4cb108cda1d678317d89b74a240511) (Rob Gonnella)
 
 - another test for github actions [_(c0273af)_](https://github.com/robgonnella/releasaurus/commit/c0273af95486fe86c672129c4d332f11a78dc911) (Rob Gonnella)
 
-- use github.action_ref in github action [_(ae8f1f3)_](https://github.com/robgonnella/releasaurus/commit/ae8f1f3fc6f19b5550a16a95f0b2aaca8d90f2e2) (Rob Gonnella)
+- use github.action*ref in github action [*(ae8f1f3)\_](https://github.com/robgonnella/releasaurus/commit/ae8f1f3fc6f19b5550a16a95f0b2aaca8d90f2e2) (Rob Gonnella)
 
 - test different path for Dockerfile in github action [_(eb7c0dc)_](https://github.com/robgonnella/releasaurus/commit/eb7c0dcc48e4670f69daf87af8e97ab11b55a42f) (Rob Gonnella)
 
@@ -144,7 +138,7 @@
 
 - refactors release command [_(d1366ce)_](https://github.com/robgonnella/releasaurus/commit/d1366cead792750b993b40fea75caa62aa9e34b2) (Rob Gonnella)
 
-- set default_branch once at initialization of forge [_(95b4ff4)_](https://github.com/robgonnella/releasaurus/commit/95b4ff40910e056e89fd1d667eb01fd4725eca7c) (Rob Gonnella)
+- set default*branch once at initialization of forge [*(95b4ff4)\_](https://github.com/robgonnella/releasaurus/commit/95b4ff40910e056e89fd1d667eb01fd4725eca7c) (Rob Gonnella)
 
 - removes uses of unwrap and expect in live code [_(61552a2)_](https://github.com/robgonnella/releasaurus/commit/61552a2f23911353542ebff168c6cf5d9eb8582b) (Rob Gonnella)
 
@@ -158,9 +152,9 @@
 
 - updates commands to take mockable params [_(a9acf4a)_](https://github.com/robgonnella/releasaurus/commit/a9acf4a7d6d0c3f181ecc35dea33220326b10115) (Rob Gonnella)
 
-- moves commit_search_depth to config [_(7a0e09a)_](https://github.com/robgonnella/releasaurus/commit/7a0e09a88a0fe811c4ce848a0d0f9534ddb4fed0) (Rob Gonnella)
+- moves commit*search_depth to config [*(7a0e09a)\_](https://github.com/robgonnella/releasaurus/commit/7a0e09a88a0fe811c4ce848a0d0f9534ddb4fed0) (Rob Gonnella)
 
-- implements tag_commit method for each forge [_(6e09e37)_](https://github.com/robgonnella/releasaurus/commit/6e09e372d82349c827ec3e29001630ddf53dbbaf) (Rob Gonnella)
+- implements tag*commit method for each forge [*(6e09e37)\_](https://github.com/robgonnella/releasaurus/commit/6e09e372d82349c827ec3e29001630ddf53dbbaf) (Rob Gonnella)
 
 - implements updaters in new flow [_(7ac135e)_](https://github.com/robgonnella/releasaurus/commit/7ac135e973f6eee6a511ff596fb188628e47ebd3) (Rob Gonnella)
 
@@ -178,7 +172,7 @@
 
 - adds unit tests for framework.rs [_(4dae2f9)_](https://github.com/robgonnella/releasaurus/commit/4dae2f9482fb688002be7d6b86a7093a63eac43f) (Rob Gonnella)
 
-- adds back unit tests for release_pr.rs [_(a5914bd)_](https://github.com/robgonnella/releasaurus/commit/a5914bd86f7b3b32c7f4f10398d4119387df7036) (Rob Gonnella)
+- adds back unit tests for release*pr.rs [*(a5914bd)\_](https://github.com/robgonnella/releasaurus/commit/a5914bd86f7b3b32c7f4f10398d4119387df7036) (Rob Gonnella)
 
 - adds basic smoke tests for each of the updater entrypoints [_(85095ac)_](https://github.com/robgonnella/releasaurus/commit/85095acc758bb909c2ba698bc94313cb4110141b) (Rob Gonnella)
 
@@ -196,11 +190,11 @@
 
 - implements integration / e2e tests for each forge [_(93918cc)_](https://github.com/robgonnella/releasaurus/commit/93918cca26af64985ec2af3c7a87b70440e7c66f) (Rob Gonnella)
 
-- creates common test_helpers module [_(e2bc383)_](https://github.com/robgonnella/releasaurus/commit/e2bc383c649701b739713708df989bf86746e092) (Rob Gonnella)
+- creates common test*helpers module [*(e2bc383)\_](https://github.com/robgonnella/releasaurus/commit/e2bc383c649701b739713708df989bf86746e092) (Rob Gonnella)
 
 - adds unit tests for src/command/release.rs [_(d08a211)_](https://github.com/robgonnella/releasaurus/commit/d08a211c1b1e686d947492686550b1c0cafef58e) (Rob Gonnella)
 
-- adds unit tests for src/command/release_pr.rs [_(e1d9e9e)_](https://github.com/robgonnella/releasaurus/commit/e1d9e9e8883b9f4986b64c0d79b8b098d504e577) (Rob Gonnella)
+- adds unit tests for src/command/release*pr.rs [*(e1d9e9e)\_](https://github.com/robgonnella/releasaurus/commit/e1d9e9e8883b9f4986b64c0d79b8b098d504e577) (Rob Gonnella)
 
 - adds unit tests for src/analyzer.rs [_(c636411)_](https://github.com/robgonnella/releasaurus/commit/c63641123ad6053f227fd01c12cc4fb34d5bfe1f) (Rob Gonnella)
 
@@ -290,7 +284,8 @@
 
 - Initial release
 
-<!--releasaurus_footer_start-->
----
+## <!--releasaurus_footer_start-->
+
 Generated by Releasaurus 🦕
+
 <!--releasaurus_footer_end-->
