@@ -1,3 +1,9 @@
+# [0.3.5](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.5) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- fixes debug inputs for github and gitea actions [_(7d100ca)_](https://github.com/robgonnella/releasaurus/commit/7d100ca2b6f54a3fd499836cd9cc5b649b757ceb) (Rob Gonnella)
+
 # [0.3.4](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.4) - 2025-11-24
 
 ### 🐛 Bug Fixes
