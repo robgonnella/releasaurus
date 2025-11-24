@@ -12,7 +12,6 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - run: echo "temporarily disabled"
-      # - uses: robgonnella/releasaurus/action/github@v0.3.3
-      #   with:
-      #     token: ${{ secrets.GH_TEST_TOKEN }}
+      - uses: robgonnella/releasaurus/action/github@v0.3.6
+        with:
+          token: ${{ secrets.GH_TEST_TOKEN }}
