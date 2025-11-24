@@ -6,14 +6,11 @@
 
 - [Installation](./installation.md)
 - [Quick Start](./quick-start.md)
-- [Basic Configuration](./basic-configuration.md)
 
 # User Guide
 
 - [Commands](./commands.md)
-- [GitHub Actions](./github-actions.md)
-- [GitLab CI/CD](./gitlab-ci.md)
-- [Gitea Actions](./gitea-actions.md)
+- [CI/CD Integration](./ci-cd-integration.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Supported Languages & Frameworks](./supported-languages.md)
 - [Git Forge Platforms](./forge-platforms.md)
@@ -27,5 +24,4 @@
 # About
 
 - [Why Releasaurus?](./why-releasaurus.md)
-- [Comparison with Other Tools](./comparison.md)
 - [Contributing](./contributing.md)

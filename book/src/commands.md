@@ -313,26 +313,12 @@ releasaurus release-pr \
 ## Environment Variables
 
 For security and convenience, use environment variables instead of
-command-line tokens:
+command-line tokens. When environment variables are set, you can omit the
+`--*-token` flags.
 
-| Variable              | Description                              | Example            |
-| --------------------- | ---------------------------------------- | ------------------ |
-| `GITHUB_TOKEN`        | GitHub personal access token             | `ghp_xxxxxxxxxxxx` |
-| `GITLAB_TOKEN`        | GitLab personal/project access token     | `glpat_xxxxxxxxxx` |
-| `GITEA_TOKEN`         | Gitea/Forgejo access token               | `xxxxxxxxxxxxxxxx` |
-| `RELEASAURUS_DEBUG`   | Enable debug logging                     | `true`             |
-| `RELEASAURUS_DRY_RUN` | Enable dry-run mode (auto-enables debug) | `true`             |
-
-When environment variables are set, you can omit the `--*-token` flags:
-
-```bash
-# Set once
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-
-# Use in multiple commands
-releasaurus release-pr --github-repo "https://github.com/org/repo1"
-releasaurus release-pr --github-repo "https://github.com/org/repo2"
-```
+See the [Environment Variables](./environment-variables.md) guide for complete
+details on all available environment variables, authentication token setup, and
+configuration options.
 
 ## Help and Documentation
 

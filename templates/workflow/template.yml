@@ -17,14 +17,14 @@ spec:
       default: releasaurus-ci@noreply.com
 ---
 include:
-  - component: $CI_SERVER_FQDN/rgon/releasaurus/release-pr@$[[ component.version ]]
+  - component: gitlab.com/rgon/releasaurus/release-pr@$[[ component.version ]]
     inputs:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]
       token: $[[ inputs.token ]]
       git_user_name: $[[ inputs.git_user_name ]]
       git_user_email: $[[ inputs.git_user_email ]]
-  - component: $CI_SERVER_FQDN/rgon/releasaurus/release@$[[ component.version ]]
+  - component: gitlab.com/rgon/releasaurus/release@$[[ component.version ]]
     inputs:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]

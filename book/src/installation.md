@@ -89,5 +89,5 @@ releasaurus --version
 
 Now that you have Releasaurus installed, head over to the
 [Quick Start](./quick-start.md) guide to learn how to use it with your first
-project, or check out the [Basic Configuration](./basic-configuration.md) if
+project, or check out the [Configuration](./configuration.md) if
 you want to customize the default behavior.
