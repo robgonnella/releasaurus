@@ -184,9 +184,9 @@ async fn gather_release_prs_by_branch(
 
         let metadata = format!(
             r#"
-<!--{{"metadata": {{"tag": "{}","sha": "{}"}}}}-->
+<!--{{"metadata": {{"name": "{}", "tag": "{}", "notes": {}}}}}-->
 "#,
-            tag.name, tag.sha
+            pkg.name, tag.name, pkg.release.notes
         );
 
         // create the drop down

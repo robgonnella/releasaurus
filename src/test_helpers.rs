@@ -76,7 +76,6 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
             skip_merge_commits: true,
             skip_release_commits: true,
             include_author: false,
-            release_start_regex: r"^#\s\[".into(),
         },
         packages,
     }
@@ -117,7 +116,6 @@ pub fn create_test_config_simple(
             skip_merge_commits: true,
             skip_release_commits: true,
             include_author: false,
-            release_start_regex: r"^#\s\[".into(),
         },
         packages: packages
             .into_iter()

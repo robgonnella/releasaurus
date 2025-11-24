@@ -148,10 +148,11 @@ impl Analyzer {
         }
 
         let next_tag = release::Tag {
-            sha: release.sha.clone(),
             name: next_tag_name.clone(),
             semver: next,
+            // we won't know timestamp or sha until release-pr is created
             timestamp: None,
+            sha: "".into(),
         };
 
         release.link =

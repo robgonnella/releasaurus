@@ -16,6 +16,22 @@
       "type": "string",
       "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\"). Can be overridden per package or via CLI flag"
     },
+    "breaking_always_increment_major": {
+      "type": "boolean",
+      "description": "Always increments major version on breaking commits (default: true)"
+    },
+    "features_always_increment_minor": {
+      "type": "boolean",
+      "description": "Always increments minor version on feature commits (default: true)"
+    },
+    "custom_major_increment_regex": {
+      "type": "string",
+      "description": "Custom commit type regex matcher to increment major version"
+    },
+    "custom_minor_increment_regex": {
+      "type": "string",
+      "description": "Custom commit type regex matcher to increment minor version"
+    },
     "changelog": {
       "type": "object",
       "properties": {
@@ -46,10 +62,6 @@
         "include_author": {
           "type": "boolean",
           "description": "Includes the author name for each commit in the generated changelog"
-        },
-        "release_start_regex": {
-          "type": "string",
-          "description": "A regex pattern used to identify the beginning of each release section in the generated changelog. This is used during the `release` command to parse the changelog and extract release notes"
         }
       }
     },
@@ -92,6 +104,22 @@
               "type": "string",
               "description": "A directory path to include commits from when calculating release version and changelog updates for this package"
             }
+          },
+          "breaking_always_increment_major": {
+            "type": "boolean",
+            "description": "Always increments major version on breaking commits for this package. Overrides global setting"
+          },
+          "features_always_increment_minor": {
+            "type": "boolean",
+            "description": "Always increments minor version on feature commits for this package. Overrides global setting"
+          },
+          "custom_major_increment_regex": {
+            "type": "string",
+            "description": "Custom commit type regex matcher to increment major version for this package. Overrides global setting"
+          },
+          "custom_minor_increment_regex": {
+            "type": "string",
+            "description": "Custom commit type regex matcher to increment minor version for this package. Overrides global setting"
           }
         }
       }
