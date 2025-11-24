@@ -1,3 +1,9 @@
+# [0.3.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.3) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- fixes issues with github and gitea actions [_(b2c774e)_](https://github.com/robgonnella/releasaurus/commit/b2c774e0f55d40a01c1bcf988a0684ff680a96fb) (Rob Gonnella)
+
 # [0.3.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.2) - 2025-11-24
 
 ### 🐛 Bug Fixes
