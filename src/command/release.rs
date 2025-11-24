@@ -1,5 +1,6 @@
 //! Final release publication and tagging command implementation.
 use color_eyre::eyre::OptionExt;
+use log::*;
 use regex::Regex;
 use serde::Deserialize;
 use std::{path::Path, sync::LazyLock};
@@ -16,7 +17,7 @@ use crate::{
 };
 
 static METADATA_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"(?ms)<!--(?<metadata>.*)-->"#).unwrap());
+    LazyLock::new(|| Regex::new(r#"(?m)^<!--(?<metadata>.*)-->$"#).unwrap());
 
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -92,6 +93,8 @@ async fn create_package_release(
         .ok_or_eyre("failed to parse metadata from PR body")?
         .as_str();
 
+    debug!("found pr metadata string: {metadata_str}");
+
     let json: MetadataJson = serde_json::from_str(metadata_str)?;
     let metadata = json.metadata;
 
@@ -102,10 +105,17 @@ async fn create_package_release(
         .to_string()
         .replace("./", "");
 
+    info!("fetching current changelog content");
+
     let changelog_content = forge
         .get_file_content(&changelog_path)
         .await?
         .ok_or_eyre("failed to find CHANGELOG.md for package")?;
+
+    info!(
+        "parsing changelog notes for release: tag: {}, sha: {}",
+        metadata.tag, metadata.sha
+    );
 
     // The logic below handles 2 cases, single release in changelog, and
     // multiple releases in changelog. When there is a single release in the
@@ -142,7 +152,17 @@ async fn create_package_release(
         .ok_or_eyre("failed to parse notes from CHANGELOG.md")?
         .as_str();
 
+    info!(
+        "tagging commit: tag: {}, sha: {}",
+        metadata.tag, metadata.sha
+    );
+
     forge.tag_commit(&metadata.tag, &merged_pr.sha).await?;
+
+    info!(
+        "creating release: tag: {}, sha: {}",
+        metadata.tag, metadata.sha
+    );
 
     forge
         .create_release(&metadata.tag, &metadata.sha, notes.trim())
