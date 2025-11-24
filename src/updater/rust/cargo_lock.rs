@@ -33,7 +33,17 @@ impl CargoLock {
             if let Some(doc_packages) =
                 lock_doc["package"].as_array_of_tables_mut()
             {
-                let mut updated = false;
+                if let Some(main_pkg) = doc_packages.iter_mut().find(|p| {
+                    let doc_package_name = p
+                        .get("name")
+                        .and_then(|item| item.as_str())
+                        .unwrap_or("");
+                    doc_package_name == package.package_name
+                }) {
+                    main_pkg["version"] =
+                        value(package.next_version.semver.to_string());
+                }
+
                 // Update all packages in this workspace
                 for pkg in workspace_packages.iter() {
                     if let Some(found) = doc_packages.iter_mut().find(|p| {
@@ -45,17 +55,14 @@ impl CargoLock {
                     }) {
                         found["version"] =
                             value(pkg.next_version.semver.to_string());
-                        updated = true;
                     }
                 }
 
-                if updated {
-                    file_changes.push(FileChange {
-                        path: manifest.file_path.clone(),
-                        content: lock_doc.to_string(),
-                        update_type: FileUpdateType::Replace,
-                    });
-                }
+                file_changes.push(FileChange {
+                    path: manifest.file_path.clone(),
+                    content: lock_doc.to_string(),
+                    update_type: FileUpdateType::Replace,
+                });
             }
         }
 
@@ -246,13 +253,9 @@ checksum = "abc123"
     }
 
     #[tokio::test]
-    async fn returns_none_when_no_workspace_packages_to_update() {
+    async fn returns_none_when_cargo_lock_has_no_packages() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
-
-[[package]]
-name = "external-crate"
-version = "5.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
@@ -331,5 +334,63 @@ version = "5.0.0"
         let result = cargo_lock.process_package(&package, &[]).await.unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn updates_main_package_version_in_cargo_lock() {
+        let cargo_lock = CargoLock::new();
+        let content = r#"version = 3
+
+[[package]]
+name = "main-package"
+version = "1.0.0"
+
+[[package]]
+name = "workspace-package"
+version = "2.0.0"
+
+[[package]]
+name = "external-crate"
+version = "5.0.0"
+"#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "Cargo.lock".to_string(),
+            file_basename: "Cargo.lock".to_string(),
+            content: content.to_string(),
+        };
+        let main_package = UpdaterPackage {
+            package_name: "main-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
+            framework: Framework::Rust,
+        };
+        let workspace_package = UpdaterPackage {
+            package_name: "workspace-package".to_string(),
+            workspace_root: "packages/workspace".to_string(),
+            manifest_files: vec![],
+            next_version: create_test_tag("v4.0.0", "4.0.0", "def"),
+            framework: Framework::Rust,
+        };
+
+        let result = cargo_lock
+            .process_package(
+                &main_package,
+                &[main_package.clone(), workspace_package],
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let updated = result.unwrap()[0].content.clone();
+        // Main package should be updated to 3.0.0
+        assert!(updated.contains("name = \"main-package\""));
+        assert!(updated.contains("version = \"3.0.0\""));
+        // Workspace package should be updated to 4.0.0
+        assert!(updated.contains("name = \"workspace-package\""));
+        assert!(updated.contains("version = \"4.0.0\""));
+        // External package should remain unchanged
+        assert!(updated.contains("version = \"5.0.0\""));
     }
 }
