@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-38b5255d.js";
+            window.path_to_searchindex_js = "searchindex-01da2303.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -276,8 +276,6 @@ changelog</li>
 from changelog</li>
 <li><code>include_author</code> - (optional, default: false) Include commit author names in
 changelog</li>
-<li><code>release_start_regex</code> - (optional, default: “^#\s\[”) Regex pattern to
-match the start of each release in the changelog</li>
 </ul>
 </li>
 <li><strong><code>[[package]]</code></strong> - Defines packages within the repository with their
@@ -322,9 +320,6 @@ skip_miscellaneous = false
 skip_merge_commits = true
 skip_release_commits = true
 include_author = false
-
-# Regex pattern to match release headers in changelog (default: "^#\\s\\[")
-release_start_regex = "^#\\s\\["
 
 # Changelog body template (default template shown)
 body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -561,68 +556,6 @@ include_author = true  # Show author names like "feat: add feature &lt;John Doe&
 formatted.</p>
 <p><strong>Default</strong>: The default template creates entries starting with
 <code># [version](link) - date</code></p>
-<h4 id="release_start_regex-optional"><a class="header" href="#release_start_regex-optional"><code>release_start_regex</code> (Optional)</a></h4>
-<p>A regex pattern used to identify the beginning of each release section in the
-generated changelog. This is used during the <code>release</code> command to parse the
-changelog and extract release notes.</p>
-<pre><code class="language-toml">[changelog]
-release_start_regex = "^#\\s\\["  # Matches lines starting with "# ["
-</code></pre>
-<p><strong>Default</strong>: <code>"^#\\s\\["</code> - Matches the default body template which starts each
-release with <code># [version](link)</code></p>
-<p><strong>When to customize</strong>: Only change this if you significantly modify the <code>body</code>
-template. The regex must match the beginning of each release entry in your
-custom changelog format.</p>
-<p><strong>Examples:</strong></p>
-<p>For a custom template starting with <code>## Release</code>:</p>
-<pre><code class="language-toml">[changelog]
-body = """## Release {{ version }}
-...your custom template..."""
-release_start_regex = "^##\\s+Release"
-</code></pre>
-<p>For a custom template starting with <code>### Version</code>:</p>
-<pre><code class="language-toml">[changelog]
-body = """### Version {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
-...your custom template..."""
-release_start_regex = "^###\\s+Version"
-</code></pre>
-<p><strong>Complete Example with Custom Body Template:</strong></p>
-<p>Here’s a full example showing a custom changelog format with matching regex:</p>
-<pre><code class="language-toml">[changelog]
-# Custom body template with distinct release header
-body = """
-## 🚀 Release {{ version }} ({{ timestamp | date(format="%B %d, %Y") }})
-
-{% for group, commits in commits | group_by(attribute="group") %}
-#### {{ group }}
-{% for commit in commits %}
-- {{ commit.title }} ([{{ commit.short_id }}]({{ commit.link }}))
-{% endfor %}
-{% endfor %}
-"""
-
-# Regex matches "## 🚀 Release" at the start of lines
-release_start_regex = "^##\\s+🚀\\s+Release"
-
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>This produces changelog entries like:</p>
-<pre><code class="language-markdown">## 🚀 Release 1.2.0 (January 15, 2024)
-
-#### Features
-
-- Add user authentication ([a1b2c3d4](https://github.com/owner/repo/commit/a1b2c3d4))
-- Implement dashboard ([e5f6g7h8](https://github.com/owner/repo/commit/e5f6g7h8))
-
-#### Bug Fixes
-
-- Fix login validation ([i9j0k1l2](https://github.com/owner/repo/commit/i9j0k1l2))
-</code></pre>
-<p><strong>Important</strong>: The regex must uniquely identify release section headers and not
-match other content in your changelog. Test your regex pattern to ensure it
-correctly identifies all release boundaries.</p>
 <h2 id="package-configuration"><a class="header" href="#package-configuration">Package Configuration</a></h2>
 <p>Each <code>[[package]]</code> section defines a package in your repository and requires
 specifying the <code>release_type</code> for version file management.</p>
@@ -977,20 +910,17 @@ changelog for a release are as follows:</p>
 </ul>
 </li>
 </ul>
-<h3 id="custom-body-templates-and-release_start_regex"><a class="header" href="#custom-body-templates-and-release_start_regex">Custom Body Templates and release_start_regex</a></h3>
-<p>If you customize the <code>body</code> template, you must ensure the <code>release_start_regex</code>
-pattern matches the beginning of each release section in your custom format.
-This regex is used by the <code>release</code> command to parse the changelog and extract
-release notes.</p>
-<p><strong>Example:</strong> If your custom template starts releases with <code>## Release v1.0.0</code>:</p>
+<h3 id="custom-body-templates"><a class="header" href="#custom-body-templates">Custom Body Templates</a></h3>
+<p>You can customize the <code>body</code> template to format your changelog entries however
+you prefer. The template uses Tera syntax with access to version information,
+commit data, and various filters.</p>
+<p><strong>Example:</strong> If you want releases to start with <code>## Release v1.0.0</code>:</p>
 <pre><code class="language-toml">[changelog]
 body = """## Release v{{ version }}
 ...your custom template..."""
-release_start_regex = "^##\\s+Release"
 </code></pre>
-<p>The regex must uniquely identify release headers without matching other content.
-Always test your custom template and regex together to ensure proper changelog
-parsing during releases.</p>
+<p>Always test your custom template to ensure it generates the changelog format
+you expect.</p>
 <h3 id="using-the-include_author-flag-in-templates"><a class="header" href="#using-the-include_author-flag-in-templates">Using the <code>include_author</code> Flag in Templates</a></h3>
 <p>The <code>include_author</code> flag can be used in conditional statements within your
 template to show or hide author information:</p>
