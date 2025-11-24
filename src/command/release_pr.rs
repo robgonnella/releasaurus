@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     analyzer::Analyzer,
-    command::common,
+    command::common::{self, PRMetadata, PRMetadataFields},
     config::{Config, ReleaseType},
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
@@ -182,16 +182,25 @@ async fn gather_release_prs_by_branch(
 
         title = format!("{title} {}", tag.name);
 
-        let metadata = format!(
+        let metadata = PRMetadata {
+            metadata: PRMetadataFields {
+                name: pkg.name.clone(),
+                tag: tag.name.clone(),
+                notes: pkg.release.notes.clone(),
+            },
+        };
+
+        let json = serde_json::to_string(&metadata)?;
+
+        let metadata_str = format!(
             r#"
-<!--{{"metadata": {{"name": "{}", "tag": "{}", "notes": {}}}}}-->
+<!--{json}-->
 "#,
-            pkg.name, tag.name, pkg.release.notes
         );
 
         // create the drop down
         let body = format!(
-            "{metadata}{start_details}<summary>{}</summary>\n\n{}</details>",
+            "{metadata_str}{start_details}<summary>{}</summary>\n\n{}</details>",
             tag.name, pkg.release.notes
         );
 
