@@ -19,14 +19,14 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/github/release@v0.3.2
+    - uses: robgonnella/releasaurus/action/github/release@v0.3.3
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
         git_user_name: ${{ inputs.git_user_name }}
         git_user_email: ${{ inputs.git_user_email }}
-    - uses: robgonnella/releasaurus/action/github/release-pr@v0.3.2
+    - uses: robgonnella/releasaurus/action/github/release-pr@v0.3.3
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}

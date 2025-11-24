@@ -12,6 +12,6 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: robgonnella/releasaurus/action/github@v0.3.2
+      - uses: robgonnella/releasaurus/action/github@v0.3.3
         with:
           token: ${{ secrets.GH_TEST_TOKEN }}
