@@ -1,3 +1,9 @@
+# [0.3.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.2) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- updates actions to latest versions [_(232aca1)_](https://github.com/robgonnella/releasaurus/commit/232aca116d03e0001e3cf6b14af3c785c4ba6b15) (Rob Gonnella)
+
 # [0.3.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.1) - 2025-11-24
 
 ### 🐛 Bug Fixes
