@@ -1,3 +1,11 @@
+# [0.3.6](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.6) - 2025-11-24
+
+### 🐛 Bug Fixes
+
+- fixes issue with adding and reading metada to release PRs [_(48b6b42)_](https://github.com/robgonnella/releasaurus/commit/48b6b420b2212b6d05470448abf0762753e16a5c) (Rob Gonnella)
+
+- fixes issues in release command [_(f0d527c)_](https://github.com/robgonnella/releasaurus/commit/f0d527cf8940a27e33a00b31d323b9b8abc38fef) (Rob Gonnella)
+
 # [0.3.5](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.5) - 2025-11-24
 
 ### 🐛 Bug Fixes
