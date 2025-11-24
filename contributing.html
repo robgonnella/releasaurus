@@ -12,21 +12,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -36,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex.js";
+            window.path_to_searchindex_js = "searchindex-38b5255d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="toc-d4dbbafb.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -53,7 +52,7 @@
             </div>
         </div>
     </div>
-    <div id="body-container">
+    <div id="mdbook-body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -82,12 +81,12 @@
             html.classList.add("js");
         </script>
 
-        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             let sidebar = null;
-            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -102,39 +101,39 @@
             }
         </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
                 <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <div id="page-wrapper" class="page-wrapper">
+        <div id="mdbook-page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
                         </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
                         </button>
                     </div>
 
@@ -142,46 +141,47 @@
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
                         <a href="https://github.com/robgonnella/releasaurus" title="Git repository" aria-label="Git repository">
-                            <i id="git-repository-button" class="fa fa-github"></i>
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
                         </a>
 
                     </div>
                 </div>
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
                         <div class="search-wrapper">
-                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
                             <div class="spinner-wrapper">
-                                <i class="fa fa-spinner fa-spin"></i>
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
                             </div>
                         </div>
                     </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
                         </ul>
                     </div>
                 </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
 
-                <div id="content" class="content">
+                <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
-<p>We appreciate your interest in contributing to Releasaurus! This guide will help
-you get started with contributing to the project, whether you're fixing bugs,
-adding features, improving documentation, or helping with community support.</p>
+<p>We appreciate your interest in contributing to Releasaurus! This guide will
+help you get started with contributing to the project, whether you’re fixing
+bugs, adding features, improving documentation, or helping with community
+support.</p>
 <h2 id="ways-to-contribute"><a class="header" href="#ways-to-contribute">Ways to Contribute</a></h2>
 <h3 id="-bug-reports"><a class="header" href="#-bug-reports">🐛 Bug Reports</a></h3>
 <ul>
@@ -264,28 +264,6 @@ cargo build --release
 </code></pre>
 </li>
 </ol>
-<h3 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h3>
-<pre><code>releasaurus/
-├── src/
-│   ├── analyzer/         # Commit analysis and changelog generation
-│   ├── command/          # CLI command implementations
-│   ├── config.rs         # Configuration file handling
-│   ├── forge/            # Git forge platform integrations
-│   │   ├── github.rs     # GitHub API client
-│   │   ├── gitlab.rs     # GitLab API client
-│   │   └── gitea.rs      # Gitea API client
-│   ├── repo.rs           # Git repository operations
-│   ├── updater/          # Version file update logic
-│   │   ├── rust.rs       # Rust/Cargo support
-│   │   ├── node.rs       # Node.js support
-│   │   ├── python.rs     # Python support
-│   │   └── ...           # Other language implementations
-│   └── main.rs           # Application entry point
-├── tests/                # Integration tests
-├── book/                 # Documentation (mdBook)
-├── Cargo.toml            # Rust project configuration
-└── README.md
-</code></pre>
 <h2 id="code-contribution-guidelines"><a class="header" href="#code-contribution-guidelines">Code Contribution Guidelines</a></h2>
 <h3 id="coding-standards"><a class="header" href="#coding-standards">Coding Standards</a></h3>
 <h4 id="rust-style"><a class="header" href="#rust-style">Rust Style</a></h4>
@@ -294,256 +272,261 @@ cargo build --release
 <li>Use <code>cargo clippy</code> for linting</li>
 <li>Write comprehensive documentation comments</li>
 </ul>
-<h4 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Use the project's Result type
-use crate::result::Result;
-
-// Provide context for errors
-fn update_version_file(path: &amp;Path) -&gt; Result&lt;()&gt; {
-    fs::write(path, content)
-        .with_context(|| format!("Failed to write version file: {}", path.display()))?;
-    Ok(())
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="adding-language-support"><a class="header" href="#adding-language-support">Adding Language Support</a></h3>
-<p>To add support for a new programming language:</p>
+<h3 id="adding-new-languageframework-updaters"><a class="header" href="#adding-new-languageframework-updaters">Adding New Language/Framework Updaters</a></h3>
+<p>Releasaurus supports multiple programming languages through its updater system. Here’s how to add support for a new language or framework.</p>
+<h4 id="overview"><a class="header" href="#overview">Overview</a></h4>
+<p>Each language updater consists of:</p>
 <ol>
-<li>
-<p><strong>Create Language Module</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<li><strong>Framework enum variant</strong> - Identifies the language/framework</li>
+<li><strong>ReleaseType enum variant</strong> - Configuration option for users</li>
+<li><strong>Updater module</strong> - Language-specific implementation</li>
+<li><strong>File parsers</strong> - Handlers for version file formats</li>
+<li><strong>Tests</strong> - Comprehensive test coverage</li>
+</ol>
+<h4 id="step-by-step-guide"><a class="header" href="#step-by-step-guide">Step-by-Step Guide</a></h4>
+<p><strong>1. Add the Framework Variant</strong></p>
+<p>Edit <code>src/updater/framework.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// src/updater/newlang.rs
-use crate::updater::traits::PackageUpdater;
-
-pub struct NewLangUpdater;
-
-impl PackageUpdater for NewLangUpdater {
-    fn update(&amp;self, root_path: &amp;Path, packages: Vec&lt;Package&gt;) -&gt; Result&lt;()&gt; {
-        // Implementation
+</span>pub enum Framework {
+    Generic,
+    // ... existing variants ...
+    YourLanguage,  // Add your new language here
+}
+<span class="boring">}</span></code></pre>
+<p>Update the <code>Display</code> implementation:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl Display for Framework {
+    fn fmt(&amp;self, f: &amp;mut std::fmt::Formatter&lt;'_&gt;) -&gt; std::fmt::Result {
+        match self {
+            // ... existing cases ...
+            Framework::YourLanguage =&gt; f.write_str("yourlanguage"),
+        }
     }
 }
-<span class="boring">}</span></code></pre></pre>
-</li>
-<li>
-<p><strong>Add Detection Logic</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<span class="boring">}</span></code></pre>
+<p><strong>2. Add the ReleaseType Configuration</strong></p>
+<p>Edit <code>src/config.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// src/updater/detection/newlang.rs
-use crate::updater::detection::traits::FrameworkDetector;
-
-pub struct NewLangDetector;
-
-impl FrameworkDetector for NewLangDetector {
-  fn detect(&amp;self, path: &amp;Path) -&gt; Result&lt;FrameworkDetection&gt; {
-      let pattern = DetectionPattern {
-          manifest_files: vec!["&lt;some_manifest_file&gt;"],
-          support_files: vec!["&lt;some_support_file&gt;", "&lt;another_support_file&gt;"],
-          content_patterns: vec![
-              "[package]",
-              "[workspace]",
-              "[dependencies]",
-          ],
-          base_confidence: 0.8,
-      };
-
-      DetectionHelper::analyze_with_pattern(
-          path,
-          pattern.clone(),
-          |support_evidence| FrameworkDetection {
-              framework: Framework::NewLang,
-              confidence: DetectionHelper::calculate_confidence(
-                  &amp;pattern,
-                  &amp;support_evidence,
-              ),
-              evidence: support_evidence,
-          },
-      )
-  }
+</span>#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReleaseType {
+    // ... existing variants ...
+    YourLanguage,
 }
-<span class="boring">}</span></code></pre></pre>
-</li>
-<li>
-<p><strong>Register in Framework System</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<span class="boring">}</span></code></pre>
+<p>Update the <code>From&lt;ReleaseType&gt;</code> implementation in <code>src/updater/framework.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// src/updater/framework.rs
-pub enum Framework {
-    // ... existing frameworks
-    NewLang,
-}
-
-impl Framework {
-    pub fn detection_manager(root_path: PathBuf) -&gt; DetectionManager {
-        let detectors: Vec&lt;Box&lt;dyn FrameworkDetector&gt;&gt; = vec![
-            // ... existing detectors
-            Box::new(NewLangDetector::new()),
-        ];
-        DetectionManager::new(root_path, detectors)
+</span>impl From&lt;ReleaseType&gt; for Framework {
+    fn from(value: ReleaseType) -&gt; Self {
+        match value {
+            // ... existing cases ...
+            ReleaseType::YourLanguage =&gt; Framework::YourLanguage,
+        }
     }
 }
-<span class="boring">}</span></code></pre></pre>
-</li>
-<li>
-<p><strong>Add Tests</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<span class="boring">}</span></code></pre>
+<p><strong>3. Create the Updater Module</strong></p>
+<p>Create <code>src/updater/yourlanguage.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>//! YourLanguage package updater supporting YourPackageManager projects.
+
+pub mod your_file_type;
+pub mod updater;
+<span class="boring">}</span></code></pre>
+<p>Create <code>src/updater/yourlanguage/updater.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use async_trait::async_trait;
+use crate::{
+    forge::request::FileChange,
+    result::Result,
+    updater::{
+        framework::UpdaterPackage,
+        yourlanguage::your_file_type::YourFileType,
+        traits::PackageUpdater,
+    },
+};
+
+pub struct YourLanguageUpdater {
+    your_file: YourFileType,
+}
+
+impl YourLanguageUpdater {
+    pub fn new() -&gt; Self {
+        Self {
+            your_file: YourFileType::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl PackageUpdater for YourLanguageUpdater {
+    async fn update(
+        &amp;self,
+        package: &amp;UpdaterPackage,
+        workspace_packages: Vec&lt;UpdaterPackage&gt;,
+    ) -&gt; Result&lt;Option&lt;Vec&lt;FileChange&gt;&gt;&gt; {
+        self.your_file.process_package(package).await
+    }
+}
+<span class="boring">}</span></code></pre>
+<p><strong>4. Implement File Parsers</strong></p>
+<p>Create <code>src/updater/yourlanguage/your_file_type.rs</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use log::*;
+use crate::{
+    forge::request::{FileChange, FileUpdateType},
+    result::Result,
+    updater::framework::UpdaterPackage,
+};
+
+pub struct YourFileType {}
+
+impl YourFileType {
+    pub fn new() -&gt; Self {
+        Self {}
+    }
+
+    pub async fn process_package(
+        &amp;self,
+        package: &amp;UpdaterPackage,
+    ) -&gt; Result&lt;Option&lt;Vec&lt;FileChange&gt;&gt;&gt; {
+        let mut file_changes: Vec&lt;FileChange&gt; = vec![];
+
+        for manifest in package.manifest_files.iter() {
+            if manifest.file_basename != "your-manifest-file.ext" {
+                continue;
+            }
+
+            // Parse the file content
+            // Update version fields
+            // Create FileChange objects
+
+            file_changes.push(FileChange {
+                path: manifest.file_path.clone(),
+                content: updated_content,
+                update_type: FileUpdateType::Replace,
+            });
+        }
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
+    }
+}
+<span class="boring">}</span></code></pre>
+<p><strong>5. Register the Updater</strong></p>
+<p>In <code>src/updater/framework.rs</code>, add to the <code>updater()</code> method:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn updater(&amp;self) -&gt; Box&lt;dyn PackageUpdater&gt; {
+    match self {
+        // ... existing cases ...
+        Framework::YourLanguage =&gt; Box::new(YourLanguageUpdater::new()),
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>Add manifest file detection in the <code>manifest_files()</code> method:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>Framework::YourLanguage =&gt; {
+    vec![
+        ManifestFile {
+            content: "".to_string(),
+            file_basename: "your-manifest.ext".into(),
+            file_path: gen_package_path("your-manifest.ext"),
+            is_workspace: false,
+        },
+    ]
+}
+<span class="boring">}</span></code></pre>
+<p><strong>6. Add Module Declaration</strong></p>
+<p>In <code>src/updater.rs</code>, add:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>mod yourlanguage;
+<span class="boring">}</span></code></pre>
+<p><strong>7. Write Tests</strong></p>
+<p>Add comprehensive tests in your updater module:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use crate::{
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+    };
 
-    #[test]
-    fn test_newlang_detection() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path();
+    #[tokio::test]
+    async fn processes_yourlanguage_project() {
+        let updater = YourLanguageUpdater::new();
+        let content = r#"version = "1.0.0""#;
+        let manifest = ManifestFile {
+            is_workspace: false,
+            file_path: "manifest.ext".to_string(),
+            file_basename: "manifest.ext".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::YourLanguage,
+        };
 
-        // Create test files
-        std::fs::write(path.join("package.newlang"), "version = \"1.0.0\"").unwrap();
+        let result = updater.update(&amp;package, vec![]).await.unwrap();
 
-        let detector = NewLangDetector::new();
-        let result = detector.detect(path);
-
-        assert!(matches!(result, DetectionResult::Detected { .. }));
+        assert!(result.is_some());
+        let changes = result.unwrap();
+        assert!(changes[0].content.contains("2.0.0"));
     }
 }
-<span class="boring">}</span></code></pre></pre>
-</li>
-</ol>
-<h3 id="adding-forge-platform-support"><a class="header" href="#adding-forge-platform-support">Adding Forge Platform Support</a></h3>
-<p>To add support for a new Git forge platform:</p>
-<ol>
-<li>
-<p><strong>Create Platform Module</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/forge/newforge.rs
-use crate::forge::traits::ForgeClient;
-use crate::forge::types::{PullRequest, Release};
+<span class="boring">}</span></code></pre>
+<p><strong>8. Update Documentation</strong></p>
+<p>Add your language to:</p>
+<ul>
+<li><code>book/src/supported-languages.md</code> - Add documentation and examples</li>
+<li><code>book/src/configuration.md</code> - Update release_type options</li>
+<li><code>README.md</code> - Add to supported languages list</li>
+</ul>
+<h4 id="testing-your-updater"><a class="header" href="#testing-your-updater">Testing Your Updater</a></h4>
+<pre><code class="language-bash"># Run your specific tests
+cargo test yourlanguage
 
-pub struct NewForgeClient {
-    config: RemoteConfig,
-    client: reqwest::Client,
-}
-
-#[async_trait]
-impl ForgeClient for NewForgeClient {
-    async fn create_pull_request(&amp;self, pr: &amp;PullRequest) -&gt; Result&lt;String&gt; {
-        // Implementation
-    }
-
-    async fn create_release(&amp;self, release: &amp;Release) -&gt; Result&lt;String&gt; {
-        // Implementation
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-</li>
-<li>
-<p><strong>Add CLI Integration</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/cli.rs
-pub struct Args {
-    // ... existing fields
-
-    #[arg(long, default_value = "", global = true)]
-    /// NewForge repository URL
-    pub newforge_repo: String,
-
-    #[arg(long, default_value = "", global = true)]
-    /// NewForge authentication token
-    pub newforge_token: String,
-}
-<span class="boring">}</span></code></pre></pre>
-</li>
-<li>
-<p><strong>Update Command Logic</strong></p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/command/common.rs
-pub fn determine_forge_client(args: &amp;Args) -&gt; Result&lt;Box&lt;dyn ForgeClient&gt;&gt; {
-    if !args.newforge_repo.is_empty() {
-        return Ok(Box::new(NewForgeClient::new(/* config */)?));
-    }
-    // ... existing logic
-}
-<span class="boring">}</span></code></pre></pre>
-</li>
-</ol>
-<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
-<h3 id="test-categories"><a class="header" href="#test-categories">Test Categories</a></h3>
-<h4 id="unit-tests"><a class="header" href="#unit-tests">Unit Tests</a></h4>
-<pre><code class="language-bash"># Run all unit tests
-cargo test
-
-# Run tests for specific module
-cargo test updater::rust
-
-# Run with output
-cargo test -- --nocapture
+# Test with a real repository (use --local-repo for safety)
+releasaurus release-pr --local-repo "/path/to/test/project" --debug
 </code></pre>
-<h4 id="e2e-tests"><a class="header" href="#e2e-tests">E2E Tests</a></h4>
-<p>These tests can be found in <a href="../../src/command/tests">./src/command/tests</a></p>
-<pre><code class="language-bash"># Run e2e tests (requires test tokens)
-cargo test --features _internal_e2e_tests
-
-# Run specific integration test
-cargo test --features _internal_e2e_tests github_e2e_test
-
-# These tests create actual repositories and releases
-# Use with caution and dedicated test accounts
-</code></pre>
-<h4 id="commit-messages"><a class="header" href="#commit-messages">Commit Messages</a></h4>
-<p>Follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>:</p>
-<pre><code class="language-bash"># Features
-feat: add support for Go projects
-feat(forge): add Codeberg integration
-
-# Bug fixes
-fix: resolve GitHub API rate limiting
-fix(updater): handle malformed package.json files
-
-# Documentation
-docs: add troubleshooting guide for Windows
-docs(config): clarify multi-package setup
-
-# Tests
-test: add integration tests for GitLab
-test(updater): improve Python detection tests
-
-# Chores
-chore: update dependencies
-chore(ci): add automated security scanning
-</code></pre>
-<h4 id="pull-request-description-template"><a class="header" href="#pull-request-description-template">Pull Request Description Template</a></h4>
-<pre><code class="language-markdown">## Description
-
-Brief description of changes.
-
-## Type of Change
-
-- [ ] Bug fix (non-breaking change fixing an issue)
-- [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
-- [ ] Documentation update
-
-## Testing
-
-- [ ] Unit tests pass
-- [ ] Integration tests pass (if applicable)
-- [ ] Manual testing completed
-- [ ] Documentation tested (if applicable)
-
-## Related Issues
-
-Fixes #123
-Relates to #456
-
-## Additional Notes
-
-Any additional context or screenshots.
-</code></pre>
+<h4 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h4>
+<ul>
+<li><strong>Parse robustly</strong>: Handle various file formats and edge cases</li>
+<li><strong>Preserve formatting</strong>: Maintain the original file structure when possible</li>
+<li><strong>Log clearly</strong>: Use <code>info!</code>, <code>warn!</code>, and <code>error!</code> macros appropriately</li>
+<li><strong>Test thoroughly</strong>: Cover success cases, edge cases, and error conditions</li>
+<li><strong>Document well</strong>: Add doc comments explaining behavior</li>
+<li><strong>Follow patterns</strong>: Look at existing updaters (e.g., <code>php</code>, <code>ruby</code>) for examples</li>
+</ul>
+<h4 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h4>
+<p><strong>JSON-based manifests</strong>: See <code>src/updater/node/package_json.rs</code>
+<strong>TOML-based manifests</strong>: See <code>src/updater/rust/cargo_toml.rs</code>
+<strong>XML-based manifests</strong>: See <code>src/updater/java/maven.rs</code>
+<strong>Line-based files</strong>: See <code>src/updater/ruby/version_rb.rs</code></p>
+<h4 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h4>
+<ul>
+<li>Review existing updater implementations in <code>src/updater/</code></li>
+<li>Ask questions in GitHub Discussions</li>
+<li>Reference the <code>PackageUpdater</code> trait documentation</li>
+<li>Look at test files for usage examples</li>
+</ul>
 <h2 id="code-of-conduct"><a class="header" href="#code-of-conduct">Code of Conduct</a></h2>
 <p>This repository adheres the <a href="https://www.rust-lang.org/policies/code-of-conduct">Rust Code of Conduct</a></p>
 <h3 id="reporting"><a class="header" href="#reporting">Reporting</a></h3>
@@ -555,12 +538,12 @@ Any additional context or screenshots.
 <li><strong>GitHub Discussions</strong>: General questions and community support</li>
 <li><strong>Pull Requests</strong>: Code review and collaboration</li>
 </ul>
-<h3 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h3>
+<h3 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h3>
 <ul>
 <li><strong>Documentation</strong>: Start with this book</li>
 <li><strong>Search Issues</strong>: Check if your question has been asked</li>
 <li><strong>Ask Questions</strong>: Create a discussion or issue</li>
-<li><strong>Debug Mode</strong>: Use <code>--debug</code> for troubleshooting</li>
+<li><strong>Debug Mode</strong>: Use <code>--debug</code> flag or <code>RELEASAURUS_DEBUG</code> environment variable for troubleshooting</li>
 </ul>
 <p>Thank you for contributing to Releasaurus!</p>
 
@@ -568,8 +551,8 @@ Any additional context or screenshots.
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="comparison.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
+                            <a rel="prev" href="why-releasaurus.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
 
@@ -579,14 +562,19 @@ Any additional context or screenshots.
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="comparison.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
+                    <a rel="prev" href="why-releasaurus.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
             </nav>
 
         </div>
 
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
 
 
@@ -595,13 +583,13 @@ Any additional context or screenshots.
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
 

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Quick Start - Releasaurus</title>
+        <title>CI/CD Integration - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -177,295 +177,27 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
-<p>This guide will get you up and running with Releasaurus in just a few minutes.
-We’ll walk through releasing a simple project to demonstrate the core workflow.</p>
-<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
-<p>Before starting, ensure you have:</p>
+                        <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
+<p>Releasaurus provides seamless integration with popular CI/CD platforms through official actions and components that automate your release workflow, eliminating the need to run Releasaurus commands manually.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>All Releasaurus CI/CD integrations follow the same workflow:</p>
 <ol>
-<li><strong>Releasaurus installed</strong> - See <a href="./installation.html">Installation</a> if you
-haven’t already</li>
-<li><strong>A Git repository</strong> with some commits to release</li>
-<li><strong>Access token</strong> for your Git forge platform (GitHub, GitLab, or Gitea)</li>
-<li><strong>Push access</strong> to your repository</li>
+<li><strong>Automatic Release PRs</strong>: When you push to your main branch, a release PR is automatically created (or updated) with version bumps and changelog</li>
+<li><strong>Review and Merge</strong>: Review the generated release PR and merge when ready</li>
+<li><strong>Automatic Publishing</strong>: After merge, the release is automatically tagged and published</li>
 </ol>
-<h2 id="step-1-prepare-your-access-token"><a class="header" href="#step-1-prepare-your-access-token">Step 1: Prepare Your Access Token</a></h2>
-<p>Releasaurus needs an access token to create pull requests and releases on your
-behalf.</p>
-<h3 id="github"><a class="header" href="#github">GitHub</a></h3>
-<ol>
-<li>Go to [GitHub Settings → Personal Access Tokens]
-(https://github.com/settings/tokens)</li>
-<li>Generate a new token with these scopes:
+<p>This hands-off approach means you focus on writing code with conventional commits, and Releasaurus handles the rest.</p>
+<h2 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h2>
+<p>Releasaurus provides official GitHub Actions that integrate directly with your GitHub repository workflows.</p>
+<h3 id="available-actions"><a class="header" href="#available-actions">Available Actions</a></h3>
+<p>Three GitHub Actions are available:</p>
 <ul>
-<li><code>repo</code> (for private repositories)</li>
-<li><code>public_repo</code> (for public repositories)</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release">Release Action</a></strong> - Publishes releases after PR merge</li>
 </ul>
-</li>
-</ol>
-<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
-<ol>
-<li>Go to [GitLab User Settings → Access Tokens]
-(https://gitlab.com/-/profile/personal_access_tokens)</li>
-<li>Create a token with these scopes:
-<ul>
-<li><code>api</code></li>
-<li><code>read_repository</code></li>
-<li><code>write_repository</code></li>
-</ul>
-</li>
-</ol>
-<h3 id="gitea"><a class="header" href="#gitea">Gitea</a></h3>
-<ol>
-<li>Go to your Gitea instance → User Settings → Applications</li>
-<li>Generate a new token with repository read/write permissions</li>
-</ol>
-<h2 id="step-2-configure-your-project-optional"><a class="header" href="#step-2-configure-your-project-optional">Step 2: Configure Your Project (Optional)</a></h2>
-<p>Releasaurus works with zero configuration for changelog generation and tagging.
-However, if you want version file updates, you’ll need to create a
-<code>releasaurus.toml</code> file in your repository root specifying your project’s
-<code>release_type</code>.</p>
-<p><strong>Supported release types:</strong></p>
-<ul>
-<li><strong>Rust</strong>: For projects with <code>Cargo.toml</code></li>
-<li><strong>Node</strong>: For projects with <code>package.json</code></li>
-<li><strong>Python</strong>: For projects with <code>pyproject.toml</code>, <code>setup.py</code>, or <code>setup.cfg</code></li>
-<li><strong>Java</strong>: For projects with <code>pom.xml</code> or <code>build.gradle</code></li>
-<li><strong>Php</strong>: For projects with <code>composer.json</code></li>
-<li><strong>Ruby</strong>: For projects with <code>Gemfile</code> or <code>.gemspec</code> files</li>
-<li><strong>Generic</strong>: For changelog and tagging only (no version file updates)</li>
-</ul>
-<p><strong>Minimal configuration example:</strong></p>
-<pre><code class="language-toml"># releasaurus.toml
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>For more configuration options including changelog filtering, monorepo support,
-prerelease versions, and custom version increment patterns, see the
-<a href="./configuration.html">Configuration</a> guide.</p>
-<h2 id="step-3-create-a-release-pr"><a class="header" href="#step-3-create-a-release-pr">Step 3: Create a Release PR</a></h2>
-<p>Run the release-pr command with your repository information:</p>
-<pre><code class="language-bash"># GitHub example
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_your_token_here"
-
-# GitLab example
-releasaurus release-pr \
-  --gitlab-repo "https://gitlab.com/owner/repo" \
-  --gitlab-token "glpat_your_token_here"
-
-# Gitea example
-releasaurus release-pr \
-  --gitea-repo "https://git.example.com/owner/repo" \
-  --gitea-token "your_token_here"
-</code></pre>
-<p>This command will:</p>
-<ol>
-<li><strong>Analyze your commits</strong> since the last release using conventional commit
-patterns</li>
-<li><strong>Determine the next version</strong> based on the changes (patch, minor, or
-major)</li>
-<li><strong>Update version files</strong> in your project automatically</li>
-<li><strong>Generate a changelog</strong> from your commit history</li>
-<li><strong>Create a pull request</strong> with all the changes ready for review</li>
-</ol>
-<h2 id="step-4-review-and-merge"><a class="header" href="#step-4-review-and-merge">Step 4: Review and Merge</a></h2>
-<ol>
-<li><strong>Review the pull request</strong> that was created</li>
-<li><strong>Check the changelog</strong> and version updates</li>
-<li><strong>Make any necessary adjustments</strong> by pushing additional commits to the PR
-branch</li>
-<li><strong>Merge the pull request</strong> when you’re satisfied</li>
-</ol>
-<h2 id="step-5-publish-the-release"><a class="header" href="#step-5-publish-the-release">Step 5: Publish the Release</a></h2>
-<p>After merging the release PR, publish the actual release:</p>
-<pre><code class="language-bash"># Use the same platform and credentials as before
-releasaurus release \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_your_token_here"
-</code></pre>
-<p>This will:</p>
-<ol>
-<li><strong>Create a Git tag</strong> for the new version</li>
-<li><strong>Push the tag</strong> to your repository</li>
-<li><strong>Create a release</strong> on your forge platform with the generated changelog</li>
-</ol>
-<h2 id="environment-variables-alternative"><a class="header" href="#environment-variables-alternative">Environment Variables (Alternative)</a></h2>
-<p>Instead of passing tokens as command-line arguments, you can use environment
-variables:</p>
-<pre><code class="language-bash"># Set your token
-export GITHUB_TOKEN="ghp_your_token_here"
-# or
-export GITLAB_TOKEN="glpat_your_token_here"
-# or
-export GITEA_TOKEN="your_token_here"
-
-# Then run commands without --*-token flags
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release --github-repo "https://github.com/owner/repo"
-</code></pre>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>To enable version file updates, create a <code>releasaurus.toml</code> file specifying
-your project’s release type:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>For more configuration options including changelog filtering, tag prefixes,
-monorepo setups, and prerelease versions, see the
-<a href="./configuration.html">Configuration</a> guide.</p>
-<h2 id="what-just-happened"><a class="header" href="#what-just-happened">What Just Happened?</a></h2>
-<p>Congratulations! You’ve just completed a full release cycle with Releasaurus:</p>
-<ol>
-<li>✅ <strong>Automated version calculation</strong> - Determines version bump from commits</li>
-<li>✅ <strong>Automatic file updates</strong> - All version files updated consistently</li>
-<li>✅ <strong>Generated changelog</strong> - Beautiful changelog from your commit history</li>
-<li>✅ <strong>Safe review process</strong> - Changes reviewed via pull request</li>
-<li>✅ <strong>Published release</strong> - Tagged and published to your forge platform</li>
-</ol>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<p>This quick start used all defaults, but Releasaurus is highly customizable:</p>
-<ul>
-<li><strong><a href="./configuration.html">Configuration</a></strong> - Customization options and advanced
-setup</li>
-<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and solutions</li>
-</ul>
-<h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
-<h3 id="workflow-integration"><a class="header" href="#workflow-integration">Workflow Integration</a></h3>
-<p>Many teams integrate Releasaurus into their development workflow:</p>
-<pre><code class="language-bash"># 1. Develop and commit using conventional commits (in your project directory)
-git commit -m "feat: add user authentication"
-git commit -m "fix: resolve login validation issue"
-git commit -m "docs: update API documentation"
-
-# 2. When ready to release (can be run from anywhere)
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-
-# 3. Review, merge, then publish (can be run from anywhere)
-releasaurus release --github-repo "https://github.com/owner/repo"
-</code></pre>
-<h3 id="debug-mode"><a class="header" href="#debug-mode">Debug Mode</a></h3>
-<p>If something isn’t working as expected, enable debug logging:</p>
-<pre><code class="language-bash"># Via command line flag
-releasaurus release-pr --debug \
-  --github-repo "https://github.com/owner/repo"
-
-# Or via environment variable
-export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-</code></pre>
-<p>See the <a href="./environment-variables.html#releasaurus_debug">Environment Variables</a>
-guide for more details.</p>
-<h3 id="dry-run-mode"><a class="header" href="#dry-run-mode">Dry Run Mode</a></h3>
-<p>Before making actual changes to your repository, test your release workflow with
-dry-run mode:</p>
-<pre><code class="language-bash"># Via command line flag
-releasaurus release-pr --dry-run \
-  --github-repo "https://github.com/owner/repo"
-
-# Via environment variable
-export RELEASAURUS_DRY_RUN=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-
-# Review the logs, then run for real
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-</code></pre>
-<p>Dry-run mode performs all analysis (commit history, version calculation,
-changelog generation) and logs what would be created or modified, but prevents
-any actual changes to your repository. <strong>Note:</strong> Dry-run mode automatically
-enables debug logging for maximum visibility into the release process.</p>
-<p>This is especially useful for:</p>
-<ul>
-<li><strong>Testing configuration</strong> - Verify your <code>releasaurus.toml</code> settings produce
-expected results</li>
-<li><strong>Troubleshooting</strong> - Diagnose issues without affecting your repository</li>
-<li><strong>CI/CD setup</strong> - Test automation workflows before going live</li>
-</ul>
-<p>See the <a href="./commands.html#dry-run-mode">Commands</a> guide for complete details on
-dry-run mode.</p>
-<h3 id="local-repository-testing"><a class="header" href="#local-repository-testing">Local Repository Testing</a></h3>
-<p>Before pushing configuration changes to your remote forge, test them against
-your local repository. Local repository mode validates your <code>releasaurus.toml</code>
-settings without requiring authentication or making remote changes:</p>
-<pre><code class="language-bash"># Test your config locally first
-releasaurus release-pr --local-repo "."
-
-# Review the output, then run against remote
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-</code></pre>
-<p><strong>What gets tested:</strong></p>
-<ul>
-<li>Configuration validation</li>
-<li>Version detection and bumping logic</li>
-<li>Changelog generation from local commits</li>
-<li>Tag prefix matching</li>
-</ul>
-<p><strong>What doesn’t happen:</strong></p>
-<ul>
-<li>No remote API calls or authentication required</li>
-<li>No branches, PRs, tags, or releases created</li>
-</ul>
-<p>This is perfect for:</p>
-<ul>
-<li><strong>Testing configuration changes</strong> - Verify your <code>releasaurus.toml</code> updates
-before committing</li>
-<li><strong>Learning Releasaurus</strong> - Experiment safely without affecting remote
-repositories</li>
-<li><strong>Quick validation</strong> - Check version detection and changelog output instantly</li>
-</ul>
-<p>See the <a href="./commands.html#local-repository-mode">Commands</a> guide for complete
-details.</p>
-<h3 id="automation-with-cicd"><a class="header" href="#automation-with-cicd">Automation with CI/CD</a></h3>
-<p>While the manual workflow above works great, you can fully automate your
-releases using CI/CD platforms:</p>
-<h4 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h4>
-<p>Releasaurus provides an official GitHub Action that automatically creates
-release PRs when you push to your main branch and publishes releases when those
-PRs are merged. See the
-<a href="./ci-cd-integration.html#github-actions">CI/CD Integration</a> guide for all
-available options.</p>
+<h3 id="quick-setup"><a class="header" href="#quick-setup">Quick Setup</a></h3>
 <p>Create <code>.github/workflows/release.yml</code> in your repository:</p>
-<pre><code class="language-yaml">name: Release
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Release
-        uses: robgonnella/releasaurus/action/github@vX.X.X
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-</code></pre>
-<p>With this setup, your releases become completely hands-off:</p>
-<ol>
-<li><strong>Push commits</strong> using conventional commit format to your main branch</li>
-<li><strong>GitHub Action automatically creates</strong> a release PR with version updates
-and changelog</li>
-<li><strong>Review and merge</strong> the PR when ready</li>
-<li><strong>GitHub Action automatically publishes</strong> the release with tags and release
-notes</li>
-</ol>
-<h4 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h4>
-<p>For GitLab projects, Releasaurus provides an official component that integrates
-seamlessly with GitLab CI/CD pipelines. Create <code>.gitlab-ci.yml</code> in your
-repository:</p>
-<pre><code class="language-yaml">include:
-  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
-    inputs:
-      token: $RELEASE_TOKEN
-</code></pre>
-<p>See the <a href="./ci-cd-integration.html#gitlab-cicd">CI/CD Integration</a> guide for complete setup
-instructions.</p>
-<h4 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h4>
-<p>For Gitea repositories, Releasaurus provides an official action that
-integrates seamlessly with Gitea Actions workflows. Create
-<code>.gitea/workflows/release.yml</code> in your repository:</p>
 <pre><code class="language-yaml">name: Release
 on:
   workflow_dispatch:
@@ -480,25 +212,87 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Run Releasaurus
-        uses: https://gitea.com/rgon/releasaurus/action/gitea@vX.X.X
+      - name: Release
+        uses: robgonnella/releasaurus/action/github@vX.X.X
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 </code></pre>
-<p>See the <a href="./ci-cd-integration.html#gitea-actions">CI/CD Integration</a> guide for complete setup
-instructions.</p>
-<p>Ready to dive deeper? Check out the <a href="./commands.html">Commands</a> section for
-detailed information about all available options and features.</p>
+<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action documentation</a> for all available inputs and configuration options.</p>
+<h2 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h2>
+<p>Releasaurus provides official GitLab CI components that integrate seamlessly with GitLab pipelines.</p>
+<h3 id="available-components"><a class="header" href="#available-components">Available Components</a></h3>
+<p>Three GitLab CI components are available:</p>
+<ul>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component</a></strong> - Composite component that includes both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release-pr">Release PR Component</a></strong> - Creates and manages release merge requests</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release">Release Component</a></strong> - Publishes releases after MR merge</li>
+</ul>
+<h3 id="quick-setup-1"><a class="header" href="#quick-setup-1">Quick Setup</a></h3>
+<p>Create <code>.gitlab-ci.yml</code> in your repository:</p>
+<pre><code class="language-yaml">include:
+  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
+    inputs:
+      token: $RELEASE_TOKEN
+</code></pre>
+<p>For detailed configuration options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component documentation</a>.</p>
+<h2 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h2>
+<p>Releasaurus provides official Gitea Actions that integrate with Gitea Actions workflows.</p>
+<h3 id="available-actions-1"><a class="header" href="#available-actions-1">Available Actions</a></h3>
+<p>Three Gitea Actions are available:</p>
+<ul>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
+<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release">Release Action</a></strong> - Publishes releases after PR merge</li>
+</ul>
+<h3 id="quick-setup-2"><a class="header" href="#quick-setup-2">Quick Setup</a></h3>
+<p>Create <code>.gitea/workflows/release.yml</code> in your repository:</p>
+<pre><code class="language-yaml">name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Run Releasaurus
+        uses: rgon/releasaurus/action/gitea@vX.X.X
+        with:
+          token: ${{ secrets.GITEA_TOKEN }}
+</code></pre>
+<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action documentation</a>.</p>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<p>All CI/CD integrations work with your existing <code>releasaurus.toml</code> configuration file. No additional CI/CD-specific configuration is required.</p>
+<p>If you need to customize the release workflow (e.g., skip certain commit types, use prerelease versions, handle monorepos), simply update your <code>releasaurus.toml</code> file. See the <a href="./configuration.html">Configuration</a> guide for all available options.</p>
+<h2 id="benefits-of-cicd-integration"><a class="header" href="#benefits-of-cicd-integration">Benefits of CI/CD Integration</a></h2>
+<ul>
+<li><strong>Fully Automated</strong>: Push commits and releases happen automatically</li>
+<li><strong>Consistent Process</strong>: Same release workflow across all your projects</li>
+<li><strong>Safe Reviews</strong>: Release PRs/MRs provide review opportunities before publishing</li>
+<li><strong>Zero Maintenance</strong>: No need to remember release commands or procedures</li>
+<li><strong>Team Friendly</strong>: Anyone can trigger releases by merging the release PR/MR</li>
+</ul>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li>Review <a href="./configuration.html">Configuration</a> to customize your release process</li>
+<li>Check <a href="./commands.html">Commands</a> for manual release options</li>
+<li>See <a href="./troubleshooting.html">Troubleshooting</a> if you encounter issues</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="commands.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -508,11 +302,11 @@ detailed information about all available options and features.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="commands.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
