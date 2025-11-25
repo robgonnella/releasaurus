@@ -19,7 +19,7 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/gitea/release@v0.3.7
+    - uses: robgonnella/releasaurus/action/gitea/release@v0.3.8
       if: "startsWith('${{ gitea.event.head_commit.message }}', 'chore(${{ gitea.event.repository.default_branch }}): release')"
       with:
         repo: ${{ inputs.repo }}
@@ -27,7 +27,7 @@ runs:
         debug: ${{ inputs.debug }}
         git_user_name: ${{ inputs.git_user_name }}
         git_user_email: ${{ inputs.git_user_email }}
-    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.3.7
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.3.8
       if: "!startsWith('${{ gitea.event.head_commit.message }}', 'chore(${{ gitea.event.repository.default_branch }}): release')"
       with:
         repo: ${{ inputs.repo }}
