@@ -1,3 +1,9 @@
+# [0.3.8](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.8) - 2025-11-25
+
+### 🐛 Bug Fixes
+
+- another attempt at fixing action gates [_(fb8be23)_](https://github.com/robgonnella/releasaurus/commit/fb8be23dc4d24870dc4b8f860540b61b4fc11ea8) (Rob Gonnella)
+
 # [0.3.7](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.7) - 2025-11-25
 
 ### 🐛 Bug Fixes
