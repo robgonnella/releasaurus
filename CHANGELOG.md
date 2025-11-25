@@ -1,3 +1,9 @@
+# [0.3.10](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.10) - 2025-11-25
+
+### 🐛 Bug Fixes
+
+- fixes gitea actions and prunes options [_(e5d1cf9)_](https://github.com/robgonnella/releasaurus/commit/e5d1cf90f28262e40f8e62e032035fbff4b3fb76) (Rob Gonnella)
+
 # [0.3.9](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.9) - 2025-11-25
 
 ### 🐛 Bug Fixes
