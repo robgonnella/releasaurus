@@ -9,29 +9,19 @@ inputs:
   debug:
     description: Enables debug logs
     default: ""
-  git_user_name:
-    description: The git user name to use when committing and creating tags
-    default: "ReleasaurusCI"
-  git_user_email:
-    description: The git user email to use when committing and creating tags
-    default: releasaurus-ci@noreply.com
 outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/gitea/release@v0.3.9
+    - uses: robgonnella/releasaurus/action/gitea/release@v0.3.10
       if: "${{ startsWith(gitea.event.head_commit.message, 'chore(${{ gitea.event.repository.default_branch }}): release') }}"
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
-        git_user_name: ${{ inputs.git_user_name }}
-        git_user_email: ${{ inputs.git_user_email }}
-    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.3.9
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.3.10
       if: "${{ !startsWith(gitea.event.head_commit.message, 'chore(${{ gitea.event.repository.default_branch }}): release') }}"
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
-        git_user_name: ${{ inputs.git_user_name }}
-        git_user_email: ${{ inputs.git_user_email }}

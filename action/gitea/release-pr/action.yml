@@ -9,17 +9,15 @@ inputs:
   debug:
     description: Enables debug logs
     default: ""
-  git_user_name:
-    description: The git user name to use when committing and creating tags
-    default: "ReleasaurusCI"
-  git_user_email:
-    description: The git user email to use when committing and creating tags
-    default: releasaurus-ci@noreply.com
 outputs: {}
 runs:
   using: docker
-  image: docker://rgonnella/releasaurus:v0.3.9
+  image: docker://rgonnella/releasaurus:v0.3.10
   env:
     RELEASAURUS_DEBUG: ${{ inputs.debug }}
   args:
-    - release-pr --gitea-repo ${{ inputs.repo }} --gitea-token ${{ inputs.token }}
+    - release-pr
+    - --gitea-repo
+    - ${{ inputs.repo }}
+    - --gitea-token
+    - ${{ inputs.token }}

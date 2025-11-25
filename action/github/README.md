@@ -13,13 +13,11 @@ Automates the complete release workflow by running both `release-pr` and
 
 ## Inputs
 
-| Name             | Description                                                             | Default                                             | Required |
-| ---------------- | ----------------------------------------------------------------------- | --------------------------------------------------- | -------- |
-| `repo`           | The GitHub repository URL to affect                                     | `${{ github.server_url }}/${{ github.repository }}` | No       |
-| `token`          | GitHub token with permissions to create PRs, tags, labels, and releases |                                                     | Yes      |
-| `debug`          | Enable debug logs                                                       | `false`                                             | No       |
-| `git_user_name`  | Git user name for commits and tags                                      | `ReleasaurusCI`                                     | No       |
-| `git_user_email` | Git user email for commits and tags                                     | `releasaurus-ci@noreply.com`                        | No       |
+| Name    | Description                                                             | Default                                             | Required |
+| ------- | ----------------------------------------------------------------------- | --------------------------------------------------- | -------- |
+| `repo`  | The GitHub repository URL to affect                                     | `${{ github.server_url }}/${{ github.repository }}` | No       |
+| `token` | GitHub token with permissions to create PRs, tags, labels, and releases |                                                     | Yes      |
+| `debug` | Enable debug logs                                                       | `false`                                             | No       |
 
 ## What This Action Does
 

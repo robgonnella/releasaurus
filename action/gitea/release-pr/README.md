@@ -12,13 +12,11 @@ Runs `releasaurus release-pr` to automate the creation and management of release
 
 ## Inputs
 
-| Name             | Description                                           | Default                                           | Required |
-| ---------------- | ----------------------------------------------------- | ------------------------------------------------- | -------- |
-| `repo`           | The Gitea repository URL to affect                    | `${{ gitea.server_url }}/${{ gitea.repository }}` | No       |
-| `token`          | Gitea token with permissions to create PRs and labels |                                                   | Yes      |
-| `debug`          | Enable debug logs                                     | `false`                                           | No       |
-| `git_user_name`  | Git user name for commits                             | `ReleasaurusCI`                                   | No       |
-| `git_user_email` | Git user email for commits                            | `releasaurus-ci@noreply.com`                      | No       |
+| Name    | Description                                           | Default                                           | Required |
+| ------- | ----------------------------------------------------- | ------------------------------------------------- | -------- |
+| `repo`  | The Gitea repository URL to affect                    | `${{ gitea.server_url }}/${{ gitea.repository }}` | No       |
+| `token` | Gitea token with permissions to create PRs and labels |                                                   | Yes      |
+| `debug` | Enable debug logs                                     | `false`                                           | No       |
 
 ## What This Action Does
 

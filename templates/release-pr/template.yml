@@ -9,12 +9,6 @@ spec:
     debug:
       description: Enables debug logs
       default: ""
-    git_user_name:
-      description: The git user name to use when committing and creating tags
-      default: "ReleasaurusCI"
-    git_user_email:
-      description: The git user email to use when committing and creating tags
-      default: releasaurus-ci@noreply.com
     job_name:
       description: Customize the generated job name (default = release)
       default: release-pr
@@ -32,10 +26,6 @@ spec:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH &&
         $CI_COMMIT_MESSAGE !~ /chore\(.+\):\srelease.+/
-  script: |
-    git config --global user.name "$[[ inputs.git_user_name ]]"
-    git config --global user.email "$[[ inputs.git_user_email ]]"
-
-    releasaurus release-pr \
-      --gitlab-repo $[[ inputs.repo ]] \
-      --gitlab-token $[[ inputs.token ]]
+  script: releasaurus release-pr
+    --gitlab-repo $[[ inputs.repo ]]
+    --gitlab-token $[[ inputs.token ]]
