@@ -13,13 +13,11 @@ include:
 
 ## Inputs
 
-| Name             | Description                                                             | Default                      | Required |
-| ---------------- | ----------------------------------------------------------------------- | ---------------------------- | -------- |
-| `repo`           | The GitLab project URL to affect                                        | `$CI_PROJECT_URL`            | No       |
-| `token`          | GitLab token with permissions to create MRs, tags, labels, and releases |                              | Yes      |
-| `debug`          | Enable debug logs                                                       | `""`                         | No       |
-| `git_user_name`  | Git user name for commits and tags                                      | `ReleasaurusCI`              | No       |
-| `git_user_email` | Git user email for commits and tags                                     | `releasaurus-ci@noreply.com` | No       |
+| Name    | Description                                                             | Default           | Required |
+| ------- | ----------------------------------------------------------------------- | ----------------- | -------- |
+| `repo`  | The GitLab project URL to affect                                        | `$CI_PROJECT_URL` | No       |
+| `token` | GitLab token with permissions to create MRs, tags, labels, and releases |                   | Yes      |
+| `debug` | Enable debug logs                                                       | `""`              | No       |
 
 ## What This Component Does
 
