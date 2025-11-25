@@ -6,7 +6,7 @@ Automates the complete release workflow by including both `release` and `release
 
 ```yaml
 include:
-  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
+  - component: $CI_SERVER_FQDN/rgon/releasaurus/workflow@vX.X.X
     inputs:
       token: $GITLAB_TOKEN
 ```

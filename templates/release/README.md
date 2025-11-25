@@ -6,7 +6,7 @@ Runs `releasaurus release` to automate Git tag creation and GitLab release publi
 
 ```yaml
 include:
-  - component: gitlab.com/rgon/releasaurus/release@vX.X.X
+  - component: $CI_SERVER_FQDN/rgon/releasaurus/release@vX.X.X
     inputs:
       token: $GITLAB_TOKEN
 ```
