@@ -87,7 +87,7 @@
           "release_type": {
             "type": "string",
             "description": "The release type to use when updating package version files",
-            "enum": ["Generic", "Java", "Node", "Php", "Python", "Ruby", "Rust"]
+            "enum": ["generic", "java", "node", "php", "python", "ruby", "rust"]
           },
           "tag_prefix": {
             "type": "string",
