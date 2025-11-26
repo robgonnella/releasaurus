@@ -418,6 +418,13 @@ impl Forge for Gitea {
                     return Ok(commits);
                 }
 
+                let mut timestamp = 0;
+
+                if let Ok(date) = DateTime::parse_from_rfc3339(&result.created)
+                {
+                    timestamp = date.timestamp();
+                }
+
                 let forge_commit = ForgeCommit {
                     author_email: result.commit.author.email.clone(),
                     author_name: result.commit.author.name.clone(),
@@ -435,9 +442,7 @@ impl Forge for Gitea {
                     ),
                     merge_commit: result.parents.len() > 1,
                     message: result.commit.message.trim().to_string(),
-                    timestamp: DateTime::parse_from_rfc3339(&result.created)
-                        .unwrap()
-                        .timestamp(),
+                    timestamp,
                     files: result
                         .files
                         .iter()

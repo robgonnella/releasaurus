@@ -379,6 +379,12 @@ impl Forge for Gitlab {
                 }
             }
 
+            let mut timestamp = 0;
+
+            if let Ok(date) = DateTime::parse_from_rfc3339(&commit.created_at) {
+                timestamp = date.timestamp();
+            }
+
             forge_commits.push(ForgeCommit {
                 author_email: commit.author_email.clone(),
                 author_name: commit.author_name.clone(),
@@ -396,9 +402,7 @@ impl Forge for Gitlab {
                 ),
                 merge_commit: commit.parent_ids.len() > 1,
                 message: commit.message.clone().trim().into(),
-                timestamp: DateTime::parse_from_rfc3339(&commit.created_at)
-                    .unwrap()
-                    .timestamp(),
+                timestamp,
                 files,
             })
         }

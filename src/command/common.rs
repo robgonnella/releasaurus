@@ -75,7 +75,7 @@ pub fn generate_analyzer_config(
     let mut release_commit_matcher = None;
 
     if let Ok(matcher) = Regex::new(&format!(
-        r#"chore\({default_branch}\): release {}"#,
+        r#"^chore\({default_branch}\): release {}"#,
         package.name
     )) {
         release_commit_matcher = Some(matcher);

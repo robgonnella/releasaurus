@@ -4,53 +4,15 @@ use chrono::DateTime;
 use color_eyre::eyre::{OptionExt, eyre};
 use log::*;
 use octocrab::{
-    Octocrab,
-    models::repos::Object,
+    Octocrab, Page,
+    models::repos::{Object, RepoCommit},
     params::{self, repos::Reference},
 };
 use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::{cmp, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
-
-const COMMITS_QUERY: &str = r#"
-query GetCommits($owner: String!, $repo: String!, $page_limit: Int!, $since: GitTimestamp, $cursor: String) {
-  repository(owner: $owner, name: $repo) {
-    defaultBranchRef {
-      target {
-        ... on Commit {
-          history(first: $page_limit, after: $cursor, since: $since) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            edges {
-              node {
-                oid
-                message
-                committedDate
-                author {
-                  name
-                  email
-                }
-                parents {
-                  totalCount
-                }
-                committedDate
-                tree {
-                  entries {
-                    path
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}"#;
 
 const SHA_DATE_QUERY: &str = r#"
 query GetShaDate($owner: String!, $repo: String!, $sha: GitObjectID!) {
@@ -68,8 +30,8 @@ use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
-            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
+            RemoteConfig,
         },
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
@@ -101,94 +63,6 @@ struct StartCommitData {
 #[derive(Debug, Deserialize)]
 struct StartCommitResult {
     pub data: StartCommitData,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryParents {
-    #[serde(rename = "totalCount")]
-    total_count: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryAuthor {
-    pub name: String,
-    pub email: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryTreeEntry {
-    pub path: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryTree {
-    pub entries: Vec<CommitsQueryTreeEntry>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryNode {
-    pub oid: String,
-    pub message: String,
-    #[serde(rename = "committedDate")]
-    pub committed_date: String,
-    pub author: CommitsQueryAuthor,
-    pub parents: CommitsQueryParents,
-    pub tree: CommitsQueryTree,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryEdge {
-    pub node: CommitsQueryNode,
-}
-
-#[derive(Debug, Deserialize)]
-struct QueryPageInfo {
-    #[serde(rename = "hasNextPage")]
-    pub has_next_page: bool,
-    #[serde(rename = "endCursor")]
-    pub end_cursor: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryHistory {
-    pub edges: Vec<CommitsQueryEdge>,
-    #[serde(rename = "pageInfo")]
-    pub page_info: QueryPageInfo,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryTarget {
-    pub history: CommitsQueryHistory,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryDefaultBranch {
-    pub target: CommitsQueryTarget,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryRepository {
-    #[serde(rename = "defaultBranchRef")]
-    pub default_branch_ref: CommitsQueryDefaultBranch,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryData {
-    pub repository: CommitsQueryRepository,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitsQueryResult {
-    pub data: CommitsQueryData,
-}
-
-#[derive(Debug, Serialize)]
-struct CommitsQueryVariables {
-    pub owner: String,
-    pub repo: String,
-    pub cursor: Option<String>,
-    pub since: Option<String>,
-    pub page_limit: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -442,6 +316,7 @@ impl Forge for Github {
 
         for tag in page.into_iter() {
             if re.is_match(&tag.name) {
+                // remove tag prefix so we can parse to semver
                 let stripped = re.replace_all(&tag.name, "").to_string();
                 if let Ok(sver) = semver::Version::parse(&stripped) {
                     // get tag timestamp
@@ -482,12 +357,14 @@ impl Forge for Github {
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let search_depth = self.commit_search_depth.lock().await;
-        let page_limit = cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth);
-        let mut commits: Vec<ForgeCommit> = vec![];
-        let mut since_date = None;
+
+        let mut commits = vec![];
+
+        let page: Page<RepoCommit>;
 
         if let Some(sha) = sha.clone() {
-            // get commits since sha
+            debug!("getting commits starting from sha: {sha}");
+
             let vars = ShaDateQueryVariables {
                 owner: self.config.owner.clone(),
                 repo: self.config.repo.clone(),
@@ -502,115 +379,81 @@ impl Forge for Github {
             let result: StartCommitResult =
                 self.instance.graphql(&json).await?;
 
-            since_date =
-                Some(result.data.repository.start_commit.committed_date)
+            let created = result.data.repository.start_commit.committed_date;
+            let since = DateTime::parse_from_rfc3339(&created)?.to_utc();
+
+            page = self
+                .instance
+                .repos(&self.config.owner, &self.config.repo)
+                .list_commits()
+                .since(since)
+                .send()
+                .await?;
+        } else {
+            page = self
+                .instance
+                .repos(&self.config.owner, &self.config.repo)
+                .list_commits()
+                .send()
+                .await?;
         }
 
-        let mut cursor = None;
-        let mut has_more = true;
-        let search_depth = *search_depth as usize;
-
-        while has_more {
-            if sha.is_none() && commits.len() >= search_depth {
-                break;
+        for (i, thin_commit) in page.items.iter().enumerate() {
+            if sha.is_none() && i >= *search_depth as usize {
+                return Ok(commits);
             }
 
-            let vars = CommitsQueryVariables {
-                owner: self.config.owner.clone(),
-                repo: self.config.repo.clone(),
-                cursor: cursor.clone(),
-                since: since_date.clone(),
-                page_limit,
-            };
+            debug!("backfilling file list for commit: {}", thin_commit.sha);
 
-            let result: CommitsQueryResult = self.instance
-                    .graphql(&serde_json::json!({ "query": COMMITS_QUERY, "variables": vars }))
-                    .await?;
+            let route = format!(
+                "/repos/{}/{}/commits/{}",
+                self.config.owner, self.config.repo, thin_commit.sha
+            );
 
-            let edges = result
-                .data
-                .repository
-                .default_branch_ref
-                .target
-                .history
-                .edges;
+            let commit = self
+                .instance
+                .get::<RepoCommit, String, Option<Vec<String>>>(route, None)
+                .await?;
 
-            let forge_commits = edges
-                .iter()
-                // filter out starting sha: we only want commits after starting sha
-                // filter out merge commits
-                .filter(|e| {
-                    if let Some(sha) = sha.clone() {
-                        e.node.oid != sha
-                    } else {
-                        true
-                    }
-                })
-                .map(|e| ForgeCommit {
-                    author_email: e.node.author.email.clone(),
-                    author_name: e.node.author.name.clone(),
-                    id: e.node.oid.clone(),
-                    short_id: e
-                        .node
-                        .oid
-                        .clone()
-                        .split("")
-                        .take(8)
-                        .collect::<Vec<&str>>()
-                        .join(""),
-                    link: format!(
-                        "{}/{}",
-                        self.config.commit_link_base_url, e.node.oid,
-                    ),
-                    merge_commit: e.node.parents.total_count > 1,
-                    message: e.node.message.clone(),
-                    timestamp: DateTime::parse_from_rfc3339(
-                        &e.node.committed_date,
-                    )
-                    .unwrap()
-                    .timestamp(),
-                    files: e
-                        .node
-                        .tree
-                        .entries
-                        .iter()
-                        .map(|e| e.path.clone())
-                        .collect::<Vec<String>>(),
-                })
-                .collect::<Vec<ForgeCommit>>();
+            let mut files = vec![];
 
-            commits.extend(forge_commits);
-
-            if !result
-                .data
-                .repository
-                .default_branch_ref
-                .target
-                .history
-                .page_info
-                .end_cursor
-                .is_empty()
-            {
-                cursor = Some(
-                    result
-                        .data
-                        .repository
-                        .default_branch_ref
-                        .target
-                        .history
-                        .page_info
-                        .end_cursor,
-                );
+            if let Some(diffs) = commit.files.clone() {
+                files.extend(diffs.iter().map(|d| d.filename.clone()))
             }
 
-            has_more = result
-                .data
-                .repository
-                .default_branch_ref
-                .target
-                .history
-                .page_info
-                .has_next_page
+            let mut author_name = "".to_string();
+            let mut author_email = "".to_string();
+            let mut timestamp = 0;
+
+            if let Some(author) = commit.commit.committer {
+                author_name = author.name;
+                author_email = author.email;
+
+                if let Some(date) = author.date {
+                    timestamp = date.timestamp();
+                }
+            }
+
+            let sha = commit.sha.clone();
+
+            let short_sha = sha
+                .clone()
+                .split("")
+                .take(8)
+                .collect::<Vec<&str>>()
+                .join("");
+
+            commits.push(ForgeCommit {
+                id: sha,
+                short_id: short_sha,
+                link: commit.url,
+                author_name,
+                author_email,
+                merge_commit: commit.parents.len() > 1,
+                message: commit.commit.message,
+                timestamp,
+                files,
+            });
         }
 
         Ok(commits)
