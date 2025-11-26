@@ -1,3 +1,9 @@
+# [0.3.12](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.12) - 2025-11-26
+
+### 🐛 Bug Fixes
+
+- fixes issue with getting commits in github forge [_(39d6fbf)_](https://github.com/robgonnella/releasaurus/commit/39d6fbf76fbb80c79dd6d8527e46e1917fa925f3) (Rob Gonnella)
+
 # [0.3.11](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.11) - 2025-11-25
 
 ### 🐛 Bug Fixes
