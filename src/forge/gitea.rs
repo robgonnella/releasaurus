@@ -388,6 +388,17 @@ impl Forge for Gitea {
         let mut count = 0;
         let mut commits: Vec<ForgeCommit> = vec![];
 
+        let mut since = None;
+
+        if let Some(sha) = sha.clone() {
+            let commit_url = self.base_url.join(&format!("commits/{sha}"))?;
+            let request = self.client.get(commit_url).build()?;
+            let response = self.client.execute(request).await?;
+            let result = response.error_for_status()?;
+            let commit: GiteaCommitQueryObject = result.json().await?;
+            since = Some(commit.created);
+        }
+
         while has_more {
             let mut commits_url = self.base_url.join("commits")?;
 
@@ -395,6 +406,10 @@ impl Forge for Gitea {
                 .query_pairs_mut()
                 .append_pair("limit", &page_limit.to_string())
                 .append_pair("page", &page.to_string());
+
+            if let Some(since) = since.clone() {
+                commits_url.query_pairs_mut().append_pair("since", &since);
+            }
 
             let request = self.client.get(commits_url).build()?;
             let response = self.client.execute(request).await?;
@@ -413,6 +428,7 @@ impl Forge for Gitea {
                 }
 
                 // we've reached the target sha stopping point
+                // this is because "since" is inclusive of the target commit
                 if let Some(sha) = sha.clone()
                     && sha == result.sha
                 {
