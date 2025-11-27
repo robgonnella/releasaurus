@@ -1,128 +1,237 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Releasaurs TOML Configuration Schema",
-  "description": "Releasaurus TOML configuration.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Releasaurus TOML Configuration Schema",
+  "description": "Configuration properties for `releasaurus.toml`",
   "type": "object",
   "properties": {
     "first_release_search_depth": {
-      "type": "number",
-      "description": "Configures commit search depth for first release. After the first release releasaurus will always parse all the commits since the last release"
+      "description": "Maximum number of commits to search for the first release when no\ntags exist.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0,
+      "default": 400
     },
     "separate_pull_requests": {
+      "description": "Generates different release PRs for each package defined in config",
       "type": "boolean",
-      "description": "Generates different release PRs for each package defined in config"
+      "default": false
     },
     "prerelease": {
-      "type": "string",
-      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\"). Can be overridden per package or via CLI flag"
+      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").\nCan be overridden per package.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
     },
     "breaking_always_increment_major": {
+      "description": "Always increments major version on breaking commits",
       "type": "boolean",
-      "description": "Always increments major version on breaking commits (default: true)"
+      "default": true
     },
     "features_always_increment_minor": {
+      "description": "Always increments minor version on feature commits",
       "type": "boolean",
-      "description": "Always increments minor version on feature commits (default: true)"
+      "default": true
     },
     "custom_major_increment_regex": {
-      "type": "string",
-      "description": "Custom commit type regex matcher to increment major version"
+      "description": "Custom commit type regex matcher to increment major version",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
     },
     "custom_minor_increment_regex": {
-      "type": "string",
-      "description": "Custom commit type regex matcher to increment minor version"
+      "description": "Custom commit type regex matcher to increment minor version",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
     },
     "changelog": {
+      "description": "Changelog generation settings.",
+      "$ref": "#/$defs/ChangelogConfig",
+      "default": {
+        "body": "# [{{ version  }}]({{ link }}) - {{ timestamp | date(format=\"%Y-%m-%d\") }}\n{% for group, commits in commits | filter(attribute=\"merge_commit\", value=false) | group_by(attribute=\"group\") %}\n### {{ group | striptags | trim }}\n{% for commit in commits %}\n{% if commit.breaking -%}\n{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% if commit.body -%}\n> {{ commit.body }}\n{% endif -%}\n{% if commit.breaking_description -%}\n> {{ commit.breaking_description }}\n{% endif -%}\n{% else -%}\n- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% endif -%}\n{% endfor %}\n{% endfor %}\n ",
+        "skip_ci": false,
+        "skip_chore": false,
+        "skip_miscellaneous": false,
+        "skip_merge_commits": true,
+        "skip_release_commits": true,
+        "include_author": false
+      }
+    },
+    "package": {
+      "description": "Packages to manage in this repository (supports monorepos).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PackageConfig"
+      },
+      "default": [
+        {
+          "name": "",
+          "workspace_root": ".",
+          "path": ".",
+          "release_type": null,
+          "tag_prefix": null,
+          "prerelease": null,
+          "additional_paths": null,
+          "breaking_always_increment_major": null,
+          "features_always_increment_minor": null,
+          "custom_major_increment_regex": null,
+          "custom_minor_increment_regex": null
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "ChangelogConfig": {
+      "description": "Changelog configuration (applies to all packages)",
       "type": "object",
       "properties": {
         "body": {
+          "description": "Main changelog body template.",
           "type": "string",
-          "description": "Tera template for generating changelog body"
+          "default": "# [{{ version  }}]({{ link }}) - {{ timestamp | date(format=\"%Y-%m-%d\") }}\n{% for group, commits in commits | filter(attribute=\"merge_commit\", value=false) | group_by(attribute=\"group\") %}\n### {{ group | striptags | trim }}\n{% for commit in commits %}\n{% if commit.breaking -%}\n{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% if commit.body -%}\n> {{ commit.body }}\n{% endif -%}\n{% if commit.breaking_description -%}\n> {{ commit.breaking_description }}\n{% endif -%}\n{% else -%}\n- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% endif -%}\n{% endfor %}\n{% endfor %}\n "
         },
         "skip_ci": {
+          "description": "Skips including ci commits in changelog (default: false)",
           "type": "boolean",
-          "description": "Skips including \"ci\" commits in changelog"
+          "default": false
         },
         "skip_chore": {
+          "description": "Skips including ci commits in changelog (default: false)",
           "type": "boolean",
-          "description": "Skips including \"chore\" commits in changelog"
+          "default": false
         },
         "skip_miscellaneous": {
+          "description": "Skips including miscellaneous commits in changelog (default: false)",
           "type": "boolean",
-          "description": "Skips including miscellaneous commits in changelog. Miscellaneous commits are commits that do not conform to conventional commits standard"
+          "default": false
         },
         "skip_merge_commits": {
+          "description": "Skips including merge commits in changelog (default: true)",
           "type": "boolean",
-          "description": "Skips including merge commits in changelog"
+          "default": true
         },
         "skip_release_commits": {
+          "description": "Skips including release commits in changelog (default: true)",
           "type": "boolean",
-          "description": "Skips including release commits in changelog"
+          "default": true
         },
         "include_author": {
+          "description": "Includes commit author name in default body template (default: false)",
           "type": "boolean",
-          "description": "Includes the author name for each commit in the generated changelog"
+          "default": false
         }
       }
     },
-    "packages": {
-      "type": "array",
-      "description": "A list of packages to generate releases for in this repository",
-      "items": {
-        "type": "object",
-        "description": "package config",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "The name of the package"
-          },
-          "workspace_root": {
-            "type": "string",
-            "description": "The the root directory to use for this package. e.g. \"./packages\""
-          },
-          "path": {
-            "type": "string",
-            "description": "Path to the package directory relative to the workspace_root"
-          },
-          "release_type": {
-            "type": "string",
-            "description": "The release type to use when updating package version files",
-            "enum": ["generic", "java", "node", "php", "python", "ruby", "rust"]
-          },
-          "tag_prefix": {
-            "type": "string",
-            "description": "The tag prefix to use for this package: default (\"v\")"
-          },
-          "prerelease": {
-            "type": "string",
-            "description": "Prerelease identifier for this package (e.g., \"alpha\", \"beta\", \"rc\"). Overrides global prerelease setting"
-          },
-          "additional_paths": {
-            "type": "array",
-            "description": "Additional directory paths in repo to include commits from when calculating next release version and changelog updates",
-            "items": {
-              "type": "string",
-              "description": "A directory path to include commits from when calculating release version and changelog updates for this package"
+    "PackageConfig": {
+      "description": "Package configuration for multi-package repositories and monorepos.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name for this package (default derived from path if not provided)",
+          "type": "string",
+          "default": ""
+        },
+        "workspace_root": {
+          "description": "Path to the workspace root directory for this package relative to the repository root",
+          "type": "string",
+          "default": "."
+        },
+        "path": {
+          "description": "Path to package directory relative to workspace_root",
+          "type": "string",
+          "default": "."
+        },
+        "release_type": {
+          "description": "[`ReleaseType`] type for determining which version files to update.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseType"
+            },
+            {
+              "type": "null"
             }
+          ],
+          "default": null
+        },
+        "tag_prefix": {
+          "description": "Git tag prefix for this package (e.g., \"v\" or \"api-v\").",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "prerelease": {
+          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "additional_paths": {
+          "description": "Additional directory paths to include commits from",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
           },
-          "breaking_always_increment_major": {
-            "type": "boolean",
-            "description": "Always increments major version on breaking commits for this package. Overrides global setting"
-          },
-          "features_always_increment_minor": {
-            "type": "boolean",
-            "description": "Always increments minor version on feature commits for this package. Overrides global setting"
-          },
-          "custom_major_increment_regex": {
-            "type": "string",
-            "description": "Custom commit type regex matcher to increment major version for this package. Overrides global setting"
-          },
-          "custom_minor_increment_regex": {
-            "type": "string",
-            "description": "Custom commit type regex matcher to increment minor version for this package. Overrides global setting"
-          }
+          "default": null
+        },
+        "breaking_always_increment_major": {
+          "description": "Always increments major version on breaking commits",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "features_always_increment_minor": {
+          "description": "Always increments minor version on feature commits",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "custom_major_increment_regex": {
+          "description": "Custom commit type regex matcher to increment major version",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "custom_minor_increment_regex": {
+          "description": "Custom commit type regex matcher to increment minor version",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         }
       }
+    },
+    "ReleaseType": {
+      "description": "Supported release types for updating package manifest files",
+      "type": "string",
+      "enum": [
+        "generic",
+        "node",
+        "rust",
+        "python",
+        "php",
+        "ruby",
+        "java"
+      ]
     }
   }
 }

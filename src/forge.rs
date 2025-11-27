@@ -11,6 +11,3 @@ pub mod gitlab;
 pub mod local;
 pub mod request;
 pub mod traits;
-
-#[cfg(all(test, feature = "_internal_e2e_tests"))]
-mod tests;

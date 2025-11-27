@@ -1,7 +1,8 @@
 //! Configuration loading and parsing for `releasaurus.toml` files.
 //!
 //! Supports customizable changelog templates and multi-package repositories.
-use serde::Deserialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzer::config::DEFAULT_BODY, forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
@@ -10,8 +11,8 @@ use crate::{
 /// Default configuration filename.
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
-/// Changelog template configuration using Tera syntax.
-#[derive(Debug, Clone, Deserialize)]
+/// Changelog configuration (applies to all packages)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)] // Use default for missing fields
 pub struct ChangelogConfig {
     /// Main changelog body template.
@@ -26,7 +27,7 @@ pub struct ChangelogConfig {
     pub skip_merge_commits: bool,
     /// Skips including release commits in changelog (default: true)
     pub skip_release_commits: bool,
-    /// Includes commit author in default body template (default: false)
+    /// Includes commit author name in default body template (default: false)
     pub include_author: bool,
 }
 
@@ -44,8 +45,8 @@ impl Default for ChangelogConfig {
     }
 }
 
-/// Supported release types for updating package files
-#[derive(Debug, Default, Clone, Deserialize)]
+/// Supported release types for updating package manifest files
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseType {
     #[default]
@@ -59,16 +60,16 @@ pub enum ReleaseType {
 }
 
 /// Package configuration for multi-package repositories and monorepos.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)] // Use default for missing fields
 pub struct PackageConfig {
-    /// Name for this package
+    /// Name for this package (default derived from path if not provided)
     pub name: String,
     /// Path to the workspace root directory for this package relative to the repository root
     pub workspace_root: String,
-    /// Path to package directory relative to workspace_root path
+    /// Path to package directory relative to workspace_root
     pub path: String,
-    /// Release type for determining which version files to update.
+    /// [`ReleaseType`] type for determining which version files to update.
     pub release_type: Option<ReleaseType>,
     /// Git tag prefix for this package (e.g., "v" or "api-v").
     pub tag_prefix: Option<String>,
@@ -104,9 +105,10 @@ impl Default for PackageConfig {
     }
 }
 
-/// Root configuration structure for `releasaurus.toml`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "Releasaurus TOML Configuration Schema")]
 #[serde(default)]
+/// Configuration properties for `releasaurus.toml`
 pub struct Config {
     /// Maximum number of commits to search for the first release when no
     /// tags exist.

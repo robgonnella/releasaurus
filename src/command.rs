@@ -4,7 +4,7 @@
 //! (publish final release) commands with shared utilities.
 
 /// Shared utilities and common functionality for commands.
-pub mod common;
+mod common;
 
 /// Final release publication and tagging command implementation.
 pub mod release;

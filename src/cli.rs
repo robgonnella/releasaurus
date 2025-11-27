@@ -14,7 +14,7 @@ use crate::{
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// GitHub repository URL (https://github.com/owner/repo).
+    /// GitHub repository URL (<https://github.com/owner/repo>).
     #[arg(long, default_value = "", global = true)]
     pub github_repo: String,
 

@@ -16,7 +16,7 @@ pub struct ReleasablePackage {
     pub workspace_root: String,
     /// The [`ReleaseType`] for this package
     pub release_type: ReleaseType,
-    /// The computed [`Release`] for this package
+    /// The computed Release for this package
     pub release: Release,
 }
 

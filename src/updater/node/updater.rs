@@ -3,12 +3,15 @@ use async_trait::async_trait;
 use crate::{
     forge::request::FileChange,
     result::Result,
-    updater::{framework::UpdaterPackage, traits::PackageUpdater},
+    updater::{
+        framework::UpdaterPackage,
+        node::{
+            package_json::PackageJson, package_lock::PackageLock,
+            yarn_lock::YarnLock,
+        },
+        traits::PackageUpdater,
+    },
 };
-
-use super::package_json::PackageJson;
-use super::package_lock::PackageLock;
-use super::yarn_lock::YarnLock;
 
 /// Node.js package updater for npm, yarn, and pnpm projects.
 pub struct NodeUpdater {
