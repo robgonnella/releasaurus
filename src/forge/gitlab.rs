@@ -27,14 +27,12 @@ use gitlab::{
         },
     },
 };
+use graphql_client::{GraphQLQuery, QueryBody};
 use log::*;
 use regex::Regex;
-use reqwest::{
-    Client, StatusCode, Url,
-    header::{HeaderMap, HeaderValue},
-};
+use reqwest::StatusCode;
 use secrecy::ExposeSecret;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -56,6 +54,69 @@ use crate::{
     result::Result,
 };
 
+const COMMIT_DIFF_QUERY: &str = r#"
+query GetCommitDiff($project_id: ID!, $commit_sha: String!) {
+  project(fullPath: $project_id) {
+    repository {
+      commit(ref: $commit_sha) {
+        diffs {
+            newPath
+            oldPath
+        }
+      }
+    }
+  }
+}"#;
+
+#[derive(Debug, Serialize)]
+struct CommitDiffQueryVars {
+    project_id: String,
+    commit_sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitFilenameDiff {
+    #[serde(rename = "oldPath")]
+    old_path: Option<String>,
+    #[serde(rename = "newPath")]
+    new_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitDiffCommit {
+    diffs: Vec<CommitFilenameDiff>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitDiffRepository {
+    commit: CommitDiffCommit,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitDiffProject {
+    repository: CommitDiffRepository,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitDiffResponse {
+    project: CommitDiffProject,
+}
+
+struct CommitDiffQuery {}
+
+impl GraphQLQuery for CommitDiffQuery {
+    type ResponseData = CommitDiffResponse;
+    type Variables = CommitDiffQueryVars;
+
+    fn build_query(variables: Self::Variables) -> QueryBody<Self::Variables> {
+        QueryBody {
+            variables,
+            query: COMMIT_DIFF_QUERY,
+            operation_name: "GetCommitDiff",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct FileInfo {
     content: String,
@@ -74,12 +135,6 @@ struct LabelInfo {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct GitlabDiff {
-    new_path: Option<String>,
-    old_path: Option<String>,
-}
-
 /// Information about a commit associated with a release.
 #[derive(Debug, Deserialize)]
 pub struct GitlabCommit {
@@ -89,6 +144,7 @@ pub struct GitlabCommit {
     pub author_email: String,
     pub parent_ids: Vec<String>,
     pub created_at: String,
+    pub web_url: String,
 }
 
 /// Represents a Gitlab project Tag
@@ -109,8 +165,6 @@ pub struct Gitlab {
     config: RemoteConfig,
     commit_search_depth: Arc<Mutex<u64>>,
     gl: AsyncGitlab,
-    base_url: Url,
-    rest_client: Client,
     project_id: String,
     default_branch: String,
 }
@@ -135,34 +189,6 @@ impl Gitlab {
             .wrap_err("failed to find default branch")?
             .to_string();
 
-        let id = gl_project["id"]
-            .as_u64()
-            .wrap_err("failed to find project ID")?;
-
-        let mut base_url = format!(
-            "{}://{}/api/v4/projects/{id}/",
-            config.scheme, config.host
-        );
-
-        if let Some(port) = config.port {
-            base_url = format!(
-                "{}://{}:{}/api/v4/projects/{id}/",
-                config.scheme, config.host, port
-            );
-        }
-
-        let base_url = Url::parse(&base_url)?;
-
-        let mut headers = HeaderMap::new();
-
-        let token_value = HeaderValue::from_str(token)?;
-
-        headers.append("PRIVATE-TOKEN", token_value);
-
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()?;
-
         Ok(Self {
             config,
             commit_search_depth: Arc::new(Mutex::new(
@@ -170,8 +196,6 @@ impl Gitlab {
             )),
             gl,
             project_id,
-            base_url,
-            rest_client: client,
             default_branch,
         })
     }
@@ -355,23 +379,22 @@ impl Forge for Gitlab {
         let mut forge_commits = vec![];
 
         for commit in result.iter() {
-            debug!("backfilling file paths for commit: {}", commit.id);
+            debug!("backfilling file list for commit: {}", commit.id);
 
-            let diff_url = self
-                .base_url
-                .join(&format!("repository/commits/{}/diff", commit.id))?;
+            let vars = CommitDiffQueryVars {
+                project_id: self.project_id.clone(),
+                commit_sha: commit.id.clone(),
+            };
 
-            let request = self.rest_client.get(diff_url).build()?;
+            let query = CommitDiffQuery::build_query(vars);
 
-            let response = self.rest_client.execute(request).await?;
+            let resp = self.gl.graphql::<CommitDiffQuery>(&query).await?;
 
-            let result = response.error_for_status()?;
-
-            let diff: Vec<GitlabDiff> = result.json().await?;
+            let diffs = resp.project.repository.commit.diffs;
 
             let mut files = vec![];
 
-            for item in diff.iter() {
+            for item in diffs.iter() {
                 if let Some(file_path) = item.new_path.clone() {
                     files.push(file_path.clone());
                 } else if let Some(file_path) = item.old_path.clone() {
@@ -379,11 +402,8 @@ impl Forge for Gitlab {
                 }
             }
 
-            let mut timestamp = 0;
-
-            if let Ok(date) = DateTime::parse_from_rfc3339(&commit.created_at) {
-                timestamp = date.timestamp();
-            }
+            let timestamp =
+                DateTime::parse_from_rfc3339(&commit.created_at)?.timestamp();
 
             forge_commits.push(ForgeCommit {
                 author_email: commit.author_email.clone(),
@@ -396,10 +416,7 @@ impl Forge for Gitlab {
                     .take(8)
                     .collect::<Vec<&str>>()
                     .join(""),
-                link: format!(
-                    "{}/{}",
-                    self.config.commit_link_base_url, commit.id
-                ),
+                link: commit.web_url.clone(),
                 merge_commit: commit.parent_ids.len() > 1,
                 message: commit.message.clone().trim().into(),
                 timestamp,

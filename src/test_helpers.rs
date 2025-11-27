@@ -33,7 +33,6 @@ pub fn create_test_remote_config() -> RemoteConfig {
         repo: "repo".to_string(),
         path: "test/repo".to_string(),
         token: SecretString::from("test-token".to_string()),
-        commit_link_base_url: "https://github.com/test/repo/commit".to_string(),
         release_link_base_url: "https://github.com/test/repo/releases/tag"
             .to_string(),
         dry_run: false,

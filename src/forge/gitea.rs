@@ -129,6 +129,7 @@ struct GiteaCommitQueryObject {
     pub commit: GiteaCommit,
     pub files: Vec<GiteaCommitFile>,
     pub parents: Vec<GiteaCommitParent>,
+    pub html_url: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -418,12 +419,8 @@ impl Forge for Gitea {
                     return Ok(commits);
                 }
 
-                let mut timestamp = 0;
-
-                if let Ok(date) = DateTime::parse_from_rfc3339(&result.created)
-                {
-                    timestamp = date.timestamp();
-                }
+                let timestamp =
+                    DateTime::parse_from_rfc3339(&result.created)?.timestamp();
 
                 let forge_commit = ForgeCommit {
                     author_email: result.commit.author.email.clone(),
@@ -436,10 +433,7 @@ impl Forge for Gitea {
                         .take(8)
                         .collect::<Vec<&str>>()
                         .join(""),
-                    link: format!(
-                        "{}/{}",
-                        self.config.commit_link_base_url, result.sha
-                    ),
+                    link: result.html_url.clone(),
                     merge_commit: result.parents.len() > 1,
                     message: result.commit.message.trim().to_string(),
                     timestamp,

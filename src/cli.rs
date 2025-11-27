@@ -157,9 +157,6 @@ fn get_github_remote(
 
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
-    let commit_link_base_url =
-        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
-
     let release_link_base_url =
         format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name);
 
@@ -170,7 +167,6 @@ fn get_github_remote(
         owner,
         repo: parsed.name,
         path: project_path,
-        commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
@@ -222,9 +218,6 @@ fn get_gitlab_remote(
 
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
-    let commit_link_base_url =
-        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
-
     let release_link_base_url =
         format!("{}/{}/{}/-/releases", link_base_url, owner, parsed.name);
 
@@ -235,7 +228,6 @@ fn get_gitlab_remote(
         owner,
         repo: parsed.name,
         path: project_path,
-        commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
@@ -287,9 +279,6 @@ fn get_gitea_remote(
 
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
-    let commit_link_base_url =
-        format!("{}/{}/{}/commit", link_base_url, owner, parsed.name);
-
     let release_link_base_url =
         format!("{}/{}/{}/releases", link_base_url, owner, parsed.name);
 
@@ -300,7 +289,6 @@ fn get_gitea_remote(
         owner,
         repo: parsed.name,
         path: project_path,
-        commit_link_base_url,
         release_link_base_url,
         token: SecretString::from(token),
         dry_run,
