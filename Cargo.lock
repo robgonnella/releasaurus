@@ -2025,6 +2025,7 @@ dependencies = [
  "git-url-parse",
  "git2",
  "gitlab",
+ "graphql_client",
  "log",
  "mockall",
  "nanoid",

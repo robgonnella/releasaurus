@@ -40,8 +40,6 @@ pub struct RemoteConfig {
     pub path: String,
     /// Access token for authentication.
     pub token: SecretString,
-    /// Base URL for commit links in changelog.
-    pub commit_link_base_url: String,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
     /// set dry run mode for forge
@@ -58,7 +56,6 @@ impl Default for RemoteConfig {
             repo: "".to_string(),
             path: "".to_string(),
             token: SecretString::from("".to_string()),
-            commit_link_base_url: "".to_string(),
             release_link_base_url: "".to_string(),
             dry_run: false,
         }
