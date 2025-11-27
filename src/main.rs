@@ -1,25 +1,25 @@
 //! # Releasaurus
 //!
-//! A comprehensive release automation tool that streamlines the software release process
-//! across multiple programming languages and forge platforms.
+//! A comprehensive release automation tool that streamlines the software
+//! release process across multiple programming languages and forge platforms.
 //!
 //! ## Overview
 //!
 //! Releasaurus automates the entire release workflow including:
 //! - Version detection and bumping across different project types
-//! - Changelog generation using git-cliff
+//! - Changelog generation
 //! - Creating release pull requests
-//! - Publishing releases to various forge platforms (GitHub, GitLab, Gitea)
+//! - Tagging and Publishing releases to various forge platforms (GitHub, GitLab, Gitea)
 //!
 //! ## Supported Languages & Frameworks
 //!
-//! - **Rust**: Cargo.toml version management
-//! - **Node.js**: package.json and package-lock.json
-//! - **Python**: pyproject.toml, setup.py, requirements files
+//! - **Generic**: No Updates
 //! - **Java**: Maven pom.xml, Gradle build files
+//! - **Node.js**: package.json, package-lock.json, yarn.lock
 //! - **PHP**: composer.json
-//! - **Ruby**: Gemfile, gemspec files
-//! - **Generic**: Version file patterns
+//! - **Python**: pyproject.toml, setup.py, setup.cfg
+//! - **Ruby**: gemspec files, version.rb files
+//! - **Rust**: Cargo.toml and Cargo.lock version management
 //!
 //! ## Commands
 //!
@@ -35,18 +35,7 @@
 
 use clap::Parser;
 
-mod analyzer;
-mod cli;
-mod command;
-mod config;
-mod forge;
-mod result;
-mod updater;
-
-#[cfg(test)]
-mod test_helpers;
-
-use crate::result::Result;
+use releasaurus::{cli, command, result::Result};
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
 const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";

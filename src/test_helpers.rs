@@ -2,6 +2,9 @@
 //!
 //! This module provides reusable utilities for creating test fixtures and mock objects,
 //! reducing code duplication across different test suites.
+use regex::Regex;
+use secrecy::SecretString;
+use semver::Version as SemVer;
 
 use crate::{
     analyzer::{
@@ -14,9 +17,6 @@ use crate::{
         request::{ForgeCommit, PullRequest},
     },
 };
-use regex::Regex;
-use secrecy::SecretString;
-use semver::Version as SemVer;
 
 /// Creates a test RemoteConfig with sensible defaults.
 ///

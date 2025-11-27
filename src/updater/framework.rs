@@ -431,11 +431,9 @@ impl UpdaterPackage {
 
 #[cfg(test)]
 mod tests {
+    use crate::analyzer::release::Release;
+
     use super::*;
-    use crate::{
-        analyzer::release::Release, config::ReleaseType,
-        result::ReleasablePackage,
-    };
     use semver::Version as SemVer;
 
     fn create_test_releasable_package(

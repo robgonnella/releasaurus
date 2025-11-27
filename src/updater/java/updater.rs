@@ -3,12 +3,14 @@ use async_trait::async_trait;
 use crate::{
     forge::request::FileChange,
     result::Result,
-    updater::{framework::UpdaterPackage, traits::PackageUpdater},
+    updater::{
+        framework::UpdaterPackage,
+        java::{
+            gradle::Gradle, gradle_properties::GradleProperties, maven::Maven,
+        },
+        traits::PackageUpdater,
+    },
 };
-
-use super::gradle::Gradle;
-use super::gradle_properties::GradleProperties;
-use super::maven::Maven;
 
 /// Java package updater supporting Maven and Gradle projects.
 pub struct JavaUpdater {

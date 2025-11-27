@@ -9,9 +9,16 @@ license  = "MIT OR Apache-2.0"
 keywords = ["release", "semver", "conventional", "commits", "changelog"]
 categories = ["command-line-utilities", "development-tools"]
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "releasaurus"
 path = "src/main.rs"
+
+[[bin]]
+name = "generate-schema"
+path = "scripts/gen_schema.rs"
 
 [features]
 default = []
@@ -43,6 +50,7 @@ async-trait = "0.1.89"
 gitlab = "0.1805.0"
 base64 = "0.22.1"
 graphql_client = "0.14.0"
+schemars = "1.1.0"
 
 [dev-dependencies]
 mockall = "0.13.1"

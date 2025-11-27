@@ -153,6 +153,7 @@ fn create_message_group_parser(
     f
 }
 
+#[derive(Default)]
 /// Determines which changelog category a commit belongs to by matching
 /// against conventional commit type patterns.
 pub struct GroupParser {}
