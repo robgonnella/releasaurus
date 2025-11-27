@@ -414,10 +414,12 @@ impl Forge for Gitea {
             let request = self.client.get(commits_url).build()?;
             let response = self.client.execute(request).await?;
             let headers = response.headers();
+
             has_more = headers
                 .get("x-hasmore")
                 .map(|h| h.to_str().unwrap() == "true")
                 .unwrap_or(false);
+
             let result = response.error_for_status()?;
             let results: Vec<GiteaCommitQueryObject> = result.json().await?;
 
