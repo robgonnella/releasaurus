@@ -1,3 +1,9 @@
+# [0.4.4](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.4) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- temporarily disable building windows binary [_(98fedff)_](https://api.github.com/repos/robgonnella/releasaurus/commits/98fedff656d25f0d9ace4959da2e47127eb2494c) (Rob Gonnella)
+
 # [0.4.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.3) - 2025-11-28
 
 ### 🐛 Bug Fixes
