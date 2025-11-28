@@ -1,3 +1,9 @@
+# [0.4.13](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.13) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- fixes cargo binstall metadata [_(a42ad96)_](https://api.github.com/repos/robgonnella/releasaurus/commits/a42ad96451a96a309cbd0bc7a58c9ec4da244660) (Rob Gonnella)
+
 # [0.4.12](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.12) - 2025-11-28
 
 ### 🐛 Bug Fixes
