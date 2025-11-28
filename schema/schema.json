@@ -17,7 +17,7 @@
       "default": false
     },
     "prerelease": {
-      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").\nCan be overridden per package.",
+      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").\nCan be overridden per package",
       "type": [
         "string",
         "null"
@@ -64,7 +64,7 @@
       }
     },
     "package": {
-      "description": "Packages to manage in this repository (supports monorepos).",
+      "description": "Packages to manage in this repository (supports monorepos)",
       "type": "array",
       "items": {
         "$ref": "#/$defs/PackageConfig"
@@ -97,39 +97,39 @@
           "default": "# [{{ version  }}]({{ link }}) - {{ timestamp | date(format=\"%Y-%m-%d\") }}\n{% for group, commits in commits | filter(attribute=\"merge_commit\", value=false) | group_by(attribute=\"group\") %}\n### {{ group | striptags | trim }}\n{% for commit in commits %}\n{% if commit.breaking -%}\n{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% if commit.body -%}\n> {{ commit.body }}\n{% endif -%}\n{% if commit.breaking_description -%}\n> {{ commit.breaking_description }}\n{% endif -%}\n{% else -%}\n- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% endif -%}\n{% endfor %}\n{% endfor %}\n "
         },
         "skip_ci": {
-          "description": "Skips including ci commits in changelog (default: false)",
+          "description": "Skips including ci commits in changelog",
           "type": "boolean",
           "default": false
         },
         "skip_chore": {
-          "description": "Skips including ci commits in changelog (default: false)",
+          "description": "Skips including ci commits in changelog",
           "type": "boolean",
           "default": false
         },
         "skip_miscellaneous": {
-          "description": "Skips including miscellaneous commits in changelog (default: false)",
+          "description": "Skips including miscellaneous commits in changelog",
           "type": "boolean",
           "default": false
         },
         "skip_merge_commits": {
-          "description": "Skips including merge commits in changelog (default: true)",
+          "description": "Skips including merge commits in changelog",
           "type": "boolean",
           "default": true
         },
         "skip_release_commits": {
-          "description": "Skips including release commits in changelog (default: true)",
+          "description": "Skips including release commits in changelog",
           "type": "boolean",
           "default": true
         },
         "include_author": {
-          "description": "Includes commit author name in default body template (default: false)",
+          "description": "Includes commit author name in default body template",
           "type": "boolean",
           "default": false
         }
       }
     },
     "PackageConfig": {
-      "description": "Package configuration for multi-package repositories and monorepos.",
+      "description": "Package configuration for multi-package repositories and monorepos",
       "type": "object",
       "properties": {
         "name": {
