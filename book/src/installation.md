@@ -9,7 +9,7 @@ This guide covers different methods to install Releasaurus on your system.
 
 ## Installation Methods
 
-### Option 1: Install from Crates.io (Recommended)
+### Option 1: Install from Crates.io
 
 The easiest way to install Releasaurus is using Cargo, Rust's package
 manager:
@@ -24,7 +24,17 @@ directory, which should be in your system's PATH.
 
 ### Option 2: Download Pre-built Binaries
 
-Coming soon...
+Pre-built binaries can be installed directly from github releases page
+<https://github.com/robgonnella/releasaurus/releases>.
+
+Alternatively you can also install the pre-built binaries using
+[cargo-binstall].
+
+```bash
+cargo binstall releasaurus
+# or
+cargo binstall releasaurus --version <target_version>
+```
 
 ### Option 3: Build from Source
 
@@ -32,7 +42,7 @@ If you prefer to build from source or need the latest development features:
 
 #### Prerequisites
 
-- [Rust](https://rustup.rs/) 1.70 or higher
+- [Rust](https://rustup.rs/) 1.80 or higher
 - Git
 
 #### Build Steps
@@ -91,3 +101,5 @@ Now that you have Releasaurus installed, head over to the
 [Quick Start](./quick-start.md) guide to learn how to use it with your first
 project, or check out the [Configuration](./configuration.md) if
 you want to customize the default behavior.
+
+[cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
