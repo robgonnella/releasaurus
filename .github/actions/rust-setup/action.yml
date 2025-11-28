@@ -1,9 +1,36 @@
 name: "Rust Setup"
 description: "Sets up rust for an environment"
+inputs:
+  targets:
+    description: "Rust targets to install"
+    required: false
+    default: ""
+  components:
+    description: "Additional components to install"
+    required: false
+    default: ""
+  include_llvm_cov:
+    description: Whether or not to also install cargo-llvm-cov
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
     - uses: dtolnay/rust-toolchain@1.90.0
       with:
-        components: clippy,rustfmt
+        targets: ${{ inputs.targets }}
+        components: ${{ inputs.components }}
+    - name: Cache Cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
     - uses: taiki-e/install-action@cargo-llvm-cov
+      if: ${{ inputs.include_llvm_cov  == 'true' }}
