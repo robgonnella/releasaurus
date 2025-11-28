@@ -41,6 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
+        with:
+          components: clippy
       - name: lint
         run: cargo clippy --all-targets --all-features
 
@@ -49,6 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
+        with:
+          components: rustfmt
       - name: fmt
         run: cargo fmt --all --check
 
@@ -57,6 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
+        with:
+          include_llvm_cov: "true"
       - name: test
         env:
           GH_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}

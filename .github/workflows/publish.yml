@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1.90.0
+        uses: ./.github/actions/rust-setup
         with:
           targets: ${{ matrix.platform.target }}
 
