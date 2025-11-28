@@ -1,3 +1,15 @@
+# [0.4.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.0) - 2025-11-27
+
+### 🚀 Features
+
+- adds script to automate schema generation [_(be63344)_](https://api.github.com/repos/robgonnella/releasaurus/commits/be63344bc5fefdd3ff94a6af93f1bd3f8363e88a) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- improves the gitea get_commits implementation [_(7ef1238)_](https://api.github.com/repos/robgonnella/releasaurus/commits/7ef1238d526ce996d8122558c5d017ed6ae9d4e9) (Rob Gonnella)
+
+- fixes issues with backfilling file list in gitlab forge [_(1ad6679)_](https://api.github.com/repos/robgonnella/releasaurus/commits/1ad6679b7c93a97a23d2e00d4631cfe262ac4c88) (Rob Gonnella)
+
 # [0.3.12](https://github.com/robgonnella/releasaurus/releases/tag/v0.3.12) - 2025-11-26
 
 ### 🐛 Bug Fixes
