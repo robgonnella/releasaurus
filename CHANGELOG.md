@@ -1,3 +1,9 @@
+# [0.4.7](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.7) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- improves publishing binaries to release [_(e2b5eb7)_](https://api.github.com/repos/robgonnella/releasaurus/commits/e2b5eb76f40ae4855c107f8b376edc9528cc1936) (Rob Gonnella)
+
 # [0.4.6](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.6) - 2025-11-28
 
 ### 🐛 Bug Fixes
