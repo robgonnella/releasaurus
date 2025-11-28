@@ -1,3 +1,11 @@
+# [0.4.8](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.8) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- fixes use of matrix var in packaging job [_(eff6c19)_](https://api.github.com/repos/robgonnella/releasaurus/commits/eff6c19ddcea89866554db6e480fbf936926428f) (Rob Gonnella)
+
+- fixes issue with publishing binaries [_(1d14e5d)_](https://api.github.com/repos/robgonnella/releasaurus/commits/1d14e5d6b175bd002d47b34c301b72e394c96502) (Rob Gonnella)
+
 # [0.4.7](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.7) - 2025-11-28
 
 ### 🐛 Bug Fixes
