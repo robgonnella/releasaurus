@@ -71,21 +71,21 @@ jobs:
             runs-on: windows-latest
             target: x86_64-pc-windows-msvc
 
-          - os-name: MacOS-arm
+          - os-name: MacOS-aarch64
             runs-on: macOS-latest
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Install Target Dependencies
         run: |
-          case ${{ matrix.target }} in
+          case ${{ matrix.platform.target }} in
             x86_64-unknown-linux-musl)
               sudo apt update
-              sudo apt install openssl build-essential musl-tools musl-dev libssl-dev
+              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev
               ;;
             aarch64-unknown-linux-musl)
               sudo apt update
-              sudo apt install openssl build-essential musl-tools musl-dev libssl-dev:arm64
+              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev:arm64
               ;;
           esac
 
@@ -95,7 +95,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.90.0
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.platform.target }}
 
       - name: Build with cross
         uses: houseabsolute/actions-rust-cross@v1
@@ -110,6 +110,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GH_TEST_TOKEN }}
           file_glob: true
-          file: target/${{ matrix.target }}/release/${{ github.event.repository.name }}*
+          file: target/${{ matrix.platform.target }}/release/${{ github.event.repository.name }}*
           tag: ${{ github.ref }}
           overwrite: false
