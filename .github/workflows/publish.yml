@@ -63,18 +63,22 @@ jobs:
           - os-name: Linux-x86_64
             runs-on: ubuntu-latest
             target: x86_64-unknown-linux-musl
+            artifact: releasaurus
 
           - os-name: Linux-aarch64
             runs-on: ubuntu-latest
             target: aarch64-unknown-linux-musl
+            artifact: releasaurus
 
           - os-name: Windows-x86_64
             runs-on: windows-latest
             target: x86_64-pc-windows-msvc
+            artifact: releasaurus.exe
 
           - os-name: MacOS-aarch64
             runs-on: macOS-latest
             target: aarch64-apple-darwin
+            artifact: releasaurus
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
@@ -92,7 +96,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GH_TEST_TOKEN }}
-          file: target/${{ matrix.platform.target }}/release/${{ github.event.repository.name }}
-          asset_name: ${{ github.event.repository.name }}-${{ matrix.platform.target }}-$tag
+          file: ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact }}
+          asset_name: ${{ matrix.platform.artifact }}-${{ matrix.platform.target }}-$tag
           tag: ${{ github.ref }}
           overwrite: false
