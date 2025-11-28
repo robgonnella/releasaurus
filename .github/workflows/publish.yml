@@ -92,7 +92,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GH_TEST_TOKEN }}
-          file_glob: true
-          file: target/${{ matrix.platform.target }}/release/${{ github.event.repository.name }}*
+          file: target/${{ matrix.platform.target }}/release/${{ github.event.repository.name }}
+          asset_name: ${{ github.event.repository.name }}-${{ matrix.platform.target }}-$tag
           tag: ${{ github.ref }}
           overwrite: false
