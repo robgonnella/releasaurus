@@ -94,7 +94,7 @@ jobs:
 
       - name: Package
         run: |
-          PACKAGE_DIR=releasaurus-${{ github.ref_name }}-{{ matrix.platform.target }}
+          PACKAGE_DIR=releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}
           PACKAGE="${PACKAGE_DIR}.tgz"
           mkdir -p $PACKAGE_DIR
           cp ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact }} $PACKAGE_DIR
