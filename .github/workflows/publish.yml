@@ -110,17 +110,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: package-binaries
     steps:
-      - name: Create packages dir
-        run: mkdir -p /root/packages
       - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
           pattern: "*.tgz"
-          path: /root/packages
+          path: ./dist/
           merge-multiple: true
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GH_TEST_TOKEN }}
           file_glob: true
-          file: /root/packages/*.tgz
+          file: ./dist/*.tgz
