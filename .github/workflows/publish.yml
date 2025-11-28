@@ -59,21 +59,13 @@ jobs:
     strategy:
       matrix:
         platform:
-          - os-name: FreeBSD-x86_64
-            runs-on: ubuntu-24.04
-            target: x86_64-unknown-freebsd
-
           - os-name: Linux-x86_64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-latest
             target: x86_64-unknown-linux-musl
 
           - os-name: Linux-aarch64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-latest
             target: aarch64-unknown-linux-musl
-
-          - os-name: Linux-riscv64
-            runs-on: ubuntu-24.04
-            target: riscv64gc-unknown-linux-gnu
 
           - os-name: Windows-x86_64
             runs-on: windows-latest
@@ -84,6 +76,19 @@ jobs:
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
+      - name: Install Target Dependencies
+        run: |
+          case ${{ matrix.target }} in
+            x86_64-unknown-linux-musl)
+              sudo apt update
+              sudo apt install openssl build-essential musl-tools musl-dev libssl-dev
+              ;;
+            aarch64-unknown-linux-musl)
+              sudo apt update
+              sudo apt install openssl build-essential musl-tools musl-dev libssl-dev:arm64
+              ;;
+          esac
+
       - name: Checkout code
         uses: actions/checkout@v5
 
