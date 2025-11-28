@@ -1,3 +1,9 @@
+# [0.4.3](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.3) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- fixes matrix usage in pipeline binaries job [_(e06de41)_](https://api.github.com/repos/robgonnella/releasaurus/commits/e06de4121a1c741a62f4076353051d4efe1837a7) (Rob Gonnella)
+
 # [0.4.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.2) - 2025-11-28
 
 ### 🐛 Bug Fixes
