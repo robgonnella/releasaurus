@@ -68,44 +68,25 @@ jobs:
             runs-on: ubuntu-latest
             target: aarch64-unknown-linux-musl
 
-          # - os-name: Windows-x86_64
-          #   runs-on: windows-latest
-          #   target: x86_64-pc-windows-msvc
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
 
           - os-name: MacOS-aarch64
             runs-on: macOS-latest
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
-      - name: Install Target Dependencies
-        shell: bash
-        run: |
-          case ${{ matrix.platform.target }} in
-            x86_64-unknown-linux-musl)
-              sudo apt update
-              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev
-              ;;
-            aarch64-unknown-linux-musl)
-              sudo apt update
-              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev
-              ;;
-          esac
-
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Install Rust toolchain
-        uses: ./.github/actions/rust-setup
-        with:
-          targets: ${{ matrix.platform.target }}
 
       - name: Build with cross
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
+          toolchain: 1.90.0
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
-          strip: true
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2

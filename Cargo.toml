@@ -47,6 +47,7 @@ gitlab = "0.1805.0"
 base64 = "0.22.1"
 graphql_client = "0.14.0"
 schemars = "1.1.0"
+openssl = { version = "0.10.75", features = ["vendored"] }
 
 [dev-dependencies]
 mockall = "0.13.1"
