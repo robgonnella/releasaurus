@@ -8,7 +8,7 @@ use crate::{
     analyzer::config::DEFAULT_BODY, forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
 };
 
-/// Default configuration filename.
+/// Default configuration filename
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
 /// Changelog configuration (applies to all packages)
@@ -17,17 +17,17 @@ pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 pub struct ChangelogConfig {
     /// Main changelog body template.
     pub body: String,
-    /// Skips including ci commits in changelog (default: false)
+    /// Skips including ci commits in changelog
     pub skip_ci: bool,
-    /// Skips including ci commits in changelog (default: false)
+    /// Skips including ci commits in changelog
     pub skip_chore: bool,
-    /// Skips including miscellaneous commits in changelog (default: false)
+    /// Skips including miscellaneous commits in changelog
     pub skip_miscellaneous: bool,
-    /// Skips including merge commits in changelog (default: true)
+    /// Skips including merge commits in changelog
     pub skip_merge_commits: bool,
-    /// Skips including release commits in changelog (default: true)
+    /// Skips including release commits in changelog
     pub skip_release_commits: bool,
-    /// Includes commit author name in default body template (default: false)
+    /// Includes commit author name in default body template
     pub include_author: bool,
 }
 
@@ -59,7 +59,7 @@ pub enum ReleaseType {
     Java,
 }
 
-/// Package configuration for multi-package repositories and monorepos.
+/// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)] // Use default for missing fields
 pub struct PackageConfig {
@@ -116,7 +116,7 @@ pub struct Config {
     /// Generates different release PRs for each package defined in config
     pub separate_pull_requests: bool,
     /// Global prerelease identifier (e.g., "alpha", "beta", "rc").
-    /// Can be overridden per package.
+    /// Can be overridden per package
     pub prerelease: Option<String>,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: bool,
@@ -128,7 +128,7 @@ pub struct Config {
     pub custom_minor_increment_regex: Option<String>,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
-    /// Packages to manage in this repository (supports monorepos).
+    /// Packages to manage in this repository (supports monorepos)
     #[serde(rename = "package")]
     pub packages: Vec<PackageConfig>,
 }
