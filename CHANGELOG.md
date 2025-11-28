@@ -1,3 +1,9 @@
+# [0.4.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.2) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- another fix for building binaries in pipeline [_(5300607)_](https://api.github.com/repos/robgonnella/releasaurus/commits/5300607c0a5c34bdd077c8cd959c95ad5e536739) (Rob Gonnella)
+
 # [0.4.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.1) - 2025-11-28
 
 ### 🐛 Bug Fixes
