@@ -56,7 +56,6 @@ jobs:
         run: cargo publish
 
   binaries:
-    runs-on: ubuntu-latest # Or other suitable runner
     strategy:
       matrix:
         platform:
@@ -83,6 +82,7 @@ jobs:
           - os-name: MacOS-arm
             runs-on: macOS-latest
             target: aarch64-apple-darwin
+    runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -99,12 +99,6 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: ${{ github.event.repository.name }}-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ github.event.repository.name }}*
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
