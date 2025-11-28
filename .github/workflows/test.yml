@@ -26,13 +26,13 @@ jobs:
         with:
           cache_name: schema
       - name: generate
-        run: cargo run --bin generate-schema
+        run: cargo run --features dev-scripts --bin generate-schema
       - name: check
         run: |
           if ! git diff --exit-code; then
             git status
             echo "❌ Error: Uncommitted changes detected after running generate-schema script."
-            echo "❌ Please run \"cargo run --bin generate-schema\" and commit changes"
+            echo "❌ Please run \"cargo run --features dev-scripts --bin generate-schema\" and commit changes"
             exit 1
           else
             echo "✅ Schema is up-to-date"

@@ -15,6 +15,10 @@ bin-dir = "{ bin }{ binary-ext }"
 pkg-fmt = "tgz"
 disabled-strategies = ["quick-install"]
 
+[features]
+default = []
+dev-scripts = []
+
 [lib]
 path = "src/lib.rs"
 
@@ -25,6 +29,7 @@ path = "src/main.rs"
 [[bin]]
 name = "generate-schema"
 path = "scripts/gen_schema.rs"
+required-features = ["dev-scripts"]
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"]}
