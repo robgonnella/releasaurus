@@ -13,6 +13,10 @@ inputs:
     description: Whether or not to also install cargo-llvm-cov
     required: false
     default: "false"
+  cache_name:
+    description: Specific name to use in the cache key
+    required: false
+    default: "cache"
 runs:
   using: "composite"
   steps:
@@ -29,5 +33,8 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
+        key: ${{ runner.os }}-cargo-${{ inputs.cache_name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
     - uses: taiki-e/install-action@cargo-llvm-cov
       if: ${{ inputs.include_llvm_cov  == 'true' }}
