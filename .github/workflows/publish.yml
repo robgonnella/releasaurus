@@ -84,14 +84,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Add tag to env
-        run: |
-          TAG_WITH_PREFIX="${{ github.ref }}"
-          TAG_NAME="${TAG_WITH_PREFIX#refs/tags/}"
-          echo "Full Ref: $TAG_WITH_PREFIX"
-          echo "Tag Name: $TAG_NAME"
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV # Make it available to subsequent steps
-
       - name: Build with cross
         uses: houseabsolute/actions-rust-cross@v1
         with:
@@ -102,7 +94,7 @@ jobs:
 
       - name: Package
         run: |
-          PACKAGE_DIR=releasaurus-${{ env.TAG_NAME }}-{{ matrix.platform.target }}
+          PACKAGE_DIR=releasaurus-${{ github.ref_name }}-{{ matrix.platform.target }}
           PACKAGE="${PACKAGE_DIR}.tgz"
           mkdir -p $PACKAGE_DIR
           cp ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact }} $PACKAGE_DIR
