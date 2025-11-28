@@ -2,8 +2,8 @@
 use async_trait::async_trait;
 
 use crate::{
+    cli::Result,
     forge::request::FileChange,
-    result::Result,
     updater::{
         framework::UpdaterPackage,
         rust::{cargo_lock::CargoLock, cargo_toml::CargoToml},

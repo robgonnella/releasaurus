@@ -8,8 +8,8 @@ use semver::Version;
 
 use crate::{
     analyzer::release::{Release, Tag},
+    cli::Result,
     forge::request::ForgeCommit,
-    result::Result,
 };
 
 mod commit;

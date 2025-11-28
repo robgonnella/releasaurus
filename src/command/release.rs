@@ -5,6 +5,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use crate::{
+    cli::Result,
     command::common::{self, PRMetadata},
     config::PackageConfig,
     forge::{
@@ -12,7 +13,6 @@ use crate::{
         request::{GetPrRequest, PrLabelsRequest, PullRequest},
         traits::Forge,
     },
-    result::Result,
 };
 
 static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {

@@ -13,6 +13,7 @@ use tokio::{fs, sync::Mutex};
 
 use crate::{
     analyzer::release::Tag,
+    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::RemoteConfig,
@@ -22,7 +23,6 @@ use crate::{
         },
         traits::Forge,
     },
-    result::Result,
 };
 
 /// LocalRepo forge implementation using .

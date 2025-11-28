@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 
 use crate::{
+    cli::Result,
     forge::request::FileChange,
-    result::Result,
     updater::{
         framework::UpdaterPackage,
         python::{pyproject::PyProject, setupcfg::SetupCfg, setuppy::SetupPy},

@@ -3,8 +3,8 @@ use regex::Regex;
 use std::path::Path;
 
 use crate::{
+    cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    result::Result,
     updater::framework::UpdaterPackage,
 };
 

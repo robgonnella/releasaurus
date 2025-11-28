@@ -2,8 +2,8 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use crate::{
+    cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    result::Result,
     updater::framework::UpdaterPackage,
 };
 
