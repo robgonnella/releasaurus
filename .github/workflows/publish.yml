@@ -57,6 +57,7 @@ jobs:
 
   binaries:
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - os-name: Linux-x86_64
@@ -77,6 +78,7 @@ jobs:
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Install Target Dependencies
+        shell: bash
         run: |
           case ${{ matrix.platform.target }} in
             x86_64-unknown-linux-musl)
@@ -85,7 +87,7 @@ jobs:
               ;;
             aarch64-unknown-linux-musl)
               sudo apt update
-              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev:arm64
+              sudo apt install -y openssl build-essential musl-tools musl-dev libssl-dev
               ;;
           esac
 
