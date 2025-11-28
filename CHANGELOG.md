@@ -1,3 +1,9 @@
+# [0.4.9](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.9) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- uses cross-platform action for creating tar archives [_(8d60e22)_](https://api.github.com/repos/robgonnella/releasaurus/commits/8d60e221fa0b3c3c45e86f6f341f670dbc73caef) (Rob Gonnella)
+
 # [0.4.8](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.8) - 2025-11-28
 
 ### 🐛 Bug Fixes
