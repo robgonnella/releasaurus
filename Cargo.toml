@@ -9,6 +9,12 @@ license  = "MIT OR Apache-2.0"
 keywords = ["release", "semver", "conventional", "commits", "changelog"]
 categories = ["command-line-utilities", "development-tools"]
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+disabled-strategies = ["quick-install"]
+
 [lib]
 path = "src/lib.rs"
 
