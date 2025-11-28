@@ -16,6 +16,7 @@ use tokio::{sync::Mutex, time::sleep};
 
 use crate::{
     analyzer::release::Tag,
+    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
@@ -29,7 +30,6 @@ use crate::{
         },
         traits::Forge,
     },
-    result::Result,
 };
 
 #[derive(Debug, Default, Serialize)]

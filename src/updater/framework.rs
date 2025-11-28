@@ -4,10 +4,10 @@ use std::fmt::Display;
 use std::path::Path;
 
 use crate::analyzer::release::Tag;
+use crate::cli::{ReleasablePackage, Result};
 use crate::config::ReleaseType;
 use crate::forge::request::FileChange;
 use crate::forge::traits::Forge;
-use crate::result::{ReleasablePackage, Result};
 use crate::updater::generic::updater::GenericUpdater;
 use crate::updater::java::updater::JavaUpdater;
 use crate::updater::node::updater::NodeUpdater;

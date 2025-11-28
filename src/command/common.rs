@@ -18,9 +18,9 @@ pub struct PRMetadata {
 
 use crate::{
     analyzer::{config::AnalyzerConfig, release::Tag},
+    cli::Result,
     config::{Config, PackageConfig},
     forge::{config::RemoteConfig, request::ForgeCommit, traits::Forge},
-    result::Result,
 };
 
 pub fn process_config(repo_name: &str, config: &mut Config) -> Config {

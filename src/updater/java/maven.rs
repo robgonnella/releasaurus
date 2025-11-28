@@ -2,11 +2,10 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
-use crate::updater::framework::ManifestFile;
 use crate::{
+    cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    result::Result,
-    updater::framework::UpdaterPackage,
+    updater::framework::{ManifestFile, UpdaterPackage},
 };
 
 /// Handles Maven pom.xml file parsing and version updates for Java packages.

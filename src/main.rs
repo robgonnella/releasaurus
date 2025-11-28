@@ -35,7 +35,10 @@
 
 use clap::Parser;
 
-use releasaurus::{cli, command, result::Result};
+use releasaurus::{
+    Args, Command, Result,
+    command::{release, release_pr},
+};
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
 const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
@@ -69,7 +72,7 @@ fn initialize_logger(debug: bool) -> Result<()> {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let mut args = cli::Args::parse();
+    let mut args = Args::parse();
 
     if std::env::var(DEBUG_ENV_VAR).is_ok() {
         args.debug = true;
@@ -89,7 +92,7 @@ async fn main() -> Result<()> {
     let forge = remote.get_forge().await?;
 
     match args.command {
-        cli::Command::ReleasePR => command::release_pr::execute(forge).await,
-        cli::Command::Release => command::release::execute(forge).await,
+        Command::ReleasePR => release_pr::execute(forge).await,
+        Command::Release => release::execute(forge).await,
     }
 }

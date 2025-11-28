@@ -3,8 +3,8 @@ use regex::Regex;
 // use std::collections::HashSet;
 
 use crate::{
+    cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    result::Result,
     updater::framework::UpdaterPackage,
 };
 

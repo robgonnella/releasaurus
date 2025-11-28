@@ -1,8 +1,8 @@
 use toml_edit::{DocumentMut, value};
 
 use crate::{
+    cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    result::Result,
     updater::framework::UpdaterPackage,
 };
 

@@ -5,6 +5,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     analyzer::Analyzer,
+    cli::{PendingReleaseError, ReleasablePackage, Result},
     command::common::{self, PRMetadata, PRMetadataFields},
     config::{Config, ReleaseType},
     forge::{
@@ -15,7 +16,6 @@ use crate::{
         },
         traits::Forge,
     },
-    result::{PendingReleaseError, ReleasablePackage, Result},
     updater::framework::Framework,
 };
 

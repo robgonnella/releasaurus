@@ -15,11 +15,11 @@ pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::{
+    cli::Result,
     forge::{
         gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
         traits::Forge,
     },
-    result::Result,
 };
 
 /// Remote repository connection configuration for authenticating and

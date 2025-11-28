@@ -38,6 +38,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     analyzer::release::Tag,
+    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
@@ -51,7 +52,6 @@ use crate::{
         },
         traits::Forge,
     },
-    result::Result,
 };
 
 const COMMIT_DIFF_QUERY: &str = r#"

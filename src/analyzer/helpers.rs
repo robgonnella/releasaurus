@@ -8,8 +8,8 @@ use crate::{
         commit::Commit, config::AnalyzerConfig, group::GroupParser,
         release::Release,
     },
+    cli::Result,
     forge::request::ForgeCommit,
-    result::Result,
 };
 
 /// Matches 3 or more consecutive new lines

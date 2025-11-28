@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{
-    forge::request::FileChange, result::Result,
-    updater::framework::UpdaterPackage,
+    cli::Result, forge::request::FileChange, updater::framework::UpdaterPackage,
 };
 
 /// Common interface for updating version files in different language

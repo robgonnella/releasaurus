@@ -7,6 +7,7 @@ use mockall::automock;
 
 use crate::{
     analyzer::release::Tag,
+    cli::Result,
     config::Config,
     forge::{
         config::RemoteConfig,
@@ -15,7 +16,6 @@ use crate::{
             GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
         },
     },
-    result::Result,
 };
 
 /// Common interface for Git forge platform operations including repository
