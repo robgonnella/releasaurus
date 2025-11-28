@@ -68,9 +68,9 @@ jobs:
             runs-on: ubuntu-latest
             target: aarch64-unknown-linux-musl
 
-          - os-name: Windows-x86_64
-            runs-on: windows-latest
-            target: x86_64-pc-windows-msvc
+          # - os-name: Windows-x86_64
+          #   runs-on: windows-latest
+          #   target: x86_64-pc-windows-msvc
 
           - os-name: MacOS-aarch64
             runs-on: macOS-latest
