@@ -13,13 +13,13 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/gitea/release@v0.4.12
+    - uses: robgonnella/releasaurus/action/gitea/release@v0.4.13
       if: "${{ startsWith(gitea.event.head_commit.message, format('chore({0}): release', gitea.event.repository.default_branch)) }}"
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
-    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.4.12
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.4.13
       if: "${{ !startsWith(gitea.event.head_commit.message, format('chore({0}): release', gitea.event.repository.default_branch)) }}"
       with:
         repo: ${{ inputs.repo }}
