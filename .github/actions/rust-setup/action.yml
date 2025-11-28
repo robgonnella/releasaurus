@@ -34,5 +34,7 @@ runs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ inputs.cache_name }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ inputs.cache_name }}-
     - uses: taiki-e/install-action@cargo-llvm-cov
       if: ${{ inputs.include_llvm_cov  == 'true' }}
