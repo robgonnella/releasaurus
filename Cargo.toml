@@ -20,10 +20,6 @@ path = "src/main.rs"
 name = "generate-schema"
 path = "scripts/gen_schema.rs"
 
-[features]
-default = []
-_internal_e2e_tests = []
-
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"]}
 color-eyre = "0.6.5"
