@@ -92,28 +92,19 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
 
-      - name: Prepare
-        run: |
-          PACKAGE_DIR=releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}
-          PACKAGE="${PACKAGE_DIR}.tgz"
-          mkdir -p $PACKAGE_DIR
-          cp ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.executable }} $PACKAGE_DIR
-          echo "PACKAGE_DIR=$PACKAGE_DIR" >> $GITHUB_ENV
-          echo "PACKAGE=$PACKAGE" >> $GITHUB_ENV
-
       - name: Package
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           files: |
-            ${{ env.PACKAGE_DIR }}
-          outPath: ${{ env.PACKAGE }}
+            ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.executable }}
+          outPath: releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}.tgz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ env.PACKAGE }}
-          path: ${{ env.PACKAGE }}
+          name: releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}.tgz
+          path: releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}.tgz
 
   update-release:
     runs-on: ubuntu-latest
