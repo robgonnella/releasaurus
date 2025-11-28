@@ -1,3 +1,9 @@
+# [0.4.12](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.12) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- exclude dev-scripts when building and publishing [_(2030c11)_](https://api.github.com/repos/robgonnella/releasaurus/commits/2030c11663c6337c00b4cdf6e0b361aee208e6af) (Rob Gonnella)
+
 # [0.4.11](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.11) - 2025-11-28
 
 ### 🐛 Bug Fixes
