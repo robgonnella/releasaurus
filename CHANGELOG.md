@@ -1,3 +1,11 @@
+# [0.4.6](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.6) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- fixes issue with building windows binary [_(ec9f6d2)_](https://api.github.com/repos/robgonnella/releasaurus/commits/ec9f6d285a19c91ee015f879656302e11f41beab) (Rob Gonnella)
+
+- fixes docker build and bumps actions versions [_(34977ea)_](https://api.github.com/repos/robgonnella/releasaurus/commits/34977ea2e74ce5459cce6cd6c490ede0e9eef14d) (Rob Gonnella)
+
 # [0.4.5](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.5) - 2025-11-28
 
 ### 🐛 Bug Fixes
