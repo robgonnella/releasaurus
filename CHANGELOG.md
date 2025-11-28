@@ -1,3 +1,9 @@
+# [0.4.11](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.11) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- fixes issue with uploading artifacts to release [_(a4af60d)_](https://api.github.com/repos/robgonnella/releasaurus/commits/a4af60df671825ac49321d9fcdb298e55624f864) (Rob Gonnella)
+
 # [0.4.10](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.10) - 2025-11-28
 
 ### 🐛 Bug Fixes
