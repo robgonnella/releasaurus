@@ -1,3 +1,13 @@
+# [0.4.5](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.5) - 2025-11-28
+
+### 🐛 Bug Fixes
+
+- another fix for caching in pipeline [_(a106382)_](https://api.github.com/repos/robgonnella/releasaurus/commits/a10638266db5b1d79d2d15c80eb918c98a323d65) (Rob Gonnella)
+
+- fixes asset names in releases [_(3e2dd32)_](https://api.github.com/repos/robgonnella/releasaurus/commits/3e2dd3262b11eabb8c14e2e81850b1b0319ab1a5) (Rob Gonnella)
+
+- include statically linked openssl for cross compiling [_(76cfa02)_](https://api.github.com/repos/robgonnella/releasaurus/commits/76cfa02a1b0e4f960209874c87e2bf1658f1144c) (Rob Gonnella)
+
 # [0.4.4](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.4) - 2025-11-28
 
 ### 🐛 Bug Fixes
