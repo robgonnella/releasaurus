@@ -206,6 +206,8 @@ workspace_root = "."
 # prerelease = ""
 # Additional paths to include commits from (default: none)
 # additional_paths = []
+# Additional manifest files to apply generic version updates to (default: none)
+# additional_manifest_files = [{ path = "VERSION" }]
 # Package-specific version increment behavior (default: uses global settings)
 # breaking_always_increment_major = true
 # features_always_increment_minor = true
@@ -676,6 +678,89 @@ commits that modify files in:
 
 If any releasable commit touches files in these paths, the package will be
 included in the release.
+
+### `additional_manifest_files`
+
+Optional list of additional files that should receive generic version updates
+during a release. This allows you to update version strings in files that aren't
+automatically handled by your package's `release_type`.
+
+**When to use:**
+
+- **Custom version files**: Projects with non-standard version tracking files
+- **Documentation**: Version references in README, documentation, or other markdown files
+- **Build metadata**: Version strings in custom build scripts or metadata files
+- **Multi-language projects**: Version files for languages not specified in `release_type`
+
+Each manifest file entry requires a `path` field specifying the file location
+relative to the package's workspace root.
+
+```toml
+[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "docs/version.txt" },
+  { path = "scripts/build-metadata.json" }
+]
+```
+
+**Version Pattern Matching:**
+
+Files are updated using a generic regex pattern that matches common version
+formats. The pattern matches lines containing:
+
+- `version = "1.0.0"` (with single or double quotes)
+- `version: "1.0.0"` (JSON-style with colon)
+- `VERSION = "1.0.0"` (case-insensitive)
+- Variations with different whitespace: `version="1.0.0"`, `version   =   "1.0.0"`
+
+**Example file formats that work:**
+
+```txt
+# Simple VERSION file
+version = "1.0.0"
+```
+
+```json
+{
+  "version": "1.0.0",
+  "name": "my-app"
+}
+```
+
+```yaml
+metadata:
+  version: "1.0.0"
+  description: "My application"
+```
+
+**Important Notes:**
+
+- Files are only updated if they contain a matching version pattern
+- Files without version patterns are silently skipped (no error)
+- Original formatting and whitespace are preserved
+- This feature works with all `release_type` values, including `"generic"`
+- These updates are applied in addition to framework-specific updates
+
+**Example: Rust Project with Custom Version Files**
+
+```toml
+[[package]]
+path = "."
+release_type = "rust"
+# Update VERSION file alongside Cargo.toml and version reference in README
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "README.md" }
+]
+```
+
+For projects using `release_type = "generic"`, this feature provides the only
+mechanism for automatic version file updates. See the
+[Generic Projects](./supported-languages.md#generic-projects) section for more
+details on generic release types.
 
 ### `prerelease`
 

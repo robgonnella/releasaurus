@@ -2,8 +2,9 @@ use serde_json::{Value, json};
 
 use crate::{
     cli::Result,
+    config::ManifestFile,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::{ManifestFile, UpdaterPackage},
+    updater::framework::UpdaterPackage,
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -16,7 +17,7 @@ impl PackageLock {
     }
 
     /// Update version fields in package-lock.json files for all Node packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -29,13 +30,15 @@ impl PackageLock {
             }
 
             if manifest.is_workspace
-                && let Some(change) = self
-                    .update_lock_file(manifest, package, workspace_packages)
-                    .await?
+                && let Some(change) = self.update_lock_file(
+                    manifest,
+                    package,
+                    workspace_packages,
+                )?
             {
                 file_changes.push(change);
             } else if let Some(change) =
-                self.update_lock_file(manifest, package, &[]).await?
+                self.update_lock_file(manifest, package, &[])?
             {
                 file_changes.push(change);
             }
@@ -49,7 +52,7 @@ impl PackageLock {
     }
 
     /// Update a single package-lock.json file
-    async fn update_lock_file(
+    fn update_lock_file(
         &self,
         manifest: &ManifestFile,
         package: &UpdaterPackage,
@@ -139,7 +142,7 @@ mod tests {
     use super::*;
     use crate::{
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -161,7 +164,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -195,7 +198,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -243,7 +246,6 @@ mod tests {
 
         let result = package_lock
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -290,7 +292,6 @@ mod tests {
 
         let result = package_lock
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -337,7 +338,6 @@ mod tests {
 
         let result = package_lock
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -376,7 +376,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -408,7 +408,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -433,7 +433,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -467,7 +467,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).await.unwrap();
+        let result = package_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();

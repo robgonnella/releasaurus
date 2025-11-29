@@ -59,13 +59,33 @@ pub enum ReleaseType {
     Java,
 }
 
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema,
+)]
+pub struct ManifestFile {
+    #[serde(skip)]
+    /// Whether or not to treat this as a workspace manifest
+    pub is_workspace: bool,
+    #[serde(rename = "path")]
+    /// The file path relative to the package path that will be updated using a
+    /// generic regex version replace
+    pub file_path: String,
+    #[serde(skip)]
+    /// The base name of the file path
+    pub file_basename: String,
+    #[serde(skip)]
+    /// The current content of the file
+    pub content: String,
+}
+
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)] // Use default for missing fields
 pub struct PackageConfig {
     /// Name for this package (default derived from path if not provided)
     pub name: String,
-    /// Path to the workspace root directory for this package relative to the repository root
+    /// Path to the workspace root directory for this package relative to the
+    /// repository root
     pub workspace_root: String,
     /// Path to package directory relative to workspace_root
     pub path: String,
@@ -77,6 +97,8 @@ pub struct PackageConfig {
     pub prerelease: Option<String>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
+    /// Additional generic version manifest files to update
+    pub additional_manifest_files: Option<Vec<ManifestFile>>,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: Option<bool>,
     /// Always increments minor version on feature commits
@@ -97,6 +119,7 @@ impl Default for PackageConfig {
             tag_prefix: None,
             prerelease: None,
             additional_paths: None,
+            additional_manifest_files: None,
             breaking_always_increment_major: None,
             features_always_increment_minor: None,
             custom_major_increment_regex: None,

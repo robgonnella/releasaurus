@@ -1,10 +1,7 @@
-use log::*;
-use regex::Regex;
-
 use crate::{
     cli::Result,
-    forge::request::{FileChange, FileUpdateType},
-    updater::framework::{ManifestFile, UpdaterPackage},
+    forge::request::FileChange,
+    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
 
 /// Handles Gradle build.gradle and build.gradle.kts file parsing and version updates for Java packages.
@@ -17,23 +14,19 @@ impl Gradle {
     }
 
     /// Update version fields in Gradle build files for all Java packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename == "build.gradle"
-                && let Some(change) =
-                    self.update_gradle_file(manifest, package, false).await?
-            {
-                file_changes.push(change);
-            }
-
-            if manifest.file_basename == "build.gradle.kts"
-                && let Some(change) =
-                    self.update_gradle_file(manifest, package, true).await?
+            if (manifest.file_basename == "build.gradle"
+                || manifest.file_basename == "build.gradle.kts")
+                && let Some(change) = GenericUpdater::update_manifest(
+                    manifest,
+                    &package.next_version.semver,
+                )
             {
                 file_changes.push(change);
             }
@@ -45,91 +38,15 @@ impl Gradle {
 
         Ok(Some(file_changes))
     }
-
-    /// Update a single Gradle build file (build.gradle or build.gradle.kts)
-    async fn update_gradle_file(
-        &self,
-        manifest: &ManifestFile,
-        package: &UpdaterPackage,
-        is_kotlin: bool,
-    ) -> Result<Option<FileChange>> {
-        info!("Updating Gradle project: {}", manifest.file_path);
-
-        let new_version = package.next_version.semver.to_string();
-
-        // Define regex patterns for different version declaration styles
-        // Each pattern uses capture groups to preserve formatting:
-        // Group 1: prefix (everything before the version string)
-        // Group 2: opening quote
-        // Group 3: version value (to be replaced)
-        // Group 4: closing quote
-        let patterns = if is_kotlin {
-            vec![
-                // Kotlin DSL patterns
-                Regex::new(r#"(version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(version\s*=\s*)(')([^']*)(')"#)?,
-                Regex::new(r#"(val\s+version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(val\s+version\s*=\s*)(')([^']*)(')"#)?,
-                Regex::new(r#"(project\.version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(project\.version\s*=\s*)(')([^']*)(')"#)?,
-            ]
-        } else {
-            vec![
-                // Groovy DSL patterns
-                Regex::new(r#"(version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(version\s*=\s*)(')([^']*)(')"#)?,
-                Regex::new(r#"(version\s+)(")([^"]*)(")"#)?,
-                Regex::new(r#"(version\s+)(')([^']*)(')"#)?,
-                Regex::new(r#"(def\s+version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(def\s+version\s*=\s*)(')([^']*)(')"#)?,
-                Regex::new(r#"(project\.version\s*=\s*)(")([^"]*)(")"#)?,
-                Regex::new(r#"(project\.version\s*=\s*)(')([^']*)(')"#)?,
-            ]
-        };
-
-        let mut updated_content = manifest.content.clone();
-        let mut version_found = false;
-
-        for pattern in patterns {
-            if pattern.is_match(&manifest.content) {
-                // Use capture groups to preserve formatting
-                // $1 = prefix, $2 = opening quote, $3 = old version, $4 = closing quote
-                updated_content = pattern
-                    .replace_all(&updated_content, |caps: &regex::Captures| {
-                        format!(
-                            "{}{}{}{}",
-                            &caps[1], &caps[2], new_version, &caps[4]
-                        )
-                    })
-                    .to_string();
-                version_found = true;
-                break;
-            }
-        }
-
-        if version_found {
-            info!("Updating Gradle version to: {}", new_version);
-            return Ok(Some(FileChange {
-                path: manifest.file_path.clone(),
-                content: updated_content,
-                update_type: FileUpdateType::Replace,
-            }));
-        }
-
-        info!(
-            "No version declaration found in Gradle build file: {}",
-            manifest.file_path
-        );
-        Ok(None)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -150,14 +67,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, false)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let change = result.unwrap();
-        assert_eq!(change.content, r#"version = "2.0.0""#);
+        assert_eq!(change.len(), 1);
+        assert_eq!(change[0].content, r#"version = "2.0.0""#);
     }
 
     #[tokio::test]
@@ -178,13 +93,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, false)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, "version = '2.0.0'");
+        let change = result.unwrap();
+        assert_eq!(change.len(), 1);
+        assert_eq!(change[0].content, "version = '2.0.0'");
     }
 
     #[tokio::test]
@@ -205,13 +119,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, true)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, r#"version = "3.5.0""#);
+        let change = result.unwrap();
+        assert_eq!(change.len(), 1);
+        assert_eq!(change[0].content, r#"version = "3.5.0""#);
     }
 
     #[tokio::test]
@@ -232,13 +145,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, false)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, r#"project.version = "4.0.0""#);
+        let change = result.unwrap();
+        assert_eq!(change.len(), 1);
+        assert_eq!(change[0].content, r#"project.version = "4.0.0""#);
     }
 
     #[tokio::test]
@@ -259,10 +171,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, false)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -290,7 +199,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle.process_package(&package).await.unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -315,7 +224,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle.process_package(&package).await.unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -338,12 +247,11 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = gradle
-            .update_gradle_file(&manifest, &package, false)
-            .await
-            .unwrap();
+        let result = gradle.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, "version   =   \"2.0.0\"");
+        let change = result.unwrap();
+        assert_eq!(change.len(), 1);
+        assert_eq!(change[0].content, "version   =   \"2.0.0\"");
     }
 }

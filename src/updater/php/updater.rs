@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::{
     cli::Result,
     forge::request::FileChange,
@@ -23,15 +21,14 @@ impl PhpUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for PhpUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         // workspaces not supported for php projects
         _workspace_packages: Vec<UpdaterPackage>,
     ) -> Result<Option<Vec<FileChange>>> {
-        self.composer_json.process_package(package).await
+        self.composer_json.process_package(package)
     }
 }
 
@@ -39,8 +36,9 @@ impl PackageUpdater for PhpUpdater {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -61,7 +59,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
@@ -84,7 +82,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_none());
     }

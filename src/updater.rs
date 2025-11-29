@@ -5,7 +5,7 @@
 //! architecture for language-specific implementations.
 
 pub mod framework;
-mod generic;
+pub mod generic;
 mod java;
 mod node;
 mod php;

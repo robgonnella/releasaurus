@@ -17,7 +17,7 @@ impl ComposerJson {
     }
 
     /// Process composer.json files for all PHP packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -28,7 +28,7 @@ impl ComposerJson {
                 continue;
             }
 
-            if let Some(mut doc) = self.load_doc(&manifest.content).await? {
+            if let Some(mut doc) = self.load_doc(&manifest.content)? {
                 info!(
                     "found composer.json for package: {}",
                     manifest.file_path
@@ -70,7 +70,7 @@ impl ComposerJson {
     }
 
     /// Load and parse composer.json file from repository into serde_json Value.
-    async fn load_doc(&self, content: &str) -> Result<Option<Value>> {
+    fn load_doc(&self, content: &str) -> Result<Option<Value>> {
         let doc: Value = serde_json::from_str(content)?;
         Ok(Some(doc))
     }
@@ -80,8 +80,9 @@ impl ComposerJson {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -102,7 +103,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -128,7 +129,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -162,7 +163,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -198,7 +199,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -217,7 +218,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -239,7 +240,7 @@ mod tests {
             framework: Framework::Php,
         };
 
-        let result = composer_json.process_package(&package).await.unwrap();
+        let result = composer_json.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }

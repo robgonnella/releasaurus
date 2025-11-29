@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::analyzer::release::Tag;
 use crate::cli::{ReleasablePackage, Result};
-use crate::config::ReleaseType;
+use crate::config::{ManifestFile, ReleaseType};
 use crate::forge::request::FileChange;
 use crate::forge::traits::Forge;
 use crate::updater::generic::updater::GenericUpdater;
@@ -135,9 +135,7 @@ impl Framework {
 
         let updater = package.framework.updater();
 
-        if let Some(changes) =
-            updater.update(&package, workspace_packages).await?
-        {
+        if let Some(changes) = updater.update(&package, workspace_packages)? {
             file_changes.extend(changes);
         }
 
@@ -383,18 +381,6 @@ impl Framework {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ManifestFile {
-    /// Whether or not to treat this as a workspace manifest
-    pub is_workspace: bool,
-    /// The file path within the package directory that will be updated
-    pub file_path: String,
-    /// The base name of the file path
-    pub file_basename: String,
-    /// The current content of the file
-    pub content: String,
-}
-
 /// Package information with next version and framework details for version
 /// file updates.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -446,6 +432,7 @@ mod tests {
             name: name.to_string(),
             path: path.to_string(),
             workspace_root: workspace_root.to_string(),
+            additional_manifest_files: None,
             release_type,
             release: Release {
                 tag: Some(Tag {

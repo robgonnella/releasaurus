@@ -1,10 +1,7 @@
-use log::*;
-use regex::Regex;
-
 use crate::{
     cli::Result,
-    forge::request::{FileChange, FileUpdateType},
-    updater::framework::{ManifestFile, UpdaterPackage},
+    forge::request::FileChange,
+    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
 
 /// Handles gradle.properties file parsing and version updates for Java packages.
@@ -17,7 +14,7 @@ impl GradleProperties {
     }
 
     /// Update version fields in gradle.properties files for all Java packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -25,8 +22,10 @@ impl GradleProperties {
 
         for manifest in package.manifest_files.iter() {
             if manifest.file_basename == "gradle.properties"
-                && let Some(change) =
-                    self.update_properties_file(manifest, package).await?
+                && let Some(change) = GenericUpdater::update_manifest(
+                    manifest,
+                    &package.next_version.semver,
+                )
             {
                 file_changes.push(change);
             }
@@ -38,62 +37,15 @@ impl GradleProperties {
 
         Ok(Some(file_changes))
     }
-
-    /// Update a single gradle.properties file
-    async fn update_properties_file(
-        &self,
-        manifest: &ManifestFile,
-        package: &UpdaterPackage,
-    ) -> Result<Option<FileChange>> {
-        info!("Updating gradle.properties: {}", manifest.file_path);
-
-        let mut lines: Vec<String> = Vec::new();
-        let mut version_updated = false;
-
-        let new_version = package.next_version.semver.to_string();
-
-        // Read all lines and update version property
-        // Regex to capture: indentation, "version", spacing around =, and old version
-        let version_regex = Regex::new(r"^(\s*version\s*=\s*)(.*)$").unwrap();
-
-        for line in manifest.content.lines() {
-            if line.trim_start().starts_with("version") && line.contains('=') {
-                if let Some(caps) = version_regex.captures(line) {
-                    // Preserve everything before the version value
-                    lines.push(format!("{}{}", &caps[1], new_version));
-                    version_updated = true;
-                    info!(
-                        "Updated version in gradle.properties to: {}",
-                        new_version
-                    );
-                } else {
-                    lines.push(line.to_string());
-                }
-            } else {
-                lines.push(line.to_string());
-            }
-        }
-
-        // Only write back if we actually updated something
-        if version_updated {
-            let updated_content = lines.join("\n");
-            return Ok(Some(FileChange {
-                path: manifest.file_path.clone(),
-                content: updated_content,
-                update_type: FileUpdateType::Replace,
-            }));
-        }
-
-        Ok(None)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -114,13 +66,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, "version=2.0.0");
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].content, "version=2.0.0");
     }
 
     #[tokio::test]
@@ -141,13 +92,12 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, "version  =  3.0.0");
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].content, "version  =  3.0.0");
     }
 
     #[tokio::test]
@@ -168,13 +118,14 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
+
+        println!("result: {:#?}", result);
 
         assert!(result.is_some());
-        assert_eq!(result.unwrap().content, "  version=2.5.0");
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].content, "  version=2.5.0");
     }
 
     #[tokio::test]
@@ -196,13 +147,13 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        let updated = result.unwrap().content;
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        let updated = changes[0].content.clone();
+
         assert!(updated.contains("org.gradle.jvmargs=-Xmx2048m"));
         assert!(updated.contains("version=2.0.0"));
         assert!(updated.contains("group=com.example"));
@@ -226,10 +177,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -257,7 +205,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties.process_package(&package).await.unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -282,13 +230,13 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties.process_package(&package).await.unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
 
     #[tokio::test]
-    async fn ignores_commented_version_lines() {
+    async fn updates_commented_version_lines() {
         let properties = GradleProperties::new();
         let content = "# version=0.0.1\nversion=1.0.0";
         let manifest = ManifestFile {
@@ -305,14 +253,14 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = properties
-            .update_properties_file(&manifest, &package)
-            .await
-            .unwrap();
+        let result = properties.process_package(&package).unwrap();
 
         assert!(result.is_some());
-        let updated = result.unwrap().content;
-        assert!(updated.contains("# version=0.0.1"));
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+
+        let updated = changes[0].content.clone();
+        assert!(updated.contains("# version=2.0.0"));
         assert!(updated.contains("version=2.0.0"));
     }
 }

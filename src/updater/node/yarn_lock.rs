@@ -18,7 +18,7 @@ impl YarnLock {
     }
 
     /// Update version fields in yarn.lock files for all Node packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -101,8 +101,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -130,7 +131,6 @@ mod tests {
 
         let result = yarn_lock
             .process_package(&package_a, slice::from_ref(&package_a))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -174,7 +174,6 @@ mod tests {
 
         let result = yarn_lock
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -212,7 +211,6 @@ mod tests {
 
         let result = yarn_lock
             .process_package(&package_a, slice::from_ref(&package_a))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -246,7 +244,6 @@ package-a@^1.0.0:
 
         let result = yarn_lock
             .process_package(&package_a, slice::from_ref(&package_a))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -280,7 +277,6 @@ package-a@^1.0.0:
 
         let result = yarn_lock
             .process_package(&package_a, slice::from_ref(&package_a))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -315,7 +311,6 @@ package-a@^1.0.0:
 
         let result = yarn_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -341,7 +336,7 @@ package-a@^1.0.0:
             framework: Framework::Node,
         };
 
-        let result = yarn_lock.process_package(&package, &[]).await.unwrap();
+        let result = yarn_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -371,7 +366,6 @@ package-a@^1.0.0:
 
         let result = yarn_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_none());
@@ -406,7 +400,6 @@ package-a@^1.0.0:
 
         let result = yarn_lock
             .process_package(&package_a, slice::from_ref(&package_a))
-            .await
             .unwrap();
 
         assert!(result.is_some());

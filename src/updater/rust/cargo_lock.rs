@@ -16,7 +16,7 @@ impl CargoLock {
         Self {}
     }
 
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -85,8 +85,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -114,7 +115,6 @@ version = "1.0.0"
 
         let result = cargo_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -158,7 +158,6 @@ version = "1.0.0"
 
         let result = cargo_lock
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -196,7 +195,6 @@ version = "5.0.0"
 
         let result = cargo_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -239,7 +237,6 @@ checksum = "abc123"
 
         let result = cargo_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -273,7 +270,6 @@ checksum = "abc123"
 
         let result = cargo_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_none());
@@ -304,7 +300,6 @@ checksum = "abc123"
 
         let result = cargo_lock
             .process_package(&package, slice::from_ref(&package))
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -331,7 +326,7 @@ checksum = "abc123"
             framework: Framework::Rust,
         };
 
-        let result = cargo_lock.process_package(&package, &[]).await.unwrap();
+        let result = cargo_lock.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -379,7 +374,6 @@ version = "5.0.0"
                 &main_package,
                 &[main_package.clone(), workspace_package],
             )
-            .await
             .unwrap();
 
         assert!(result.is_some());

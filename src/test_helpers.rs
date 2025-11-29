@@ -129,8 +129,8 @@ pub fn create_test_config_simple(
                 features_always_increment_minor: None,
                 custom_major_increment_regex: None,
                 custom_minor_increment_regex: None,
-
                 additional_paths: None,
+                additional_manifest_files: None,
             })
             .collect(),
     }
@@ -292,6 +292,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         }];
         let config = create_test_config(packages);
         assert_eq!(config.packages.len(), 1);

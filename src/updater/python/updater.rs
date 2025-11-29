@@ -1,7 +1,5 @@
 //! Python updater for handling Python projects with various build systems and
 //! package managers
-use async_trait::async_trait;
-
 use crate::{
     cli::Result,
     forge::request::FileChange,
@@ -31,9 +29,8 @@ impl PythonUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for PythonUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         // workspaces not supported for python projects
@@ -41,15 +38,11 @@ impl PackageUpdater for PythonUpdater {
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
-        if let Some(changes) = self.pyproject.process_package(package).await? {
+        if let Some(changes) = self.pyproject.process_package(package)? {
             file_changes.extend(changes);
-        } else if let Some(changes) =
-            self.setupcfg.process_package(package).await?
-        {
+        } else if let Some(changes) = self.setupcfg.process_package(package)? {
             file_changes.extend(changes);
-        } else if let Some(changes) =
-            self.setuppy.process_package(package).await?
-        {
+        } else if let Some(changes) = self.setuppy.process_package(package)? {
             file_changes.extend(changes);
         }
 
@@ -65,8 +58,9 @@ impl PackageUpdater for PythonUpdater {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -90,7 +84,7 @@ version = "1.0.0"
             framework: Framework::Python,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
@@ -113,7 +107,7 @@ version = "1.0.0"
             framework: Framework::Python,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_none());
     }

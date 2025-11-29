@@ -2,10 +2,11 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
+use crate::config::ManifestFile;
 use crate::{
     cli::Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::{ManifestFile, UpdaterPackage},
+    updater::framework::UpdaterPackage,
 };
 
 /// Handles Maven pom.xml file parsing and version updates for Java packages.
@@ -18,7 +19,7 @@ impl Maven {
     }
 
     /// Update version fields in pom.xml files for all Java packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -26,8 +27,7 @@ impl Maven {
 
         for manifest in package.manifest_files.iter() {
             if manifest.file_basename == "pom.xml"
-                && let Some(change) =
-                    self.update_pom_file(manifest, package).await?
+                && let Some(change) = self.update_pom_file(manifest, package)?
             {
                 file_changes.push(change);
             }
@@ -41,7 +41,7 @@ impl Maven {
     }
 
     /// Update a single pom.xml file
-    async fn update_pom_file(
+    fn update_pom_file(
         &self,
         manifest: &ManifestFile,
         package: &UpdaterPackage,
@@ -114,7 +114,7 @@ mod tests {
     use super::*;
     use crate::{
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -138,7 +138,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+        let result = maven.update_pom_file(&manifest, &package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap().content;
@@ -175,7 +175,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+        let result = maven.update_pom_file(&manifest, &package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap().content;
@@ -212,7 +212,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+        let result = maven.update_pom_file(&manifest, &package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap().content;
@@ -247,7 +247,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+        let result = maven.update_pom_file(&manifest, &package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap().content;
@@ -281,7 +281,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.process_package(&package).await.unwrap();
+        let result = maven.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -306,7 +306,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.process_package(&package).await.unwrap();
+        let result = maven.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -337,7 +337,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = maven.update_pom_file(&manifest, &package).await.unwrap();
+        let result = maven.update_pom_file(&manifest, &package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap().content;

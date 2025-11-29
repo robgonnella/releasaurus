@@ -1,11 +1,10 @@
 use log::*;
-use regex::Regex;
 use std::path::Path;
 
 use crate::{
     cli::Result,
-    forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    forge::request::FileChange,
+    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
 
 /// Handles .gemspec file parsing and version updates for Ruby packages.
@@ -17,24 +16,8 @@ impl Gemspec {
         Self {}
     }
 
-    /// Update version string in gemspec file using regex pattern matching.
-    fn update_version(&self, content: &str, new_version: &str) -> String {
-        // Match patterns like:
-        // spec.version = "1.0.0"
-        // spec.version = '1.0.0'
-        // s.version = "1.0.0"
-        let re =
-            Regex::new(r#"((?:spec|s)\.version\s*=\s*)(["'])([^"']+)(["'])"#)
-                .unwrap();
-
-        re.replace_all(content, |caps: &regex::Captures| {
-            format!("{}{}{}{}", &caps[1], &caps[2], new_version, &caps[4])
-        })
-        .to_string()
-    }
-
     /// Process gemspec files for all Ruby packages.
-    pub async fn process_packages(
+    pub fn process_packages(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -50,17 +33,11 @@ impl Gemspec {
 
                 info!("processing gemspec file: {}", manifest.file_basename);
 
-                let updated_content = self.update_version(
-                    &manifest.content,
-                    &package.next_version.semver.to_string(),
-                );
-
-                if updated_content != manifest.content {
-                    file_changes.push(FileChange {
-                        path: manifest.file_path.clone(),
-                        content: updated_content,
-                        update_type: FileUpdateType::Replace,
-                    });
+                if let Some(change) = GenericUpdater::update_manifest(
+                    manifest,
+                    &package.next_version.semver,
+                ) {
+                    file_changes.push(change);
                 }
             }
         }
@@ -77,8 +54,9 @@ impl Gemspec {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -103,7 +81,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -132,7 +110,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -161,7 +139,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -189,7 +167,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -223,7 +201,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -257,7 +235,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -282,7 +260,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).await.unwrap();
+        let result = gemspec.process_packages(&package).unwrap();
 
         assert!(result.is_none());
     }

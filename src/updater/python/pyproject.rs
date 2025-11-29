@@ -15,7 +15,7 @@ impl PyProject {
         Self {}
     }
 
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -96,8 +96,9 @@ impl PyProject {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -121,7 +122,7 @@ version = "1.0.0"
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -149,7 +150,7 @@ version = "1.0.0"
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -178,7 +179,7 @@ dynamic = ["version"]
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -205,7 +206,7 @@ dynamic = ["version"]
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -236,7 +237,7 @@ requests = "^2.28.0"
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -266,7 +267,7 @@ requires = ["setuptools", "wheel"]
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -296,7 +297,7 @@ requires = ["setuptools", "wheel"]
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -321,7 +322,7 @@ requires = ["setuptools", "wheel"]
             framework: Framework::Python,
         };
 
-        let result = pyproject.process_package(&package).await.unwrap();
+        let result = pyproject.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }

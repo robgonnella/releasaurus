@@ -16,7 +16,7 @@ use crate::{
         },
         traits::Forge,
     },
-    updater::framework::Framework,
+    updater::{framework::Framework, generic::updater::GenericUpdater},
 };
 
 #[derive(Debug, Clone)]
@@ -158,6 +158,19 @@ async fn gather_release_prs_by_branch(
         let mut file_changes =
             Framework::update_package(forge, pkg, releasable_packages).await?;
 
+        if let Some(additional_manifests) =
+            pkg.additional_manifest_files.clone()
+            && let Some(tag) = pkg.release.tag.clone()
+        {
+            for manifest in additional_manifests.iter() {
+                if let Some(change) =
+                    GenericUpdater::update_manifest(manifest, &tag.semver)
+                {
+                    file_changes.push(change);
+                }
+            }
+        }
+
         let mut title =
             format!("chore({}): release {}", default_branch, pkg.name);
 
@@ -259,22 +272,23 @@ async fn get_releasable_packages(
 
     for package in config.packages.iter() {
         let tag_prefix = common::get_tag_prefix(package, &repo_name);
-        let tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
+        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         info!(
             "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
             package.name, package.workspace_root, package.path, tag_prefix
         );
 
-        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
-
         info!(
             "package_name: {}, current tag {:#?}",
             package.name, current_tag
         );
 
-        let package_commits =
-            common::filter_commits_for_package(package, tag, &commits);
+        let package_commits = common::filter_commits_for_package(
+            package,
+            current_tag.clone(),
+            &commits,
+        );
 
         info!("processing commits for package: {}", package.name);
 
@@ -298,6 +312,9 @@ async fn get_releasable_packages(
                 name: package.name.clone(),
                 path: package.path.clone(),
                 workspace_root: package.workspace_root.clone(),
+                additional_manifest_files: package
+                    .additional_manifest_files
+                    .clone(),
                 release_type,
                 release,
             });
@@ -326,10 +343,29 @@ mod tests {
         version: &str,
         release_type: ReleaseType,
     ) -> ReleasablePackage {
+        create_releasable_package_with_manifests(
+            name,
+            path,
+            workspace_root,
+            version,
+            release_type,
+            None,
+        )
+    }
+
+    fn create_releasable_package_with_manifests(
+        name: &str,
+        path: &str,
+        workspace_root: &str,
+        version: &str,
+        release_type: ReleaseType,
+        additional_manifest_files: Option<Vec<crate::config::ManifestFile>>,
+    ) -> ReleasablePackage {
         ReleasablePackage {
             name: name.to_string(),
             path: path.to_string(),
             workspace_root: workspace_root.to_string(),
+            additional_manifest_files,
             release_type,
             release: Release {
                 tag: Some(Tag {
@@ -840,5 +876,208 @@ mod tests {
 
         let result = execute(Box::new(mock_forge)).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_gather_release_prs_includes_additional_manifest_files() {
+        let manifest = crate::config::ManifestFile {
+            is_workspace: false,
+            file_path: "VERSION".to_string(),
+            file_basename: "VERSION".to_string(),
+            content: r#"version = "1.0.0""#.to_string(),
+        };
+
+        let packages = vec![create_releasable_package_with_manifests(
+            "my-package",
+            ".",
+            ".",
+            "2.0.0",
+            ReleaseType::Node,
+            Some(vec![manifest]),
+        )];
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        let config = create_test_config_simple(vec![(
+            "my-package",
+            ".",
+            ReleaseType::Node,
+        )]);
+
+        let result =
+            gather_release_prs_by_branch(&packages, &mock_forge, &config)
+                .await
+                .unwrap();
+
+        let prs = result.get("releasaurus-release-main").unwrap();
+        let version_file_change =
+            prs[0].file_changes.iter().find(|fc| fc.path == "VERSION");
+
+        assert!(version_file_change.is_some());
+        let change = version_file_change.unwrap();
+        assert!(change.content.contains("2.0.0"));
+        assert_eq!(change.update_type, FileUpdateType::Replace);
+    }
+
+    #[tokio::test]
+    async fn test_gather_release_prs_includes_multiple_additional_manifests() {
+        let manifests = vec![
+            crate::config::ManifestFile {
+                is_workspace: false,
+                file_path: "VERSION".to_string(),
+                file_basename: "VERSION".to_string(),
+                content: r#"version = "1.0.0""#.to_string(),
+            },
+            crate::config::ManifestFile {
+                is_workspace: false,
+                file_path: "docs/VERSION.txt".to_string(),
+                file_basename: "VERSION.txt".to_string(),
+                content: r#"version: "1.0.0""#.to_string(),
+            },
+        ];
+
+        let packages = vec![create_releasable_package_with_manifests(
+            "my-package",
+            ".",
+            ".",
+            "2.0.0",
+            ReleaseType::Node,
+            Some(manifests),
+        )];
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        let config = create_test_config_simple(vec![(
+            "my-package",
+            ".",
+            ReleaseType::Node,
+        )]);
+
+        let result =
+            gather_release_prs_by_branch(&packages, &mock_forge, &config)
+                .await
+                .unwrap();
+
+        let prs = result.get("releasaurus-release-main").unwrap();
+        let version_changes: Vec<_> = prs[0]
+            .file_changes
+            .iter()
+            .filter(|fc| fc.path == "VERSION" || fc.path == "docs/VERSION.txt")
+            .collect();
+
+        assert_eq!(version_changes.len(), 2);
+        assert!(version_changes.iter().all(|c| c.content.contains("2.0.0")));
+    }
+
+    #[tokio::test]
+    async fn test_gather_release_prs_skips_manifests_without_version_pattern() {
+        let manifest = crate::config::ManifestFile {
+            is_workspace: false,
+            file_path: "README.md".to_string(),
+            file_basename: "README.md".to_string(),
+            content: "# My Package\n\nNo version here".to_string(),
+        };
+
+        let packages = vec![create_releasable_package_with_manifests(
+            "my-package",
+            ".",
+            ".",
+            "2.0.0",
+            ReleaseType::Node,
+            Some(vec![manifest]),
+        )];
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        let config = create_test_config_simple(vec![(
+            "my-package",
+            ".",
+            ReleaseType::Node,
+        )]);
+
+        let result =
+            gather_release_prs_by_branch(&packages, &mock_forge, &config)
+                .await
+                .unwrap();
+
+        let prs = result.get("releasaurus-release-main").unwrap();
+        let readme_change =
+            prs[0].file_changes.iter().find(|fc| fc.path == "README.md");
+
+        assert!(readme_change.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_gather_release_prs_combines_framework_and_additional_manifests()
+     {
+        let manifest = crate::config::ManifestFile {
+            is_workspace: false,
+            file_path: "VERSION".to_string(),
+            file_basename: "VERSION".to_string(),
+            content: r#"version = "1.0.0""#.to_string(),
+        };
+
+        let packages = vec![create_releasable_package_with_manifests(
+            "my-package",
+            ".",
+            ".",
+            "2.0.0",
+            ReleaseType::Node,
+            Some(vec![manifest]),
+        )];
+
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge.expect_get_file_content().returning(|path| {
+            if path.ends_with("package.json") {
+                Ok(Some(
+                    r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
+                ))
+            } else {
+                Ok(None)
+            }
+        });
+
+        let config = create_test_config_simple(vec![(
+            "my-package",
+            ".",
+            ReleaseType::Node,
+        )]);
+
+        let result =
+            gather_release_prs_by_branch(&packages, &mock_forge, &config)
+                .await
+                .unwrap();
+
+        let prs = result.get("releasaurus-release-main").unwrap();
+
+        let has_package_json = prs[0]
+            .file_changes
+            .iter()
+            .any(|fc| fc.path.ends_with("package.json"));
+
+        let has_version_file =
+            prs[0].file_changes.iter().any(|fc| fc.path == "VERSION");
+
+        assert!(has_package_json, "Should include framework-specific files");
+        assert!(has_version_file, "Should include additional manifest files");
     }
 }
