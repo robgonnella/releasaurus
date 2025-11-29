@@ -1,10 +1,7 @@
-// use log::*;
-use regex::Regex;
-
 use crate::{
     cli::Result,
-    forge::request::{FileChange, FileUpdateType},
-    updater::framework::{ManifestFile, UpdaterPackage},
+    forge::request::FileChange,
+    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
 
 /// Handles version.rb file parsing and version updates for Ruby packages.
@@ -17,7 +14,7 @@ impl VersionRb {
     }
 
     /// Process version.rb files for all Ruby packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -28,7 +25,10 @@ impl VersionRb {
                 continue;
             }
 
-            if let Some(change) = self.update_version(manifest, package) {
+            if let Some(change) = GenericUpdater::update_manifest(
+                manifest,
+                &package.next_version.semver,
+            ) {
                 file_changes.push(change);
             }
         }
@@ -39,45 +39,15 @@ impl VersionRb {
 
         Ok(Some(file_changes))
     }
-
-    /// Update version in a version.rb file.
-    fn update_version(
-        &self,
-        manifest: &ManifestFile,
-        package: &UpdaterPackage,
-    ) -> Option<FileChange> {
-        // Match patterns like:
-        // VERSION = "1.0.0"
-        // VERSION = '1.0.0'
-        let re = Regex::new(r#"(VERSION\s*=\s*)(["'])([^"']+)(["'])"#).unwrap();
-
-        if !re.is_match(&manifest.content) {
-            return None;
-        }
-
-        let updated_content = re
-            .replace_all(&manifest.content, |caps: &regex::Captures| {
-                format!(
-                    "{}{}{}{}",
-                    &caps[1], &caps[2], package.next_version, &caps[4]
-                )
-            })
-            .to_string();
-
-        Some(FileChange {
-            path: manifest.file_path.clone(),
-            content: updated_content,
-            update_type: FileUpdateType::Replace,
-        })
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -101,11 +71,11 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("VERSION = \"v2.0.0\""));
+        assert!(updated.contains("VERSION = \"2.0.0\""));
     }
 
     #[tokio::test]
@@ -129,11 +99,11 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("VERSION = 'v2.0.0'"));
+        assert!(updated.contains("VERSION = '2.0.0'"));
     }
 
     #[tokio::test]
@@ -157,11 +127,11 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("VERSION   =   \"v2.0.0\""));
+        assert!(updated.contains("VERSION   =   \"2.0.0\""));
     }
 
     #[tokio::test]
@@ -185,7 +155,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }
@@ -218,11 +188,11 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("VERSION = \"v2.0.0\""));
+        assert!(updated.contains("VERSION = \"2.0.0\""));
         assert!(updated.contains("# frozen_string_literal: true"));
         assert!(updated.contains("# The current version"));
         assert!(updated.contains("AUTHOR = \"Test Author\""));
@@ -252,12 +222,12 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("v2.0.0")));
+        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
     #[tokio::test]
@@ -277,7 +247,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = version_rb.process_package(&package).await.unwrap();
+        let result = version_rb.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }

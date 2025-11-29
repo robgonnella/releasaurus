@@ -146,6 +146,7 @@ mod tests {
                 custom_major_increment_regex: None,
                 custom_minor_increment_regex: None,
                 additional_paths: None,
+                additional_manifest_files: None,
             }]))
         });
 
@@ -214,6 +215,7 @@ mod tests {
                 custom_major_increment_regex: None,
                 custom_minor_increment_regex: None,
                 additional_paths: None,
+                additional_manifest_files: None,
             }]);
             config.separate_pull_requests = true;
             Ok(config)
@@ -271,6 +273,7 @@ mod tests {
                 custom_major_increment_regex: None,
                 custom_minor_increment_regex: None,
                 additional_paths: None,
+                additional_manifest_files: None,
             }]))
         });
 
@@ -311,6 +314,7 @@ mod tests {
                     custom_major_increment_regex: None,
                     custom_minor_increment_regex: None,
                     additional_paths: None,
+                    additional_manifest_files: None,
                 },
                 PackageConfig {
                     name: "pkg-b".into(),
@@ -324,6 +328,7 @@ mod tests {
                     custom_major_increment_regex: None,
                     custom_minor_increment_regex: None,
                     additional_paths: None,
+                    additional_manifest_files: None,
                 },
             ]))
         });
@@ -397,6 +402,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         };
 
         let pr = PullRequest {
@@ -434,6 +440,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         };
 
         let pr = PullRequest {
@@ -464,6 +471,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         };
 
         let pr = PullRequest {
@@ -500,6 +508,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         };
 
         let pr = PullRequest {
@@ -530,6 +539,7 @@ mod tests {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             additional_paths: None,
+            additional_manifest_files: None,
         };
 
         let pr = PullRequest {
@@ -572,6 +582,7 @@ mod tests {
                     custom_major_increment_regex: None,
                     custom_minor_increment_regex: None,
                     additional_paths: None,
+                    additional_manifest_files: None,
                 },
                 PackageConfig {
                     name: "web".into(),
@@ -585,6 +596,7 @@ mod tests {
                     custom_major_increment_regex: None,
                     custom_minor_increment_regex: None,
                     additional_paths: None,
+                    additional_manifest_files: None,
                 },
             ]))
         });

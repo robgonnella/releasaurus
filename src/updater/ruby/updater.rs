@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::{
     cli::Result,
     forge::request::FileChange,
@@ -26,9 +24,8 @@ impl RubyUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for RubyUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         // workspaces not supported for ruby projects
@@ -37,12 +34,12 @@ impl PackageUpdater for RubyUpdater {
         let mut file_changes: Vec<FileChange> = vec![];
 
         // Try to update gemspec files
-        if let Some(changes) = self.gemspec.process_packages(package).await? {
+        if let Some(changes) = self.gemspec.process_packages(package)? {
             file_changes.extend(changes);
         }
 
         // Try to update version.rb files
-        if let Some(changes) = self.version_rb.process_package(package).await? {
+        if let Some(changes) = self.version_rb.process_package(package)? {
             file_changes.extend(changes);
         }
 
@@ -58,8 +55,9 @@ impl PackageUpdater for RubyUpdater {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -84,7 +82,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
@@ -107,7 +105,7 @@ end
             framework: Framework::Ruby,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_none());
     }

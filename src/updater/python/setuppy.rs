@@ -1,16 +1,8 @@
-use regex::Regex;
-use std::sync::LazyLock;
-
 use crate::{
     cli::Result,
-    forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    forge::request::FileChange,
+    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
-
-static VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)^(\s*version\s*=\s*)([\"'])([\w\.\-\+]+)([\"'])"#)
-        .unwrap()
-});
 
 pub struct SetupPy {}
 
@@ -19,7 +11,7 @@ impl SetupPy {
         Self {}
     }
 
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -30,23 +22,12 @@ impl SetupPy {
                 continue;
             }
 
-            let content = VERSION_REGEX
-                .replace(&manifest.content, |caps: &regex::Captures| {
-                    format!(
-                        "{}{}{}{}",
-                        &caps[1],
-                        &caps[2],
-                        package.next_version.semver,
-                        &caps[4]
-                    )
-                })
-                .to_string();
-
-            file_changes.push(FileChange {
-                path: manifest.file_path.clone(),
-                content,
-                update_type: FileUpdateType::Replace,
-            });
+            if let Some(change) = GenericUpdater::update_manifest(
+                manifest,
+                &package.next_version.semver,
+            ) {
+                file_changes.push(change);
+            }
         }
 
         if file_changes.is_empty() {
@@ -61,8 +42,9 @@ impl SetupPy {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -84,7 +66,7 @@ mod tests {
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -110,7 +92,7 @@ mod tests {
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -136,7 +118,7 @@ mod tests {
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -173,7 +155,7 @@ setup(
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -210,7 +192,7 @@ setup(
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -235,7 +217,7 @@ setup(
             framework: Framework::Python,
         };
 
-        let result = setuppy.process_package(&package).await.unwrap();
+        let result = setuppy.process_package(&package).unwrap();
 
         assert!(result.is_none());
     }

@@ -78,6 +78,7 @@
           "tag_prefix": null,
           "prerelease": null,
           "additional_paths": null,
+          "additional_manifest_files": null,
           "breaking_always_increment_major": null,
           "features_always_increment_minor": null,
           "custom_major_increment_regex": null,
@@ -138,7 +139,7 @@
           "default": ""
         },
         "workspace_root": {
-          "description": "Path to the workspace root directory for this package relative to the repository root",
+          "description": "Path to the workspace root directory for this package relative to the\nrepository root",
           "type": "string",
           "default": "."
         },
@@ -183,6 +184,17 @@
           ],
           "items": {
             "type": "string"
+          },
+          "default": null
+        },
+        "additional_manifest_files": {
+          "description": "Additional generic version manifest files to update",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/ManifestFile"
           },
           "default": null
         },
@@ -231,6 +243,18 @@
         "php",
         "ruby",
         "java"
+      ]
+    },
+    "ManifestFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "The file path relative to the package path that will be updated using a\ngeneric regex version replace",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
       ]
     }
   }

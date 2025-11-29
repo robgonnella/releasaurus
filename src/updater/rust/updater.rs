@@ -1,6 +1,4 @@
 //! Cargo updater for handling rust projects
-use async_trait::async_trait;
-
 use crate::{
     cli::Result,
     forge::request::FileChange,
@@ -28,9 +26,8 @@ impl RustUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for RustUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         workspace_packages: Vec<UpdaterPackage>,
@@ -39,16 +36,14 @@ impl PackageUpdater for RustUpdater {
 
         if let Some(changes) = self
             .cargo_toml
-            .process_package(package, &workspace_packages)
-            .await?
+            .process_package(package, &workspace_packages)?
         {
             file_changes.extend(changes);
         }
 
         if let Some(changes) = self
             .cargo_lock
-            .process_package(package, &workspace_packages)
-            .await?
+            .process_package(package, &workspace_packages)?
         {
             file_changes.extend(changes);
         }
@@ -65,8 +60,9 @@ impl PackageUpdater for RustUpdater {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -90,7 +86,7 @@ version = "1.0.0"
             framework: Framework::Rust,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
@@ -113,7 +109,7 @@ version = "1.0.0"
             framework: Framework::Rust,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_none());
     }

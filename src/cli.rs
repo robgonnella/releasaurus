@@ -7,7 +7,7 @@ use std::{env, fmt};
 
 use crate::{
     analyzer::release::Release,
-    config::ReleaseType,
+    config::{ManifestFile, ReleaseType},
     forge::config::{Remote, RemoteConfig},
 };
 
@@ -117,6 +117,8 @@ pub struct ReleasablePackage {
     pub release_type: ReleaseType,
     /// The computed Release for this package
     pub release: Release,
+    /// Additional version manifest files to apply updates to
+    pub additional_manifest_files: Option<Vec<ManifestFile>>,
 }
 
 /// Error indicating a pending release that hasn't been tagged yet.

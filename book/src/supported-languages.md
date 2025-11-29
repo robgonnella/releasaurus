@@ -208,9 +208,13 @@ my-ruby-gem/
 
 **Configuration**: `release_type = "generic"`
 
-Generic projects receive changelog generation and tagging only. Version files
-are not modified. This is useful for documentation repositories, configuration
-projects, or languages not yet supported.
+Generic projects receive changelog generation and tagging only. By default,
+version files are not modified automatically. However, you can enable version
+file updates by using the `additional_manifest_files` configuration option,
+which applies generic version pattern matching to specified files.
+
+This is useful for documentation repositories, configuration projects, or
+languages not yet supported by framework-specific updaters.
 
 **Example Configuration**:
 
@@ -219,6 +223,22 @@ projects, or languages not yet supported.
 path = "."
 release_type = "generic"
 ```
+
+**Example with Version File Updates**:
+
+```toml
+[[package]]
+path = "."
+release_type = "generic"
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "README.md" }
+]
+```
+
+For details on configuring additional manifest files, see the
+[`additional_manifest_files`](./configuration.md#additional_manifest_files)
+section in the Configuration documentation.
 
 ## Framework-Specific Features
 

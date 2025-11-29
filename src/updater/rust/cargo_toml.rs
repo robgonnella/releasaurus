@@ -17,7 +17,7 @@ impl CargoToml {
     }
 
     /// Update version fields in Cargo.toml files for all Rust packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -139,8 +139,9 @@ impl CargoToml {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -164,7 +165,7 @@ version = "1.0.0"
             framework: Framework::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).await.unwrap();
+        let result = cargo_toml.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -204,7 +205,6 @@ package-b = "1.0.0"
 
         let result = cargo_toml
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -245,7 +245,6 @@ package-b = { version = "1.0.0", features = ["serde"] }
 
         let result = cargo_toml
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -287,7 +286,6 @@ package-b = "1.0.0"
 
         let result = cargo_toml
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -328,7 +326,6 @@ package-b = "1.0.0"
 
         let result = cargo_toml
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -356,7 +353,7 @@ members = ["packages/*"]
             framework: Framework::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).await.unwrap();
+        let result = cargo_toml.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -387,7 +384,7 @@ serde = "1.0"
             framework: Framework::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).await.unwrap();
+        let result = cargo_toml.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -422,7 +419,7 @@ serde = "1.0"
             framework: Framework::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).await.unwrap();
+        let result = cargo_toml.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -447,7 +444,7 @@ serde = "1.0"
             framework: Framework::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).await.unwrap();
+        let result = cargo_toml.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

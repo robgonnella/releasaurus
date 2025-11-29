@@ -1,6 +1,6 @@
 use std::fs;
 
-use releasaurus::{config, result::Result};
+use releasaurus::{Result, config};
 use schemars::schema_for;
 
 fn main() -> Result<()> {

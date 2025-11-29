@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::{
     cli::Result,
     forge::request::FileChange,
@@ -30,9 +28,8 @@ impl JavaUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for JavaUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         // workspaces not supported for java projects
@@ -41,18 +38,18 @@ impl PackageUpdater for JavaUpdater {
         let mut file_changes: Vec<FileChange> = vec![];
 
         // Try Maven first (pom.xml) - takes precedence
-        if let Some(changes) = self.maven.process_package(package).await? {
+        if let Some(changes) = self.maven.process_package(package)? {
             file_changes.extend(changes);
         }
 
         // Try Gradle build files (build.gradle, build.gradle.kts)
-        if let Some(changes) = self.gradle.process_package(package).await? {
+        if let Some(changes) = self.gradle.process_package(package)? {
             file_changes.extend(changes);
         }
 
         // Try gradle.properties
         if let Some(changes) =
-            self.gradle_properties.process_package(package).await?
+            self.gradle_properties.process_package(package)?
         {
             file_changes.extend(changes);
         }
@@ -69,8 +66,9 @@ impl PackageUpdater for JavaUpdater {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -94,7 +92,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
@@ -117,7 +115,7 @@ mod tests {
             framework: Framework::Java,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_none());
     }

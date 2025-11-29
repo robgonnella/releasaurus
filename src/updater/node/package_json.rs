@@ -17,7 +17,7 @@ impl PackageJson {
     }
 
     /// Update version fields in package.json files for all Node packages.
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -107,8 +107,9 @@ impl PackageJson {
 mod tests {
     use super::*;
     use crate::{
+        config::ManifestFile,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        updater::framework::{Framework, UpdaterPackage},
     };
 
     #[tokio::test]
@@ -129,7 +130,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).await.unwrap();
+        let result = package_json.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
@@ -169,7 +170,6 @@ mod tests {
 
         let result = package_json
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -210,7 +210,6 @@ mod tests {
 
         let result = package_json
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -251,7 +250,6 @@ mod tests {
 
         let result = package_json
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -292,7 +290,6 @@ mod tests {
 
         let result = package_json
             .process_package(&package_a, &[package_a.clone(), package_b])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -334,7 +331,6 @@ mod tests {
 
         let result = package_json
             .process_package(&package_root, &[package_root.clone(), package_a])
-            .await
             .unwrap();
 
         assert!(result.is_some());
@@ -366,7 +362,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).await.unwrap();
+        let result = package_json.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
@@ -391,7 +387,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).await.unwrap();
+        let result = package_json.process_package(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -422,7 +418,7 @@ mod tests {
             framework: Framework::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).await.unwrap();
+        let result = package_json.process_package(&package, &[]).unwrap();
 
         assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
