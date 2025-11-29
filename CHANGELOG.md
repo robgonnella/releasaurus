@@ -1,3 +1,13 @@
+# [0.5.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.0) - 2025-11-29
+
+### 🚀 Features
+
+- implements generic manifest version updates [_(49f6472)_](https://api.github.com/repos/robgonnella/releasaurus/commits/49f647237c34d8ab96f6434effa6435146f890ac) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- updates documentation to include binary install instructions [_(130bbd2)_](https://api.github.com/repos/robgonnella/releasaurus/commits/130bbd2f842203cd4b5127e5982171c8be375183) (Rob Gonnella)
+
 # [0.4.13](https://github.com/robgonnella/releasaurus/releases/tag/v0.4.13) - 2025-11-28
 
 ### 🐛 Bug Fixes
