@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-01da2303.js";
+            window.path_to_searchindex_js = "searchindex-8640dc64.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -185,7 +185,7 @@
 <li><strong>Internet Access</strong>: Required for API calls to Git forge platforms</li>
 </ul>
 <h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
-<h3 id="option-1-install-from-cratesio-recommended"><a class="header" href="#option-1-install-from-cratesio-recommended">Option 1: Install from Crates.io (Recommended)</a></h3>
+<h3 id="option-1-install-from-cratesio"><a class="header" href="#option-1-install-from-cratesio">Option 1: Install from Crates.io</a></h3>
 <p>The easiest way to install Releasaurus is using Cargo, Rust’s package
 manager:</p>
 <pre><code class="language-bash">cargo install releasaurus
@@ -194,12 +194,19 @@ manager:</p>
 Releasaurus. The binary will be available in your <code>$HOME/.cargo/bin</code>
 directory, which should be in your system’s PATH.</p>
 <h3 id="option-2-download-pre-built-binaries"><a class="header" href="#option-2-download-pre-built-binaries">Option 2: Download Pre-built Binaries</a></h3>
-<p>Coming soon…</p>
+<p>Pre-built binaries can be installed directly from github releases page
+<a href="https://github.com/robgonnella/releasaurus/releases">https://github.com/robgonnella/releasaurus/releases</a>.</p>
+<p>Alternatively you can also install the pre-built binaries using
+<a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a>.</p>
+<pre><code class="language-bash">cargo binstall releasaurus
+# or
+cargo binstall releasaurus --version &lt;target_version&gt;
+</code></pre>
 <h3 id="option-3-build-from-source"><a class="header" href="#option-3-build-from-source">Option 3: Build from Source</a></h3>
 <p>If you prefer to build from source or need the latest development features:</p>
 <h4 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h4>
 <ul>
-<li><a href="https://rustup.rs/">Rust</a> 1.70 or higher</li>
+<li><a href="https://rustup.rs/">Rust</a> 1.80 or higher</li>
 <li>Git</li>
 </ul>
 <h4 id="build-steps"><a class="header" href="#build-steps">Build Steps</a></h4>

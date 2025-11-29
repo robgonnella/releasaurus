@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-01da2303.js";
+            window.path_to_searchindex_js = "searchindex-8640dc64.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -314,14 +314,29 @@ release_type = "ruby"
 </code></pre>
 <h3 id="generic-projects"><a class="header" href="#generic-projects">Generic Projects</a></h3>
 <p><strong>Configuration</strong>: <code>release_type = "generic"</code></p>
-<p>Generic projects receive changelog generation and tagging only. Version files
-are not modified. This is useful for documentation repositories, configuration
-projects, or languages not yet supported.</p>
+<p>Generic projects receive changelog generation and tagging only. By default,
+version files are not modified automatically. However, you can enable version
+file updates by using the <code>additional_manifest_files</code> configuration option,
+which applies generic version pattern matching to specified files.</p>
+<p>This is useful for documentation repositories, configuration projects, or
+languages not yet supported by framework-specific updaters.</p>
 <p><strong>Example Configuration</strong>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "generic"
 </code></pre>
+<p><strong>Example with Version File Updates</strong>:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "generic"
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "README.md" }
+]
+</code></pre>
+<p>For details on configuring additional manifest files, see the
+<a href="./configuration.html#additional_manifest_files"><code>additional_manifest_files</code></a>
+section in the Configuration documentation.</p>
 <h2 id="framework-specific-features"><a class="header" href="#framework-specific-features">Framework-Specific Features</a></h2>
 <h3 id="version-file-detection"><a class="header" href="#version-file-detection">Version File Detection</a></h3>
 <p>Each language ecosystem has different conventions for where version information

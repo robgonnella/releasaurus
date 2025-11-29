@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-01da2303.js";
+            window.path_to_searchindex_js = "searchindex-8640dc64.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -304,7 +304,7 @@ safety that production releases demand.</p>
 <li><strong>Internet Access</strong>: Required for API calls to Git forge platforms</li>
 </ul>
 <h2 id="installation-methods"><a class="header" href="#installation-methods">Installation Methods</a></h2>
-<h3 id="option-1-install-from-cratesio-recommended"><a class="header" href="#option-1-install-from-cratesio-recommended">Option 1: Install from Crates.io (Recommended)</a></h3>
+<h3 id="option-1-install-from-cratesio"><a class="header" href="#option-1-install-from-cratesio">Option 1: Install from Crates.io</a></h3>
 <p>The easiest way to install Releasaurus is using Cargo, Rust’s package
 manager:</p>
 <pre><code class="language-bash">cargo install releasaurus
@@ -313,12 +313,19 @@ manager:</p>
 Releasaurus. The binary will be available in your <code>$HOME/.cargo/bin</code>
 directory, which should be in your system’s PATH.</p>
 <h3 id="option-2-download-pre-built-binaries"><a class="header" href="#option-2-download-pre-built-binaries">Option 2: Download Pre-built Binaries</a></h3>
-<p>Coming soon…</p>
+<p>Pre-built binaries can be installed directly from github releases page
+<a href="https://github.com/robgonnella/releasaurus/releases">https://github.com/robgonnella/releasaurus/releases</a>.</p>
+<p>Alternatively you can also install the pre-built binaries using
+<a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a>.</p>
+<pre><code class="language-bash">cargo binstall releasaurus
+# or
+cargo binstall releasaurus --version &lt;target_version&gt;
+</code></pre>
 <h3 id="option-3-build-from-source"><a class="header" href="#option-3-build-from-source">Option 3: Build from Source</a></h3>
 <p>If you prefer to build from source or need the latest development features:</p>
 <h4 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h4>
 <ul>
-<li><a href="https://rustup.rs/">Rust</a> 1.70 or higher</li>
+<li><a href="https://rustup.rs/">Rust</a> 1.80 or higher</li>
 <li>Git</li>
 </ul>
 <h4 id="build-steps"><a class="header" href="#build-steps">Build Steps</a></h4>
@@ -1346,14 +1353,29 @@ release_type = "ruby"
 </code></pre>
 <h3 id="generic-projects"><a class="header" href="#generic-projects">Generic Projects</a></h3>
 <p><strong>Configuration</strong>: <code>release_type = "generic"</code></p>
-<p>Generic projects receive changelog generation and tagging only. Version files
-are not modified. This is useful for documentation repositories, configuration
-projects, or languages not yet supported.</p>
+<p>Generic projects receive changelog generation and tagging only. By default,
+version files are not modified automatically. However, you can enable version
+file updates by using the <code>additional_manifest_files</code> configuration option,
+which applies generic version pattern matching to specified files.</p>
+<p>This is useful for documentation repositories, configuration projects, or
+languages not yet supported by framework-specific updaters.</p>
 <p><strong>Example Configuration</strong>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "generic"
 </code></pre>
+<p><strong>Example with Version File Updates</strong>:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "generic"
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "README.md" }
+]
+</code></pre>
+<p>For details on configuring additional manifest files, see the
+<a href="#additional_manifest_files"><code>additional_manifest_files</code></a>
+section in the Configuration documentation.</p>
 <h2 id="framework-specific-features"><a class="header" href="#framework-specific-features">Framework-Specific Features</a></h2>
 <h3 id="version-file-detection"><a class="header" href="#version-file-detection">Version File Detection</a></h3>
 <p>Each language ecosystem has different conventions for where version information
@@ -1697,6 +1719,8 @@ workspace_root = "."
 # prerelease = ""
 # Additional paths to include commits from (default: none)
 # additional_paths = []
+# Additional manifest files to apply generic version updates to (default: none)
+# additional_manifest_files = [{ path = "VERSION" }]
 # Package-specific version increment behavior (default: uses global settings)
 # breaking_always_increment_major = true
 # features_always_increment_minor = true
@@ -2063,6 +2087,72 @@ commits that modify files in:</p>
 </ol>
 <p>If any releasable commit touches files in these paths, the package will be
 included in the release.</p>
+<h3 id="additional_manifest_files"><a class="header" href="#additional_manifest_files"><code>additional_manifest_files</code></a></h3>
+<p>Optional list of additional files that should receive generic version updates
+during a release. This allows you to update version strings in files that aren’t
+automatically handled by your package’s <code>release_type</code>.</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li><strong>Custom version files</strong>: Projects with non-standard version tracking files</li>
+<li><strong>Documentation</strong>: Version references in README, documentation, or other markdown files</li>
+<li><strong>Build metadata</strong>: Version strings in custom build scripts or metadata files</li>
+<li><strong>Multi-language projects</strong>: Version files for languages not specified in <code>release_type</code></li>
+</ul>
+<p>Each manifest file entry requires a <code>path</code> field specifying the file location
+relative to the package’s workspace root.</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "docs/version.txt" },
+  { path = "scripts/build-metadata.json" }
+]
+</code></pre>
+<p><strong>Version Pattern Matching:</strong></p>
+<p>Files are updated using a generic regex pattern that matches common version
+formats. The pattern matches lines containing:</p>
+<ul>
+<li><code>version = "1.0.0"</code> (with single or double quotes)</li>
+<li><code>version: "1.0.0"</code> (JSON-style with colon)</li>
+<li><code>VERSION = "1.0.0"</code> (case-insensitive)</li>
+<li>Variations with different whitespace: <code>version="1.0.0"</code>, <code>version   =   "1.0.0"</code></li>
+</ul>
+<p><strong>Example file formats that work:</strong></p>
+<pre><code class="language-txt"># Simple VERSION file
+version = "1.0.0"
+</code></pre>
+<pre><code class="language-json">{
+  "version": "1.0.0",
+  "name": "my-app"
+}
+</code></pre>
+<pre><code class="language-yaml">metadata:
+  version: "1.0.0"
+  description: "My application"
+</code></pre>
+<p><strong>Important Notes:</strong></p>
+<ul>
+<li>Files are only updated if they contain a matching version pattern</li>
+<li>Files without version patterns are silently skipped (no error)</li>
+<li>Original formatting and whitespace are preserved</li>
+<li>This feature works with all <code>release_type</code> values, including <code>"generic"</code></li>
+<li>These updates are applied in addition to framework-specific updates</li>
+</ul>
+<p><strong>Example: Rust Project with Custom Version Files</strong></p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+# Update VERSION file alongside Cargo.toml and version reference in README
+additional_manifest_files = [
+  { path = "VERSION" },
+  { path = "README.md" }
+]
+</code></pre>
+<p>For projects using <code>release_type = "generic"</code>, this feature provides the only
+mechanism for automatic version file updates. See the
+<a href="#generic-projects">Generic Projects</a> section for more
+details on generic release types.</p>
 <h3 id="prerelease"><a class="header" href="#prerelease"><code>prerelease</code></a></h3>
 <p>Optional prerelease identifier for creating pre-release versions
 (e.g., alpha, beta, rc). Can be configured globally or per-package.</p>
