@@ -6,8 +6,8 @@ use std::any::Any;
 use mockall::automock;
 
 use crate::{
+    Result,
     analyzer::release::Tag,
-    cli::Result,
     config::Config,
     forge::{
         config::RemoteConfig,

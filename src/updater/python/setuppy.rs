@@ -1,5 +1,5 @@
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
     updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
 };
@@ -42,7 +42,7 @@ impl SetupPy {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::manifest::ManifestFile,
         test_helpers::create_test_tag,
         updater::framework::{Framework, UpdaterPackage},
     };

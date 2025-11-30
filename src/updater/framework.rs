@@ -1,13 +1,13 @@
 //! Framework and package management for multi-language support.
 use log::*;
 use std::fmt::Display;
-use std::path::Path;
 
+use crate::Result;
 use crate::analyzer::release::Tag;
-use crate::cli::{ReleasablePackage, Result};
-use crate::config::{ManifestFile, ReleaseType};
+use crate::command::types::ReleasablePackage;
+use crate::config::manifest::ManifestFile;
+use crate::config::release_type::ReleaseType;
 use crate::forge::request::FileChange;
-use crate::forge::traits::Forge;
 use crate::updater::generic::updater::GenericUpdater;
 use crate::updater::java::updater::JavaUpdater;
 use crate::updater::node::updater::NodeUpdater;
@@ -68,7 +68,6 @@ impl From<ReleaseType> for Framework {
 
 impl Framework {
     pub async fn update_package(
-        forge: &dyn Forge,
         package: &ReleasablePackage,
         all_packages: &[ReleasablePackage],
     ) -> Result<Vec<FileChange>> {
@@ -102,37 +101,6 @@ impl Framework {
             package.framework
         );
 
-        // populate package manifests with content
-        let mut package = package.clone();
-        let mut package_manifests = vec![];
-
-        for manifest in package.manifest_files.iter_mut() {
-            if let Some(content) =
-                forge.get_file_content(&manifest.file_path).await?
-            {
-                manifest.content = content;
-                package_manifests.push(manifest.clone());
-            }
-        }
-
-        package.manifest_files = package_manifests;
-
-        // populate other workspace package manifests with content
-        for pkg in workspace_packages.iter_mut() {
-            let mut manifest_files = vec![];
-
-            for manifest in pkg.manifest_files.iter_mut() {
-                if let Some(content) =
-                    forge.get_file_content(&manifest.file_path).await?
-                {
-                    manifest.content = content;
-                    manifest_files.push(manifest.clone());
-                }
-            }
-
-            pkg.manifest_files = manifest_files
-        }
-
         let updater = package.framework.updater();
 
         if let Some(changes) = updater.update(&package, workspace_packages)? {
@@ -152,231 +120,6 @@ impl Framework {
             Framework::Python => Box::new(PythonUpdater::new()),
             Framework::Ruby => Box::new(RubyUpdater::new()),
             Framework::Rust => Box::new(RustUpdater::new()),
-        }
-    }
-
-    pub fn manifest_files(
-        &self,
-        package: &ReleasablePackage,
-    ) -> Vec<ManifestFile> {
-        let gen_package_path = |file: &str| -> String {
-            Path::new(&package.workspace_root)
-                .join(&package.path)
-                .join(file)
-                .display()
-                .to_string()
-                .replace("./", "")
-        };
-
-        let gen_workspace_path = |file: &str| -> String {
-            Path::new(&package.workspace_root)
-                .join(file)
-                .display()
-                .to_string()
-                .replace("./", "")
-        };
-
-        match self {
-            Framework::Generic => vec![],
-            Framework::Java => {
-                vec![
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "build.gradle".into(),
-                        file_path: gen_package_path("build.gradle"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "build.gradle.kts".into(),
-                        file_path: gen_package_path("build.gradle.kts"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "gradle.properties".into(),
-                        file_path: gen_package_path("gradle.properties"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "pom.xml".into(),
-                        file_path: gen_package_path("pom.xml"),
-                        is_workspace: false,
-                    },
-                ]
-            }
-            Framework::Node => {
-                let pkg_json_pkg_path = gen_package_path("package.json");
-                let pkg_json_workspace_path =
-                    gen_workspace_path("package.json");
-
-                if pkg_json_pkg_path == pkg_json_workspace_path {
-                    // package is not part of a workspace with other packages
-                    vec![
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "package.json".into(),
-                            file_path: pkg_json_pkg_path,
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "package-lock.json".into(),
-                            file_path: gen_package_path("package-lock.json"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "yarn.lock".into(),
-                            file_path: gen_package_path("yarn.lock"),
-                            is_workspace: false,
-                        },
-                    ]
-                } else {
-                    // package is part of workspace with other packages so
-                    // include workspace root manifest files
-                    vec![
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "package.json".into(),
-                            file_path: gen_package_path("package.json"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "package-lock.json".into(),
-                            file_path: gen_package_path("package-lock.json"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "yarn.lock".into(),
-                            file_path: gen_package_path("yarn.lock"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "package-lock.json".into(),
-                            file_path: gen_workspace_path("package-lock.json"),
-                            is_workspace: true,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "yarn.lock".into(),
-                            file_path: gen_workspace_path("yarn.lock"),
-                            is_workspace: true,
-                        },
-                    ]
-                }
-            }
-            Framework::Php => {
-                vec![ManifestFile {
-                    content: "".to_string(),
-                    file_basename: "composer.json".into(),
-                    file_path: gen_package_path("composer.json"),
-                    is_workspace: false,
-                }]
-            }
-            Framework::Python => {
-                vec![
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "pyproject.toml".into(),
-                        file_path: gen_package_path("pyproject.toml"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "setup.cfg".into(),
-                        file_path: gen_package_path("setup.cfg"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "setup.py".into(),
-                        file_path: gen_package_path("setup.py"),
-                        is_workspace: false,
-                    },
-                ]
-            }
-            Framework::Ruby => {
-                let pkg_gemspec = format!("{}.gemspec", package.name);
-                let lib_pkg_version =
-                    format!("lib/{}/version.rb", package.name);
-                vec![
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: pkg_gemspec.clone(),
-                        file_path: gen_package_path(&pkg_gemspec),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "version.rb".into(),
-                        file_path: gen_package_path("version.rb"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: "lib/version.rb".into(),
-                        file_path: gen_package_path("lib/version.rb"),
-                        is_workspace: false,
-                    },
-                    ManifestFile {
-                        content: "".to_string(),
-                        file_basename: lib_pkg_version.clone(),
-                        file_path: gen_package_path(&lib_pkg_version),
-                        is_workspace: false,
-                    },
-                ]
-            }
-            Framework::Rust => {
-                let cargo_toml_pkg_path = gen_package_path("Cargo.toml");
-                let cargo_toml_workspace_path =
-                    gen_workspace_path("Cargo.toml");
-
-                if cargo_toml_pkg_path == cargo_toml_workspace_path {
-                    // package is not part of workspace with other packages
-                    vec![
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "Cargo.toml".into(),
-                            file_path: cargo_toml_pkg_path,
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "Cargo.lock".into(),
-                            file_path: gen_package_path("Cargo.lock"),
-                            is_workspace: false,
-                        },
-                    ]
-                } else {
-                    // package is part of workspace with other packages so
-                    // include workspace root manifest files
-                    vec![
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "Cargo.toml".into(),
-                            file_path: gen_package_path("Cargo.toml"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "Cargo.lock".into(),
-                            file_path: gen_package_path("Cargo.lock"),
-                            is_workspace: false,
-                        },
-                        ManifestFile {
-                            content: "".to_string(),
-                            file_basename: "Cargo.lock".into(),
-                            file_path: gen_workspace_path("Cargo.lock"),
-                            is_workspace: true,
-                        },
-                    ]
-                }
-            }
         }
     }
 }
@@ -401,15 +144,13 @@ impl UpdaterPackage {
     fn from_releasable_package(pkg: &ReleasablePackage) -> Self {
         let framework = Framework::from(pkg.release_type.clone());
 
-        let pkg_manifests = framework.manifest_files(pkg);
-
         let tag = pkg.release.tag.clone().unwrap_or_default();
 
         UpdaterPackage {
             package_name: pkg.name.clone(),
             workspace_root: pkg.workspace_root.clone(),
             framework,
-            manifest_files: pkg_manifests,
+            manifest_files: pkg.manifest_files.clone().unwrap_or_default(),
             next_version: tag,
         }
     }
@@ -422,16 +163,18 @@ mod tests {
     use super::*;
     use semver::Version as SemVer;
 
-    fn create_test_releasable_package(
+    // ===== Test Helpers =====
+
+    /// Creates a minimal releasable package for testing
+    fn releasable_package(
         name: &str,
-        path: &str,
-        workspace_root: &str,
         release_type: ReleaseType,
     ) -> ReleasablePackage {
         ReleasablePackage {
             name: name.to_string(),
-            path: path.to_string(),
-            workspace_root: workspace_root.to_string(),
+            path: ".".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: None,
             additional_manifest_files: None,
             release_type,
             release: Release {
@@ -451,8 +194,10 @@ mod tests {
         }
     }
 
+    // ===== Framework Conversion Tests =====
+
     #[test]
-    fn framework_from_release_type_converts_correctly() {
+    fn converts_release_type_to_framework() {
         assert_eq!(Framework::from(ReleaseType::Generic), Framework::Generic);
         assert_eq!(Framework::from(ReleaseType::Java), Framework::Java);
         assert_eq!(Framework::from(ReleaseType::Node), Framework::Node);
@@ -463,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn framework_display_returns_lowercase_names() {
+    fn displays_framework_as_lowercase() {
         assert_eq!(Framework::Generic.to_string(), "generic");
         assert_eq!(Framework::Java.to_string(), "java");
         assert_eq!(Framework::Node.to_string(), "node");
@@ -473,244 +218,35 @@ mod tests {
         assert_eq!(Framework::Rust.to_string(), "rust");
     }
 
-    #[test]
-    fn java_manifest_files_includes_all_build_files() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Java,
-        );
-        let framework = Framework::Java;
-        let manifests = framework.manifest_files(&package);
+    // ===== UpdaterPackage Tests =====
 
-        assert_eq!(manifests.len(), 4);
-        assert!(manifests.iter().any(|m| m.file_basename == "build.gradle"));
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "build.gradle.kts")
-        );
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "gradle.properties")
-        );
-        assert!(manifests.iter().any(|m| m.file_basename == "pom.xml"));
+    #[test]
+    fn converts_releasable_to_updater_package() {
+        let releasable = releasable_package("my-pkg", ReleaseType::Node);
+
+        let updater = UpdaterPackage::from_releasable_package(&releasable);
+
+        assert_eq!(updater.package_name, "my-pkg");
+        assert_eq!(updater.workspace_root, ".");
+        assert_eq!(updater.framework, Framework::Node);
+        assert_eq!(updater.next_version.name, "v1.0.0");
     }
 
     #[test]
-    fn php_manifest_files_includes_composer_json() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Php,
-        );
-        let framework = Framework::Php;
-        let manifests = framework.manifest_files(&package);
+    fn handles_missing_manifest_files() {
+        let releasable = releasable_package("pkg", ReleaseType::Generic);
 
-        assert_eq!(manifests.len(), 1);
-        assert_eq!(manifests[0].file_basename, "composer.json");
-        assert_eq!(manifests[0].file_path, "composer.json");
+        let updater = UpdaterPackage::from_releasable_package(&releasable);
+
+        assert_eq!(updater.manifest_files.len(), 0);
     }
 
-    #[test]
-    fn python_manifest_files_includes_all_setup_files() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Python,
-        );
-        let framework = Framework::Python;
-        let manifests = framework.manifest_files(&package);
+    #[tokio::test]
+    async fn returns_empty_changes_for_generic_framework() {
+        let pkg = releasable_package("pkg", ReleaseType::Generic);
 
-        assert_eq!(manifests.len(), 3);
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "pyproject.toml")
-        );
-        assert!(manifests.iter().any(|m| m.file_basename == "setup.cfg"));
-        assert!(manifests.iter().any(|m| m.file_basename == "setup.py"));
-    }
+        let changes = Framework::update_package(&pkg, &[]).await.unwrap();
 
-    #[test]
-    fn ruby_manifest_files_includes_gemspec_and_version_rb() {
-        let package = create_test_releasable_package(
-            "my-gem",
-            ".",
-            ".",
-            ReleaseType::Ruby,
-        );
-        let framework = Framework::Ruby;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests.len(), 4);
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "my-gem.gemspec")
-        );
-        assert!(manifests.iter().any(|m| m.file_basename == "version.rb"));
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "lib/version.rb")
-        );
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "lib/my-gem/version.rb")
-        );
-    }
-
-    #[test]
-    fn node_manifest_files_root_package_excludes_workspace_files() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Node,
-        );
-        let framework = Framework::Node;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests.len(), 3);
-        assert!(manifests.iter().all(|m| !m.is_workspace));
-        assert!(manifests.iter().any(|m| m.file_basename == "package.json"));
-        assert!(
-            manifests
-                .iter()
-                .any(|m| m.file_basename == "package-lock.json")
-        );
-        assert!(manifests.iter().any(|m| m.file_basename == "yarn.lock"));
-    }
-
-    #[test]
-    fn node_manifest_files_workspace_package_includes_workspace_locks() {
-        let package = create_test_releasable_package(
-            "my-package",
-            "packages/my-package",
-            ".",
-            ReleaseType::Node,
-        );
-        let framework = Framework::Node;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests.len(), 5);
-        let workspace_manifests: Vec<_> =
-            manifests.iter().filter(|m| m.is_workspace).collect();
-        assert_eq!(workspace_manifests.len(), 2);
-        assert!(
-            workspace_manifests
-                .iter()
-                .any(|m| m.file_basename == "package-lock.json")
-        );
-        assert!(
-            workspace_manifests
-                .iter()
-                .any(|m| m.file_basename == "yarn.lock")
-        );
-    }
-
-    #[test]
-    fn rust_manifest_files_root_package_excludes_workspace_files() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Rust,
-        );
-        let framework = Framework::Rust;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests.len(), 2);
-        assert!(manifests.iter().all(|m| !m.is_workspace));
-        assert!(manifests.iter().any(|m| m.file_basename == "Cargo.toml"));
-        assert!(manifests.iter().any(|m| m.file_basename == "Cargo.lock"));
-    }
-
-    #[test]
-    fn rust_manifest_files_workspace_package_includes_workspace_lock() {
-        let package = create_test_releasable_package(
-            "my-package",
-            "crates/my-package",
-            ".",
-            ReleaseType::Rust,
-        );
-        let framework = Framework::Rust;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests.len(), 3);
-        let workspace_manifests: Vec<_> =
-            manifests.iter().filter(|m| m.is_workspace).collect();
-        assert_eq!(workspace_manifests.len(), 1);
-        assert_eq!(workspace_manifests[0].file_basename, "Cargo.lock");
-        assert_eq!(workspace_manifests[0].file_path, "Cargo.lock");
-    }
-
-    #[test]
-    fn manifest_files_strips_leading_dot_slash_from_paths() {
-        let package = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Php,
-        );
-        let framework = Framework::Php;
-        let manifests = framework.manifest_files(&package);
-
-        assert!(!manifests[0].file_path.starts_with("./"));
-    }
-
-    #[test]
-    fn manifest_files_generates_correct_nested_paths() {
-        let package = create_test_releasable_package(
-            "my-package",
-            "packages/my-package",
-            ".",
-            ReleaseType::Php,
-        );
-        let framework = Framework::Php;
-        let manifests = framework.manifest_files(&package);
-
-        assert_eq!(manifests[0].file_path, "packages/my-package/composer.json");
-    }
-
-    #[test]
-    fn updater_package_from_releasable_preserves_package_info() {
-        let releasable = create_test_releasable_package(
-            "my-package",
-            "packages/my-package",
-            ".",
-            ReleaseType::Node,
-        );
-
-        let updater_pkg = UpdaterPackage::from_releasable_package(&releasable);
-
-        assert_eq!(updater_pkg.package_name, "my-package");
-        assert_eq!(updater_pkg.workspace_root, ".");
-        assert_eq!(updater_pkg.framework, Framework::Node);
-        assert_eq!(updater_pkg.next_version.name, "v1.0.0");
-    }
-
-    #[test]
-    fn updater_package_from_releasable_generates_manifest_files() {
-        let releasable = create_test_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            ReleaseType::Php,
-        );
-
-        let updater_pkg = UpdaterPackage::from_releasable_package(&releasable);
-
-        assert_eq!(updater_pkg.manifest_files.len(), 1);
-        assert_eq!(
-            updater_pkg.manifest_files[0].file_basename,
-            "composer.json"
-        );
+        assert_eq!(changes.len(), 0);
     }
 }

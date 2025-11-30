@@ -1,5 +1,5 @@
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
     updater::{
         framework::UpdaterPackage,
@@ -66,7 +66,7 @@ impl PackageUpdater for JavaUpdater {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::manifest::ManifestFile,
         test_helpers::create_test_tag,
         updater::framework::{Framework, UpdaterPackage},
     };

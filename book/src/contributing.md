@@ -144,10 +144,10 @@ impl Display for Framework {
 
 **2. Add the ReleaseType Configuration**
 
-Edit `src/config.rs`:
+Edit `src/config/release_type.rs`:
 
 ```rust
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseType {
     // ... existing variants ...
@@ -168,9 +168,68 @@ impl From<ReleaseType> for Framework {
 }
 ```
 
-**3. Create the Updater Module**
+**3. Create the Manifest Loader**
 
-Create `src/updater/yourlanguage.rs`:
+Create `src/config/manifest/yourlanguage.rs`:
+
+```rust
+use crate::{
+    Result,
+    config::{
+        manifest::{ManifestFile, gen_package_path},
+        package::PackageConfig,
+    },
+    forge::manager::ForgeManager,
+};
+
+pub struct YourLanguageManifestLoader {}
+
+impl YourLanguageManifestLoader {
+    pub async fn load_manifests(
+        forge: &ForgeManager,
+        pkg: &PackageConfig,
+    ) -> Result<Option<Vec<ManifestFile>>> {
+        let files = vec!["your-manifest.ext"];
+        let mut manifests = vec![];
+
+        for file in files {
+            let full_path = gen_package_path(pkg, file);
+            if let Some(content) = forge.get_file_content(&full_path).await? {
+                manifests.push(ManifestFile {
+                    file_path: full_path,
+                    file_basename: file.to_string(),
+                    is_workspace: false,
+                    content,
+                });
+            }
+        }
+
+        if manifests.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(manifests))
+    }
+}
+```
+
+Register it in `src/config/manifest.rs`:
+
+```rust
+mod yourlanguage;
+use yourlanguage::YourLanguageManifestLoader;
+
+// In load_release_type_manifests_for_package function:
+Some(ReleaseType::YourLanguage) => {
+    YourLanguageManifestLoader::load_manifests(forge, pkg).await
+}
+```
+
+**4. Create the Updater Module**
+
+Create `src/updater/yourlanguage/` directory with the following files:
+
+`src/updater/yourlanguage.rs`:
 
 ```rust
 //! YourLanguage package updater supporting YourPackageManager projects.
@@ -179,13 +238,12 @@ pub mod your_file_type;
 pub mod updater;
 ```
 
-Create `src/updater/yourlanguage/updater.rs`:
+`src/updater/yourlanguage/updater.rs`:
 
 ```rust
-use async_trait::async_trait;
 use crate::{
+    Result,
     forge::request::FileChange,
-    result::Result,
     updater::{
         framework::UpdaterPackage,
         yourlanguage::your_file_type::YourFileType,
@@ -205,21 +263,20 @@ impl YourLanguageUpdater {
     }
 }
 
-#[async_trait]
 impl PackageUpdater for YourLanguageUpdater {
-    async fn update(
+    fn update(
         &self,
         package: &UpdaterPackage,
         workspace_packages: Vec<UpdaterPackage>,
     ) -> Result<Option<Vec<FileChange>>> {
-        self.your_file.process_package(package).await
+        self.your_file.process_package(package)
     }
 }
 ```
 
-**4. Implement File Parsers**
+**5. Implement File Parsers**
 
-Create `src/updater/yourlanguage/your_file_type.rs`:
+`src/updater/yourlanguage/your_file_type.rs`:
 
 ```rust
 use log::*;
@@ -236,7 +293,7 @@ impl YourFileType {
         Self {}
     }
 
-    pub async fn process_package(
+    pub fn process_package(
         &self,
         package: &UpdaterPackage,
     ) -> Result<Option<Vec<FileChange>>> {
@@ -267,7 +324,13 @@ impl YourFileType {
 }
 ```
 
-**5. Register the Updater**
+**6. Register the Updater**
+
+Add module declaration in `src/updater.rs`:
+
+```rust
+pub mod yourlanguage;
+```
 
 In `src/updater/framework.rs`, add to the `updater()` method:
 
@@ -280,52 +343,111 @@ fn updater(&self) -> Box<dyn PackageUpdater> {
 }
 ```
 
-Add manifest file detection in the `manifest_files()` method:
-
-```rust
-Framework::YourLanguage => {
-    vec![
-        ManifestFile {
-            content: "".to_string(),
-            file_basename: "your-manifest.ext".into(),
-            file_path: gen_package_path("your-manifest.ext"),
-            is_workspace: false,
-        },
-    ]
-}
-```
-
-**6. Add Module Declaration**
-
-In `src/updater.rs`, add:
-
-```rust
-mod yourlanguage;
-```
-
 **7. Write Tests**
 
-Add comprehensive tests in your updater module:
+Add tests following the established patterns.
+
+In `src/config/manifest/yourlanguage.rs`:
 
 ```rust
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
+        forge::traits::MockForge,
+        test_helpers::create_test_remote_config,
     };
 
+    // ===== Test Helpers =====
+
+    fn package_config(path: &str, workspace_root: &str) -> PackageConfig {
+        PackageConfig {
+            name: "my-package".to_string(),
+            path: path.to_string(),
+            workspace_root: workspace_root.to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn mock_forge_with_file(path: &str, content: &str) -> ForgeManager {
+        let mut mock = MockForge::new();
+        let path = path.to_string();
+        let content = content.to_string();
+        mock.expect_get_file_content().returning(move |p| {
+            if p == path {
+                Ok(Some(content.clone()))
+            } else {
+                Ok(None)
+            }
+        });
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
+        ForgeManager::new(Box::new(mock))
+    }
+
+    // ===== Manifest Loading Tests =====
+
     #[tokio::test]
-    async fn processes_yourlanguage_project() {
-        let updater = YourLanguageUpdater::new();
-        let content = r#"version = "1.0.0""#;
-        let manifest = ManifestFile {
+    async fn loads_manifest_file() {
+        let pkg = package_config(".", ".");
+        let forge = mock_forge_with_file("your-manifest.ext", "version = 1.0.0");
+
+        let result = YourLanguageManifestLoader::load_manifests(&forge, &pkg)
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        let manifests = result.unwrap();
+        assert_eq!(manifests[0].file_basename, "your-manifest.ext");
+    }
+
+    #[tokio::test]
+    async fn returns_none_when_not_found() {
+        let pkg = package_config(".", ".");
+        let mut mock = MockForge::new();
+        mock.expect_get_file_content().returning(|_| Ok(None));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
+        let forge = ForgeManager::new(Box::new(mock));
+
+        let result = YourLanguageManifestLoader::load_manifests(&forge, &pkg)
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+}
+```
+
+In `src/updater/yourlanguage/updater.rs`:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        config::manifest::ManifestFile,
+        test_helpers::create_test_tag,
+        updater::framework::{Framework, UpdaterPackage},
+    };
+
+    // ===== Test Helpers =====
+
+    fn create_manifest(content: &str) -> ManifestFile {
+        ManifestFile {
             is_workspace: false,
-            file_path: "manifest.ext".to_string(),
-            file_basename: "manifest.ext".to_string(),
+            file_path: "your-manifest.ext".to_string(),
+            file_basename: "your-manifest.ext".to_string(),
             content: content.to_string(),
-        };
+        }
+    }
+
+    // ===== Update Tests =====
+
+    #[test]
+    fn updates_version_field() {
+        let updater = YourLanguageUpdater::new();
+        let manifest = create_manifest(r#"version = "1.0.0""#);
         let package = UpdaterPackage {
             package_name: "test-package".to_string(),
             workspace_root: ".".to_string(),
@@ -334,11 +456,30 @@ mod tests {
             framework: Framework::YourLanguage,
         };
 
-        let result = updater.update(&package, vec![]).await.unwrap();
+        let result = updater.update(&package, vec![]).unwrap();
 
         assert!(result.is_some());
         let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
         assert!(changes[0].content.contains("2.0.0"));
+        assert!(!changes[0].content.contains("1.0.0"));
+    }
+
+    #[test]
+    fn returns_none_when_no_matching_files() {
+        let updater = YourLanguageUpdater::new();
+        let manifest = create_manifest("# no version here");
+        let package = UpdaterPackage {
+            package_name: "test-package".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: vec![manifest],
+            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            framework: Framework::YourLanguage,
+        };
+
+        let result = updater.update(&package, vec![]).unwrap();
+
+        assert!(result.is_none());
     }
 }
 ```
@@ -351,11 +492,27 @@ Add your language to:
 - `book/src/configuration.md` - Update release_type options
 - `README.md` - Add to supported languages list
 
-#### Testing Your Updater
+#### Testing Principles
+
+Follow these key principles when writing tests:
+
+- **Test outcomes, not implementation**: Focus on what the code does, not how
+- **Use helper functions**: Reduce duplication with reusable test helpers
+- **Clear test names**: Use descriptive names like `loads_manifest_file` instead of `test_loader_1`
+- **Minimize redundancy**: Avoid overlapping test conditions
+- **Test all enum variants**: For conversions and Display implementations, test every variant
+
+#### Running Tests
 
 ```bash
-# Run your specific tests
+# Run all tests for your language
 cargo test yourlanguage
+
+# Run just manifest loader tests
+cargo test config::manifest::yourlanguage
+
+# Run just updater tests
+cargo test updater::yourlanguage
 
 # Test with a real repository (use --local-repo for safety)
 releasaurus release-pr --local-repo "/path/to/test/project" --debug
@@ -370,12 +527,17 @@ releasaurus release-pr --local-repo "/path/to/test/project" --debug
 - **Document well**: Add doc comments explaining behavior
 - **Follow patterns**: Look at existing updaters (e.g., `php`, `ruby`) for examples
 
-#### Common Patterns
+#### Example Implementations to Reference
 
-**JSON-based manifests**: See `src/updater/node/package_json.rs`
-**TOML-based manifests**: See `src/updater/rust/cargo_toml.rs`
-**XML-based manifests**: See `src/updater/java/maven.rs`
-**Line-based files**: See `src/updater/ruby/version_rb.rs`
+Look at these existing implementations for patterns:
+
+- **JSON manifests**: `src/updater/node/package_json.rs` and `src/config/manifest/node.rs`
+- **TOML manifests**: `src/updater/rust/cargo_toml.rs` and `src/config/manifest/rust.rs`
+- **XML manifests**: `src/updater/java/maven.rs` and `src/config/manifest/java.rs`
+- **Line-based files**: `src/updater/ruby/version_rb.rs` and `src/config/manifest/ruby.rs`
+- **Simple loaders**: `src/config/manifest/php.rs` and `src/config/manifest/python.rs`
+
+Each implementation includes comprehensive tests demonstrating the testing patterns.
 
 #### Getting Help
 

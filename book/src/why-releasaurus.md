@@ -23,13 +23,13 @@ complete, universal solution that works seamlessly across all environments.
 
 ## Quick Comparison Table
 
-| Tool                 | Platforms             | Languages                                                 | Config Required   | Process              | Best For                                 |
-| -------------------- | --------------------- | --------------------------------------------------------- | ----------------- | -------------------- | ---------------------------------------- |
-| **Releasaurus**      | GitHub, GitLab, Gitea | Rust, Node.js, Python, Java, PHP, Ruby, Generic (limited) | Minimal           | Release PR → Publish | Universal, multi-platform, simple config |
-| **release-please**   | GitHub only           | Many (via plugins)                                        | Required for most | Release PR → Publish | GitHub-only orgs                         |
-| **release-plz**      | GitHub, crates.io     | Rust only                                                 | Minimal           | Release PR → Publish | Rust projects, Cargo ecosystems          |
-| **git-cliff**        | Any Git host          | Language agnostic                                         | Required          | Manual changelog     | Changelog generation only                |
-| **semantic-release** | GitHub, GitLab, npm   | JavaScript-focused                                        | Required          | Direct publish       | Node.js projects, automated releases     |
+| Tool                 | Platforms             | Languages                                       | Config Required   | Process              | Best For                                 |
+| -------------------- | --------------------- | ----------------------------------------------- | ----------------- | -------------------- | ---------------------------------------- |
+| **Releasaurus**      | GitHub, GitLab, Gitea | Rust, Node.js, Python, Java, PHP, Ruby, Generic | Minimal           | Release PR → Publish | Universal, multi-platform, simple config |
+| **release-please**   | GitHub only           | Many (via plugins)                              | Required for most | Release PR → Publish | GitHub-only orgs                         |
+| **release-plz**      | GitHub, crates.io     | Rust only                                       | Minimal           | Release PR → Publish | Rust projects, Cargo ecosystems          |
+| **git-cliff**        | Any Git host          | Language agnostic                               | Required          | Manual changelog     | Changelog generation only                |
+| **semantic-release** | GitHub, GitLab, npm   | JavaScript-focused                              | Required          | Direct publish       | Node.js projects, automated releases     |
 
 ## The Existing Landscape
 
@@ -97,7 +97,9 @@ Releasaurus handles all version file updates with sensible defaults.
 - **Clear Language Specification**: Configure `release_type` for each package
   (Rust, Node, Python, Java, Php, Ruby, or Generic)
 - **Version File Management**: Updates all relevant version files for the
-  specified language (generic projects receive changelog and tagging only)
+  specified language (see
+  [`additional_manifest_files`](./configuration.md#`additional_manifest_files`)
+  for generic projects)
 - **Framework Integration**: Handles language-specific packaging and build
   systems
 - **Sensible Defaults**: Provides beautiful changelogs and workflows

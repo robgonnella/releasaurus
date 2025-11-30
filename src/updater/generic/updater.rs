@@ -3,8 +3,8 @@ use semver::Version;
 use std::sync::LazyLock;
 
 use crate::{
-    cli::Result,
-    config::ManifestFile,
+    Result,
+    config::manifest::ManifestFile,
     forge::request::{FileChange, FileUpdateType},
     updater::{framework::UpdaterPackage, traits::PackageUpdater},
 };
@@ -63,7 +63,6 @@ impl PackageUpdater for GenericUpdater {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ManifestFile;
     use semver::Version;
 
     fn create_manifest(content: &str) -> ManifestFile {

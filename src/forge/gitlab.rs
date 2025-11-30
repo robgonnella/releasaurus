@@ -37,8 +37,8 @@ use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
+    Result,
     analyzer::release::Tag,
-    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
@@ -211,10 +211,6 @@ impl Gitlab {
 
     /// Create a new label in the GitLab repository with default color.
     async fn create_label(&self, label_name: String) -> Result<LabelInfo> {
-        if self.config.dry_run {
-            warn!("dry_run: would create label: {label_name}");
-            return Ok(LabelInfo { name: label_name });
-        }
         let endpoint = CreateLabel::builder()
             .project(&self.project_id)
             .name(label_name)
@@ -236,6 +232,31 @@ impl Forge for Gitlab {
 
     fn remote_config(&self) -> RemoteConfig {
         self.config.clone()
+    }
+
+    fn default_branch(&self) -> String {
+        self.default_branch.clone()
+    }
+
+    async fn load_config(&self) -> Result<Config> {
+        if let Some(content) =
+            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+        {
+            let config: Config = toml::from_str(&content)?;
+
+            let mut config_search_depth = config.first_release_search_depth;
+            if config_search_depth == 0 {
+                config_search_depth = u64::MAX;
+            }
+
+            let mut search_depth = self.commit_search_depth.lock().await;
+            *search_depth = config_search_depth;
+
+            Ok(config)
+        } else {
+            info!("repository configuration not found: using default");
+            Ok(Config::default())
+        }
     }
 
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
@@ -286,31 +307,6 @@ impl Forge for Gitlab {
                 Err(eyre!("failed to get file from repo: {err}"))
             }
         }
-    }
-
-    async fn load_config(&self) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
-        {
-            let config: Config = toml::from_str(&content)?;
-
-            let mut config_search_depth = config.first_release_search_depth;
-            if config_search_depth == 0 {
-                config_search_depth = u64::MAX;
-            }
-
-            let mut search_depth = self.commit_search_depth.lock().await;
-            *search_depth = config_search_depth;
-
-            Ok(config)
-        } else {
-            info!("repository configuration not found: using default");
-            Ok(Config::default())
-        }
-    }
-
-    fn default_branch(&self) -> String {
-        self.default_branch.clone()
     }
 
     /// Get the latest release for the project
@@ -431,11 +427,6 @@ impl Forge for Gitlab {
         &self,
         req: CreateBranchRequest,
     ) -> Result<Commit> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release branch: req: {:#?}", req);
-            return Ok(Commit { sha: "fff".into() });
-        }
-
         let default_branch_name = self.default_branch();
 
         let mut actions: Vec<CommitAction> = vec![];
@@ -481,12 +472,6 @@ impl Forge for Gitlab {
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would tag commit: tag_name: {tag_name}, sha: {sha}"
-            );
-            return Ok(());
-        }
         let endpoint = CreateTag::builder()
             .project(&self.project_id)
             .message(tag_name)
@@ -607,14 +592,6 @@ impl Forge for Gitlab {
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release PR: req: {:#?}", req);
-            return Ok(PullRequest {
-                number: 0,
-                sha: "fff".into(),
-                body: req.body,
-            });
-        }
         // Create the merge request
         let endpoint = CreateMergeRequest::builder()
             .project(&self.project_id)
@@ -636,10 +613,6 @@ impl Forge for Gitlab {
     }
 
     async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would update release PR: req: {:#?}", req);
-            return Ok(());
-        }
         // Update the merge request
         let endpoint = EditMergeRequest::builder()
             .project(&self.project_id)
@@ -655,10 +628,6 @@ impl Forge for Gitlab {
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would replace release PR labels: req: {:#?}", req);
-            return Ok(());
-        }
         let all_labels = self.get_repo_labels().await?;
 
         let mut labels = vec![];
@@ -691,12 +660,6 @@ impl Forge for Gitlab {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
-            );
-            return Ok(());
-        }
         // Create the release
         let endpoint = CreateRelease::builder()
             .project(&self.project_id)

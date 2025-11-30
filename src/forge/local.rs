@@ -12,8 +12,8 @@ use std::{
 use tokio::{fs, sync::Mutex};
 
 use crate::{
+    Result,
     analyzer::release::Tag,
-    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::RemoteConfig,

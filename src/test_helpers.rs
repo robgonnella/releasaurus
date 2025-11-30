@@ -11,7 +11,10 @@ use crate::{
         config::AnalyzerConfig,
         release::{Release, Tag},
     },
-    config::{ChangelogConfig, Config, PackageConfig, ReleaseType},
+    config::{
+        Config, changelog::ChangelogConfig, package::PackageConfig,
+        release_type::ReleaseType,
+    },
     forge::{
         config::RemoteConfig,
         request::{ForgeCommit, PullRequest},
