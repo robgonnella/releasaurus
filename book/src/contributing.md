@@ -103,286 +103,121 @@ support.
 
 ### Adding New Language/Framework Updaters
 
-Releasaurus supports multiple programming languages through its updater system. Here's how to add support for a new language or framework.
+Releasaurus supports multiple programming languages through its updater system.
+Adding support for a new language requires updating several files across the
+codebase.
 
 #### Overview
 
 Each language updater consists of:
 
-1. **Framework enum variant** - Identifies the language/framework
-2. **ReleaseType enum variant** - Configuration option for users
-3. **Updater module** - Language-specific implementation
-4. **File parsers** - Handlers for version file formats
-5. **Tests** - Comprehensive test coverage
+1. **ReleaseType enum variant** - Configuration option in
+   `src/config/release_type.rs`
+2. **Manifests module** - Defines manifest file targets in
+   `src/updater/yourlanguage/manifests.rs`
+3. **Updater module** - Language-specific implementation in
+   `src/updater/yourlanguage/updater.rs`
+4. **File parsers** - Version file format handlers (e.g.,
+   `src/updater/yourlanguage/your_file_type.rs`)
+5. **Tests** - Comprehensive test coverage for all modules
+6. **Documentation** - User-facing documentation updates
 
-#### Step-by-Step Guide
+#### Files to Update
 
-**1. Add the Framework Variant**
+**1. Add ReleaseType Variant**
 
-Edit `src/updater/framework.rs`:
+- `src/config/release_type.rs` - Add your language to the `ReleaseType` enum
 
-```rust
-pub enum Framework {
-    Generic,
-    // ... existing variants ...
-    YourLanguage,  // Add your new language here
-}
-```
+**2. Create Manifests Module**
 
-Update the `Display` implementation:
+- `src/updater/yourlanguage/manifests.rs` - Implement `ManifestTargets` trait
+- `src/updater/manager.rs` - Register in `release_type_manifest_targets()`
+  function
 
-```rust
-impl Display for Framework {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            // ... existing cases ...
-            Framework::YourLanguage => f.write_str("yourlanguage"),
-        }
-    }
-}
-```
+**3. Create Updater Implementation**
 
-**2. Add the ReleaseType Configuration**
+- `src/updater/yourlanguage.rs` - Module declaration file
+- `src/updater/yourlanguage/updater.rs` - Implement `PackageUpdater` trait
+- `src/updater/yourlanguage/your_file_type.rs` - File format parser(s)
+- `src/updater.rs` - Add module declaration
+- `src/updater/manager.rs` - Register in `updater()` function
 
-Edit `src/config.rs`:
+**4. Add Tests**
 
-```rust
-#[derive(Debug, Default, Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReleaseType {
-    // ... existing variants ...
-    YourLanguage,
-}
-```
+- Tests in `manifests.rs` - Test manifest target generation
+- Tests in `updater.rs` - Test updater integration
+- Tests in file parser modules - Test version updates
 
-Update the `From<ReleaseType>` implementation in `src/updater/framework.rs`:
+**5. Update Documentation**
 
-```rust
-impl From<ReleaseType> for Framework {
-    fn from(value: ReleaseType) -> Self {
-        match value {
-            // ... existing cases ...
-            ReleaseType::YourLanguage => Framework::YourLanguage,
-        }
-    }
-}
-```
+- `book/src/supported-languages.md` - Add language section
+- `book/src/configuration.md` - Update ReleaseType options
 
-**3. Create the Updater Module**
+#### Reference Implementations
 
-Create `src/updater/yourlanguage.rs`:
+Use existing language implementations as templates:
 
-```rust
-//! YourLanguage package updater supporting YourPackageManager projects.
+**Simple Languages (Good starting points):**
 
-pub mod your_file_type;
-pub mod updater;
-```
+- **PHP**: `src/updater/php/` - Single manifest file, straightforward JSON
+  parsing
+- **Python**: `src/updater/python/` - Multiple manifest formats (TOML, cfg, py)
 
-Create `src/updater/yourlanguage/updater.rs`:
+**Complex Languages (Advanced features):**
 
-```rust
-use async_trait::async_trait;
-use crate::{
-    forge::request::FileChange,
-    result::Result,
-    updater::{
-        framework::UpdaterPackage,
-        yourlanguage::your_file_type::YourFileType,
-        traits::PackageUpdater,
-    },
-};
+- **Node**: `src/updater/node/` - Workspace support, multiple lock files
+- **Rust**: `src/updater/rust/` - Workspace detection, dependency updates
+- **Java**: `src/updater/java/` - Multiple build tools (Maven, Gradle),
+  properties files
 
-pub struct YourLanguageUpdater {
-    your_file: YourFileType,
-}
+**Key Traits to Implement:**
 
-impl YourLanguageUpdater {
-    pub fn new() -> Self {
-        Self {
-            your_file: YourFileType::new(),
-        }
-    }
-}
+- `ManifestTargets` in `manifests.rs` - Defines which files to load
+- `PackageUpdater` in `updater.rs` - Coordinates version updates
 
-#[async_trait]
-impl PackageUpdater for YourLanguageUpdater {
-    async fn update(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: Vec<UpdaterPackage>,
-    ) -> Result<Option<Vec<FileChange>>> {
-        self.your_file.process_package(package).await
-    }
-}
-```
+#### Testing Guidelines
 
-**4. Implement File Parsers**
+Follow the established testing patterns:
 
-Create `src/updater/yourlanguage/your_file_type.rs`:
+- **Test outcomes, not implementation** - Verify behavior, not how it's achieved
+- **Minimal and concise** - Only test what provides value
+- **Use helper functions** - Reduce duplication (see `test_helpers.rs`)
+- **Descriptive names** - e.g., `returns_all_manifest_targets` not `test_1`
 
-```rust
-use log::*;
-use crate::{
-    forge::request::{FileChange, FileUpdateType},
-    result::Result,
-    updater::framework::UpdaterPackage,
-};
+**Example test files to reference:**
 
-pub struct YourFileType {}
+- `src/updater/php/manifests.rs` - Simple manifest tests
+- `src/updater/node/manifests.rs` - Workspace-aware manifest tests
+- `src/updater/php/updater.rs` - Basic updater tests
 
-impl YourFileType {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub async fn process_package(
-        &self,
-        package: &UpdaterPackage,
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "your-manifest-file.ext" {
-                continue;
-            }
-
-            // Parse the file content
-            // Update version fields
-            // Create FileChange objects
-
-            file_changes.push(FileChange {
-                path: manifest.file_path.clone(),
-                content: updated_content,
-                update_type: FileUpdateType::Replace,
-            });
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
-    }
-}
-```
-
-**5. Register the Updater**
-
-In `src/updater/framework.rs`, add to the `updater()` method:
-
-```rust
-fn updater(&self) -> Box<dyn PackageUpdater> {
-    match self {
-        // ... existing cases ...
-        Framework::YourLanguage => Box::new(YourLanguageUpdater::new()),
-    }
-}
-```
-
-Add manifest file detection in the `manifest_files()` method:
-
-```rust
-Framework::YourLanguage => {
-    vec![
-        ManifestFile {
-            content: "".to_string(),
-            file_basename: "your-manifest.ext".into(),
-            file_path: gen_package_path("your-manifest.ext"),
-            is_workspace: false,
-        },
-    ]
-}
-```
-
-**6. Add Module Declaration**
-
-In `src/updater.rs`, add:
-
-```rust
-mod yourlanguage;
-```
-
-**7. Write Tests**
-
-Add comprehensive tests in your updater module:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        test_helpers::create_test_tag,
-        updater::framework::{Framework, ManifestFile, UpdaterPackage},
-    };
-
-    #[tokio::test]
-    async fn processes_yourlanguage_project() {
-        let updater = YourLanguageUpdater::new();
-        let content = r#"version = "1.0.0""#;
-        let manifest = ManifestFile {
-            is_workspace: false,
-            file_path: "manifest.ext".to_string(),
-            file_basename: "manifest.ext".to_string(),
-            content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test-package".to_string(),
-            workspace_root: ".".to_string(),
-            manifest_files: vec![manifest],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::YourLanguage,
-        };
-
-        let result = updater.update(&package, vec![]).await.unwrap();
-
-        assert!(result.is_some());
-        let changes = result.unwrap();
-        assert!(changes[0].content.contains("2.0.0"));
-    }
-}
-```
-
-**8. Update Documentation**
-
-Add your language to:
-
-- `book/src/supported-languages.md` - Add documentation and examples
-- `book/src/configuration.md` - Update release_type options
-- `README.md` - Add to supported languages list
-
-#### Testing Your Updater
+#### Running Tests
 
 ```bash
-# Run your specific tests
+# Run all tests for your language
 cargo test yourlanguage
 
-# Test with a real repository (use --local-repo for safety)
+# Run specific module tests
+cargo test updater::yourlanguage::manifests
+cargo test updater::yourlanguage::updater
+
+# Test with real repository
 releasaurus release-pr --local-repo "/path/to/test/project" --debug
 ```
 
 #### Best Practices
 
-- **Parse robustly**: Handle various file formats and edge cases
-- **Preserve formatting**: Maintain the original file structure when possible
-- **Log clearly**: Use `info!`, `warn!`, and `error!` macros appropriately
-- **Test thoroughly**: Cover success cases, edge cases, and error conditions
-- **Document well**: Add doc comments explaining behavior
-- **Follow patterns**: Look at existing updaters (e.g., `php`, `ruby`) for examples
-
-#### Common Patterns
-
-**JSON-based manifests**: See `src/updater/node/package_json.rs`
-**TOML-based manifests**: See `src/updater/rust/cargo_toml.rs`
-**XML-based manifests**: See `src/updater/java/maven.rs`
-**Line-based files**: See `src/updater/ruby/version_rb.rs`
+- **Parse robustly** - Handle various file formats and edge cases
+- **Preserve formatting** - Maintain original file structure when possible
+- **Log clearly** - Use `info!`, `warn!`, `error!` macros appropriately
+- **Follow patterns** - Study existing implementations before starting
+- **Write tests first** - Define expected behavior through tests
 
 #### Getting Help
 
-- Review existing updater implementations in `src/updater/`
+- Review existing implementations in `src/updater/`
+- Check test files for usage patterns
 - Ask questions in GitHub Discussions
-- Reference the `PackageUpdater` trait documentation
-- Look at test files for usage examples
+- Reference the `PackageUpdater` and `ManifestTargets` trait documentation
 
 ## Code of Conduct
 
@@ -405,7 +240,8 @@ Report any unacceptable behavior to the project maintainers.
 - **Documentation**: Start with this book
 - **Search Issues**: Check if your question has been asked
 - **Ask Questions**: Create a discussion or issue
-- **Debug Mode**: Use `--debug` flag or `RELEASAURUS_DEBUG` environment variable for troubleshooting
+- **Debug Mode**: Use `--debug` flag or `RELEASAURUS_DEBUG` environment
+  variable for troubleshooting
 
 Thank you for contributing to Releasaurus!
 

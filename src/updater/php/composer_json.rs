@@ -2,9 +2,9 @@ use log::*;
 use serde_json::{Value, json};
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::UpdaterPackage,
 };
 
 /// Handles composer.json file parsing and version updates for PHP packages.
@@ -24,21 +24,18 @@ impl ComposerJson {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "composer.json" {
+            if manifest.basename != "composer.json" {
                 continue;
             }
 
             if let Some(mut doc) = self.load_doc(&manifest.content)? {
-                info!(
-                    "found composer.json for package: {}",
-                    manifest.file_path
-                );
+                info!("found composer.json for package: {}", manifest.path);
 
                 // Update the version field
                 if let Some(obj) = doc.as_object_mut() {
                     info!(
                         "updating {} version to {}",
-                        manifest.file_path, package.next_version.semver
+                        manifest.path, package.next_version.semver
                     );
 
                     obj.insert(
@@ -49,14 +46,14 @@ impl ComposerJson {
                     let formatted = serde_json::to_string_pretty(&doc)?;
 
                     file_changes.push(FileChange {
-                        path: manifest.file_path.clone(),
+                        path: manifest.path.clone(),
                         content: formatted,
                         update_type: FileUpdateType::Replace,
                     });
                 } else {
                     warn!(
                         "composer.json is not a valid JSON object: {}",
-                        manifest.file_path
+                        manifest.path
                     );
                 }
             }
@@ -80,27 +77,26 @@ impl ComposerJson {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_version_field() {
+    #[test]
+    fn updates_version_field() {
         let composer_json = ComposerJson::new();
         let content = r#"{"name":"vendor/package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "composer.json".to_string(),
-            file_basename: "composer.json".to_string(),
+            path: "composer.json".to_string(),
+            basename: "composer.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "vendor/package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();
@@ -110,23 +106,22 @@ mod tests {
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn inserts_version_field_when_missing() {
+    #[test]
+    fn inserts_version_field_when_missing() {
         let composer_json = ComposerJson::new();
         let content =
             r#"{"name":"vendor/package","description":"A test package"}"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "composer.json".to_string(),
-            file_basename: "composer.json".to_string(),
+            path: "composer.json".to_string(),
+            basename: "composer.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "vendor/package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();
@@ -137,8 +132,8 @@ mod tests {
         assert!(updated.contains("\"description\": \"A test package\""));
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields() {
+    #[test]
+    fn preserves_other_fields() {
         let composer_json = ComposerJson::new();
         let content = r#"{
   "name": "vendor/package",
@@ -151,16 +146,15 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "composer.json".to_string(),
-            file_basename: "composer.json".to_string(),
+            path: "composer.json".to_string(),
+            basename: "composer.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "vendor/package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();
@@ -174,29 +168,28 @@ mod tests {
         assert!(updated.contains("\"php\": \"^8.0\""));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_composer_files() {
+    #[test]
+    fn process_package_handles_multiple_composer_files() {
         let composer_json = ComposerJson::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/composer.json".to_string(),
-            file_basename: "composer.json".to_string(),
+            path: "packages/a/composer.json".to_string(),
+            basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-a","version":"1.0.0"}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/b/composer.json".to_string(),
-            file_basename: "composer.json".to_string(),
+            path: "packages/b/composer.json".to_string(),
+            basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-b","version":"1.0.0"}"#
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "vendor/package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();
@@ -207,15 +200,14 @@ mod tests {
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_manifest_files() {
+    #[test]
+    fn process_package_returns_none_when_no_manifest_files() {
         let composer_json = ComposerJson::new();
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();
@@ -223,21 +215,20 @@ mod tests {
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_composer_json_files() {
+    #[test]
+    fn process_package_returns_none_when_no_composer_json_files() {
         let composer_json = ComposerJson::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Php,
+            release_type: ReleaseType::Php,
         };
 
         let result = composer_json.process_package(&package).unwrap();

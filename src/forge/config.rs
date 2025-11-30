@@ -15,10 +15,10 @@ pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 use crate::{
-    cli::Result,
+    Result,
     forge::{
         gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
-        traits::Forge,
+        manager::ForgeManager, traits::Forge,
     },
 };
 
@@ -73,25 +73,23 @@ pub enum Remote {
 
 impl Remote {
     /// Create forge client instance for the configured platform.
-    pub async fn get_forge(&self) -> Result<Box<dyn Forge>> {
-        match self {
+    pub async fn get_forge_manager(&self) -> Result<ForgeManager> {
+        let forge: Box<dyn Forge> = match self {
             Remote::Github(config) => {
-                let forge = Github::new(config.clone()).await?;
-                Ok(Box::new(forge))
+                Box::new(Github::new(config.clone()).await?)
             }
             Remote::Gitlab(config) => {
-                let forge = Gitlab::new(config.clone()).await?;
-                Ok(Box::new(forge))
+                Box::new(Gitlab::new(config.clone()).await?)
             }
             Remote::Gitea(config) => {
-                let forge = Gitea::new(config.clone()).await?;
-                Ok(Box::new(forge))
+                Box::new(Gitea::new(config.clone()).await?)
             }
             Remote::Local(repo_path) => {
-                let forge = LocalRepo::new(repo_path.to_string())?;
-                Ok(Box::new(forge))
+                Box::new(LocalRepo::new(repo_path.to_string())?)
             }
-        }
+        };
+
+        Ok(ForgeManager::new(forge))
     }
 }
 
@@ -100,8 +98,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_remote_config() {
+    fn default_remote_config() {
         let remote = RemoteConfig::default();
         assert!(remote.port.is_none());
+        assert!(!remote.dry_run);
+        assert_eq!(remote.host, "");
+        assert_eq!(remote.scheme, "");
+        assert_eq!(remote.owner, "");
+        assert_eq!(remote.repo, "");
+        assert_eq!(remote.path, "");
+        assert_eq!(remote.release_link_base_url, "");
     }
 }

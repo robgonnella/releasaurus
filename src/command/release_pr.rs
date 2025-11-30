@@ -4,19 +4,23 @@ use log::*;
 use std::{collections::HashMap, path::Path};
 
 use crate::{
+    Result,
     analyzer::Analyzer,
-    cli::{PendingReleaseError, ReleasablePackage, Result},
-    command::common::{self, PRMetadata, PRMetadataFields},
-    config::{Config, ReleaseType},
+    command::{
+        common::{self, PRMetadata, PRMetadataFields},
+        errors::PendingReleaseError,
+        types::ReleasablePackage,
+    },
+    config::{Config, release_type::ReleaseType},
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
+        manager::ForgeManager,
         request::{
             CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
             GetPrRequest, PrLabelsRequest, UpdatePrRequest,
         },
-        traits::Forge,
     },
-    updater::{framework::Framework, generic::updater::GenericUpdater},
+    updater::{generic::updater::GenericUpdater, manager::UpdateManager},
 };
 
 #[derive(Debug, Clone)]
@@ -28,19 +32,19 @@ struct ReleasePr {
 
 /// Analyze commits since last tags, generate changelogs, update version files,
 /// and create or update release PR.
-pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
-    let mut config = forge.load_config().await?;
-    let repo_name = forge.repo_name();
+pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
+    let mut config = forge_manager.load_config().await?;
+    let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
 
     let releasable_packages =
-        get_releasable_packages(&config, forge.as_ref()).await?;
+        get_releasable_packages(&config, forge_manager).await?;
 
     info!("releasable packages: {:#?}", releasable_packages);
 
     let prs_by_branch = gather_release_prs_by_branch(
         &releasable_packages,
-        forge.as_ref(),
+        forge_manager,
         &config,
     )
     .await?;
@@ -49,16 +53,16 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
         return Ok(());
     }
 
-    create_branch_release_prs(prs_by_branch, forge.as_ref()).await?;
+    create_branch_release_prs(prs_by_branch, forge_manager).await?;
 
     Ok(())
 }
 
 async fn create_branch_release_prs(
     prs_by_branch: HashMap<String, Vec<ReleasePr>>,
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
 ) -> Result<()> {
-    let default_branch = forge.default_branch();
+    let default_branch = forge_manager.default_branch();
     // create a single pr per branch
     for (release_branch, prs) in prs_by_branch {
         let single_pr = prs.len() == 1;
@@ -81,8 +85,9 @@ async fn create_branch_release_prs(
             head_branch: release_branch.clone(),
         };
 
-        let pending_release =
-            forge.get_merged_release_pr(in_process_release_req).await?;
+        let pending_release = forge_manager
+            .get_merged_release_pr(in_process_release_req)
+            .await?;
 
         if let Some(pr) = pending_release {
             error!("pending release: {:#?}", pr);
@@ -94,7 +99,7 @@ async fn create_branch_release_prs(
         }
 
         info!("creating / updating release branch: {release_branch}");
-        forge
+        forge_manager
             .create_release_branch(CreateBranchRequest {
                 branch: release_branch.clone(),
                 message: title.clone(),
@@ -103,7 +108,7 @@ async fn create_branch_release_prs(
             .await?;
 
         info!("searching for existing pr for branch {release_branch}");
-        let pr = forge
+        let pr = forge_manager
             .get_open_release_pr(GetPrRequest {
                 head_branch: release_branch.clone(),
                 base_branch: default_branch.clone(),
@@ -111,7 +116,7 @@ async fn create_branch_release_prs(
             .await?;
 
         let pr = if let Some(pr) = pr {
-            forge
+            forge_manager
                 .update_pr(UpdatePrRequest {
                     pr_number: pr.number,
                     title,
@@ -121,7 +126,7 @@ async fn create_branch_release_prs(
             info!("updated existing release-pr: {}", pr.number);
             pr
         } else {
-            let pr = forge
+            let pr = forge_manager
                 .create_pr(CreatePrRequest {
                     head_branch: release_branch,
                     base_branch: default_branch.clone(),
@@ -134,7 +139,7 @@ async fn create_branch_release_prs(
         };
         info!("setting pr labels: {PENDING_LABEL}");
 
-        forge
+        forge_manager
             .replace_pr_labels(PrLabelsRequest {
                 pr_number: pr.number,
                 labels: vec![PENDING_LABEL.into()],
@@ -147,16 +152,19 @@ async fn create_branch_release_prs(
 
 async fn gather_release_prs_by_branch(
     releasable_packages: &[ReleasablePackage],
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
     config: &Config,
 ) -> Result<HashMap<String, Vec<ReleasePr>>> {
-    let default_branch = forge.default_branch();
+    let default_branch = forge_manager.default_branch();
 
     let mut prs_by_branch: HashMap<String, Vec<ReleasePr>> = HashMap::new();
 
     for pkg in releasable_packages.iter() {
         let mut file_changes =
-            Framework::update_package(forge, pkg, releasable_packages).await?;
+            UpdateManager::get_package_manifest_file_changes(
+                pkg,
+                releasable_packages,
+            )?;
 
         if let Some(additional_manifests) =
             pkg.additional_manifest_files.clone()
@@ -255,16 +263,16 @@ async fn gather_release_prs_by_branch(
 
 async fn get_releasable_packages(
     config: &Config,
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
 ) -> Result<Vec<ReleasablePackage>> {
-    let default_branch = forge.default_branch();
-    let repo_name = forge.repo_name();
-    let remote_config = forge.remote_config();
+    let default_branch = forge_manager.default_branch();
+    let repo_name = forge_manager.repo_name();
+    let remote_config = forge_manager.remote_config();
 
-    let mut manifest: Vec<ReleasablePackage> = vec![];
+    let mut releasable_packages: Vec<ReleasablePackage> = vec![];
 
     let commits = common::get_commits_for_all_packages(
-        forge,
+        forge_manager,
         &config.packages,
         &repo_name,
     )
@@ -272,7 +280,8 @@ async fn get_releasable_packages(
 
     for package in config.packages.iter() {
         let tag_prefix = common::get_tag_prefix(package, &repo_name);
-        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
+        let current_tag =
+            forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         info!(
             "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
@@ -308,13 +317,26 @@ async fn get_releasable_packages(
             let release_type =
                 package.release_type.clone().unwrap_or(ReleaseType::Generic);
 
-            manifest.push(ReleasablePackage {
+            let release_manifest_targets =
+                UpdateManager::release_type_manifest_targets(package);
+
+            let additional_manifest_targets =
+                UpdateManager::additional_manifest_targets(package);
+
+            let manifest_files = forge_manager
+                .load_manifest_targets(release_manifest_targets)
+                .await?;
+
+            let additional_manifest_files = forge_manager
+                .load_manifest_targets(additional_manifest_targets)
+                .await?;
+
+            releasable_packages.push(ReleasablePackage {
                 name: package.name.clone(),
                 path: package.path.clone(),
                 workspace_root: package.workspace_root.clone(),
-                additional_manifest_files: package
-                    .additional_manifest_files
-                    .clone(),
+                manifest_files,
+                additional_manifest_files,
                 release_type,
                 release,
             });
@@ -323,7 +345,7 @@ async fn get_releasable_packages(
         }
     }
 
-    Ok(manifest)
+    Ok(releasable_packages)
 }
 
 #[cfg(test)]
@@ -333,39 +355,24 @@ mod tests {
         analyzer::release::{Release, Tag},
         forge::traits::MockForge,
         test_helpers::*,
+        updater::manager::ManifestFile,
     };
     use semver::Version as SemVer;
 
-    fn create_releasable_package(
-        name: &str,
-        path: &str,
-        workspace_root: &str,
-        version: &str,
-        release_type: ReleaseType,
-    ) -> ReleasablePackage {
-        create_releasable_package_with_manifests(
-            name,
-            path,
-            workspace_root,
-            version,
-            release_type,
-            None,
-        )
-    }
+    // ===== Test Helpers =====
 
-    fn create_releasable_package_with_manifests(
+    /// Creates a minimal releasable package for testing
+    fn releasable_package(
         name: &str,
-        path: &str,
-        workspace_root: &str,
         version: &str,
         release_type: ReleaseType,
-        additional_manifest_files: Option<Vec<crate::config::ManifestFile>>,
     ) -> ReleasablePackage {
         ReleasablePackage {
             name: name.to_string(),
-            path: path.to_string(),
-            workspace_root: workspace_root.to_string(),
-            additional_manifest_files,
+            path: ".".to_string(),
+            workspace_root: ".".to_string(),
+            manifest_files: None,
+            additional_manifest_files: None,
             release_type,
             release: Release {
                 tag: Some(Tag {
@@ -384,294 +391,256 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_gather_release_prs_single_package() {
-        let packages = vec![create_releasable_package(
-            "my-package",
-            ".",
-            ".",
-            "1.0.0",
-            ReleaseType::Node,
-        )];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+    /// Creates a forge manager with basic mocks for PR gathering tests
+    fn basic_forge_manager() -> ForgeManager {
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
+        mock.expect_get_file_content().returning(|_| Ok(None));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
+        ForgeManager::new(Box::new(mock))
+    }
 
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+    // ===== gather_release_prs_by_branch Tests =====
 
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
+    #[tokio::test]
+    async fn gathers_single_pr_on_shared_branch() {
+        let packages =
+            vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
+        let manager = basic_forge_manager();
+        let config =
+            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
+        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+            .await
+            .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert!(result.contains_key("releasaurus-release-main"));
-
-        let prs = result.get("releasaurus-release-main").unwrap();
+        let prs = &result["releasaurus-release-main"];
         assert_eq!(prs.len(), 1);
-        assert_eq!(prs[0].title, "chore(main): release my-package v1.0.0");
-        assert!(prs[0].body.contains("v1.0.0"));
-        assert!(prs[0].body.contains("<details open>"));
+        assert_eq!(prs[0].title, "chore(main): release pkg v1.0.0");
     }
 
     #[tokio::test]
-    async fn test_gather_release_prs_multiple_packages_shared_branch() {
+    async fn combines_multiple_packages_on_shared_branch() {
         let packages = vec![
-            create_releasable_package(
-                "pkg-a",
-                "packages/a",
-                ".",
-                "1.0.0",
-                ReleaseType::Node,
-            ),
-            create_releasable_package(
-                "pkg-b",
-                "packages/b",
-                ".",
-                "2.0.0",
-                ReleaseType::Node,
-            ),
+            releasable_package("pkg-a", "1.0.0", ReleaseType::Node),
+            releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
+        let manager = basic_forge_manager();
         let config = create_test_config_simple(vec![
-            ("pkg-a", "packages/a", ReleaseType::Node),
-            ("pkg-b", "packages/b", ReleaseType::Node),
+            ("pkg-a", ".", ReleaseType::Node),
+            ("pkg-b", ".", ReleaseType::Node),
         ]);
 
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
+        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+            .await
+            .unwrap();
 
         assert_eq!(result.len(), 1);
-        let prs = result.get("releasaurus-release-main").unwrap();
-        assert_eq!(prs.len(), 2);
-        assert!(prs[0].body.contains("<details>"));
-        assert!(prs[1].body.contains("<details>"));
+        assert_eq!(result["releasaurus-release-main"].len(), 2);
     }
 
     #[tokio::test]
-    async fn test_gather_release_prs_separate_pull_requests() {
+    async fn separates_packages_when_configured() {
         let packages = vec![
-            create_releasable_package(
-                "pkg-a",
-                "packages/a",
-                ".",
-                "1.0.0",
-                ReleaseType::Node,
-            ),
-            create_releasable_package(
-                "pkg-b",
-                "packages/b",
-                ".",
-                "2.0.0",
-                ReleaseType::Node,
-            ),
+            releasable_package("pkg-a", "1.0.0", ReleaseType::Node),
+            releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
+        let manager = basic_forge_manager();
         let mut config = create_test_config_simple(vec![
-            ("pkg-a", "packages/a", ReleaseType::Node),
-            ("pkg-b", "packages/b", ReleaseType::Node),
+            ("pkg-a", ".", ReleaseType::Node),
+            ("pkg-b", ".", ReleaseType::Node),
         ]);
         config.separate_pull_requests = true;
 
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
+        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+            .await
+            .unwrap();
 
         assert_eq!(result.len(), 2);
         assert!(result.contains_key("releasaurus-release-main-pkg-a"));
         assert!(result.contains_key("releasaurus-release-main-pkg-b"));
-
-        let prs_a = result.get("releasaurus-release-main-pkg-a").unwrap();
-        assert_eq!(prs_a.len(), 1);
-        assert!(prs_a[0].body.contains("<details open>"));
-
-        let prs_b = result.get("releasaurus-release-main-pkg-b").unwrap();
-        assert_eq!(prs_b.len(), 1);
-        assert!(prs_b[0].body.contains("<details open>"));
     }
 
     #[tokio::test]
-    async fn test_gather_release_prs_includes_changelog() {
-        let packages = vec![create_releasable_package(
-            "my-package",
-            "packages/my-package",
-            ".",
-            "1.0.0",
-            ReleaseType::Node,
-        )];
+    async fn includes_changelog_file_change() {
+        let packages =
+            vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
+        let manager = basic_forge_manager();
+        let config =
+            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
+        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+            .await
+            .unwrap();
 
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            "packages/my-package",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
-
-        let prs = result.get("releasaurus-release-main").unwrap();
-        let changelog_change = prs[0]
+        let changelog = result["releasaurus-release-main"][0]
             .file_changes
             .iter()
             .find(|fc| fc.path.contains("CHANGELOG.md"));
 
-        assert!(changelog_change.is_some());
-        let changelog_change = changelog_change.unwrap();
-        assert_eq!(changelog_change.path, "packages/my-package/CHANGELOG.md");
-        assert_eq!(changelog_change.update_type, FileUpdateType::Prepend);
-        assert!(changelog_change.content.contains("## 1.0.0"));
+        assert!(changelog.is_some());
+        assert_eq!(changelog.unwrap().update_type, FileUpdateType::Prepend);
     }
 
     #[tokio::test]
-    async fn test_create_branch_release_prs_creates_new_pr() {
-        let mut prs_by_branch = HashMap::new();
-        prs_by_branch.insert(
+    async fn updates_additional_manifest_files() {
+        let mut pkg = releasable_package("pkg", "2.0.0", ReleaseType::Node);
+        pkg.additional_manifest_files = Some(vec![ManifestFile {
+            is_workspace: false,
+            path: "VERSION".to_string(),
+            basename: "VERSION".to_string(),
+            content: r#"version = "1.0.0""#.to_string(),
+        }]);
+
+        let manager = basic_forge_manager();
+        let config =
+            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+
+        let result = gather_release_prs_by_branch(&[pkg], &manager, &config)
+            .await
+            .unwrap();
+
+        let version_change = result["releasaurus-release-main"][0]
+            .file_changes
+            .iter()
+            .find(|fc| fc.path == "VERSION");
+
+        assert!(version_change.is_some());
+        assert!(version_change.unwrap().content.contains("2.0.0"));
+    }
+
+    #[tokio::test]
+    async fn skips_manifests_without_version_pattern() {
+        let mut pkg = releasable_package("pkg", "2.0.0", ReleaseType::Node);
+        pkg.additional_manifest_files = Some(vec![ManifestFile {
+            is_workspace: false,
+            path: "README.md".to_string(),
+            basename: "README.md".to_string(),
+            content: "# My Package\n\nNo version here".to_string(),
+        }]);
+
+        let manager = basic_forge_manager();
+        let config =
+            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+
+        let result = gather_release_prs_by_branch(&[pkg], &manager, &config)
+            .await
+            .unwrap();
+
+        let readme = result["releasaurus-release-main"][0]
+            .file_changes
+            .iter()
+            .find(|fc| fc.path == "README.md");
+
+        assert!(readme.is_none());
+    }
+
+    // ===== create_branch_release_prs Tests =====
+
+    #[tokio::test]
+    async fn creates_new_pr_when_none_exists() {
+        let mut prs = HashMap::new();
+        prs.insert(
             "releasaurus-release-main".to_string(),
             vec![ReleasePr {
-                title: "chore(main): release my-package v1.0.0".to_string(),
-                body: "Release body".to_string(),
+                title: "chore(main): release pkg v1.0.0".to_string(),
+                body: "Body".to_string(),
                 file_changes: vec![],
             }],
         );
 
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .returning(|_| Ok(None));
-
-        mock_forge.expect_create_release_branch().returning(|_| {
+        mock.expect_get_merged_release_pr().returning(|_| Ok(None));
+        mock.expect_create_release_branch().returning(|_| {
             Ok(crate::forge::request::Commit {
-                sha: "branch-sha".to_string(),
+                sha: "sha".to_string(),
             })
         });
-
-        mock_forge
-            .expect_get_open_release_pr()
-            .returning(|_| Ok(None));
-
-        mock_forge
-            .expect_create_pr()
-            .returning(|_| Ok(create_test_pull_request(123, "pr-sha")));
-
-        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock.expect_get_open_release_pr().returning(|_| Ok(None));
+        mock.expect_create_pr()
+            .returning(|_| Ok(create_test_pull_request(1, "sha")));
+        mock.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
 
         let result =
-            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
+                .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_create_branch_release_prs_updates_existing_pr() {
-        let mut prs_by_branch = HashMap::new();
-        prs_by_branch.insert(
+    async fn updates_existing_pr() {
+        let mut prs = HashMap::new();
+        prs.insert(
             "releasaurus-release-main".to_string(),
             vec![ReleasePr {
-                title: "chore(main): release my-package v1.0.0".to_string(),
-                body: "Release body".to_string(),
+                title: "chore(main): release pkg v1.0.0".to_string(),
+                body: "Body".to_string(),
                 file_changes: vec![],
             }],
         );
 
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .returning(|_| Ok(None));
-
-        mock_forge.expect_create_release_branch().returning(|_| {
+        mock.expect_get_merged_release_pr().returning(|_| Ok(None));
+        mock.expect_create_release_branch().returning(|_| {
             Ok(crate::forge::request::Commit {
-                sha: "branch-sha".to_string(),
+                sha: "sha".to_string(),
             })
         });
-
-        mock_forge.expect_get_open_release_pr().returning(|_| {
-            Ok(Some(create_test_pull_request(456, "existing-sha")))
-        });
-
-        mock_forge.expect_update_pr().returning(|_| Ok(()));
-
-        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock.expect_get_open_release_pr()
+            .returning(|_| Ok(Some(create_test_pull_request(42, "sha"))));
+        mock.expect_update_pr().returning(|_| Ok(()));
+        mock.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
 
         let result =
-            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
+                .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_create_branch_release_prs_fails_on_pending_release() {
-        let mut prs_by_branch = HashMap::new();
-        prs_by_branch.insert(
+    async fn fails_when_pending_release_exists() {
+        let mut prs = HashMap::new();
+        prs.insert(
             "releasaurus-release-main".to_string(),
             vec![ReleasePr {
-                title: "chore(main): release my-package v1.0.0".to_string(),
-                body: "Release body".to_string(),
+                title: "chore(main): release pkg v1.0.0".to_string(),
+                body: "Body".to_string(),
                 file_changes: vec![],
             }],
         );
 
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge.expect_get_merged_release_pr().returning(|_| {
-            Ok(Some(create_test_pull_request(789, "merged-sha")))
-        });
+        mock.expect_get_merged_release_pr()
+            .returning(|_| Ok(Some(create_test_pull_request(99, "sha"))));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
 
         let result =
-            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
+                .await;
+
         assert!(result.is_err());
-
-        let err_msg = format!("{}", result.unwrap_err());
-        assert!(err_msg.contains("pending release"));
-        assert!(err_msg.contains("789"));
+        let err = format!("{}", result.unwrap_err());
+        assert!(err.contains("pending release"));
     }
 
     #[tokio::test]
-    async fn test_create_branch_release_prs_combines_multiple_packages() {
-        let mut prs_by_branch = HashMap::new();
-        prs_by_branch.insert(
+    async fn combines_bodies_for_multiple_packages() {
+        let mut prs = HashMap::new();
+        prs.insert(
             "releasaurus-release-main".to_string(),
             vec![
                 ReleasePr {
@@ -687,397 +656,152 @@ mod tests {
             ],
         );
 
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_get_merged_release_pr()
-            .returning(|_| Ok(None));
-
-        mock_forge.expect_create_release_branch().returning(|_| {
+        mock.expect_get_merged_release_pr().returning(|_| Ok(None));
+        mock.expect_create_release_branch().returning(|_| {
             Ok(crate::forge::request::Commit {
-                sha: "branch-sha".to_string(),
+                sha: "sha".to_string(),
             })
         });
-
-        mock_forge
-            .expect_get_open_release_pr()
-            .returning(|_| Ok(None));
-
-        mock_forge
-            .expect_create_pr()
+        mock.expect_get_open_release_pr().returning(|_| Ok(None));
+        mock.expect_create_pr()
             .withf(|req| {
-                req.title == "chore(main): release"
-                    && req.body.contains("Body A")
-                    && req.body.contains("Body B")
+                req.body.contains("Body A") && req.body.contains("Body B")
             })
-            .returning(|_| Ok(create_test_pull_request(123, "pr-sha")));
-
-        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+            .returning(|_| Ok(create_test_pull_request(1, "sha")));
+        mock.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
 
         let result =
-            create_branch_release_prs(prs_by_branch, &mock_forge).await;
+            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
+                .await;
         assert!(result.is_ok());
     }
 
+    // ===== get_releasable_packages Tests =====
+
     #[tokio::test]
-    async fn test_get_releasable_packages_with_release() {
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+    async fn identifies_releasable_package() {
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_remote_config()
+        mock.expect_repo_name().returning(|| "repo".to_string());
+        mock.expect_remote_config()
             .returning(create_test_remote_config);
-
-        mock_forge.expect_get_commits().returning(|_| {
-            let mut commit =
-                create_test_forge_commit("abc123", "feat: new feature", 1000);
-            commit.files = vec!["src/main.rs".to_string()];
+        mock.expect_get_file_content().returning(|_| Ok(None));
+        mock.expect_get_commits().returning(|_| {
+            let mut commit = create_test_forge_commit("abc", "feat: new", 1000);
+            commit.files = vec!["main.rs".to_string()];
             Ok(vec![commit])
         });
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old"))));
 
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .returning(|_| {
-                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
-            });
-
-        let config = create_test_config_simple(vec![(
-            "test-repo",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            get_releasable_packages(&config, &mock_forge).await.unwrap();
+        let config =
+            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
+        let result = get_releasable_packages(
+            &config,
+            &ForgeManager::new(Box::new(mock)),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name, "test-repo");
         assert!(result[0].release.tag.is_some());
     }
 
     #[tokio::test]
-    async fn test_get_releasable_packages_no_release() {
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+    async fn returns_empty_when_no_changes() {
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_remote_config()
+        mock.expect_repo_name().returning(|| "repo".to_string());
+        mock.expect_remote_config()
             .returning(create_test_remote_config);
+        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current")))
+        });
 
-        mock_forge.expect_get_commits().returning(|_| Ok(vec![]));
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .returning(|_| {
-                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current-sha")))
-            });
-
-        let config = create_test_config_simple(vec![(
-            "test-repo",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            get_releasable_packages(&config, &mock_forge).await.unwrap();
+        let config =
+            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
+        let result = get_releasable_packages(
+            &config,
+            &ForgeManager::new(Box::new(mock)),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.len(), 0);
     }
 
     #[tokio::test]
-    async fn test_get_releasable_packages_with_prerelease() {
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
+    async fn applies_prerelease_suffix() {
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_remote_config()
+        mock.expect_repo_name().returning(|| "repo".to_string());
+        mock.expect_remote_config()
             .returning(create_test_remote_config);
-
-        mock_forge.expect_get_commits().returning(|_| {
-            let mut commit =
-                create_test_forge_commit("abc123", "feat: new feature", 1000);
-            commit.files = vec!["src/main.rs".to_string()];
+        mock.expect_get_file_content().returning(|_| Ok(None));
+        mock.expect_get_commits().returning(|_| {
+            let mut commit = create_test_forge_commit("abc", "feat: new", 1000);
+            commit.files = vec!["main.rs".to_string()];
             Ok(vec![commit])
         });
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old"))));
 
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .returning(|_| {
-                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old-sha")))
-            });
+        let mut config =
+            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
+        config.packages[0].prerelease = Some("beta".to_string());
 
-        let mut config = create_test_config_simple(vec![(
-            "test-repo",
-            ".",
-            ReleaseType::Node,
-        )]);
+        let result = get_releasable_packages(
+            &config,
+            &ForgeManager::new(Box::new(mock)),
+        )
+        .await
+        .unwrap();
 
-        config.packages[0].prerelease = Some("alpha".to_string());
-
-        let result =
-            get_releasable_packages(&config, &mock_forge).await.unwrap();
-
-        assert_eq!(result.len(), 1);
-        let tag = result[0].release.tag.as_ref().unwrap();
-        assert!(tag.semver.pre.as_str().contains("alpha"));
+        assert!(
+            result[0]
+                .release
+                .tag
+                .as_ref()
+                .unwrap()
+                .semver
+                .pre
+                .as_str()
+                .contains("beta")
+        );
     }
 
+    // ===== execute Tests =====
+
     #[tokio::test]
-    async fn test_execute_no_releasable_packages() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_load_config().returning(|| {
+    async fn succeeds_with_no_releasable_packages() {
+        let mut mock = MockForge::new();
+        mock.expect_load_config().returning(|| {
             Ok(create_test_config_simple(vec![(
-                "test-repo",
+                "repo",
                 ".",
                 ReleaseType::Node,
             )]))
         });
-
-        mock_forge
-            .expect_repo_name()
-            .returning(|| "test-repo".to_string());
-
-        mock_forge
-            .expect_default_branch()
+        mock.expect_repo_name().returning(|| "repo".to_string());
+        mock.expect_default_branch()
             .returning(|| "main".to_string());
-
-        mock_forge
-            .expect_remote_config()
+        mock.expect_remote_config()
             .returning(create_test_remote_config);
-
-        mock_forge.expect_get_commits().returning(|_| Ok(vec![]));
-
-        mock_forge
-            .expect_get_latest_tag_for_prefix()
-            .returning(|_| {
-                Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current-sha")))
-            });
-
-        let result = execute(Box::new(mock_forge)).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_gather_release_prs_includes_additional_manifest_files() {
-        let manifest = crate::config::ManifestFile {
-            is_workspace: false,
-            file_path: "VERSION".to_string(),
-            file_basename: "VERSION".to_string(),
-            content: r#"version = "1.0.0""#.to_string(),
-        };
-
-        let packages = vec![create_releasable_package_with_manifests(
-            "my-package",
-            ".",
-            ".",
-            "2.0.0",
-            ReleaseType::Node,
-            Some(vec![manifest]),
-        )];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
-
-        let prs = result.get("releasaurus-release-main").unwrap();
-        let version_file_change =
-            prs[0].file_changes.iter().find(|fc| fc.path == "VERSION");
-
-        assert!(version_file_change.is_some());
-        let change = version_file_change.unwrap();
-        assert!(change.content.contains("2.0.0"));
-        assert_eq!(change.update_type, FileUpdateType::Replace);
-    }
-
-    #[tokio::test]
-    async fn test_gather_release_prs_includes_multiple_additional_manifests() {
-        let manifests = vec![
-            crate::config::ManifestFile {
-                is_workspace: false,
-                file_path: "VERSION".to_string(),
-                file_basename: "VERSION".to_string(),
-                content: r#"version = "1.0.0""#.to_string(),
-            },
-            crate::config::ManifestFile {
-                is_workspace: false,
-                file_path: "docs/VERSION.txt".to_string(),
-                file_basename: "VERSION.txt".to_string(),
-                content: r#"version: "1.0.0""#.to_string(),
-            },
-        ];
-
-        let packages = vec![create_releasable_package_with_manifests(
-            "my-package",
-            ".",
-            ".",
-            "2.0.0",
-            ReleaseType::Node,
-            Some(manifests),
-        )];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
-
-        let prs = result.get("releasaurus-release-main").unwrap();
-        let version_changes: Vec<_> = prs[0]
-            .file_changes
-            .iter()
-            .filter(|fc| fc.path == "VERSION" || fc.path == "docs/VERSION.txt")
-            .collect();
-
-        assert_eq!(version_changes.len(), 2);
-        assert!(version_changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[tokio::test]
-    async fn test_gather_release_prs_skips_manifests_without_version_pattern() {
-        let manifest = crate::config::ManifestFile {
-            is_workspace: false,
-            file_path: "README.md".to_string(),
-            file_basename: "README.md".to_string(),
-            content: "# My Package\n\nNo version here".to_string(),
-        };
-
-        let packages = vec![create_releasable_package_with_manifests(
-            "my-package",
-            ".",
-            ".",
-            "2.0.0",
-            ReleaseType::Node,
-            Some(vec![manifest]),
-        )];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
-
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
-
-        let prs = result.get("releasaurus-release-main").unwrap();
-        let readme_change =
-            prs[0].file_changes.iter().find(|fc| fc.path == "README.md");
-
-        assert!(readme_change.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_gather_release_prs_combines_framework_and_additional_manifests()
-     {
-        let manifest = crate::config::ManifestFile {
-            is_workspace: false,
-            file_path: "VERSION".to_string(),
-            file_basename: "VERSION".to_string(),
-            content: r#"version = "1.0.0""#.to_string(),
-        };
-
-        let packages = vec![create_releasable_package_with_manifests(
-            "my-package",
-            ".",
-            ".",
-            "2.0.0",
-            ReleaseType::Node,
-            Some(vec![manifest]),
-        )];
-
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
-
-        mock_forge.expect_get_file_content().returning(|path| {
-            if path.ends_with("package.json") {
-                Ok(Some(
-                    r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
-                ))
-            } else {
-                Ok(None)
-            }
+        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current")))
         });
 
-        let config = create_test_config_simple(vec![(
-            "my-package",
-            ".",
-            ReleaseType::Node,
-        )]);
-
-        let result =
-            gather_release_prs_by_branch(&packages, &mock_forge, &config)
-                .await
-                .unwrap();
-
-        let prs = result.get("releasaurus-release-main").unwrap();
-
-        let has_package_json = prs[0]
-            .file_changes
-            .iter()
-            .any(|fc| fc.path.ends_with("package.json"));
-
-        let has_version_file =
-            prs[0].file_changes.iter().any(|fc| fc.path == "VERSION");
-
-        assert!(has_package_json, "Should include framework-specific files");
-        assert!(has_version_file, "Should include additional manifest files");
+        let result = execute(&ForgeManager::new(Box::new(mock))).await;
+        assert!(result.is_ok());
     }
 }

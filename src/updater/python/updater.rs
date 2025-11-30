@@ -1,10 +1,10 @@
 //! Python updater for handling Python projects with various build systems and
 //! package managers
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
     updater::{
-        framework::UpdaterPackage,
+        manager::UpdaterPackage,
         python::{pyproject::PyProject, setupcfg::SetupCfg, setuppy::SetupPy},
         traits::PackageUpdater,
     },
@@ -58,13 +58,13 @@ impl PackageUpdater for PythonUpdater {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn processes_python_project() {
+    #[test]
+    fn processes_python_project() {
         let updater = PythonUpdater::new();
         let content = r#"[project]
 name = "my-package"
@@ -72,16 +72,15 @@ version = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pyproject.toml".to_string(),
-            file_basename: "pyproject.toml".to_string(),
+            path: "pyproject.toml".to_string(),
+            basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = updater.update(&package, vec![]).unwrap();
@@ -90,21 +89,20 @@ version = "1.0.0"
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
 
-    #[tokio::test]
-    async fn returns_none_when_no_python_files() {
+    #[test]
+    fn returns_none_when_no_python_files() {
         let updater = PythonUpdater::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = updater.update(&package, vec![]).unwrap();

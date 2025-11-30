@@ -62,7 +62,9 @@ Native support for:
 - **Java** (Maven pom.xml, Gradle build files)
 - **PHP** (composer.json)
 - **Ruby** (Gemfile, .gemspec files)
-- **Generic** projects (changelog and tagging only—no version file updates)
+- **Generic** projects (see
+  [`additional_manifest_files`](./configuration.md#`additional_manifest_files`)
+  for version updates)
 
 ### 📝 **Smart Changelog Generation**
 

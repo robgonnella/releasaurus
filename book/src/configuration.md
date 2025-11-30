@@ -207,7 +207,7 @@ workspace_root = "."
 # Additional paths to include commits from (default: none)
 # additional_paths = []
 # Additional manifest files to apply generic version updates to (default: none)
-# additional_manifest_files = [{ path = "VERSION" }]
+# additional_manifest_files = ["VERSION"]
 # Package-specific version increment behavior (default: uses global settings)
 # breaking_always_increment_major = true
 # features_always_increment_minor = true
@@ -623,7 +623,9 @@ Specifies which language/framework updater to use for version files. This is
 - **`"Java"`** - Updates `pom.xml` or `build.gradle`
 - **`"Php"`** - Updates `composer.json`
 - **`"Ruby"`** - Updates gemspec files and version files
-- **`"Generic"`** - Changelog and tagging only (no version file updates)
+- **`"Generic"`** - Changelog and tagging only
+  (see [`additional_manifest_files`](#`additional_manifest_files`) for version
+  updates)
 
 ```toml
 [[package]]
@@ -692,17 +694,17 @@ automatically handled by your package's `release_type`.
 - **Build metadata**: Version strings in custom build scripts or metadata files
 - **Multi-language projects**: Version files for languages not specified in `release_type`
 
-Each manifest file entry requires a `path` field specifying the file location
-relative to the package's workspace root.
+Files are specified as string paths relative to the package path (not the
+workspace root).
 
 ```toml
 [[package]]
 path = "."
 release_type = "rust"
 additional_manifest_files = [
-  { path = "VERSION" },
-  { path = "docs/version.txt" },
-  { path = "scripts/build-metadata.json" }
+  "VERSION",
+  "docs/version.txt",
+  "scripts/build-metadata.json"
 ]
 ```
 
@@ -752,8 +754,8 @@ path = "."
 release_type = "rust"
 # Update VERSION file alongside Cargo.toml and version reference in README
 additional_manifest_files = [
-  { path = "VERSION" },
-  { path = "README.md" }
+  "VERSION",
+  "README.md"
 ]
 ```
 

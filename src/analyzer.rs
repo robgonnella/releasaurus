@@ -7,8 +7,8 @@ use next_version::VersionUpdater;
 use semver::Version;
 
 use crate::{
+    Result,
     analyzer::release::{Release, Tag},
-    cli::Result,
     forge::request::ForgeCommit,
 };
 
@@ -40,8 +40,8 @@ impl Analyzer {
     pub fn analyze(
         &self,
         commits: Vec<ForgeCommit>,
-        current_tag: Option<release::Tag>,
-    ) -> Result<Option<release::Release>> {
+        current_tag: Option<Tag>,
+    ) -> Result<Option<Release>> {
         let mut release = self.process_commits(commits)?;
 
         if release.commits.is_empty() {

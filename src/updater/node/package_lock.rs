@@ -1,10 +1,9 @@
 use serde_json::{Value, json};
 
 use crate::{
-    cli::Result,
-    config::ManifestFile,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::{ManifestFile, UpdaterPackage},
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -25,7 +24,7 @@ impl PackageLock {
         let mut file_changes = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "package-lock.json" {
+            if manifest.basename != "package-lock.json" {
                 continue;
             }
 
@@ -125,7 +124,7 @@ impl PackageLock {
         let formatted_json = serde_json::to_string_pretty(&lock_doc)?;
 
         Ok(Some(FileChange {
-            path: manifest.file_path.clone(),
+            path: manifest.path.clone(),
             content: formatted_json,
             update_type: FileUpdateType::Replace,
         }))
@@ -141,27 +140,26 @@ impl PackageLock {
 mod tests {
     use super::*;
     use crate::{
-        test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        config::release_type::ReleaseType, test_helpers::create_test_tag,
+        updater::manager::UpdaterPackage,
     };
 
-    #[tokio::test]
-    async fn updates_version_field() {
+    #[test]
+    fn updates_version_field() {
         let package_lock = PackageLock::new();
         let content =
             r#"{"name":"my-package","version":"1.0.0","packages":{}}"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();
@@ -171,8 +169,8 @@ mod tests {
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_root_package_entry_version() {
+    #[test]
+    fn updates_root_package_entry_version() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "my-package",
@@ -186,16 +184,15 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();
@@ -207,8 +204,8 @@ mod tests {
         assert_eq!(updated.matches("\"version\": \"2.0.0\"").count(), 2);
     }
 
-    #[tokio::test]
-    async fn updates_workspace_dependencies_in_lock_file() {
+    #[test]
+    fn updates_workspace_dependencies_in_lock_file() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "package-a",
@@ -225,23 +222,21 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: true,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock
@@ -253,8 +248,8 @@ mod tests {
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_workspace_dev_dependencies_in_lock_file() {
+    #[test]
+    fn updates_workspace_dev_dependencies_in_lock_file() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "package-a",
@@ -271,23 +266,21 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: true,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock
@@ -299,8 +292,8 @@ mod tests {
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_node_modules_entries_for_workspace_packages() {
+    #[test]
+    fn updates_node_modules_entries_for_workspace_packages() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "package-a",
@@ -317,23 +310,21 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: true,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock
@@ -349,8 +340,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn handles_non_workspace_lock_files() {
+    #[test]
+    fn handles_non_workspace_lock_files() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "my-package",
@@ -364,16 +355,15 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();
@@ -383,29 +373,28 @@ mod tests {
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_lock_files() {
+    #[test]
+    fn process_package_handles_multiple_lock_files() {
         let package_lock = PackageLock::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "packages/a/package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-a","version":"1.0.0","packages":{}}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/b/package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "packages/b/package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-b","version":"1.0.0","packages":{}}"#
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();
@@ -416,21 +405,20 @@ mod tests {
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_lock_files() {
+    #[test]
+    fn process_package_returns_none_when_no_lock_files() {
         let package_lock = PackageLock::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();
@@ -438,8 +426,8 @@ mod tests {
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields_in_lock_file() {
+    #[test]
+    fn preserves_other_fields_in_lock_file() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "my-package",
@@ -455,16 +443,15 @@ mod tests {
 }"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package-lock.json".to_string(),
-            file_basename: "package-lock.json".to_string(),
+            path: "package-lock.json".to_string(),
+            basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = package_lock.process_package(&package, &[]).unwrap();

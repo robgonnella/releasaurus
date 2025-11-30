@@ -26,8 +26,8 @@ query GetShaDate($owner: String!, $repo: String!, $sha: GitObjectID!) {
 }"#;
 
 use crate::{
+    Result,
     analyzer::release::Tag,
-    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
@@ -134,11 +134,6 @@ impl Github {
     }
 
     async fn create_tree(&self, tree: GithubTree) -> Result<Tree> {
-        if self.config.dry_run {
-            warn!("dry_run: would create tree: {:#?}", tree);
-            return Ok(Tree { sha: "fff".into() });
-        }
-
         let endpoint = format!(
             "{}/repos/{}/{}/git/trees",
             self.base_uri, self.config.owner, self.config.repo
@@ -192,13 +187,6 @@ impl Github {
         parent_sha: &str,
         tree_sha: &str,
     ) -> Result<Commit> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would create commit: message: {message}, parent_sha: {parent_sha}, tree_sha: {tree_sha}"
-            );
-            return Ok(Commit { sha: "fff".into() });
-        }
-
         let endpoint = format!(
             "{}/repos/{}/{}/git/commits",
             self.base_uri, self.config.owner, self.config.repo
@@ -463,11 +451,6 @@ impl Forge for Github {
         &self,
         req: CreateBranchRequest,
     ) -> Result<Commit> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release branch: req: {:#?}", req);
-            return Ok(Commit { sha: "fff".into() });
-        }
-
         let default_branch = self.default_branch();
 
         let default_ref = self
@@ -536,12 +519,6 @@ impl Forge for Github {
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would tag commit: tag_name: {tag_name}, sha: {sha}"
-            );
-            return Ok(());
-        }
         self.instance
             .repos(&self.config.owner, &self.config.repo)
             .create_ref(&Reference::Tag(tag_name.to_string()), sha)
@@ -644,14 +621,6 @@ impl Forge for Github {
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release PR: req: {:#?}", req);
-            return Ok(PullRequest {
-                number: 0,
-                sha: "fff".into(),
-                body: req.body,
-            });
-        }
         let pr = self
             .instance
             .pulls(&self.config.owner, &self.config.repo)
@@ -668,10 +637,6 @@ impl Forge for Github {
     }
 
     async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would update release PR: req: {:#?}", req);
-            return Ok(());
-        }
         self.instance
             .pulls(&self.config.owner, &self.config.repo)
             .update(req.pr_number)
@@ -684,10 +649,6 @@ impl Forge for Github {
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would replace release PR labels: req: {:#?}", req);
-            return Ok(());
-        }
         let all_labels = self
             .instance
             .issues(&self.config.owner, &self.config.repo)
@@ -727,12 +688,6 @@ impl Forge for Github {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
-            );
-            return Ok(());
-        }
         self.instance
             .repos(&self.config.owner, &self.config.repo)
             .releases()

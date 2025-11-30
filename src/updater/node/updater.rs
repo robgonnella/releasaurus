@@ -1,8 +1,8 @@
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
     updater::{
-        framework::UpdaterPackage,
+        manager::UpdaterPackage,
         node::{
             package_json::PackageJson, package_lock::PackageLock,
             yarn_lock::YarnLock,
@@ -70,27 +70,26 @@ impl PackageUpdater for NodeUpdater {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn processes_node_project() {
+    #[test]
+    fn processes_node_project() {
         let updater = NodeUpdater::new();
         let content = r#"{"name":"my-package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = updater.update(&package, vec![]).unwrap();
@@ -99,21 +98,20 @@ mod tests {
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
 
-    #[tokio::test]
-    async fn returns_none_when_no_node_files() {
+    #[test]
+    fn returns_none_when_no_node_files() {
         let updater = NodeUpdater::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: "[package]\nversion = \"1.0.0\"\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = updater.update(&package, vec![]).unwrap();

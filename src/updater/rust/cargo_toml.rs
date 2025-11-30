@@ -2,9 +2,9 @@ use log::*;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::UpdaterPackage,
 };
 
 /// Handles Cargo.toml file parsing and version updates for Rust packages.
@@ -25,7 +25,7 @@ impl CargoToml {
         let mut file_changes = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "Cargo.toml" {
+            if manifest.basename != "Cargo.toml" {
                 continue;
             }
 
@@ -78,7 +78,7 @@ impl CargoToml {
             }
 
             file_changes.push(FileChange {
-                path: manifest.file_path.clone(),
+                path: manifest.path.clone(),
                 content: doc.to_string(),
                 update_type: FileUpdateType::Replace,
             });
@@ -139,13 +139,13 @@ impl CargoToml {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_package_version() {
+    #[test]
+    fn updates_package_version() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "my-package"
@@ -153,16 +153,15 @@ version = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
@@ -172,8 +171,8 @@ version = "1.0.0"
         assert!(updated.contains("version = \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_workspace_dependency_with_simple_version() {
+    #[test]
+    fn updates_workspace_dependency_with_simple_version() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "package-a"
@@ -184,23 +183,21 @@ package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/a/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml
@@ -212,8 +209,8 @@ package-b = "1.0.0"
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_workspace_dependency_with_version_object() {
+    #[test]
+    fn updates_workspace_dependency_with_version_object() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "package-a"
@@ -224,23 +221,21 @@ package-b = { version = "1.0.0", features = ["serde"] }
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/a/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml
@@ -253,8 +248,8 @@ package-b = { version = "1.0.0", features = ["serde"] }
         assert!(updated.contains("features = [\"serde\"]"));
     }
 
-    #[tokio::test]
-    async fn updates_dev_dependencies() {
+    #[test]
+    fn updates_dev_dependencies() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "package-a"
@@ -265,23 +260,21 @@ package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/a/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml
@@ -293,8 +286,8 @@ package-b = "1.0.0"
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_build_dependencies() {
+    #[test]
+    fn updates_build_dependencies() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "package-a"
@@ -305,23 +298,21 @@ package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/a/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml
@@ -333,24 +324,23 @@ package-b = "1.0.0"
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn skips_workspace_cargo_toml() {
+    #[test]
+    fn skips_workspace_cargo_toml() {
         let cargo_toml = CargoToml::new();
         let content = r#"[workspace]
 members = ["packages/*"]
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
@@ -358,8 +348,8 @@ members = ["packages/*"]
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields() {
+    #[test]
+    fn preserves_other_fields() {
         let cargo_toml = CargoToml::new();
         let content = r#"[package]
 name = "my-package"
@@ -372,16 +362,15 @@ serde = "1.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
@@ -394,29 +383,28 @@ serde = "1.0"
         assert!(updated.contains("serde = \"1.0\""));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_cargo_toml_files() {
+    #[test]
+    fn process_package_handles_multiple_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/a/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/b/Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "packages/b/Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
@@ -427,21 +415,20 @@ serde = "1.0"
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_cargo_toml_files() {
+    #[test]
+    fn process_package_returns_none_when_no_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: "version = 3\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();

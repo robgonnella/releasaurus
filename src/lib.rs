@@ -1,11 +1,13 @@
 mod analyzer;
-mod cli;
-pub mod command;
+mod command;
 pub mod config;
 mod forge;
+mod path_helpers;
 mod updater;
 
-pub use cli::{Args, Command, Result};
+pub use command::{
+    args::Args, args::Command, release, release_pr, types::Result,
+};
 
 #[cfg(test)]
 pub mod test_helpers;

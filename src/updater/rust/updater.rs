@@ -1,9 +1,9 @@
 //! Cargo updater for handling rust projects
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
     updater::{
-        framework::UpdaterPackage,
+        manager::UpdaterPackage,
         rust::{cargo_lock::CargoLock, cargo_toml::CargoToml},
         traits::PackageUpdater,
     },
@@ -60,13 +60,13 @@ impl PackageUpdater for RustUpdater {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn processes_rust_project() {
+    #[test]
+    fn processes_rust_project() {
         let updater = RustUpdater::new();
         let content = r#"[package]
 name = "my-package"
@@ -74,16 +74,15 @@ version = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = updater.update(&package, vec![]).unwrap();
@@ -92,21 +91,20 @@ version = "1.0.0"
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
 
-    #[tokio::test]
-    async fn returns_none_when_no_rust_files() {
+    #[test]
+    fn returns_none_when_no_rust_files() {
         let updater = RustUpdater::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = updater.update(&package, vec![]).unwrap();

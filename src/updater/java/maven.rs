@@ -2,11 +2,11 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
-use crate::config::ManifestFile;
+use crate::updater::manager::ManifestFile;
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::UpdaterPackage,
 };
 
 /// Handles Maven pom.xml file parsing and version updates for Java packages.
@@ -26,7 +26,7 @@ impl Maven {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename == "pom.xml"
+            if manifest.basename == "pom.xml"
                 && let Some(change) = self.update_pom_file(manifest, package)?
             {
                 file_changes.push(change);
@@ -46,7 +46,7 @@ impl Maven {
         manifest: &ManifestFile,
         package: &UpdaterPackage,
     ) -> Result<Option<FileChange>> {
-        info!("Updating Maven project: {}", manifest.file_path);
+        info!("Updating Maven project: {}", manifest.path);
 
         let bytes = manifest.content.as_bytes();
 
@@ -102,7 +102,7 @@ impl Maven {
         let result = writer.into_inner();
         let content = String::from_utf8(result)?;
         Ok(Some(FileChange {
-            path: manifest.file_path.clone(),
+            path: manifest.path.clone(),
             content,
             update_type: FileUpdateType::Replace,
         }))
@@ -113,12 +113,12 @@ impl Maven {
 mod tests {
     use super::*;
     use crate::{
-        test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        config::release_type::ReleaseType, test_helpers::create_test_tag,
+        updater::manager::UpdaterPackage,
     };
 
-    #[tokio::test]
-    async fn updates_project_version() {
+    #[test]
+    fn updates_project_version() {
         let maven = Maven::new();
         let content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project>
@@ -126,16 +126,15 @@ mod tests {
 </project>"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
@@ -145,8 +144,8 @@ mod tests {
         assert!(updated.contains("<version>2.0.0</version>"));
     }
 
-    #[tokio::test]
-    async fn preserves_xml_structure() {
+    #[test]
+    fn preserves_xml_structure() {
         let maven = Maven::new();
         let content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project>
@@ -163,16 +162,15 @@ mod tests {
 </project>"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
@@ -186,8 +184,8 @@ mod tests {
         assert!(updated.contains("<version>4.12</version>"));
     }
 
-    #[tokio::test]
-    async fn only_updates_project_level_version() {
+    #[test]
+    fn only_updates_project_level_version() {
         let maven = Maven::new();
         let content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project>
@@ -200,16 +198,15 @@ mod tests {
 </project>"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
@@ -220,8 +217,8 @@ mod tests {
         assert!(updated.contains("<version>4.12</version>"));
     }
 
-    #[tokio::test]
-    async fn handles_multiline_xml() {
+    #[test]
+    fn handles_multiline_xml() {
         let maven = Maven::new();
         let content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -235,16 +232,15 @@ mod tests {
 </project>"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.5.0", "2.5.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
@@ -256,29 +252,28 @@ mod tests {
         assert!(updated.contains("<packaging>jar</packaging>"));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_pom_files() {
+    #[test]
+    fn process_package_handles_multiple_pom_files() {
         let maven = Maven::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "module1/pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "module1/pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "module2/pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "module2/pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.process_package(&package).unwrap();
@@ -289,21 +284,20 @@ mod tests {
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_pom_files() {
+    #[test]
+    fn process_package_returns_none_when_no_pom_files() {
         let maven = Maven::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "build.gradle".to_string(),
-            file_basename: "build.gradle".to_string(),
+            path: "build.gradle".to_string(),
+            basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.process_package(&package).unwrap();
@@ -311,8 +305,8 @@ mod tests {
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn handles_parent_pom_structure() {
+    #[test]
+    fn handles_parent_pom_structure() {
         let maven = Maven::new();
         let content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project>
@@ -325,16 +319,15 @@ mod tests {
 </project>"#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "pom.xml".to_string(),
-            file_basename: "pom.xml".to_string(),
+            path: "pom.xml".to_string(),
+            basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
-            framework: Framework::Java,
+            release_type: ReleaseType::Java,
         };
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();

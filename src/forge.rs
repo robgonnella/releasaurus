@@ -9,5 +9,6 @@ pub mod gitea;
 pub mod github;
 pub mod gitlab;
 pub mod local;
+pub mod manager;
 pub mod request;
 pub mod traits;

@@ -3,9 +3,9 @@ use regex::Regex;
 // use std::collections::HashSet;
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::UpdaterPackage,
 };
 
 /// Handles yarn.lock file parsing and version updates for Node.js packages.
@@ -30,11 +30,11 @@ impl YarnLock {
         let version_regex = Regex::new(r#"^(\s+version\s+)"(.*)""#)?;
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "yarn.lock" {
+            if manifest.basename != "yarn.lock" {
                 continue;
             }
 
-            info!("processing {}", manifest.file_path);
+            info!("processing {}", manifest.path);
 
             let mut updated = false;
             let mut lines: Vec<String> = vec![];
@@ -80,7 +80,7 @@ impl YarnLock {
 
             if updated {
                 file_changes.push(FileChange {
-                    path: manifest.file_path.clone(),
+                    path: manifest.path.clone(),
                     content: updated_content,
                     update_type: FileUpdateType::Replace,
                 });
@@ -101,13 +101,13 @@ mod tests {
 
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_workspace_package_version() {
+    #[test]
+    fn updates_workspace_package_version() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -117,16 +117,15 @@ mod tests {
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -138,8 +137,8 @@ mod tests {
         assert!(updated.contains("version \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_multiple_workspace_packages() {
+    #[test]
+    fn updates_multiple_workspace_packages() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -153,23 +152,21 @@ mod tests {
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -182,8 +179,8 @@ mod tests {
         assert!(updated.contains("version \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_non_workspace_packages() {
+    #[test]
+    fn preserves_non_workspace_packages() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -197,16 +194,15 @@ mod tests {
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -219,8 +215,8 @@ mod tests {
         assert!(updated.contains("version \"5.0.0\""));
     }
 
-    #[tokio::test]
-    async fn handles_package_entries_without_quotes() {
+    #[test]
+    fn handles_package_entries_without_quotes() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -230,16 +226,15 @@ package-a@^1.0.0:
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -251,8 +246,8 @@ package-a@^1.0.0:
         assert!(updated.contains("version \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_whitespace_formatting() {
+    #[test]
+    fn preserves_whitespace_formatting() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -263,16 +258,15 @@ package-a@^1.0.0:
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -286,27 +280,26 @@ package-a@^1.0.0:
         assert!(updated.contains("  integrity"));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_yarn_lock_files() {
+    #[test]
+    fn process_package_handles_multiple_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "packages/a/yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/b/yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "packages/b/yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -319,21 +312,20 @@ package-a@^1.0.0:
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_yarn_lock_files() {
+    #[test]
+    fn process_package_returns_none_when_no_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "package.json".to_string(),
-            file_basename: "package.json".to_string(),
+            path: "package.json".to_string(),
+            basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock.process_package(&package, &[]).unwrap();
@@ -341,8 +333,8 @@ package-a@^1.0.0:
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn returns_none_when_no_workspace_packages_to_update() {
+    #[test]
+    fn returns_none_when_no_workspace_packages_to_update() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -352,16 +344,15 @@ package-a@^1.0.0:
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
@@ -371,8 +362,8 @@ package-a@^1.0.0:
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn handles_multiple_version_ranges_for_same_package() {
+    #[test]
+    fn handles_multiple_version_ranges_for_same_package() {
         let yarn_lock = YarnLock::new();
         let content = r#"# yarn lockfile v1
 
@@ -386,16 +377,15 @@ package-a@^1.0.0:
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "yarn.lock".to_string(),
-            file_basename: "yarn.lock".to_string(),
+            path: "yarn.lock".to_string(),
+            basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Node,
+            release_type: ReleaseType::Node,
         };
 
         let result = yarn_lock
