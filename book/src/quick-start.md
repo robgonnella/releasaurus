@@ -55,7 +55,9 @@ However, if you want version file updates, you'll need to create a
 - **Java**: For projects with `pom.xml` or `build.gradle`
 - **Php**: For projects with `composer.json`
 - **Ruby**: For projects with `Gemfile` or `.gemspec` files
-- **Generic**: For changelog and tagging only (no version file updates)
+- **Generic**: For projects without specific language support (see
+  [`additional_manifest_files`](./configuration.md#`additional_manifest_files`)
+  for version updates)
 
 **Minimal configuration example:**
 

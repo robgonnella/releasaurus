@@ -1,8 +1,8 @@
 use serde_json::{Value, json};
 
 use crate::{
-    cli::Result,
-    config::ManifestFile,
+    Result,
+    config::manifest::ManifestFile,
     forge::request::{FileChange, FileUpdateType},
     updater::framework::UpdaterPackage,
 };

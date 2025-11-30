@@ -15,8 +15,8 @@ use std::{cmp, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use crate::{
+    Result,
     analyzer::release::Tag,
-    cli::Result,
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{
         config::{
@@ -242,13 +242,6 @@ impl Gitea {
     async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
         let url = self.base_url.join(&format!("branches/{branch}"))?;
         let request = self.client.delete(url).build()?;
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would execute request: method: delete, url: {:?}",
-                request
-            );
-            return Ok(());
-        }
         let resp = self.client.execute(request).await?;
         info!("delete branch resp --> {:#?}", resp);
         Ok(())
@@ -305,6 +298,10 @@ impl Forge for Gitea {
         self.config.clone()
     }
 
+    fn default_branch(&self) -> String {
+        self.default_branch.clone()
+    }
+
     async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
         let raw_url = self.base_url.join(&format!("raw/{path}"))?;
         let request = self.client.get(raw_url).build()?;
@@ -337,10 +334,6 @@ impl Forge for Gitea {
             info!("configuration not found in repo: using default");
             Ok(Config::default())
         }
-    }
-
-    fn default_branch(&self) -> String {
-        self.default_branch.clone()
     }
 
     async fn get_latest_tag_for_prefix(
@@ -476,10 +469,6 @@ impl Forge for Gitea {
         &self,
         req: CreateBranchRequest,
     ) -> Result<Commit> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release branch: req: {:#?}", req);
-            return Ok(Commit { sha: "fff".into() });
-        }
         // TODO: Once below issue is resolved we can delete this call
         // https://github.com/go-gitea/gitea/issues/35538
         self.delete_branch_if_exists(&req.branch).await?;
@@ -530,10 +519,6 @@ impl Forge for Gitea {
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would create tag: {tag_name}",);
-            return Ok(());
-        }
         let tag_url = self.base_url.join("tags")?;
         let body = serde_json::json!({
           "tag_name": tag_name,
@@ -671,15 +656,6 @@ impl Forge for Gitea {
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        if self.config.dry_run {
-            warn!("dry_run: would create release PR: req: {:#?}", req);
-            return Ok(PullRequest {
-                number: 0,
-                sha: "fff".into(),
-                body: req.body,
-            });
-        }
-
         let data = CreatePull {
             title: req.title,
             body: req.body,
@@ -700,10 +676,6 @@ impl Forge for Gitea {
     }
 
     async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would update release PR: req: {:#?}", req);
-            return Ok(());
-        }
         let data = UpdatePullBody {
             title: req.title,
             body: req.body,
@@ -718,10 +690,6 @@ impl Forge for Gitea {
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        if self.config.dry_run {
-            warn!("dry_run: would replace release PR labels: req: {:#?}", req);
-            return Ok(());
-        }
         let all_labels = self.get_all_labels().await?;
 
         let mut labels = vec![];
@@ -754,12 +722,6 @@ impl Forge for Gitea {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        if self.config.dry_run {
-            warn!(
-                "dry_run: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
-            );
-            return Ok(());
-        }
         let data = CreateRelease {
             tag_name: tag.to_string(),
             target_commitish: sha.to_string(),

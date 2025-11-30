@@ -1,5 +1,5 @@
 use crate::{
-    cli::Result, forge::request::FileChange, updater::framework::UpdaterPackage,
+    Result, forge::request::FileChange, updater::framework::UpdaterPackage,
 };
 
 /// Common interface for updating version files in different language

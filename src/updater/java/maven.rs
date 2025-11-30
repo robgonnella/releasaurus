@@ -2,9 +2,9 @@ use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
-use crate::config::ManifestFile;
+use crate::config::manifest::ManifestFile;
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
     updater::framework::UpdaterPackage,
 };

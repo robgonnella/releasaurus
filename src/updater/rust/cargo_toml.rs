@@ -2,7 +2,7 @@ use log::*;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
     updater::framework::UpdaterPackage,
 };
@@ -139,7 +139,7 @@ impl CargoToml {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::manifest::ManifestFile,
         test_helpers::create_test_tag,
         updater::framework::{Framework, UpdaterPackage},
     };

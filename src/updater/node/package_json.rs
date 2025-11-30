@@ -2,7 +2,7 @@ use log::*;
 use serde_json::{Value, json};
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
     updater::framework::UpdaterPackage,
 };
@@ -107,7 +107,7 @@ impl PackageJson {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::manifest::ManifestFile,
         test_helpers::create_test_tag,
         updater::framework::{Framework, UpdaterPackage},
     };

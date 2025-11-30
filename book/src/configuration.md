@@ -623,7 +623,9 @@ Specifies which language/framework updater to use for version files. This is
 - **`"Java"`** - Updates `pom.xml` or `build.gradle`
 - **`"Php"`** - Updates `composer.json`
 - **`"Ruby"`** - Updates gemspec files and version files
-- **`"Generic"`** - Changelog and tagging only (no version file updates)
+- **`"Generic"`** - Changelog and tagging only
+  (see [`additional_manifest_files`](#`additional_manifest_files`) for version
+  updates)
 
 ```toml
 [[package]]

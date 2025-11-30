@@ -4,11 +4,11 @@ use semver::{Prerelease, Version};
 use std::sync::LazyLock;
 
 use crate::{
+    Result,
     analyzer::{
         commit::Commit, config::AnalyzerConfig, group::GroupParser,
         release::Release,
     },
-    cli::Result,
     forge::request::ForgeCommit,
 };
 
