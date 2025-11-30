@@ -3,10 +3,12 @@ use semver::Version;
 use std::sync::LazyLock;
 
 use crate::{
-    cli::Result,
-    config::ManifestFile,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::{framework::UpdaterPackage, traits::PackageUpdater},
+    updater::{
+        manager::{ManifestFile, UpdaterPackage},
+        traits::PackageUpdater,
+    },
 };
 
 /// Default generic version matcher regex
@@ -23,6 +25,7 @@ impl GenericUpdater {
         Self {}
     }
 
+    /// Static fn to provide a generic regex version update for any manifest
     pub fn update_manifest(
         manifest: &ManifestFile,
         next_version: &Version,
@@ -40,7 +43,7 @@ impl GenericUpdater {
 
         if content != manifest.content {
             return Some(FileChange {
-                path: manifest.file_path.clone(),
+                path: manifest.path.clone(),
                 content,
                 update_type: FileUpdateType::Replace,
             });
@@ -62,15 +65,16 @@ impl PackageUpdater for GenericUpdater {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::release_type::ReleaseType;
+
     use super::*;
-    use crate::config::ManifestFile;
     use semver::Version;
 
     fn create_manifest(content: &str) -> ManifestFile {
         ManifestFile {
             is_workspace: false,
-            file_path: "test.txt".to_string(),
-            file_basename: "test.txt".to_string(),
+            path: "test.txt".to_string(),
+            basename: "test.txt".to_string(),
             content: content.to_string(),
         }
     }
@@ -216,7 +220,6 @@ mod tests {
         let updater = GenericUpdater::new();
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![],
             next_version: crate::analyzer::release::Tag {
                 sha: "abc".to_string(),
@@ -224,7 +227,7 @@ mod tests {
                 semver: Version::parse("1.0.0").unwrap(),
                 timestamp: None,
             },
-            framework: crate::updater::framework::Framework::Generic,
+            release_type: ReleaseType::Generic,
         };
 
         let result = updater.update(&package, vec![]).unwrap();

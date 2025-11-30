@@ -1,7 +1,7 @@
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
-    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
+    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
 };
 
 pub struct SetupPy {}
@@ -18,7 +18,7 @@ impl SetupPy {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "setup.py" {
+            if manifest.basename != "setup.py" {
                 continue;
             }
 
@@ -42,28 +42,27 @@ impl SetupPy {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_version_with_double_quotes() {
+    #[test]
+    fn updates_version_with_double_quotes() {
         let setuppy = SetupPy::new();
         let content =
             "setup(\n    name='my-package',\n    version=\"1.0.0\",\n)\n";
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();
@@ -73,23 +72,22 @@ mod tests {
         assert!(updated.contains("version=\"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_version_with_single_quotes() {
+    #[test]
+    fn updates_version_with_single_quotes() {
         let setuppy = SetupPy::new();
         let content =
             "setup(\n    name='my-package',\n    version='1.0.0',\n)\n";
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();
@@ -99,23 +97,22 @@ mod tests {
         assert!(updated.contains("version='2.0.0'"));
     }
 
-    #[tokio::test]
-    async fn preserves_whitespace_formatting() {
+    #[test]
+    fn preserves_whitespace_formatting() {
         let setuppy = SetupPy::new();
         let content =
             "setup(\n    name='my-package',\n    version   =   \"1.0.0\",\n)\n";
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();
@@ -125,8 +122,8 @@ mod tests {
         assert!(updated.contains("version   =   \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields() {
+    #[test]
+    fn preserves_other_fields() {
         let setuppy = SetupPy::new();
         let content = r#"from setuptools import setup, find_packages
 
@@ -143,16 +140,15 @@ setup(
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();
@@ -167,29 +163,28 @@ setup(
         assert!(updated.contains("'requests>=2.28.0'"));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_setup_py_files() {
+    #[test]
+    fn process_package_handles_multiple_setup_py_files() {
         let setuppy = SetupPy::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/a/setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "packages/a/setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: "setup(\n    name='package-a',\n    version='1.0.0'\n)"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "packages/b/setup.py".to_string(),
-            file_basename: "setup.py".to_string(),
+            path: "packages/b/setup.py".to_string(),
+            basename: "setup.py".to_string(),
             content: "setup(\n    name='package-b',\n    version='1.0.0'\n)"
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();
@@ -200,21 +195,20 @@ setup(
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_setup_py_files() {
+    #[test]
+    fn process_package_returns_none_when_no_setup_py_files() {
         let setuppy = SetupPy::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "setup.cfg".to_string(),
-            file_basename: "setup.cfg".to_string(),
+            path: "setup.cfg".to_string(),
+            basename: "setup.cfg".to_string(),
             content: "[metadata]\nversion = 1.0.0\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Python,
+            release_type: ReleaseType::Python,
         };
 
         let result = setuppy.process_package(&package).unwrap();

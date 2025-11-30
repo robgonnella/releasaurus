@@ -1,9 +1,9 @@
 use toml_edit::{DocumentMut, value};
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::framework::UpdaterPackage,
+    updater::manager::UpdaterPackage,
 };
 
 /// Handles Cargo.lock file parsing and version synchronization for Rust
@@ -24,7 +24,7 @@ impl CargoLock {
         let mut file_changes = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "Cargo.lock" {
+            if manifest.basename != "Cargo.lock" {
                 continue;
             }
 
@@ -59,7 +59,7 @@ impl CargoLock {
                 }
 
                 file_changes.push(FileChange {
-                    path: manifest.file_path.clone(),
+                    path: manifest.path.clone(),
                     content: lock_doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -85,13 +85,13 @@ mod tests {
 
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_workspace_package_version() {
+    #[test]
+    fn updates_workspace_package_version() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 
@@ -101,16 +101,15 @@ version = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -122,8 +121,8 @@ version = "1.0.0"
         assert!(updated.contains("version = \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_multiple_workspace_packages() {
+    #[test]
+    fn updates_multiple_workspace_packages() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 
@@ -137,23 +136,21 @@ version = "1.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: "packages/a".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
-            workspace_root: "packages/b".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v3.0.0", "3.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -166,8 +163,8 @@ version = "1.0.0"
         assert!(updated.contains("version = \"3.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_non_workspace_packages() {
+    #[test]
+    fn preserves_non_workspace_packages() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 
@@ -181,16 +178,15 @@ version = "5.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -203,8 +199,8 @@ version = "5.0.0"
         assert!(updated.contains("version = \"5.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields() {
+    #[test]
+    fn preserves_other_fields() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 
@@ -223,16 +219,15 @@ checksum = "abc123"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -249,23 +244,22 @@ checksum = "abc123"
         assert!(updated.contains("checksum = \"abc123\""));
     }
 
-    #[tokio::test]
-    async fn returns_none_when_cargo_lock_has_no_packages() {
+    #[test]
+    fn returns_none_when_cargo_lock_has_no_packages() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -275,27 +269,26 @@ checksum = "abc123"
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_cargo_lock_files() {
+    #[test]
+    fn process_package_handles_multiple_cargo_lock_files() {
         let cargo_lock = CargoLock::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "workspace/a/Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "workspace/a/Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: "version = 3\n\n[[package]]\nname = \"package-a\"\nversion = \"1.0.0\"\n".to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "workspace/b/Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "workspace/b/Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: "version = 3\n\n[[package]]\nname = \"package-a\"\nversion = \"1.0.0\"\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "package-a".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock
@@ -308,22 +301,21 @@ checksum = "abc123"
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_cargo_lock_files() {
+    #[test]
+    fn process_package_returns_none_when_no_cargo_lock_files() {
         let cargo_lock = CargoLock::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.toml".to_string(),
-            file_basename: "Cargo.toml".to_string(),
+            path: "Cargo.toml".to_string(),
+            basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"my-package\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock.process_package(&package, &[]).unwrap();
@@ -331,8 +323,8 @@ checksum = "abc123"
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn updates_main_package_version_in_cargo_lock() {
+    #[test]
+    fn updates_main_package_version_in_cargo_lock() {
         let cargo_lock = CargoLock::new();
         let content = r#"version = 3
 
@@ -350,23 +342,21 @@ version = "5.0.0"
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Cargo.lock".to_string(),
-            file_basename: "Cargo.lock".to_string(),
+            path: "Cargo.lock".to_string(),
+            basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
         let main_package = UpdaterPackage {
             package_name: "main-package".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v3.0.0", "3.0.0", "abc"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
         let workspace_package = UpdaterPackage {
             package_name: "workspace-package".to_string(),
-            workspace_root: "packages/workspace".to_string(),
             manifest_files: vec![],
             next_version: create_test_tag("v4.0.0", "4.0.0", "def"),
-            framework: Framework::Rust,
+            release_type: ReleaseType::Rust,
         };
 
         let result = cargo_lock

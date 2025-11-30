@@ -2,9 +2,9 @@ use log::*;
 use std::path::Path;
 
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
-    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
+    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
 };
 
 /// Handles .gemspec file parsing and version updates for Ruby packages.
@@ -24,14 +24,14 @@ impl Gemspec {
         let mut file_changes = vec![];
 
         for manifest in package.manifest_files.iter() {
-            let file_path = Path::new(&manifest.file_basename);
+            let file_path = Path::new(&manifest.basename);
 
             if let Some(file_ext) = file_path.extension() {
                 if file_ext.display().to_string() != "gemspec" {
                     continue;
                 }
 
-                info!("processing gemspec file: {}", manifest.file_basename);
+                info!("processing gemspec file: {}", manifest.basename);
 
                 if let Some(change) = GenericUpdater::update_manifest(
                     manifest,
@@ -54,13 +54,13 @@ impl Gemspec {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_version_with_spec_prefix_and_double_quotes() {
+    #[test]
+    fn updates_version_with_spec_prefix_and_double_quotes() {
         let gemspec = Gemspec::new();
         let content = r#"Gem::Specification.new do |spec|
   spec.name = "my-gem"
@@ -69,16 +69,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "my-gem.gemspec".to_string(),
-            file_basename: "my-gem.gemspec".to_string(),
+            path: "my-gem.gemspec".to_string(),
+            basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -88,8 +87,8 @@ end
         assert!(updated.contains("spec.version = \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_version_with_s_prefix() {
+    #[test]
+    fn updates_version_with_s_prefix() {
         let gemspec = Gemspec::new();
         let content = r#"Gem::Specification.new do |s|
   s.name = "my-gem"
@@ -98,16 +97,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "my-gem.gemspec".to_string(),
-            file_basename: "my-gem.gemspec".to_string(),
+            path: "my-gem.gemspec".to_string(),
+            basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -117,8 +115,8 @@ end
         assert!(updated.contains("s.version = \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_version_with_single_quotes() {
+    #[test]
+    fn updates_version_with_single_quotes() {
         let gemspec = Gemspec::new();
         let content = r#"Gem::Specification.new do |spec|
   spec.name = 'my-gem'
@@ -127,16 +125,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "my-gem.gemspec".to_string(),
-            file_basename: "my-gem.gemspec".to_string(),
+            path: "my-gem.gemspec".to_string(),
+            basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -146,8 +143,8 @@ end
         assert!(updated.contains("spec.version = '2.0.0'"));
     }
 
-    #[tokio::test]
-    async fn preserves_whitespace_formatting() {
+    #[test]
+    fn preserves_whitespace_formatting() {
         let gemspec = Gemspec::new();
         let content = r#"Gem::Specification.new do |spec|
   spec.version   =   "1.0.0"
@@ -155,16 +152,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "my-gem.gemspec".to_string(),
-            file_basename: "my-gem.gemspec".to_string(),
+            path: "my-gem.gemspec".to_string(),
+            basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -174,8 +170,8 @@ end
         assert!(updated.contains("spec.version   =   \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn preserves_other_fields() {
+    #[test]
+    fn preserves_other_fields() {
         let gemspec = Gemspec::new();
         let content = r#"Gem::Specification.new do |spec|
   spec.name = "my-gem"
@@ -189,16 +185,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "my-gem.gemspec".to_string(),
-            file_basename: "my-gem.gemspec".to_string(),
+            path: "my-gem.gemspec".to_string(),
+            basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -212,27 +207,26 @@ end
         assert!(updated.contains("spec.add_dependency \"rails\", \"~> 7.0\""));
     }
 
-    #[tokio::test]
-    async fn process_packages_handles_multiple_gemspec_files() {
+    #[test]
+    fn process_packages_handles_multiple_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "gems/a/gem-a.gemspec".to_string(),
-            file_basename: "gem-a.gemspec".to_string(),
+            path: "gems/a/gem-a.gemspec".to_string(),
+            basename: "gem-a.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "gems/b/gem-b.gemspec".to_string(),
-            file_basename: "gem-b.gemspec".to_string(),
+            path: "gems/b/gem-b.gemspec".to_string(),
+            basename: "gem-b.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();
@@ -243,21 +237,20 @@ end
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_packages_returns_none_when_no_gemspec_files() {
+    #[test]
+    fn process_packages_returns_none_when_no_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "Gemfile".to_string(),
-            file_basename: "Gemfile".to_string(),
+            path: "Gemfile".to_string(),
+            basename: "Gemfile".to_string(),
             content: "source 'https://rubygems.org'\ngem 'rails'".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = gemspec.process_packages(&package).unwrap();

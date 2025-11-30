@@ -2,5 +2,6 @@
 
 pub mod gradle;
 pub mod gradle_properties;
+pub mod manifests;
 pub mod maven;
 pub mod updater;

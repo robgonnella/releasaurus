@@ -35,10 +35,7 @@
 
 use clap::Parser;
 
-use releasaurus::{
-    Args, Command, Result,
-    command::{release, release_pr},
-};
+use releasaurus::{Args, Command, Result, release, release_pr};
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
 const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
@@ -89,10 +86,10 @@ async fn main() -> Result<()> {
     initialize_logger(args.debug)?;
 
     let remote = args.get_remote()?;
-    let forge = remote.get_forge().await?;
+    let forge_manager = remote.get_forge_manager().await?;
 
     match args.command {
-        Command::ReleasePR => release_pr::execute(forge).await,
-        Command::Release => release::execute(forge).await,
+        Command::ReleasePR => release_pr::execute(&forge_manager).await,
+        Command::Release => release::execute(&forge_manager).await,
     }
 }

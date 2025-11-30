@@ -231,8 +231,8 @@ release_type = "generic"
 path = "."
 release_type = "generic"
 additional_manifest_files = [
-  { path = "VERSION" },
-  { path = "README.md" }
+  "VERSION",
+  "README.md"
 ]
 ```
 

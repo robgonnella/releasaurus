@@ -5,13 +5,13 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use crate::{
-    cli::Result,
+    Result,
     command::common::{self, PRMetadata},
-    config::PackageConfig,
+    config::package::PackageConfig,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, TAGGED_LABEL},
+        manager::ForgeManager,
         request::{GetPrRequest, PrLabelsRequest, PullRequest},
-        traits::Forge,
     },
 };
 
@@ -21,11 +21,11 @@ static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Execute release command by finding the merged release PR, tagging commits,
 /// and publishing releases to the forge platform.
-pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
-    let repo_name = forge.repo_name();
-    let mut config = forge.load_config().await?;
+pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
+    let repo_name = forge_manager.repo_name();
+    let mut config = forge_manager.load_config().await?;
     let config = common::process_config(&repo_name, &mut config);
-    let default_branch = forge.default_branch();
+    let default_branch = forge_manager.default_branch();
 
     for package in config.packages.iter() {
         let mut release_branch =
@@ -38,22 +38,24 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
             );
         }
 
-        let default_branch = forge.default_branch();
+        let default_branch = forge_manager.default_branch();
 
         let req = GetPrRequest {
             base_branch: default_branch.clone(),
             head_branch: release_branch.to_string(),
         };
 
-        if let Some(merged_pr) = forge.get_merged_release_pr(req).await? {
-            create_package_release(forge.as_ref(), package, &merged_pr).await?;
+        if let Some(merged_pr) =
+            forge_manager.get_merged_release_pr(req).await?
+        {
+            create_package_release(forge_manager, package, &merged_pr).await?;
 
             let req = PrLabelsRequest {
                 pr_number: merged_pr.number,
                 labels: vec![TAGGED_LABEL.into()],
             };
 
-            forge.replace_pr_labels(req).await?;
+            forge_manager.replace_pr_labels(req).await?;
         }
     }
 
@@ -62,7 +64,7 @@ pub async fn execute(forge: Box<dyn Forge>) -> Result<()> {
 
 /// Creates release for a targeted package and merged PR
 async fn create_package_release(
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
     package: &PackageConfig,
     merged_pr: &PullRequest,
 ) -> Result<()> {
@@ -104,14 +106,16 @@ async fn create_package_release(
         metadata.tag, merged_pr.sha
     );
 
-    forge.tag_commit(&metadata.tag, &merged_pr.sha).await?;
+    forge_manager
+        .tag_commit(&metadata.tag, &merged_pr.sha)
+        .await?;
 
     info!(
         "creating release: tag: {}, sha: {}",
         metadata.tag, merged_pr.sha
     );
 
-    forge
+    forge_manager
         .create_release(&metadata.tag, &merged_pr.sha, metadata.notes.trim())
         .await?;
 
@@ -122,7 +126,8 @@ async fn create_package_release(
 mod tests {
     use super::*;
     use crate::{
-        config::ReleaseType, forge::traits::MockForge, test_helpers::*,
+        config::release_type::ReleaseType, forge::traits::MockForge,
+        test_helpers::*,
     };
 
     #[tokio::test]
@@ -190,7 +195,13 @@ mod tests {
             })
             .returning(|_| Ok(()));
 
-        let result = execute(Box::new(mock_forge)).await;
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager).await;
         assert!(result.is_ok());
     }
 
@@ -248,7 +259,13 @@ mod tests {
 
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
-        let result = execute(Box::new(mock_forge)).await;
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager).await;
         assert!(result.is_ok());
     }
 
@@ -286,9 +303,15 @@ mod tests {
             .expect_get_merged_release_pr()
             .returning(|_| Ok(None));
 
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
         // Should not call tag_commit, create_release, or replace_pr_labels
 
-        let result = execute(Box::new(mock_forge)).await;
+        let result = execute(&manager).await;
         assert!(result.is_ok());
     }
 
@@ -368,7 +391,13 @@ mod tests {
             .times(2)
             .returning(|_| Ok(()));
 
-        let result = execute(Box::new(mock_forge)).await;
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager).await;
         assert!(result.is_ok());
     }
 
@@ -389,6 +418,12 @@ mod tests {
                     && notes == "Release notes for pkg-b"
             })
             .returning(|_, _, _| Ok(()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let forge_manger = ForgeManager::new(Box::new(mock_forge));
 
         let package = PackageConfig {
             name: "pkg-b".into(),
@@ -411,9 +446,7 @@ mod tests {
             body: "<!--{\"metadata\":{\"name\":\"pkg-a\",\"tag\":\"pkg-a-v1.0.0\",\"notes\":\"Release notes for pkg-a\"}}-->\n<details>\n<!--{\"metadata\":{\"name\":\"pkg-b\",\"tag\":\"pkg-b-v2.0.0\",\"notes\":\"Release notes for pkg-b\"}}-->\n<details>".to_string(),
         };
 
-        let result =
-            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
-                .await;
+        let result = create_package_release(&forge_manger, &package, &pr).await;
         assert!(result.is_ok());
     }
 
@@ -427,6 +460,12 @@ mod tests {
             .expect_create_release()
             .withf(|_, _, notes| notes == "Trimmed notes")
             .returning(|_, _, _| Ok(()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
 
         let package = PackageConfig {
             name: "my-package".into(),
@@ -449,15 +488,19 @@ mod tests {
             body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"  Trimmed notes  \\n  \"}}-->\n<details>".to_string(),
         };
 
-        let result =
-            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
-                .await;
+        let result = create_package_release(&manager, &package, &pr).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_create_package_release_fails_when_metadata_missing() {
-        let mock_forge = MockForge::new();
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
 
         let package = PackageConfig {
             name: "my-package".into(),
@@ -480,9 +523,7 @@ mod tests {
             body: "No metadata here".to_string(),
         };
 
-        let result =
-            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
-                .await;
+        let result = create_package_release(&manager, &package, &pr).await;
         assert!(result.is_err());
         assert!(
             result
@@ -494,7 +535,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_package_release_fails_when_metadata_malformed() {
-        let mock_forge = MockForge::new();
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
 
         let package = PackageConfig {
             name: "my-package".into(),
@@ -517,15 +564,19 @@ mod tests {
             body: "<!--{\"invalid json\"}-->\n<details>".to_string(),
         };
 
-        let result =
-            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
-                .await;
+        let result = create_package_release(&manager, &package, &pr).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_create_package_release_fails_when_package_name_not_found() {
-        let mock_forge = MockForge::new();
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
 
         let package = PackageConfig {
             name: "my-package".into(),
@@ -548,9 +599,7 @@ mod tests {
             body: "<!--{\"metadata\":{\"name\":\"other-package\",\"tag\":\"v1.0.0\",\"notes\":\"Release notes\"}}-->\n<details>".to_string(),
         };
 
-        let result =
-            create_package_release(&mock_forge as &dyn Forge, &package, &pr)
-                .await;
+        let result = create_package_release(&manager, &package, &pr).await;
         assert!(result.is_err());
         assert!(
             result
@@ -646,7 +695,13 @@ mod tests {
             .times(2)
             .returning(|_| Ok(()));
 
-        let result = execute(Box::new(mock_forge)).await;
+        mock_forge
+            .expect_remote_config()
+            .returning(create_test_remote_config);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager).await;
         assert!(result.is_ok());
     }
 }

@@ -4,6 +4,16 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::Path};
 
+use crate::{
+    Result,
+    analyzer::{config::AnalyzerConfig, release::Tag},
+    config::{Config, package::PackageConfig},
+    forge::{
+        config::RemoteConfig, manager::ForgeManager, request::ForgeCommit,
+    },
+    path_helpers::package_path,
+};
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PRMetadataFields {
     pub name: String,
@@ -15,13 +25,6 @@ pub struct PRMetadataFields {
 pub struct PRMetadata {
     pub metadata: PRMetadataFields,
 }
-
-use crate::{
-    analyzer::{config::AnalyzerConfig, release::Tag},
-    cli::Result,
-    config::{Config, PackageConfig},
-    forge::{config::RemoteConfig, request::ForgeCommit, traits::Forge},
-};
 
 pub fn process_config(repo_name: &str, config: &mut Config) -> Config {
     for package in config.packages.iter_mut() {
@@ -139,7 +142,7 @@ pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
 /// all packages. We do this once so we don't keep fetching the same commit
 /// redundantly for each package.
 pub async fn get_commits_for_all_packages(
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
     packages: &[PackageConfig],
     repo_name: &str,
 ) -> Result<Vec<ForgeCommit>> {
@@ -150,7 +153,8 @@ pub async fn get_commits_for_all_packages(
     for package in packages.iter() {
         let tag_prefix = get_tag_prefix(package, repo_name);
 
-        if let Some(tag) = forge.get_latest_tag_for_prefix(&tag_prefix).await?
+        if let Some(tag) =
+            forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?
             && let Some(timestamp) = tag.timestamp
         {
             if timestamp < oldest_timestamp {
@@ -171,13 +175,15 @@ pub async fn get_commits_for_all_packages(
     if starting_sha.is_none() {
         warn!("falling back to getting commits for each package separately");
         return get_commits_for_all_packages_separately(
-            forge, packages, repo_name,
+            forge_manager,
+            packages,
+            repo_name,
         )
         .await;
     }
 
     info!("getting commits");
-    forge.get_commits(starting_sha).await
+    forge_manager.get_commits(starting_sha).await
 }
 
 /// Filters list of commit to just the commits pertaining to a specific package
@@ -186,11 +192,7 @@ pub fn filter_commits_for_package(
     tag: Option<Tag>,
     commits: &[ForgeCommit],
 ) -> Vec<ForgeCommit> {
-    let package_full_path = Path::new(&package.workspace_root)
-        .join(&package.path)
-        .display()
-        .to_string()
-        .replace("./", "");
+    let package_full_path = package_path(package, None);
 
     let mut package_paths = vec![package_full_path];
 
@@ -255,7 +257,7 @@ pub fn filter_commits_for_package(
 /// back to pulling commits for each package individually and dedup by storing
 /// in a HashSet
 async fn get_commits_for_all_packages_separately(
-    forge: &dyn Forge,
+    forge_manager: &ForgeManager,
     packages: &[PackageConfig],
     repo_name: &str,
 ) -> Result<Vec<ForgeCommit>> {
@@ -264,7 +266,8 @@ async fn get_commits_for_all_packages_separately(
     for package in packages.iter() {
         let tag_prefix = get_tag_prefix(package, repo_name);
 
-        let current_tag = forge.get_latest_tag_for_prefix(&tag_prefix).await?;
+        let current_tag =
+            forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         let current_sha = current_tag.clone().map(|t| t.sha);
 
@@ -273,7 +276,7 @@ async fn get_commits_for_all_packages_separately(
             package.name, current_sha
         );
 
-        let commits = forge.get_commits(current_sha).await?;
+        let commits = forge_manager.get_commits(current_sha).await?;
 
         cache.extend(commits);
     }
@@ -287,10 +290,7 @@ async fn get_commits_for_all_packages_separately(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        config::{PackageConfig, ReleaseType},
-        test_helpers,
-    };
+    use crate::{config::release_type::ReleaseType, test_helpers};
 
     use super::*;
 

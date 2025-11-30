@@ -149,7 +149,7 @@
           "default": "."
         },
         "release_type": {
-          "description": "[`ReleaseType`] type for determining which version files to update.",
+          "description": "[`ReleaseType`] type for determining which version files to update",
           "anyOf": [
             {
               "$ref": "#/$defs/ReleaseType"
@@ -161,7 +161,7 @@
           "default": null
         },
         "tag_prefix": {
-          "description": "Git tag prefix for this package (e.g., \"v\" or \"api-v\").",
+          "description": "Git tag prefix for this package (e.g., \"v\" or \"api-v\")",
           "type": [
             "string",
             "null"
@@ -169,7 +169,7 @@
           "default": null
         },
         "prerelease": {
-          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").",
+          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\")",
           "type": [
             "string",
             "null"
@@ -188,13 +188,13 @@
           "default": null
         },
         "additional_manifest_files": {
-          "description": "Additional generic version manifest files to update",
+          "description": "Additional paths generic version manifest files to update. Paths must\nbe relative to the package path",
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/$defs/ManifestFile"
+            "type": "string"
           },
           "default": null
         },
@@ -243,18 +243,6 @@
         "php",
         "ruby",
         "java"
-      ]
-    },
-    "ManifestFile": {
-      "type": "object",
-      "properties": {
-        "path": {
-          "description": "The file path relative to the package path that will be updated using a\ngeneric regex version replace",
-          "type": "string"
-        }
-      },
-      "required": [
-        "path"
       ]
     }
   }

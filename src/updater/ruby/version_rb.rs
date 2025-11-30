@@ -1,7 +1,7 @@
 use crate::{
-    cli::Result,
+    Result,
     forge::request::FileChange,
-    updater::{framework::UpdaterPackage, generic::updater::GenericUpdater},
+    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
 };
 
 /// Handles version.rb file parsing and version updates for Ruby packages.
@@ -21,7 +21,7 @@ impl VersionRb {
         let mut file_changes: Vec<FileChange> = vec![];
 
         for manifest in package.manifest_files.iter() {
-            if manifest.file_basename != "version.rb" {
+            if manifest.basename != "version.rb" {
                 continue;
             }
 
@@ -45,13 +45,13 @@ impl VersionRb {
 mod tests {
     use super::*;
     use crate::{
-        config::ManifestFile,
+        config::release_type::ReleaseType,
         test_helpers::create_test_tag,
-        updater::framework::{Framework, UpdaterPackage},
+        updater::manager::{ManifestFile, UpdaterPackage},
     };
 
-    #[tokio::test]
-    async fn updates_version_with_double_quotes() {
+    #[test]
+    fn updates_version_with_double_quotes() {
         let version_rb = VersionRb::new();
         let content = r#"module MyGem
   VERSION = "1.0.0"
@@ -59,16 +59,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "lib/my_gem/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -78,8 +77,8 @@ end
         assert!(updated.contains("VERSION = \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn updates_version_with_single_quotes() {
+    #[test]
+    fn updates_version_with_single_quotes() {
         let version_rb = VersionRb::new();
         let content = r#"module MyGem
   VERSION = '1.0.0'
@@ -87,16 +86,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "lib/my_gem/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -106,8 +104,8 @@ end
         assert!(updated.contains("VERSION = '2.0.0'"));
     }
 
-    #[tokio::test]
-    async fn preserves_whitespace_formatting() {
+    #[test]
+    fn preserves_whitespace_formatting() {
         let version_rb = VersionRb::new();
         let content = r#"module MyGem
   VERSION   =   "1.0.0"
@@ -115,16 +113,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "lib/my_gem/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -134,8 +131,8 @@ end
         assert!(updated.contains("VERSION   =   \"2.0.0\""));
     }
 
-    #[tokio::test]
-    async fn returns_none_when_no_version_constant() {
+    #[test]
+    fn returns_none_when_no_version_constant() {
         let version_rb = VersionRb::new();
         let content = r#"module MyGem
   AUTHOR = "Test Author"
@@ -143,16 +140,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "lib/my_gem/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -160,8 +156,8 @@ end
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn preserves_other_content() {
+    #[test]
+    fn preserves_other_content() {
         let version_rb = VersionRb::new();
         let content = r#"# frozen_string_literal: true
 
@@ -176,16 +172,15 @@ end
 "#;
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "lib/my_gem/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: content.to_string(),
         };
         let package = UpdaterPackage {
             package_name: "my-gem".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest.clone()],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -199,27 +194,26 @@ end
         assert!(updated.contains("HOMEPAGE = \"https://example.com\""));
     }
 
-    #[tokio::test]
-    async fn process_package_handles_multiple_version_rb_files() {
+    #[test]
+    fn process_package_handles_multiple_version_rb_files() {
         let version_rb = VersionRb::new();
         let manifest1 = ManifestFile {
             is_workspace: false,
-            file_path: "gems/a/lib/gem_a/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "gems/a/lib/gem_a/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: "module GemA\n  VERSION = \"1.0.0\"\nend\n".to_string(),
         };
         let manifest2 = ManifestFile {
             is_workspace: false,
-            file_path: "gems/b/lib/gem_b/version.rb".to_string(),
-            file_basename: "version.rb".to_string(),
+            path: "gems/b/lib/gem_b/version.rb".to_string(),
+            basename: "version.rb".to_string(),
             content: "module GemB\n  VERSION = \"1.0.0\"\nend\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest1, manifest2],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
@@ -230,21 +224,20 @@ end
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
-    #[tokio::test]
-    async fn process_package_returns_none_when_no_version_rb_files() {
+    #[test]
+    fn process_package_returns_none_when_no_version_rb_files() {
         let version_rb = VersionRb::new();
         let manifest = ManifestFile {
             is_workspace: false,
-            file_path: "lib/my_gem.rb".to_string(),
-            file_basename: "my_gem.rb".to_string(),
+            path: "lib/my_gem.rb".to_string(),
+            basename: "my_gem.rb".to_string(),
             content: "module MyGem\n  # Main module\nend\n".to_string(),
         };
         let package = UpdaterPackage {
             package_name: "test".to_string(),
-            workspace_root: ".".to_string(),
             manifest_files: vec![manifest],
             next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
-            framework: Framework::Ruby,
+            release_type: ReleaseType::Ruby,
         };
 
         let result = version_rb.process_package(&package).unwrap();
