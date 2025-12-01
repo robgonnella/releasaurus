@@ -1,6 +1,14 @@
 //! Configuration for Git forge platform connections.
 use secrecy::SecretString;
 
+use crate::{
+    Result,
+    forge::{
+        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
+        manager::ForgeManager, traits::Forge,
+    },
+};
+
 /// Default number of commits to search when finding releases.
 pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
 /// Default page size for paginated commit queries
@@ -13,14 +21,6 @@ pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 /// Label applied to release PRs while waiting for merge.
 pub const PENDING_LABEL: &str = "releasaurus:pending";
-
-use crate::{
-    Result,
-    forge::{
-        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
-        manager::ForgeManager, traits::Forge,
-    },
-};
 
 /// Remote repository connection configuration for authenticating and
 /// interacting with forge platforms.
