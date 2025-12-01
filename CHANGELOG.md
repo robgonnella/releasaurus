@@ -1,3 +1,9 @@
+# [0.5.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.1) - 2025-12-01
+
+### 🐛 Bug Fixes
+
+- fixes issue with additional_manifest_files feature [_(0e3ae29)_](https://api.github.com/repos/robgonnella/releasaurus/commits/0e3ae29c0655da6095176c65f4e6fb47fab94cb3) (Rob Gonnella)
+
 # [0.5.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.0) - 2025-11-29
 
 ### 🚀 Features
