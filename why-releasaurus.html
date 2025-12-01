@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8640dc64.js";
+            window.path_to_searchindex_js = "searchindex-9a9ceacb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -203,7 +203,7 @@ complete, universal solution that works seamlessly across all environments.</p>
 <tr><th>Tool</th><th>Platforms</th><th>Languages</th><th>Config Required</th><th>Process</th><th>Best For</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Releasaurus</strong></td><td>GitHub, GitLab, Gitea</td><td>Rust, Node.js, Python, Java, PHP, Ruby, Generic (limited)</td><td>Minimal</td><td>Release PR → Publish</td><td>Universal, multi-platform, simple config</td></tr>
+<tr><td><strong>Releasaurus</strong></td><td>GitHub, GitLab, Gitea</td><td>Rust, Node.js, Python, Java, PHP, Ruby, Generic</td><td>Minimal</td><td>Release PR → Publish</td><td>Universal, multi-platform, simple config</td></tr>
 <tr><td><strong>release-please</strong></td><td>GitHub only</td><td>Many (via plugins)</td><td>Required for most</td><td>Release PR → Publish</td><td>GitHub-only orgs</td></tr>
 <tr><td><strong>release-plz</strong></td><td>GitHub, crates.io</td><td>Rust only</td><td>Minimal</td><td>Release PR → Publish</td><td>Rust projects, Cargo ecosystems</td></tr>
 <tr><td><strong>git-cliff</strong></td><td>Any Git host</td><td>Language agnostic</td><td>Required</td><td>Manual changelog</td><td>Changelog generation only</td></tr>
@@ -263,7 +263,9 @@ Releasaurus handles all version file updates with sensible defaults.</p>
 <li><strong>Clear Language Specification</strong>: Configure <code>release_type</code> for each package
 (Rust, Node, Python, Java, Php, Ruby, or Generic)</li>
 <li><strong>Version File Management</strong>: Updates all relevant version files for the
-specified language (generic projects receive changelog and tagging only)</li>
+specified language (see
+<a href="./configuration.html#`additional_manifest_files`"><code>additional_manifest_files</code></a>
+for generic projects)</li>
 <li><strong>Framework Integration</strong>: Handles language-specific packaging and build
 systems</li>
 <li><strong>Sensible Defaults</strong>: Provides beautiful changelogs and workflows

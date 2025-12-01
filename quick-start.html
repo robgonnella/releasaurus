@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8640dc64.js";
+            window.path_to_searchindex_js = "searchindex-9a9ceacb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -233,7 +233,9 @@ However, if you want version file updates, you’ll need to create a
 <li><strong>Java</strong>: For projects with <code>pom.xml</code> or <code>build.gradle</code></li>
 <li><strong>Php</strong>: For projects with <code>composer.json</code></li>
 <li><strong>Ruby</strong>: For projects with <code>Gemfile</code> or <code>.gemspec</code> files</li>
-<li><strong>Generic</strong>: For changelog and tagging only (no version file updates)</li>
+<li><strong>Generic</strong>: For projects without specific language support (see
+<a href="./configuration.html#`additional_manifest_files`"><code>additional_manifest_files</code></a>
+for version updates)</li>
 </ul>
 <p><strong>Minimal configuration example:</strong></p>
 <pre><code class="language-toml"># releasaurus.toml

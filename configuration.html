@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8640dc64.js";
+            window.path_to_searchindex_js = "searchindex-9a9ceacb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -360,7 +360,7 @@ workspace_root = "."
 # Additional paths to include commits from (default: none)
 # additional_paths = []
 # Additional manifest files to apply generic version updates to (default: none)
-# additional_manifest_files = [{ path = "VERSION" }]
+# additional_manifest_files = ["VERSION"]
 # Package-specific version increment behavior (default: uses global settings)
 # breaking_always_increment_major = true
 # features_always_increment_minor = true
@@ -676,7 +676,9 @@ tag_prefix = "frontend-web-v"
 <li><strong><code>"Java"</code></strong> - Updates <code>pom.xml</code> or <code>build.gradle</code></li>
 <li><strong><code>"Php"</code></strong> - Updates <code>composer.json</code></li>
 <li><strong><code>"Ruby"</code></strong> - Updates gemspec files and version files</li>
-<li><strong><code>"Generic"</code></strong> - Changelog and tagging only (no version file updates)</li>
+<li><strong><code>"Generic"</code></strong> - Changelog and tagging only
+(see <a href="#`additional_manifest_files`"><code>additional_manifest_files</code></a> for version
+updates)</li>
 </ul>
 <pre><code class="language-toml">[[package]]
 path = "."
@@ -738,15 +740,15 @@ automatically handled by your package’s <code>release_type</code>.</p>
 <li><strong>Build metadata</strong>: Version strings in custom build scripts or metadata files</li>
 <li><strong>Multi-language projects</strong>: Version files for languages not specified in <code>release_type</code></li>
 </ul>
-<p>Each manifest file entry requires a <code>path</code> field specifying the file location
-relative to the package’s workspace root.</p>
+<p>Files are specified as string paths relative to the package path (not the
+workspace root).</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "rust"
 additional_manifest_files = [
-  { path = "VERSION" },
-  { path = "docs/version.txt" },
-  { path = "scripts/build-metadata.json" }
+  "VERSION",
+  "docs/version.txt",
+  "scripts/build-metadata.json"
 ]
 </code></pre>
 <p><strong>Version Pattern Matching:</strong></p>
@@ -785,8 +787,8 @@ path = "."
 release_type = "rust"
 # Update VERSION file alongside Cargo.toml and version reference in README
 additional_manifest_files = [
-  { path = "VERSION" },
-  { path = "README.md" }
+  "VERSION",
+  "README.md"
 ]
 </code></pre>
 <p>For projects using <code>release_type = "generic"</code>, this feature provides the only
