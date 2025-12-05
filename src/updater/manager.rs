@@ -1,7 +1,6 @@
 //! Framework and package management for multi-language support.
-use std::path::Path;
-
 use log::*;
+use std::path::Path;
 
 use crate::Result;
 use crate::analyzer::release::Tag;
@@ -35,7 +34,7 @@ pub struct ManifestTarget {
     pub basename: String,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct ManifestFile {
     /// Whether or not to treat this as a workspace manifest
     pub is_workspace: bool,
@@ -45,6 +44,16 @@ pub struct ManifestFile {
     pub basename: String,
     /// The current content of the file
     pub content: String,
+}
+
+impl std::fmt::Debug for ManifestFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ManifestFile")
+            .field("is_workspace", &self.is_workspace)
+            .field("path", &self.path)
+            .field("basename", &self.basename)
+            .finish()
+    }
 }
 
 /// Programming language and package manager detection for determining which
