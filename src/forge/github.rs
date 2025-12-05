@@ -415,7 +415,10 @@ impl Forge for Github {
 
             if let Some(author) = commit.commit.committer {
                 author_name = author.name;
-                author_email = author.email;
+
+                if let Some(email) = author.email {
+                    author_email = email;
+                }
 
                 if let Some(date) = author.date {
                     timestamp = date.timestamp();
@@ -434,7 +437,7 @@ impl Forge for Github {
             commits.push(ForgeCommit {
                 id: sha,
                 short_id: short_sha,
-                link: commit.url,
+                link: commit.html_url,
                 author_name,
                 author_email,
                 merge_commit: commit.parents.len() > 1,
