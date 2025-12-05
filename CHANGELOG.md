@@ -1,3 +1,11 @@
+# [0.5.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.2) - 2025-12-05
+
+### 🐛 Bug Fixes
+
+- prevent logging manifest file content [_(09c69e8)_](https://github.com/robgonnella/releasaurus/commit/09c69e86e8b091fa6492ef94675bfb4c53b2ba15) (Rob Gonnella)
+
+- bump forge client versions [_(98e8efe)_](https://github.com/robgonnella/releasaurus/commit/98e8efe22e09345a9181748e3b5fc69e8fcf1d58) (Rob Gonnella)
+
 # [0.5.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.1) - 2025-12-01
 
 ### 🐛 Bug Fixes
