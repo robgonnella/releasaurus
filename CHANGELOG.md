@@ -1,3 +1,15 @@
+# [0.6.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.6.0) - 2025-12-06
+
+### 🐛 Bug Fixes
+
+- removes unnecessary log lines in gitea forge [_(0a3423d)_](https://github.com/robgonnella/releasaurus/commit/0a3423dd44aab7fcd15059db43d8ffa7dd4f7c14) (Rob Gonnella)
+
+- fixes issue in github forge with finding open release PRs [_(f0bf56c)_](https://github.com/robgonnella/releasaurus/commit/f0bf56c7513659696eedbf01487828d4a41f534c) (Rob Gonnella)
+
+### 🚀 Features
+
+- add ability to specify job stage in gitlab components [_(f7d18f1)_](https://github.com/robgonnella/releasaurus/commit/f7d18f1762ab137b9eb064537c8bfeaf30168e9a) (Rob Gonnella)
+
 # [0.5.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.5.2) - 2025-12-05
 
 ### 🐛 Bug Fixes
