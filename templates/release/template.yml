@@ -1,5 +1,5 @@
 spec:
-  component: [name, version, reference]
+  component: [version]
   inputs:
     repo:
       description: The gitlab repo to affect
@@ -12,12 +12,15 @@ spec:
     job_name:
       description: Customize the generated job name (default = release)
       default: release
+    job_stage:
+      description: The stage in which to run the job
+      default: .pre
 ---
 "$[[ inputs.job_name ]]":
   image:
     name: rgonnella/releasaurus:$[[ component.version ]]
     entrypoint: [""]
-  stage: .pre
+  stage: $[[ inputs.job_stage ]]
   variables:
     RELEASAURUS_DEBUG: $[[ inputs.debug ]]
   resource_group: releasaurus

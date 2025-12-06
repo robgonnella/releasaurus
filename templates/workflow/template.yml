@@ -1,5 +1,5 @@
 spec:
-  component: [name, version, reference]
+  component: [version]
   inputs:
     repo:
       description: The gitlab repo to affect
@@ -9,6 +9,12 @@ spec:
     debug:
       description: Enables debug logs
       default: ""
+    pr_job_stage:
+      description: The stage in which to run the release-pr job
+      default: .pre
+    release_job_stage:
+      description: The stage in which to run the release job
+      default: .pre
 ---
 include:
   - component: $CI_SERVER_FQDN/rgon/releasaurus/release-pr@$[[ component.version ]]
@@ -16,8 +22,10 @@ include:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]
       token: $[[ inputs.token ]]
+      job_stage: $[[ inputs.pr_job_stage ]]
   - component: $CI_SERVER_FQDN/rgon/releasaurus/release@$[[ component.version ]]
     inputs:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]
       token: $[[ inputs.token ]]
+      job_stage: $[[ inputs.release_job_stage ]]
