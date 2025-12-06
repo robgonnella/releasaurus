@@ -1,6 +1,8 @@
 # 🦕 Releasaurus Release Component
 
-Runs `releasaurus release` to automate Git tag creation and GitLab release publication. This component should run after a release merge request has been merged.
+Runs `releasaurus release` to automate Git tag creation and GitLab release
+publication. This component should run after a release merge request has been
+merged.
 
 ## Usage
 
@@ -13,12 +15,13 @@ include:
 
 ## Inputs
 
-| Name       | Description                                               | Default           | Required |
-| ---------- | --------------------------------------------------------- | ----------------- | -------- |
-| `repo`     | The GitLab project URL to affect                          | `$CI_PROJECT_URL` | No       |
-| `token`    | GitLab token with permissions to create tags and releases |                   | Yes      |
-| `debug`    | Enable debug logs                                         | `""`              | No       |
-| `job_name` | Customize the generated job name                          | `release`         | No       |
+| Name        | Description                                               | Default           | Required |
+| ----------- | --------------------------------------------------------- | ----------------- | -------- |
+| `repo`      | The GitLab project URL to affect                          | `$CI_PROJECT_URL` | No       |
+| `token`     | GitLab token with permissions to create tags and releases |                   | Yes      |
+| `debug`     | Enable debug logs                                         | `""`              | No       |
+| `job_name`  | Customize the generated job name                          | `release`         | No       |
+| `job_stage` | Stage in which to run the release job                     | `.pre`            | No       |
 
 ## What This Component Does
 

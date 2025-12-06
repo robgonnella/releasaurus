@@ -1,6 +1,8 @@
 # 🦕 Releasaurus Release PR Component
 
-Runs `releasaurus release-pr` to automate the creation and management of release merge requests. This component analyzes commits, determines version bumps, updates version files, and generates changelogs.
+Runs `releasaurus release-pr` to automate the creation and management of release
+merge requests. This component analyzes commits, determines version bumps,
+updates version files, and generates changelogs.
 
 ## Usage
 
@@ -13,12 +15,13 @@ include:
 
 ## Inputs
 
-| Name       | Description                                            | Default           | Required |
-| ---------- | ------------------------------------------------------ | ----------------- | -------- |
-| `repo`     | The GitLab project URL to affect                       | `$CI_PROJECT_URL` | No       |
-| `token`    | GitLab token with permissions to create MRs and labels |                   | Yes      |
-| `debug`    | Enable debug logs                                      | `""`              | No       |
-| `job_name` | Customize the generated job name                       | `release-pr`      | No       |
+| Name        | Description                                            | Default           | Required |
+| ----------- | ------------------------------------------------------ | ----------------- | -------- |
+| `repo`      | The GitLab project URL to affect                       | `$CI_PROJECT_URL` | No       |
+| `token`     | GitLab token with permissions to create MRs and labels |                   | Yes      |
+| `debug`     | Enable debug logs                                      | `""`              | No       |
+| `job_name`  | Customize the generated job name                       | `release-pr`      | No       |
+| `job_stage` | Stage in which to run the release-pr job               | `.pre`            | No       |
 
 ## What This Component Does
 
