@@ -539,7 +539,7 @@ impl Forge for Github {
             .pulls(&self.config.owner, &self.config.repo)
             .list()
             .state(params::State::Open)
-            .head(req.head_branch)
+            .head(format!("{}:{}", self.config.owner, req.head_branch))
             .send()
             .await?;
 
@@ -578,7 +578,7 @@ impl Forge for Github {
 
         if issues.items.is_empty() {
             warn!(
-                r"No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                r"No merged release PRs with the label {PENDING_LABEL} found for branch {}",
                 req.head_branch
             );
             return Ok(None);

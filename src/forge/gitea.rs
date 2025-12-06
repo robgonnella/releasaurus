@@ -605,7 +605,7 @@ impl Forge for Gitea {
 
         if issues.is_empty() {
             warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
                 req.head_branch,
             );
             return Ok(None);
@@ -648,7 +648,7 @@ impl Forge for Gitea {
             }))
         } else {
             warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}. Nothing to release",
+                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
                 req.head_branch,
             );
             Ok(None)
