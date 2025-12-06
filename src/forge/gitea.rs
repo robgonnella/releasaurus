@@ -242,8 +242,7 @@ impl Gitea {
     async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
         let url = self.base_url.join(&format!("branches/{branch}"))?;
         let request = self.client.delete(url).build()?;
-        let resp = self.client.execute(request).await?;
-        info!("delete branch resp --> {:#?}", resp);
+        self.client.execute(request).await?;
         Ok(())
     }
 
@@ -546,8 +545,6 @@ impl Forge for Gitea {
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
         let issues: Vec<GiteaIssue> = result.json().await?;
-
-        info!("found open PRs --> {:#?}", issues);
 
         if issues.is_empty() {
             return Ok(None);
