@@ -6,7 +6,8 @@ mod path_helpers;
 mod updater;
 
 pub use command::{
-    args::Args, args::Command, release, release_pr, types::Result,
+    args::Args, args::Command, projected_release, release, release_pr,
+    types::Result,
 };
 
 #[cfg(test)]

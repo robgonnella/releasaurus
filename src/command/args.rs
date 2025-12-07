@@ -62,6 +62,13 @@ pub enum Command {
 
     /// Create a git tag and publish release after PR merge.
     Release,
+
+    /// Returns projected next release info as json
+    ProjectedRelease {
+        #[arg(long, short)]
+        /// Optionally restrict output to just 1 specific package
+        package: Option<String>,
+    },
 }
 
 impl Args {

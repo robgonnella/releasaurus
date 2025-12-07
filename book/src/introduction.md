@@ -83,7 +83,7 @@ process through an optional `releasaurus.toml` configuration file.
 
 ## How It Works
 
-Releasaurus follows a simple two-step release process:
+Releasaurus provides a simple two-step release workflow:
 
 1. **`releasaurus release-pr`** - Analyzes your commits, determines the next
    version, updates version files, generates a changelog, and creates a pull
@@ -91,6 +91,10 @@ Releasaurus follows a simple two-step release process:
 
 2. **`releasaurus release`** - After the release PR is merged, creates a Git
    tag and publishes the release to your forge platform.
+
+Additionally, **`releasaurus projected-release`** outputs projected release
+information as JSON for automation and CI/CD pipelines without making any
+changes.
 
 This workflow provides a safety net through pull request reviews while
 automating all the tedious version management tasks.

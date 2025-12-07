@@ -1,4 +1,5 @@
 use color_eyre::Result as EyreResult;
+use serde::{Serialize, ser::SerializeStruct};
 
 use crate::{
     analyzer::release::Release, config::release_type::ReleaseType,
@@ -25,4 +26,22 @@ pub struct ReleasablePackage {
     pub manifest_files: Option<Vec<ManifestFile>>,
     /// Additional generic version manifest files to update
     pub additional_manifest_files: Option<Vec<ManifestFile>>,
+}
+
+impl Serialize for ReleasablePackage {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("ReleasablePackage", 5)?;
+        s.serialize_field("name", &self.name)?;
+        s.serialize_field("path", &self.path)?;
+        s.serialize_field("workspace_root", &self.workspace_root)?;
+        s.serialize_field("release_type", &self.release_type)?;
+        s.serialize_field("release", &self.release)?;
+        s.end()
+    }
 }
