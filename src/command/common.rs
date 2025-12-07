@@ -6,12 +6,14 @@ use std::{collections::HashSet, path::Path};
 
 use crate::{
     Result,
-    analyzer::{config::AnalyzerConfig, release::Tag},
-    config::{Config, package::PackageConfig},
+    analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
+    command::types::ReleasablePackage,
+    config::{Config, package::PackageConfig, release_type::ReleaseType},
     forge::{
         config::RemoteConfig, manager::ForgeManager, request::ForgeCommit,
     },
     path_helpers::package_path,
+    updater::manager::UpdateManager,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -119,6 +121,90 @@ pub fn generate_analyzer_config(
         custom_major_increment_regex,
         custom_minor_increment_regex,
     }
+}
+
+pub async fn get_releasable_packages(
+    config: &Config,
+    forge_manager: &ForgeManager,
+) -> Result<Vec<ReleasablePackage>> {
+    let default_branch = forge_manager.default_branch();
+    let repo_name = forge_manager.repo_name();
+    let remote_config = forge_manager.remote_config();
+
+    let mut releasable_packages: Vec<ReleasablePackage> = vec![];
+
+    let commits = get_commits_for_all_packages(
+        forge_manager,
+        &config.packages,
+        &repo_name,
+    )
+    .await?;
+
+    for package in config.packages.iter() {
+        let tag_prefix = get_tag_prefix(package, &repo_name);
+        let current_tag =
+            forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
+
+        info!(
+            "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
+            package.name, package.workspace_root, package.path, tag_prefix
+        );
+
+        info!(
+            "package_name: {}, current tag {:#?}",
+            package.name, current_tag
+        );
+
+        let package_commits =
+            filter_commits_for_package(package, current_tag.clone(), &commits);
+
+        info!("processing commits for package: {}", package.name);
+
+        let analyzer_config = generate_analyzer_config(
+            config,
+            &remote_config,
+            &default_branch,
+            package,
+            tag_prefix.clone(),
+        );
+
+        let analyzer = Analyzer::new(analyzer_config)?;
+
+        if let Some(release) = analyzer.analyze(package_commits, current_tag)? {
+            info!("package: {}, release: {:#?}", package.name, release);
+
+            let release_type =
+                package.release_type.clone().unwrap_or(ReleaseType::Generic);
+
+            let release_manifest_targets =
+                UpdateManager::release_type_manifest_targets(package);
+
+            let additional_manifest_targets =
+                UpdateManager::additional_manifest_targets(package);
+
+            let manifest_files = forge_manager
+                .load_manifest_targets(release_manifest_targets)
+                .await?;
+
+            let additional_manifest_files = forge_manager
+                .load_manifest_targets(additional_manifest_targets)
+                .await?;
+
+            releasable_packages.push(ReleasablePackage {
+                name: package.name.clone(),
+                path: package.path.clone(),
+                workspace_root: package.workspace_root.clone(),
+                manifest_files,
+                additional_manifest_files,
+                release_type,
+                release,
+            });
+        } else {
+            info!("nothing to release for package: {}", package.name);
+        }
+    }
+
+    Ok(releasable_packages)
 }
 
 /// Extract package name from its path, using repository name for root

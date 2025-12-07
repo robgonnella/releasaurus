@@ -35,15 +35,19 @@
 
 use clap::Parser;
 
-use releasaurus::{Args, Command, Result, release, release_pr};
+use releasaurus::{
+    Args, Command, Result, projected_release, release, release_pr,
+};
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
 const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
 
 /// Initialize terminal logger with debug or info level filtering for
 /// releasaurus output.
-fn initialize_logger(debug: bool) -> Result<()> {
-    let filter = if debug {
+fn initialize_logger(debug: bool, silent: bool) -> Result<()> {
+    let filter = if silent {
+        simplelog::LevelFilter::Off
+    } else if debug {
         simplelog::LevelFilter::Debug
     } else {
         simplelog::LevelFilter::Info
@@ -71,6 +75,8 @@ async fn main() -> Result<()> {
 
     let mut args = Args::parse();
 
+    let mut silence_logs = false;
+
     if std::env::var(DEBUG_ENV_VAR).is_ok() {
         args.debug = true;
     }
@@ -83,7 +89,11 @@ async fn main() -> Result<()> {
         args.debug = true;
     }
 
-    initialize_logger(args.debug)?;
+    if matches!(args.command, Command::ProjectedRelease { .. }) {
+        silence_logs = true
+    }
+
+    initialize_logger(args.debug, silence_logs)?;
 
     let remote = args.get_remote()?;
     let forge_manager = remote.get_forge_manager().await?;
@@ -91,5 +101,8 @@ async fn main() -> Result<()> {
     match args.command {
         Command::ReleasePR => release_pr::execute(&forge_manager).await,
         Command::Release => release::execute(&forge_manager).await,
+        Command::ProjectedRelease { package } => {
+            projected_release::execute(&forge_manager, package).await
+        }
     }
 }

@@ -5,13 +5,12 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     Result,
-    analyzer::Analyzer,
     command::{
         common::{self, PRMetadata, PRMetadataFields},
         errors::PendingReleaseError,
         types::ReleasablePackage,
     },
-    config::{Config, release_type::ReleaseType},
+    config::Config,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         manager::ForgeManager,
@@ -38,7 +37,7 @@ pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
     let config = common::process_config(&repo_name, &mut config);
 
     let releasable_packages =
-        get_releasable_packages(&config, forge_manager).await?;
+        common::get_releasable_packages(&config, forge_manager).await?;
 
     info!("releasable packages: {:#?}", releasable_packages);
 
@@ -261,98 +260,12 @@ async fn gather_release_prs_by_branch(
     Ok(prs_by_branch)
 }
 
-async fn get_releasable_packages(
-    config: &Config,
-    forge_manager: &ForgeManager,
-) -> Result<Vec<ReleasablePackage>> {
-    let default_branch = forge_manager.default_branch();
-    let repo_name = forge_manager.repo_name();
-    let remote_config = forge_manager.remote_config();
-
-    let mut releasable_packages: Vec<ReleasablePackage> = vec![];
-
-    let commits = common::get_commits_for_all_packages(
-        forge_manager,
-        &config.packages,
-        &repo_name,
-    )
-    .await?;
-
-    for package in config.packages.iter() {
-        let tag_prefix = common::get_tag_prefix(package, &repo_name);
-        let current_tag =
-            forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
-
-        info!(
-            "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
-            package.name, package.workspace_root, package.path, tag_prefix
-        );
-
-        info!(
-            "package_name: {}, current tag {:#?}",
-            package.name, current_tag
-        );
-
-        let package_commits = common::filter_commits_for_package(
-            package,
-            current_tag.clone(),
-            &commits,
-        );
-
-        info!("processing commits for package: {}", package.name);
-
-        let analyzer_config = common::generate_analyzer_config(
-            config,
-            &remote_config,
-            &default_branch,
-            package,
-            tag_prefix.clone(),
-        );
-
-        let analyzer = Analyzer::new(analyzer_config)?;
-
-        if let Some(release) = analyzer.analyze(package_commits, current_tag)? {
-            info!("package: {}, release: {:#?}", package.name, release);
-
-            let release_type =
-                package.release_type.clone().unwrap_or(ReleaseType::Generic);
-
-            let release_manifest_targets =
-                UpdateManager::release_type_manifest_targets(package);
-
-            let additional_manifest_targets =
-                UpdateManager::additional_manifest_targets(package);
-
-            let manifest_files = forge_manager
-                .load_manifest_targets(release_manifest_targets)
-                .await?;
-
-            let additional_manifest_files = forge_manager
-                .load_manifest_targets(additional_manifest_targets)
-                .await?;
-
-            releasable_packages.push(ReleasablePackage {
-                name: package.name.clone(),
-                path: package.path.clone(),
-                workspace_root: package.workspace_root.clone(),
-                manifest_files,
-                additional_manifest_files,
-                release_type,
-                release,
-            });
-        } else {
-            info!("nothing to release for package: {}", package.name);
-        }
-    }
-
-    Ok(releasable_packages)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
+        config::release_type::ReleaseType,
         forge::traits::MockForge,
         test_helpers::*,
         updater::manager::ManifestFile,
@@ -702,7 +615,7 @@ mod tests {
 
         let config =
             create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
-        let result = get_releasable_packages(
+        let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
         )
@@ -728,7 +641,7 @@ mod tests {
 
         let config =
             create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
-        let result = get_releasable_packages(
+        let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
         )
@@ -759,7 +672,7 @@ mod tests {
             create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
         config.packages[0].prerelease = Some("beta".to_string());
 
-        let result = get_releasable_packages(
+        let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
         )

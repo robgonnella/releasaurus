@@ -1,9 +1,10 @@
 # Commands
 
-Releasaurus provides two main commands that work together to create a safe,
-reviewable release process. This two-stage approach ensures that all changes
-are reviewed before publication while automating the tedious aspects of version
-management and changelog generation.
+Releasaurus provides three commands: two that work together to create a safe,
+reviewable release process, and one for querying projected release information.
+The two-stage release approach ensures that all changes are reviewed before
+publication while automating the tedious aspects of version management and
+changelog generation.
 
 **Important**: Releasaurus operates entirely through forge platform APIs
 without requiring local repository clones. You can run these commands from any
@@ -38,6 +39,37 @@ This command finalizes the release:
 - Creates a release on your forge platform
 - Supports prerelease versions (alpha, beta, rc, etc.)
 - Supports dry-run mode for testing
+
+### `projected-release`
+
+**Purpose**: Query projected next release information as JSON
+
+This command provides release information without making any changes:
+
+- Returns version, commits, notes, and metadata for upcoming releases
+- Outputs machine-readable JSON for automation and CI/CD pipelines
+- Supports filtering to a specific package with `--package`
+- Returns all releasable packages when no filter is specified
+
+**Usage:**
+
+```bash
+# Get all projected releases
+releasaurus projected-release --github-repo "https://github.com/owner/repo"
+
+# Get specific package release info
+releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+```
+
+**Output:** JSON object (single package) or array (multiple packages) containing:
+
+- `name` - Package name
+- `path` - Package path
+- `workspace_root` - Workspace root directory
+- `release_type` - Release type (node, rust, python, etc.)
+- `release` - Release details including version, sha, commits, and notes
+
+See [Environment Variables](./environment-variables.md) for authentication setup.
 
 ## Basic Usage Pattern
 
