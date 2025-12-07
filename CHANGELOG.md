@@ -1,3 +1,13 @@
+# [0.7.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.7.0) - 2025-12-07
+
+### 🚀 Features
+
+- adds projected-release command [_(49241bf)_](https://github.com/robgonnella/releasaurus/commit/49241bf348b94d155cd9d4aa4a3dc4c77eccd06b) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- expose job_name input in gitlab parent workflow [_(d5f783a)_](https://github.com/robgonnella/releasaurus/commit/d5f783aec5c98c6555ac07ea94d33d0c2b9e1c35) (Rob Gonnella)
+
 # [0.6.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.6.0) - 2025-12-06
 
 ### 🐛 Bug Fixes
