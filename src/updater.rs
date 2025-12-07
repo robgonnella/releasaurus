@@ -1,9 +1,4 @@
-//! Version file detection and updating across multiple programming languages.
-//!
-//! Automatically detects project types and updates version files for Rust,
-//! Node.js, Python, Java, PHP, Ruby, and generic projects with trait-based
-//! architecture for language-specific implementations.
-
+//! Manifest version updates for various programming languages and file types.
 pub mod generic;
 mod java;
 pub mod manager;
