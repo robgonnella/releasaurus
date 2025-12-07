@@ -1,3 +1,9 @@
+# [0.8.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.8.0) - 2025-12-07
+
+### 🚀 Features
+
+- adds out-file option to projected release cmd [_(f5ad5af)_](https://github.com/robgonnella/releasaurus/commit/f5ad5afbaf8ba3dda2a78745588b7e66d023fb5b) (Rob Gonnella)
+
 # [0.7.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.7.1) - 2025-12-07
 
 ### 🐛 Bug Fixes
