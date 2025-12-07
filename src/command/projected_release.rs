@@ -1,29 +1,44 @@
 //! Projected release command implementation.
+use log::*;
+use std::path::Path;
+use tokio::fs;
 
-use crate::{Result, command::common, forge::manager::ForgeManager};
+use crate::{
+    Result,
+    command::{common, types::ReleasablePackage},
+    forge::manager::ForgeManager,
+};
 
 /// Get projected next release info as JSON, optionally filtered by package name.
 pub async fn execute(
     forge_manager: &ForgeManager,
     package: Option<String>,
+    out_file: Option<String>,
 ) -> Result<()> {
     let mut config = forge_manager.load_config().await?;
     let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
 
-    let releasable_packages =
+    let mut releasable_packages =
         common::get_releasable_packages(&config, forge_manager).await?;
 
-    let json = if let Some(package) = package
-        && let Some(projected_release) =
-            releasable_packages.iter().find(|p| p.name == package)
-    {
-        serde_json::json!(projected_release)
-    } else {
-        serde_json::json!(&releasable_packages)
-    };
+    if let Some(package) = package {
+        releasable_packages = releasable_packages
+            .into_iter()
+            .filter(|p| p.name == package)
+            .collect::<Vec<ReleasablePackage>>();
+    }
 
-    println!("{json}");
+    let json = serde_json::json!(&releasable_packages);
+
+    if let Some(out_file) = out_file {
+        let file_path = Path::new(&out_file);
+        let content = serde_json::to_string_pretty(&json)?;
+        info!("writing projected release json to: {}", file_path.display());
+        fs::write(file_path, &content).await?;
+    } else {
+        println!("{json}");
+    }
 
     Ok(())
 }
@@ -119,7 +134,7 @@ mod tests {
             ("pkg-b", ".", ReleaseType::Rust),
         ]);
 
-        let result = execute(&manager, None).await;
+        let result = execute(&manager, None, None).await;
         assert!(result.is_ok());
     }
 
@@ -130,18 +145,19 @@ mod tests {
             ("pkg-b", ".", ReleaseType::Rust),
         ]);
 
-        let result = execute(&manager, Some("pkg-a".to_string())).await;
+        let result = execute(&manager, Some("pkg-a".to_string()), None).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn returns_all_packages_when_filter_does_not_match() {
+    async fn returns_empty_array_when_filter_does_not_match() {
         let manager = mock_forge_with_packages(vec![
             ("pkg-a", ".", ReleaseType::Node),
             ("pkg-b", ".", ReleaseType::Rust),
         ]);
 
-        let result = execute(&manager, Some("nonexistent".to_string())).await;
+        let result =
+            execute(&manager, Some("nonexistent".to_string()), None).await;
         assert!(result.is_ok());
     }
 
@@ -149,7 +165,7 @@ mod tests {
     async fn handles_empty_releasable_packages() {
         let manager = mock_forge_with_packages(vec![]);
 
-        let result = execute(&manager, None).await;
+        let result = execute(&manager, None, None).await;
         assert!(result.is_ok());
     }
 
@@ -161,7 +177,7 @@ mod tests {
             ReleaseType::Node,
         )]);
 
-        let result = execute(&manager, None).await;
+        let result = execute(&manager, None, None).await;
         assert!(result.is_ok());
     }
 
@@ -198,5 +214,53 @@ mod tests {
         assert_eq!(json.as_array().unwrap().len(), 2);
         assert_eq!(json[0]["name"], "pkg-a");
         assert_eq!(json[1]["name"], "pkg-b");
+    }
+
+    #[tokio::test]
+    async fn creates_file_with_valid_json() {
+        let manager = mock_forge_with_packages(vec![]);
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let out_file = temp_dir.path().join("output.json");
+        let out_file_str = out_file.to_str().unwrap().to_string();
+
+        let result = execute(&manager, None, Some(out_file_str)).await;
+        assert!(result.is_ok());
+
+        // Verify file was created
+        assert!(out_file.exists(), "Output file should be created");
+
+        // Verify file contains valid JSON
+        let content = tokio::fs::read_to_string(&out_file).await.unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content)
+            .expect("File should contain valid JSON");
+
+        // Verify it's a valid JSON array (this is the key behavioral outcome)
+        assert!(json.is_array(), "Output should be a JSON array");
+    }
+
+    #[tokio::test]
+    async fn succeeds_with_filter_and_out_file() {
+        let manager = mock_forge_with_packages(vec![
+            ("pkg-a", ".", ReleaseType::Node),
+            ("pkg-b", ".", ReleaseType::Rust),
+        ]);
+
+        let result = execute(
+            &manager,
+            Some("pkg-a".to_string()),
+            Some("/tmp/filtered.json".to_string()),
+        )
+        .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn succeeds_with_empty_packages_and_out_file() {
+        let manager = mock_forge_with_packages(vec![]);
+
+        let result =
+            execute(&manager, None, Some("/tmp/empty.json".to_string())).await;
+        assert!(result.is_ok());
     }
 }

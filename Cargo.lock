@@ -2382,6 +2382,7 @@ dependencies = [
  "serde",
  "serde_json",
  "simplelog",
+ "tempfile",
  "tera",
  "tokio",
  "toml",

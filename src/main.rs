@@ -11,26 +11,18 @@
 //! - Creating release pull requests
 //! - Tagging and Publishing releases to various forge platforms (GitHub, GitLab, Gitea)
 //!
-//! ## Supported Languages & Frameworks
-//!
-//! - **Generic**: No Updates
-//! - **Java**: Maven pom.xml, Gradle build files
-//! - **Node.js**: package.json, package-lock.json, yarn.lock
-//! - **PHP**: composer.json
-//! - **Python**: pyproject.toml, setup.py, setup.cfg
-//! - **Ruby**: gemspec files, version.rb files
-//! - **Rust**: Cargo.toml and Cargo.lock version management
-//!
 //! ## Commands
 //!
 //! - `release-pr`: Create a release preparation pull request
 //! - `release`: Execute the final release process
+//! - `projected-release`: Outputs the entire projected next release object as json
 //!
 //! ## Usage
 //!
 //! ```bash
-//! releasaurus release-pr    # Create a release PR
-//! releasaurus release       # Publish the release
+//! releasaurus release-pr        # Create a release PR
+//! releasaurus release           # Publish the release
+//! releasaurus projected-release # Output projected next release as json
 //! ```
 
 use clap::Parser;
@@ -89,7 +81,9 @@ async fn main() -> Result<()> {
         args.debug = true;
     }
 
-    if matches!(args.command, Command::ProjectedRelease { .. }) {
+    if let Command::ProjectedRelease { out_file, .. } = &args.command
+        && out_file.is_none()
+    {
         silence_logs = true
     }
 
@@ -101,8 +95,8 @@ async fn main() -> Result<()> {
     match args.command {
         Command::ReleasePR => release_pr::execute(&forge_manager).await,
         Command::Release => release::execute(&forge_manager).await,
-        Command::ProjectedRelease { package } => {
-            projected_release::execute(&forge_manager, package).await
+        Command::ProjectedRelease { package, out_file } => {
+            projected_release::execute(&forge_manager, package, out_file).await
         }
     }
 }

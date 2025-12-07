@@ -65,8 +65,11 @@ pub enum Command {
 
     /// Returns projected next release info as json
     ProjectedRelease {
+        /// Output projected-release json directly to file
         #[arg(long, short)]
+        out_file: Option<String>,
         /// Optionally restrict output to just 1 specific package
+        #[arg(long, short)]
         package: Option<String>,
     },
 }

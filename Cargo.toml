@@ -63,3 +63,4 @@ reqwest = "0.12.24"
 [dev-dependencies]
 mockall = "0.13.1"
 nanoid = "0.4.0"
+tempfile = "3.23.0"
