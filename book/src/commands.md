@@ -50,6 +50,8 @@ This command provides release information without making any changes:
 - Outputs machine-readable JSON for automation and CI/CD pipelines
 - Supports filtering to a specific package with `--package`
 - Returns all releasable packages when no filter is specified
+- Useful for debugging configuration and troubleshooting version detection
+  issues
 
 **Usage:**
 
@@ -68,6 +70,11 @@ releasaurus projected-release --package my-pkg --github-repo "https://github.com
 - `workspace_root` - Workspace root directory
 - `release_type` - Release type (node, rust, python, etc.)
 - `release` - Release details including version, sha, commits, and notes
+
+**Debugging and Troubleshooting:** Use this command to verify what Releasaurus
+detects before creating a release PR. Check projected versions, inspect commit
+analysis, and validate configuration changes without modifying your repository.
+Works with `--local-repo` for testing configuration locally.
 
 See [Environment Variables](./environment-variables.md) for authentication setup.
 

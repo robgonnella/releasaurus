@@ -125,6 +125,38 @@ incorrect.
 2. **Check repository access** - Ensure your token's associated account has
    appropriate permissions.
 
+## Inspecting Projected Releases
+
+Use the `projected-release` command to inspect what Releasaurus will do before
+creating a PR or making any changes:
+
+```bash
+# See all projected releases
+releasaurus projected-release --github-repo "https://github.com/owner/repo"
+
+# Inspect specific package
+releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+
+# Test locally without authentication
+releasaurus projected-release --local-repo "."
+```
+
+**Use this command to:**
+
+- **Verify version calculation** - Check if the next version matches your
+  expectations
+- **Inspect commit analysis** - See which commits are included and how they're
+  categorized
+- **Validate configuration** - Ensure `releasaurus.toml` settings produce
+  desired results
+- **Preview release notes** - Review changelog content before creating a PR
+- **Debug tag matching** - Verify tag prefix configuration matches repository
+  tags
+- **Test monorepo setup** - Confirm package detection and independent versioning
+
+The JSON output includes all information that would be used in a release PR,
+making it ideal for diagnosing issues without modifying your repository.
+
 ## Debug Mode
 
 When troubleshooting any issue, enable debug mode for detailed information:
