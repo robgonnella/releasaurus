@@ -137,6 +137,9 @@ releasaurus projected-release --github-repo "https://github.com/owner/repo"
 # Inspect specific package
 releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
 
+# Save output to file for detailed inspection
+releasaurus projected-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+
 # Test locally without authentication
 releasaurus projected-release --local-repo "."
 ```

@@ -49,6 +49,7 @@ This command provides release information without making any changes:
 - Returns version, commits, notes, and metadata for upcoming releases
 - Outputs machine-readable JSON for automation and CI/CD pipelines
 - Supports filtering to a specific package with `--package`
+- Supports writing output to a file with `--out-file`
 - Returns all releasable packages when no filter is specified
 - Useful for debugging configuration and troubleshooting version detection
   issues
@@ -56,14 +57,20 @@ This command provides release information without making any changes:
 **Usage:**
 
 ```bash
-# Get all projected releases
+# Get all projected releases (prints to stdout)
 releasaurus projected-release --github-repo "https://github.com/owner/repo"
 
 # Get specific package release info
 releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+
+# Write output to a file
+releasaurus projected-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+
+# Combine filter and file output
+releasaurus projected-release --package my-pkg --out-file my-pkg-release.json --github-repo "https://github.com/owner/repo"
 ```
 
-**Output:** JSON object (single package) or array (multiple packages) containing:
+**Output:** JSON array containing releasable packages. Prints to stdout by default, or writes to a file when `--out-file` is specified. Each package includes:
 
 - `name` - Package name
 - `path` - Package path
