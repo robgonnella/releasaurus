@@ -9,9 +9,15 @@ spec:
     debug:
       description: Enables debug logs
       default: ""
-    pr_job_stage:
+    release_pr_job_name:
+      description: Customize the generated job name for release-pr command (default = release-pr)
+      default: release-pr
+    release_pr_job_stage:
       description: The stage in which to run the release-pr job
       default: .pre
+    release_job_name:
+      description: Customize the generated job name for release command (default = release)
+      default: release
     release_job_stage:
       description: The stage in which to run the release job
       default: .pre
@@ -22,10 +28,12 @@ include:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]
       token: $[[ inputs.token ]]
-      job_stage: $[[ inputs.pr_job_stage ]]
+      job_name: $[[ inputs.release_pr_job_name ]]
+      job_stage: $[[ inputs.release_pr_job_stage ]]
   - component: $CI_SERVER_FQDN/rgon/releasaurus/release@$[[ component.version ]]
     inputs:
       repo: $[[ inputs.repo ]]
       debug: $[[ inputs.debug ]]
       token: $[[ inputs.token ]]
+      job_name: $[[ inputs.release_job_name ]]
       job_stage: $[[ inputs.release_job_stage ]]

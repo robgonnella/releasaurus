@@ -10,7 +10,7 @@ spec:
       description: Enables debug logs
       default: ""
     job_name:
-      description: Customize the generated job name (default = release)
+      description: Customize the generated job name (default = release-pr)
       default: release-pr
     job_stage:
       description: The stage in which to run the job
