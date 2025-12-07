@@ -1,3 +1,11 @@
+# [0.7.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.7.1) - 2025-12-07
+
+### 🐛 Bug Fixes
+
+- updates documentation for projected-release command [_(5c6c272)_](https://github.com/robgonnella/releasaurus/commit/5c6c272a7f1628611b00a0734d6983106c363f36) (Rob Gonnella)
+
+- bump action versions [_(8f38d8f)_](https://github.com/robgonnella/releasaurus/commit/8f38d8f1b54b874095194c59cbadf0355fec4221) (Rob Gonnella)
+
 # [0.7.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.7.0) - 2025-12-07
 
 ### 🚀 Features
