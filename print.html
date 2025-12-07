@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-928e698c.js";
+            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -725,6 +725,8 @@ a pull request</p>
 <li>Outputs machine-readable JSON for automation and CI/CD pipelines</li>
 <li>Supports filtering to a specific package with <code>--package</code></li>
 <li>Returns all releasable packages when no filter is specified</li>
+<li>Useful for debugging configuration and troubleshooting version detection
+issues</li>
 </ul>
 <p><strong>Usage:</strong></p>
 <pre><code class="language-bash"># Get all projected releases
@@ -741,6 +743,10 @@ releasaurus projected-release --package my-pkg --github-repo "https://github.com
 <li><code>release_type</code> - Release type (node, rust, python, etc.)</li>
 <li><code>release</code> - Release details including version, sha, commits, and notes</li>
 </ul>
+<p><strong>Debugging and Troubleshooting:</strong> Use this command to verify what Releasaurus
+detects before creating a release PR. Check projected versions, inspect commit
+analysis, and validate configuration changes without modifying your repository.
+Works with <code>--local-repo</code> for testing configuration locally.</p>
 <p>See <a href="#environment-variables-2">Environment Variables</a> for authentication setup.</p>
 <h2 id="basic-usage-pattern"><a class="header" href="#basic-usage-pattern">Basic Usage Pattern</a></h2>
 <p>The typical Releasaurus workflow follows this pattern (can be run from any
@@ -1191,6 +1197,33 @@ incorrect.</p>
 appropriate permissions.</p>
 </li>
 </ol>
+<h2 id="inspecting-projected-releases"><a class="header" href="#inspecting-projected-releases">Inspecting Projected Releases</a></h2>
+<p>Use the <code>projected-release</code> command to inspect what Releasaurus will do before
+creating a PR or making any changes:</p>
+<pre><code class="language-bash"># See all projected releases
+releasaurus projected-release --github-repo "https://github.com/owner/repo"
+
+# Inspect specific package
+releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+
+# Test locally without authentication
+releasaurus projected-release --local-repo "."
+</code></pre>
+<p><strong>Use this command to:</strong></p>
+<ul>
+<li><strong>Verify version calculation</strong> - Check if the next version matches your
+expectations</li>
+<li><strong>Inspect commit analysis</strong> - See which commits are included and how they’re
+categorized</li>
+<li><strong>Validate configuration</strong> - Ensure <code>releasaurus.toml</code> settings produce
+desired results</li>
+<li><strong>Preview release notes</strong> - Review changelog content before creating a PR</li>
+<li><strong>Debug tag matching</strong> - Verify tag prefix configuration matches repository
+tags</li>
+<li><strong>Test monorepo setup</strong> - Confirm package detection and independent versioning</li>
+</ul>
+<p>The JSON output includes all information that would be used in a release PR,
+making it ideal for diagnosing issues without modifying your repository.</p>
 <h2 id="debug-mode-1"><a class="header" href="#debug-mode-1">Debug Mode</a></h2>
 <p>When troubleshooting any issue, enable debug mode for detailed information:</p>
 <pre><code class="language-bash"># Via command line flag

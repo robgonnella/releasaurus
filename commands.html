@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-928e698c.js";
+            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -219,6 +219,8 @@ a pull request</p>
 <li>Outputs machine-readable JSON for automation and CI/CD pipelines</li>
 <li>Supports filtering to a specific package with <code>--package</code></li>
 <li>Returns all releasable packages when no filter is specified</li>
+<li>Useful for debugging configuration and troubleshooting version detection
+issues</li>
 </ul>
 <p><strong>Usage:</strong></p>
 <pre><code class="language-bash"># Get all projected releases
@@ -235,6 +237,10 @@ releasaurus projected-release --package my-pkg --github-repo "https://github.com
 <li><code>release_type</code> - Release type (node, rust, python, etc.)</li>
 <li><code>release</code> - Release details including version, sha, commits, and notes</li>
 </ul>
+<p><strong>Debugging and Troubleshooting:</strong> Use this command to verify what Releasaurus
+detects before creating a release PR. Check projected versions, inspect commit
+analysis, and validate configuration changes without modifying your repository.
+Works with <code>--local-repo</code> for testing configuration locally.</p>
 <p>See <a href="./environment-variables.html">Environment Variables</a> for authentication setup.</p>
 <h2 id="basic-usage-pattern"><a class="header" href="#basic-usage-pattern">Basic Usage Pattern</a></h2>
 <p>The typical Releasaurus workflow follows this pattern (can be run from any
