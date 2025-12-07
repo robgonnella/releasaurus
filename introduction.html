@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9a9ceacb.js";
+            window.path_to_searchindex_js = "searchindex-928e698c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -239,7 +239,7 @@ with per-package configuration and release cycles.</p>
 <p>While it works great with defaults, customize every aspect of the release
 process through an optional <code>releasaurus.toml</code> configuration file.</p>
 <h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
-<p>Releasaurus follows a simple two-step release process:</p>
+<p>Releasaurus provides a simple two-step release workflow:</p>
 <ol>
 <li>
 <p><strong><code>releasaurus release-pr</code></strong> - Analyzes your commits, determines the next
@@ -251,6 +251,9 @@ request for review.</p>
 tag and publishes the release to your forge platform.</p>
 </li>
 </ol>
+<p>Additionally, <strong><code>releasaurus projected-release</code></strong> outputs projected release
+information as JSON for automation and CI/CD pipelines without making any
+changes.</p>
 <p>This workflow provides a safety net through pull request reviews while
 automating all the tedious version management tasks.</p>
 <h2 id="why-another-release-tool"><a class="header" href="#why-another-release-tool">Why Another Release Tool?</a></h2>

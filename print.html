@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9a9ceacb.js";
+            window.path_to_searchindex_js = "searchindex-928e698c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4dbbafb.js"></script>
@@ -240,7 +240,7 @@ with per-package configuration and release cycles.</p>
 <p>While it works great with defaults, customize every aspect of the release
 process through an optional <code>releasaurus.toml</code> configuration file.</p>
 <h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
-<p>Releasaurus follows a simple two-step release process:</p>
+<p>Releasaurus provides a simple two-step release workflow:</p>
 <ol>
 <li>
 <p><strong><code>releasaurus release-pr</code></strong> - Analyzes your commits, determines the next
@@ -252,6 +252,9 @@ request for review.</p>
 tag and publishes the release to your forge platform.</p>
 </li>
 </ol>
+<p>Additionally, <strong><code>releasaurus projected-release</code></strong> outputs projected release
+information as JSON for automation and CI/CD pipelines without making any
+changes.</p>
 <p>This workflow provides a safety net through pull request reviews while
 automating all the tedious version management tasks.</p>
 <h2 id="why-another-release-tool"><a class="header" href="#why-another-release-tool">Why Another Release Tool?</a></h2>
@@ -681,10 +684,11 @@ instructions.</p>
 detailed information about all available options and features.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
-<p>Releasaurus provides two main commands that work together to create a safe,
-reviewable release process. This two-stage approach ensures that all changes
-are reviewed before publication while automating the tedious aspects of version
-management and changelog generation.</p>
+<p>Releasaurus provides three commands: two that work together to create a safe,
+reviewable release process, and one for querying projected release information.
+The two-stage release approach ensures that all changes are reviewed before
+publication while automating the tedious aspects of version management and
+changelog generation.</p>
 <p><strong>Important</strong>: Releasaurus operates entirely through forge platform APIs
 without requiring local repository clones. You can run these commands from any
 location with network access to your forge platform.</p>
@@ -713,6 +717,31 @@ a pull request</p>
 <li>Supports prerelease versions (alpha, beta, rc, etc.)</li>
 <li>Supports dry-run mode for testing</li>
 </ul>
+<h3 id="projected-release"><a class="header" href="#projected-release"><code>projected-release</code></a></h3>
+<p><strong>Purpose</strong>: Query projected next release information as JSON</p>
+<p>This command provides release information without making any changes:</p>
+<ul>
+<li>Returns version, commits, notes, and metadata for upcoming releases</li>
+<li>Outputs machine-readable JSON for automation and CI/CD pipelines</li>
+<li>Supports filtering to a specific package with <code>--package</code></li>
+<li>Returns all releasable packages when no filter is specified</li>
+</ul>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash"># Get all projected releases
+releasaurus projected-release --github-repo "https://github.com/owner/repo"
+
+# Get specific package release info
+releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Output:</strong> JSON object (single package) or array (multiple packages) containing:</p>
+<ul>
+<li><code>name</code> - Package name</li>
+<li><code>path</code> - Package path</li>
+<li><code>workspace_root</code> - Workspace root directory</li>
+<li><code>release_type</code> - Release type (node, rust, python, etc.)</li>
+<li><code>release</code> - Release details including version, sha, commits, and notes</li>
+</ul>
+<p>See <a href="#environment-variables-2">Environment Variables</a> for authentication setup.</p>
 <h2 id="basic-usage-pattern"><a class="header" href="#basic-usage-pattern">Basic Usage Pattern</a></h2>
 <p>The typical Releasaurus workflow follows this pattern (can be run from any
 directory):</p>
