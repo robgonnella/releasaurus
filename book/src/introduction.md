@@ -92,9 +92,9 @@ Releasaurus provides a simple two-step release workflow:
 2. **`releasaurus release`** - After the release PR is merged, creates a Git
    tag and publishes the release to your forge platform.
 
-Additionally, **`releasaurus projected-release`** outputs projected release
-information as JSON for automation and CI/CD pipelines without making any
-changes.
+Additionally, **`releasaurus show`** provides commands to query release
+information for automation, CI/CD pipelines, and custom notifications without
+making any changes.
 
 This workflow provides a safety net through pull request reviews while
 automating all the tedious version management tasks.

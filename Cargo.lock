@@ -2362,6 +2362,7 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "derive_builder",
  "git-conventional",
  "git-url-parse",
  "git2",

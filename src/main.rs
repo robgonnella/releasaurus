@@ -28,7 +28,7 @@
 use clap::Parser;
 
 use releasaurus::{
-    Args, Command, Result, projected_release, release, release_pr,
+    Args, Command, Result, ShowCommand, release, release_pr, show,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -81,10 +81,19 @@ async fn main() -> Result<()> {
         args.debug = true;
     }
 
-    if let Command::ProjectedRelease { out_file, .. } = &args.command
-        && out_file.is_none()
-    {
-        silence_logs = true
+    if let Command::Show { command } = &args.command {
+        match command {
+            ShowCommand::NextRelease { out_file, .. } => {
+                if out_file.is_none() {
+                    silence_logs = true;
+                }
+            }
+            ShowCommand::ReleaseNotes { out_file, .. } => {
+                if out_file.is_none() {
+                    silence_logs = true;
+                }
+            }
+        }
     }
 
     initialize_logger(args.debug, silence_logs)?;
@@ -95,8 +104,8 @@ async fn main() -> Result<()> {
     match args.command {
         Command::ReleasePR => release_pr::execute(&forge_manager).await,
         Command::Release => release::execute(&forge_manager).await,
-        Command::ProjectedRelease { package, out_file } => {
-            projected_release::execute(&forge_manager, package, out_file).await
+        Command::Show { command } => {
+            show::execute(&forge_manager, command).await
         }
     }
 }
