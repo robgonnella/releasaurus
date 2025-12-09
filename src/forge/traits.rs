@@ -34,6 +34,8 @@ pub trait Forge: Any {
     /// Fetch file content from repository by path, returning None if file
     /// doesn't exist.
     async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
+    /// Retrieves the release notes for a specified tag
+    async fn get_release_notes(&self, tag: &str) -> Result<String>;
     /// Create a new branch with file changes and return the commit SHA.
     async fn create_release_branch(
         &self,

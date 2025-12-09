@@ -48,6 +48,14 @@ impl ForgeManager {
         self.forge.get_file_content(path).await
     }
 
+    pub async fn load_config(&self) -> Result<Config> {
+        self.forge.load_config().await
+    }
+
+    pub async fn get_release_notes(&self, tag: &str) -> Result<String> {
+        self.forge.get_release_notes(tag).await
+    }
+
     pub async fn load_manifest_targets(
         &self,
         targets: Vec<ManifestTarget>,
@@ -74,10 +82,6 @@ impl ForgeManager {
         }
 
         Ok(Some(manifests))
-    }
-
-    pub async fn load_config(&self) -> Result<Config> {
-        self.forge.load_config().await
     }
 
     pub async fn get_latest_tag_for_prefix(

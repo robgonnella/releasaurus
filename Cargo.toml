@@ -59,6 +59,7 @@ openssl = { version = "0.10.75", features = ["vendored"] }
 octocrab = "0.48.1"
 gitlab = "0.1806.0"
 reqwest = "0.12.24"
+derive_builder = "0.20.2"
 
 [dev-dependencies]
 mockall = "0.13.1"

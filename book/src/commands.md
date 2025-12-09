@@ -1,10 +1,10 @@
 # Commands
 
-Releasaurus provides three commands: two that work together to create a safe,
-reviewable release process, and one for querying projected release information.
-The two-stage release approach ensures that all changes are reviewed before
-publication while automating the tedious aspects of version management and
-changelog generation.
+Releasaurus provides commands for release automation and inspection: two that
+work together to create a safe, reviewable release process, and one for querying
+release information. The two-stage release approach ensures that all changes are
+reviewed before publication while automating the tedious aspects of version
+management and changelog generation.
 
 **Important**: Releasaurus operates entirely through forge platform APIs
 without requiring local repository clones. You can run these commands from any
@@ -40,48 +40,57 @@ This command finalizes the release:
 - Supports prerelease versions (alpha, beta, rc, etc.)
 - Supports dry-run mode for testing
 
-### `projected-release`
+### `show`
 
-**Purpose**: Query projected next release information as JSON
+**Purpose**: Query release information without making changes
 
-This command provides release information without making any changes:
+This command provides release data for inspection, debugging, and custom
+automation:
 
-- Returns version, commits, notes, and metadata for upcoming releases
-- Outputs machine-readable JSON for automation and CI/CD pipelines
-- Supports filtering to a specific package with `--package`
-- Supports writing output to a file with `--out-file`
-- Returns all releasable packages when no filter is specified
+- View projected next releases or retrieve existing release notes
 - Useful for debugging configuration and troubleshooting version detection
-  issues
+- Generate custom notification scripts for pre/post-release workflows
+- Supports writing output to files for processing
 
-**Usage:**
+**Sub-commands:**
+
+#### `show next-release`
+
+Returns projected next release information as JSON:
 
 ```bash
-# Get all projected releases (prints to stdout)
-releasaurus projected-release --github-repo "https://github.com/owner/repo"
+# Get all projected releases
+releasaurus show next-release --github-repo "https://github.com/owner/repo"
 
-# Get specific package release info
-releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+# Filter to specific package
+releasaurus show next-release --package my-pkg --github-repo "https://github.com/owner/repo"
 
-# Write output to a file
-releasaurus projected-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+# Write to file
+releasaurus show next-release --out-file releases.json --github-repo "https://github.com/owner/repo"
 
-# Combine filter and file output
-releasaurus projected-release --package my-pkg --out-file my-pkg-release.json --github-repo "https://github.com/owner/repo"
+# Test locally
+releasaurus show next-release --local-repo "."
 ```
 
-**Output:** JSON array containing releasable packages. Prints to stdout by default, or writes to a file when `--out-file` is specified. Each package includes:
+**Output:** JSON array of releasable packages with version, commits, and notes.
 
-- `name` - Package name
-- `path` - Package path
-- `workspace_root` - Workspace root directory
-- `release_type` - Release type (node, rust, python, etc.)
-- `release` - Release details including version, sha, commits, and notes
+#### `show release-notes`
 
-**Debugging and Troubleshooting:** Use this command to verify what Releasaurus
-detects before creating a release PR. Check projected versions, inspect commit
-analysis, and validate configuration changes without modifying your repository.
-Works with `--local-repo` for testing configuration locally.
+Retrieves release notes for an existing tag:
+
+```bash
+# Display release notes
+releasaurus show release-notes --tag v1.0.0 --github-repo "https://github.com/owner/repo"
+
+# Save to file
+releasaurus show release-notes --tag v1.0.0 --out-file notes.txt --github-repo "https://github.com/owner/repo"
+```
+
+**Output:** Release notes text for the specified tag.
+
+**Custom Notifications:** Use these commands to build notification scripts that
+announce upcoming releases (pre-release) or published releases (post-release)
+to Slack, Discord, email, or other channels.
 
 See [Environment Variables](./environment-variables.md) for authentication setup.
 
