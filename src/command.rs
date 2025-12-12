@@ -6,7 +6,7 @@
 pub mod args;
 pub mod common;
 pub mod errors;
-pub mod projected_release;
 pub mod release;
 pub mod release_pr;
+pub mod show;
 pub mod types;

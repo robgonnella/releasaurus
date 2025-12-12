@@ -140,8 +140,13 @@ struct GiteaTagCommit {
 
 #[derive(Debug, Deserialize)]
 struct GiteaTag {
-    name: String,
-    commit: GiteaTagCommit,
+    pub name: String,
+    pub commit: GiteaTagCommit,
+}
+
+#[derive(Debug, Deserialize)]
+struct GiteaRelease {
+    pub body: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -333,6 +338,18 @@ impl Forge for Gitea {
             info!("configuration not found in repo: using default");
             Ok(Config::default())
         }
+    }
+
+    async fn get_release_notes(&self, tag: &str) -> Result<String> {
+        let endpoint = self.base_url.join(&format!("releases/tags/{tag}"))?;
+        let request = self.client.get(endpoint).build()?;
+        let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Err(eyre!(format!("no release found for tag: {tag}")));
+        }
+        let result = response.error_for_status()?;
+        let release: GiteaRelease = result.json().await?;
+        Ok(release.body)
     }
 
     async fn get_latest_tag_for_prefix(

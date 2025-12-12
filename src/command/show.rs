@@ -4,7 +4,7 @@ use std::path::Path;
 use tokio::fs;
 
 use crate::{
-    Result,
+    Result, ShowCommand,
     command::{common, types::ReleasablePackage},
     forge::manager::ForgeManager,
 };
@@ -12,8 +12,42 @@ use crate::{
 /// Get projected next release info as JSON, optionally filtered by package name.
 pub async fn execute(
     forge_manager: &ForgeManager,
-    package: Option<String>,
+    cmd: ShowCommand,
+) -> Result<()> {
+    match cmd {
+        ShowCommand::NextRelease { out_file, package } => {
+            show_next_release(forge_manager, out_file, package).await
+        }
+        ShowCommand::ReleaseNotes { out_file, tag } => {
+            show_release_notes(forge_manager, out_file, tag).await
+        }
+    }
+}
+
+async fn show_release_notes(
+    forge_manager: &ForgeManager,
     out_file: Option<String>,
+    tag: String,
+) -> Result<()> {
+    info!("retrieving release notes for tag: {tag}");
+    let notes = forge_manager.get_release_notes(&tag).await?;
+    if let Some(out_file) = out_file {
+        let file_path = Path::new(&out_file);
+        info!(
+            "writing release notes for tag {tag} to: {}",
+            file_path.display()
+        );
+        fs::write(file_path, &notes).await?;
+    } else {
+        println!("{notes}");
+    }
+    Ok(())
+}
+
+async fn show_next_release(
+    forge_manager: &ForgeManager,
+    out_file: Option<String>,
+    package: Option<String>,
 ) -> Result<()> {
     let mut config = forge_manager.load_config().await?;
     let repo_name = forge_manager.repo_name();
@@ -127,59 +161,166 @@ mod tests {
         ForgeManager::new(Box::new(mock))
     }
 
+    /// Creates a mock forge manager that returns release notes
+    fn mock_forge_with_release_notes(notes: String) -> ForgeManager {
+        let mut mock = MockForge::new();
+
+        mock.expect_get_release_notes()
+            .returning(move |_| Ok(notes.clone()));
+
+        mock.expect_remote_config()
+            .returning(create_test_remote_config);
+
+        ForgeManager::new(Box::new(mock))
+    }
+
+    // ===== NextRelease SubCommand Tests =====
+
     #[tokio::test]
-    async fn returns_all_packages_when_no_filter_specified() {
+    async fn next_release_returns_all_packages_when_no_filter() {
         let manager = mock_forge_with_packages(vec![
             ("pkg-a", ".", ReleaseType::Node),
             ("pkg-b", ".", ReleaseType::Rust),
         ]);
 
-        let result = execute(&manager, None, None).await;
+        let cmd = ShowCommand::NextRelease {
+            out_file: None,
+            package: None,
+        };
+
+        let result = execute(&manager, cmd).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn returns_specific_package_when_filtered() {
+    async fn next_release_filters_to_specific_package() {
         let manager = mock_forge_with_packages(vec![
             ("pkg-a", ".", ReleaseType::Node),
             ("pkg-b", ".", ReleaseType::Rust),
         ]);
 
-        let result = execute(&manager, Some("pkg-a".to_string()), None).await;
+        let cmd = ShowCommand::NextRelease {
+            out_file: None,
+            package: Some("pkg-a".to_string()),
+        };
+
+        let result = execute(&manager, cmd).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn returns_empty_array_when_filter_does_not_match() {
-        let manager = mock_forge_with_packages(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Rust),
-        ]);
-
-        let result =
-            execute(&manager, Some("nonexistent".to_string()), None).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn handles_empty_releasable_packages() {
+    async fn next_release_handles_empty_packages() {
         let manager = mock_forge_with_packages(vec![]);
 
-        let result = execute(&manager, None, None).await;
+        let cmd = ShowCommand::NextRelease {
+            out_file: None,
+            package: None,
+        };
+
+        let result = execute(&manager, cmd).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn returns_single_package_as_array_when_no_filter() {
-        let manager = mock_forge_with_packages(vec![(
-            "single-pkg",
-            ".",
-            ReleaseType::Node,
-        )]);
+    async fn next_release_creates_file_with_valid_json() {
+        let manager = mock_forge_with_packages(vec![]);
 
-        let result = execute(&manager, None, None).await;
+        let temp_dir = tempfile::tempdir().unwrap();
+        let out_file = temp_dir.path().join("output.json");
+        let out_file_str = out_file.to_str().unwrap().to_string();
+
+        let cmd = ShowCommand::NextRelease {
+            out_file: Some(out_file_str),
+            package: None,
+        };
+
+        let result = execute(&manager, cmd).await;
+        assert!(result.is_ok());
+
+        // Verify file was created
+        assert!(out_file.exists(), "Output file should be created");
+
+        // Verify file contains valid JSON
+        let content = tokio::fs::read_to_string(&out_file).await.unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content)
+            .expect("File should contain valid JSON");
+
+        // Verify it's a valid JSON array
+        assert!(json.is_array(), "Output should be a JSON array");
+    }
+
+    #[tokio::test]
+    async fn next_release_combines_filter_and_file_output() {
+        let manager = mock_forge_with_packages(vec![
+            ("pkg-a", ".", ReleaseType::Node),
+            ("pkg-b", ".", ReleaseType::Rust),
+        ]);
+
+        let cmd = ShowCommand::NextRelease {
+            out_file: Some("/tmp/filtered.json".to_string()),
+            package: Some("pkg-a".to_string()),
+        };
+
+        let result = execute(&manager, cmd).await;
         assert!(result.is_ok());
     }
+
+    // ===== ReleaseNotes SubCommand Tests =====
+
+    #[tokio::test]
+    async fn release_notes_retrieves_notes_to_stdout() {
+        let notes = "## Release v1.0.0\n\n- Feature added".to_string();
+        let manager = mock_forge_with_release_notes(notes);
+
+        let cmd = ShowCommand::ReleaseNotes {
+            out_file: None,
+            tag: "v1.0.0".to_string(),
+        };
+
+        let result = execute(&manager, cmd).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn release_notes_writes_to_file() {
+        let notes = "## Release v1.0.0\n\n- Feature added".to_string();
+        let manager = mock_forge_with_release_notes(notes.clone());
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let out_file = temp_dir.path().join("notes.txt");
+        let out_file_str = out_file.to_str().unwrap().to_string();
+
+        let cmd = ShowCommand::ReleaseNotes {
+            out_file: Some(out_file_str),
+            tag: "v1.0.0".to_string(),
+        };
+
+        let result = execute(&manager, cmd).await;
+        assert!(result.is_ok());
+
+        // Verify file was created
+        assert!(out_file.exists(), "Output file should be created");
+
+        // Verify file contains the release notes
+        let content = tokio::fs::read_to_string(&out_file).await.unwrap();
+        assert_eq!(content, notes);
+    }
+
+    #[tokio::test]
+    async fn release_notes_handles_different_tags() {
+        let notes = "## Release v2.1.3\n\n- Bug fix".to_string();
+        let manager = mock_forge_with_release_notes(notes);
+
+        let cmd = ShowCommand::ReleaseNotes {
+            out_file: None,
+            tag: "v2.1.3".to_string(),
+        };
+
+        let result = execute(&manager, cmd).await;
+        assert!(result.is_ok());
+    }
+
+    // ===== JSON Serialization Tests =====
 
     #[tokio::test]
     async fn serializes_releasable_package_correctly() {
@@ -214,53 +355,5 @@ mod tests {
         assert_eq!(json.as_array().unwrap().len(), 2);
         assert_eq!(json[0]["name"], "pkg-a");
         assert_eq!(json[1]["name"], "pkg-b");
-    }
-
-    #[tokio::test]
-    async fn creates_file_with_valid_json() {
-        let manager = mock_forge_with_packages(vec![]);
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let out_file = temp_dir.path().join("output.json");
-        let out_file_str = out_file.to_str().unwrap().to_string();
-
-        let result = execute(&manager, None, Some(out_file_str)).await;
-        assert!(result.is_ok());
-
-        // Verify file was created
-        assert!(out_file.exists(), "Output file should be created");
-
-        // Verify file contains valid JSON
-        let content = tokio::fs::read_to_string(&out_file).await.unwrap();
-        let json: serde_json::Value = serde_json::from_str(&content)
-            .expect("File should contain valid JSON");
-
-        // Verify it's a valid JSON array (this is the key behavioral outcome)
-        assert!(json.is_array(), "Output should be a JSON array");
-    }
-
-    #[tokio::test]
-    async fn succeeds_with_filter_and_out_file() {
-        let manager = mock_forge_with_packages(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Rust),
-        ]);
-
-        let result = execute(
-            &manager,
-            Some("pkg-a".to_string()),
-            Some("/tmp/filtered.json".to_string()),
-        )
-        .await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn succeeds_with_empty_packages_and_out_file() {
-        let manager = mock_forge_with_packages(vec![]);
-
-        let result =
-            execute(&manager, None, Some("/tmp/empty.json".to_string())).await;
-        assert!(result.is_ok());
     }
 }

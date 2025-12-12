@@ -127,21 +127,21 @@ incorrect.
 
 ## Inspecting Projected Releases
 
-Use the `projected-release` command to inspect what Releasaurus will do before
+Use the `show next-release` command to inspect what Releasaurus will do before
 creating a PR or making any changes:
 
 ```bash
 # See all projected releases
-releasaurus projected-release --github-repo "https://github.com/owner/repo"
+releasaurus show next-release --github-repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+releasaurus show next-release --package my-pkg --github-repo "https://github.com/owner/repo"
 
 # Save output to file for detailed inspection
-releasaurus projected-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+releasaurus show next-release --out-file releases.json --github-repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus projected-release --local-repo "."
+releasaurus show next-release --local-repo "."
 ```
 
 **Use this command to:**

@@ -289,6 +289,19 @@ impl Forge for Github {
         }
     }
 
+    async fn get_release_notes(&self, tag: &str) -> Result<String> {
+        let release = self
+            .instance
+            .repos(&self.config.owner, &self.config.repo)
+            .releases()
+            .get_by_tag(tag)
+            .await?;
+
+        let body = release.body.unwrap_or_default();
+
+        Ok(body)
+    }
+
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,

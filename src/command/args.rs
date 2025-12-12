@@ -14,44 +14,77 @@ use crate::{
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// GitHub repository URL (<https://github.com/owner/repo>).
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub github_repo: String,
 
     /// GitHub personal access token. Falls back to GITHUB_TOKEN env var.
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub github_token: String,
 
     /// GitLab repository URL. Supports GitLab.com and self-hosted instances.
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub gitlab_repo: String,
 
     /// GitLab personal access token. Falls back to GITLAB_TOKEN env var.
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub gitlab_token: String,
 
     /// Gitea repository URL for self-hosted instances.
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub gitea_repo: String,
 
     /// Gitea access token. Falls back to GITEA_TOKEN env var.
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub gitea_token: String,
 
     /// Local repository path. For testing config changes against local repo
-    #[arg(long, default_value = "", global = true)]
+    #[arg(long, default_value = "", global = true, help_heading = "Global")]
     pub local_repo: String,
 
     /// Enable debug logging.
-    #[arg(long, default_value_t = false, global = true)]
+    #[arg(
+        long,
+        default_value_t = false,
+        global = true,
+        help_heading = "Global"
+    )]
     pub debug: bool,
 
     /// Execute in dry-run mode
-    #[arg(long, default_value_t = false, global = true)]
+    #[arg(
+        long,
+        default_value_t = false,
+        global = true,
+        help_heading = "Global"
+    )]
     pub dry_run: bool,
 
     /// Subcommand to execute.
     #[command(subcommand)]
     pub command: Command,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum ShowCommand {
+    /// Outputs the projected next release in json
+    NextRelease {
+        /// Output projected-release json directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+        /// Optionally restrict output to just 1 specific package
+        #[arg(short, long)]
+        package: Option<String>,
+    },
+    /// Outputs the release notes associated with a given tag
+    ReleaseNotes {
+        /// Output release notes directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+
+        /// Gets release notes associated with specific tag
+        #[arg(short, long, required = true)]
+        tag: String,
+    },
 }
 
 /// Release operation subcommands.
@@ -63,14 +96,10 @@ pub enum Command {
     /// Create a git tag and publish release after PR merge.
     Release,
 
-    /// Returns projected next release info as json
-    ProjectedRelease {
-        /// Output projected-release json directly to file
-        #[arg(long, short)]
-        out_file: Option<String>,
-        /// Optionally restrict output to just 1 specific package
-        #[arg(long, short)]
-        package: Option<String>,
+    /// Outputs info about projected and previous releases
+    Show {
+        #[command(subcommand)]
+        command: ShowCommand,
     },
 }
 

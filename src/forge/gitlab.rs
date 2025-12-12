@@ -3,10 +3,13 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::{ContextCompat, eyre};
+use derive_builder::Builder;
 use gitlab::{
     AsyncGitlab,
     api::{
-        AsyncQuery, Pagination, ignore,
+        AsyncQuery, Endpoint, Pagination, QueryParams,
+        common::NameOrId,
+        ignore,
         merge_requests::MergeRequestState,
         paged,
         projects::{
@@ -30,10 +33,10 @@ use gitlab::{
 use graphql_client::{GraphQLQuery, QueryBody};
 use log::*;
 use regex::Regex;
-use reqwest::StatusCode;
+use reqwest::{Method, StatusCode};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::{cmp, sync::Arc};
+use std::{borrow::Cow, cmp, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -154,9 +157,48 @@ pub struct GitlabTag {
     pub commit: GitlabCommit,
 }
 
+/// Represents a Gitlab release
+#[derive(Debug, Deserialize)]
+pub struct GitlabRelease {
+    pub description: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreatedCommit {
     pub id: String,
+}
+
+/// Query a specific project release by tag name.
+#[derive(Debug, Clone, Builder)]
+#[builder(setter(strip_option))]
+pub struct ProjectReleaseByTag<'a> {
+    /// The project to query for release.
+    #[builder(setter(into))]
+    project: NameOrId<'a>,
+
+    /// Gets a release for a specific tag
+    tag: Cow<'a, str>,
+}
+
+impl<'a> ProjectReleaseByTag<'a> {
+    /// Create a builder for the endpoint.
+    pub fn builder() -> ProjectReleaseByTagBuilder<'a> {
+        ProjectReleaseByTagBuilder::default()
+    }
+}
+
+impl Endpoint for ProjectReleaseByTag<'_> {
+    fn method(&self) -> Method {
+        Method::GET
+    }
+
+    fn endpoint(&self) -> Cow<'static, str> {
+        format!("projects/{}/releases/{}", self.project, self.tag).into()
+    }
+
+    fn parameters(&self) -> QueryParams<'_> {
+        QueryParams::default()
+    }
 }
 
 /// GitLab forge implementation using gitlab crate for API interactions with
@@ -306,6 +348,32 @@ impl Forge for Gitlab {
                 error!("failed to get file from repo: {err}");
                 Err(eyre!("failed to get file from repo: {err}"))
             }
+        }
+    }
+
+    async fn get_release_notes(&self, tag: &str) -> Result<String> {
+        let endpoint = ProjectReleaseByTag::builder()
+            .project(&self.project_id)
+            .tag(tag.into())
+            .build()?;
+
+        let result: std::result::Result<
+            GitlabRelease,
+            gitlab::api::ApiError<gitlab::RestError>,
+        > = endpoint.query_async(&self.gl).await;
+
+        match result {
+            Ok(release) => Ok(release.description),
+            Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
+                if status == StatusCode::NOT_FOUND {
+                    return Err(eyre!(format!(
+                        "no release found for tag: {tag}"
+                    )));
+                }
+
+                Err(eyre!(msg))
+            }
+            Err(err) => Err(eyre!(err)),
         }
     }
 

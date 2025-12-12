@@ -1,6 +1,6 @@
 //! Implements the Forge trait for Gitea
 use async_trait::async_trait;
-use color_eyre::eyre::{Context, OptionExt};
+use color_eyre::eyre::{Context, OptionExt, eyre};
 use git2::{Commit as Git2Commit, Sort, TreeWalkMode};
 use log::*;
 use regex::Regex;
@@ -104,6 +104,10 @@ impl Forge for LocalRepo {
             info!("repository configuration not found: using default");
             Ok(Config::default())
         }
+    }
+
+    async fn get_release_notes(&self, _tag: &str) -> Result<String> {
+        Err(eyre!("not implemented for local forge"))
     }
 
     async fn get_latest_tag_for_prefix(
