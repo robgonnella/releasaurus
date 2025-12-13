@@ -45,6 +45,8 @@ pub struct AnalyzerConfig {
     pub release_link_base_url: String,
     /// Prerelease identifier (e.g., "alpha", "beta", "rc").
     pub prerelease: Option<String>,
+    /// Whether to append .1, .2, etc. to prerelease versions
+    pub prerelease_version: bool,
     /// regex to match and exclude release commits
     pub release_commit_matcher: Option<Regex>,
     /// Always increments major version on breaking commits
@@ -70,6 +72,7 @@ impl Default for AnalyzerConfig {
             tag_prefix: None,
             release_link_base_url: "".into(),
             prerelease: None,
+            prerelease_version: true,
             release_commit_matcher: None,
             breaking_always_increment_major: true,
             features_always_increment_minor: true,

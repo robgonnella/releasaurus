@@ -229,6 +229,7 @@ async fn gather_release_prs_by_branch(
             .join("CHANGELOG.md")
             .display()
             .to_string()
+            .replace("\\", "/")
             .replace("./", "");
 
         file_changes.push(FileChange {

@@ -64,7 +64,11 @@ impl Analyzer {
 
         // Handle prerelease for first release
         if let Some(ref prerelease_id) = self.config.prerelease {
-            semver = helpers::add_prerelease(semver, prerelease_id)?;
+            semver = helpers::add_prerelease(
+                semver,
+                prerelease_id,
+                self.config.prerelease_version,
+            )?;
         }
 
         let mut tag_name = semver.to_string();
@@ -179,7 +183,11 @@ impl Analyzer {
             // Currently stable, starting a prerelease
             let next_stable =
                 version_updater.increment(&current.semver, commits);
-            let version = helpers::add_prerelease(next_stable, prerelease_id)?;
+            let version = helpers::add_prerelease(
+                next_stable,
+                prerelease_id,
+                self.config.prerelease_version,
+            )?;
             Ok(version)
         } else {
             // Currently in a prerelease
@@ -195,8 +203,11 @@ impl Analyzer {
                     helpers::graduate_prerelease(&current.semver);
                 let stable_next =
                     version_updater.increment(&stable_current, commits);
-                let version =
-                    helpers::add_prerelease(stable_next, prerelease_id)?;
+                let version = helpers::add_prerelease(
+                    stable_next,
+                    prerelease_id,
+                    self.config.prerelease_version,
+                )?;
                 Ok(version)
             }
         }
