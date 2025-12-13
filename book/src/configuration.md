@@ -102,6 +102,21 @@ release_type = "node"
 
 This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
 
+#### Prerelease Versions (Alpha/Beta/RC)
+
+You can generate prerelease versions without increments:
+
+```toml
+prerelease = "SNAPSHOT"
+prerelease_version = false
+
+[[package]]
+path = "."
+release_type = "java"
+```
+
+This creates versions like `v1.0.0-SNAPSHOT`, `v1.0.0-SNAPSHOT`, etc.
+
 ## Configuration Structure
 
 The configuration file uses TOML format with these main sections:
@@ -112,6 +127,7 @@ The configuration file uses TOML format with these main sections:
   for each package in monorepos
 - **`prerelease`** - (optional, default: "") Sets prerelease identifier for all
   defined packages
+- **`prerelease_version`**: (optional, default: true) Enable prerelease version suffix for this package
 - **`[changelog]`** - Customizes changelog generation and formatting
   - `body` - (optional) Tera template for changelog content
   - `skip_ci` - (optional, default: false) Exclude CI commits from changelog (optional, default: false)
@@ -135,6 +151,7 @@ The configuration file uses TOML format with these main sections:
     options
   - `tag_prefix`: (optional) The tag prefix to use for this package
   - `prerelease`: (optional) The prerelease suffix to use for this package
+  - `prerelease_version`: (optional) Enable prerelease version suffix for this package
 
 ## Default Configuration
 

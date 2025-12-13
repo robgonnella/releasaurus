@@ -24,6 +24,11 @@
       ],
       "default": null
     },
+    "prerelease_version": {
+      "description": "Whether to append .1, .2, etc. to prerelease versions.\nCan be overridden per package",
+      "type": "boolean",
+      "default": true 
+    },
     "breaking_always_increment_major": {
       "description": "Always increments major version on breaking commits",
       "type": "boolean",
@@ -169,9 +174,17 @@
           "default": null
         },
         "prerelease": {
-          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\")",
+          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
           "type": [
             "string",
+            "null"
+          ],
+          "default": null
+        },
+        "prerelease_version": {
+          "description": "Whether to append .1, .2, etc. to prerelease versions",
+          "type": [
+            "boolean",
             "null"
           ],
           "default": null

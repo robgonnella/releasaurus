@@ -20,6 +20,8 @@ pub struct PackageConfig {
     pub tag_prefix: Option<String>,
     /// Prerelease identifier (e.g., "alpha", "beta", "rc")
     pub prerelease: Option<String>,
+    /// Whether to append .1, .2, etc. to prerelease versions
+    pub prerelease_version: Option<bool>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
     /// Additional paths generic version manifest files to update. Paths must
@@ -44,6 +46,7 @@ impl Default for PackageConfig {
             release_type: None,
             tag_prefix: None,
             prerelease: None,
+            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: None,

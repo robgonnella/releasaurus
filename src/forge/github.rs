@@ -166,6 +166,7 @@ impl Github {
             }
             let path = change
                 .path
+                .replace("\\", "/")
                 .strip_prefix("./")
                 .unwrap_or(&change.path)
                 .to_string();
