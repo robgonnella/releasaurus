@@ -26,6 +26,9 @@ pub struct Config {
     /// Global prerelease identifier (e.g., "alpha", "beta", "rc").
     /// Can be overridden per package
     pub prerelease: Option<String>,
+    /// Whether to append .1, .2, etc. to prerelease versions
+    /// Can be overridden per package
+    pub prerelease_version: bool,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: bool,
     /// Always increments minor version on feature commits
@@ -47,6 +50,7 @@ impl Default for Config {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
             prerelease: None,
+            prerelease_version: true,
             breaking_always_increment_major: true,
             features_always_increment_minor: true,
             custom_major_increment_regex: None,
