@@ -67,6 +67,13 @@ async fn show_next_release(
 
     if let Some(out_file) = out_file {
         let file_path = Path::new(&out_file);
+
+        if let Some(parent) = file_path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).await?;
+        }
+
         let content = serde_json::to_string_pretty(&json)?;
         info!("writing projected release json to: {}", file_path.display());
         fs::write(file_path, &content).await?;

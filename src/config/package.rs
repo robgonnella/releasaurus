@@ -1,7 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::config::release_type::ReleaseType;
+use crate::config::{
+    prerelease::PrereleaseConfig, release_type::ReleaseType,
+};
 
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -18,10 +20,8 @@ pub struct PackageConfig {
     pub release_type: Option<ReleaseType>,
     /// Git tag prefix for this package (e.g., "v" or "api-v")
     pub tag_prefix: Option<String>,
-    /// Prerelease identifier (e.g., "alpha", "beta", "rc")
-    pub prerelease: Option<String>,
-    /// Whether to append .1, .2, etc. to prerelease versions
-    pub prerelease_version: Option<bool>,
+    /// Optional prerelease configuration that overrides global settings
+    pub prerelease: Option<PrereleaseConfig>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
     /// Additional paths generic version manifest files to update. Paths must
@@ -46,7 +46,6 @@ impl Default for PackageConfig {
             release_type: None,
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: None,

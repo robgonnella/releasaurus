@@ -2,6 +2,8 @@
 
 use regex::Regex;
 
+use crate::config::prerelease::PrereleaseConfig;
+
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
@@ -43,10 +45,8 @@ pub struct AnalyzerConfig {
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
-    /// Prerelease identifier (e.g., "alpha", "beta", "rc").
-    pub prerelease: Option<String>,
-    /// Whether to append .1, .2, etc. to prerelease versions
-    pub prerelease_version: bool,
+    /// Fully-resolved prerelease settings (if enabled).
+    pub prerelease: Option<PrereleaseConfig>,
     /// regex to match and exclude release commits
     pub release_commit_matcher: Option<Regex>,
     /// Always increments major version on breaking commits
@@ -72,7 +72,6 @@ impl Default for AnalyzerConfig {
             tag_prefix: None,
             release_link_base_url: "".into(),
             prerelease: None,
-            prerelease_version: true,
             release_commit_matcher: None,
             breaking_always_increment_major: true,
             features_always_increment_minor: true,

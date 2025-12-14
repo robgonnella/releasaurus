@@ -9,6 +9,7 @@ use crate::{
         commit::Commit, config::AnalyzerConfig, group::GroupParser,
         release::Release,
     },
+    config::prerelease::PrereleaseStrategy,
     forge::request::ForgeCommit,
 };
 
@@ -57,9 +58,9 @@ pub fn strip_extra_lines(changelog: &str) -> String {
 pub fn add_prerelease(
     mut version: Version,
     identifier: &str,
-    append_version: bool,
+    strategy: PrereleaseStrategy,
 ) -> Result<Version> {
-    let pre_str = if append_version {
+    let pre_str = if matches!(strategy, PrereleaseStrategy::Versioned) {
         format!("{}.1", identifier)
     } else {
         identifier.to_string()
@@ -80,6 +81,7 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::{group::GroupParser, release::Release},
+        config::prerelease::PrereleaseStrategy,
         forge::request::ForgeCommit,
         test_helpers,
     };
@@ -619,19 +621,30 @@ mod tests {
     #[test]
     fn test_add_prerelease() {
         let version = Version::parse("1.0.0").unwrap();
-        let result = add_prerelease(version, "alpha", true).unwrap();
+        let result =
+            add_prerelease(version, "alpha", PrereleaseStrategy::Versioned)
+                .unwrap();
         assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
 
         let version = Version::parse("2.3.4").unwrap();
-        let result = add_prerelease(version, "beta", true).unwrap();
+        let result =
+            add_prerelease(version, "beta", PrereleaseStrategy::Versioned)
+                .unwrap();
         assert_eq!(result, Version::parse("2.3.4-beta.1").unwrap());
 
         let version = Version::parse("0.1.0").unwrap();
-        let result = add_prerelease(version, "rc", true).unwrap();
+        let result =
+            add_prerelease(version, "rc", PrereleaseStrategy::Versioned)
+                .unwrap();
         assert_eq!(result, Version::parse("0.1.0-rc.1").unwrap());
 
         let version = Version::parse("0.1.0").unwrap();
-        let result = add_prerelease(version, "SNAPSHOT", false).unwrap();
+        let result = add_prerelease(
+            version,
+            "SNAPSHOT",
+            PrereleaseStrategy::Static,
+        )
+        .unwrap();
         assert_eq!(result, Version::parse("0.1.0-SNAPSHOT").unwrap());
     }
 
@@ -639,7 +652,9 @@ mod tests {
     fn test_add_prerelease_to_prerelease_version() {
         // Adding prerelease to an existing prerelease replaces it
         let version = Version::parse("1.0.0-alpha.5").unwrap();
-        let result = add_prerelease(version, "beta", true).unwrap();
+        let result =
+            add_prerelease(version, "beta", PrereleaseStrategy::Versioned)
+                .unwrap();
         assert_eq!(result, Version::parse("1.0.0-beta.1").unwrap());
     }
 

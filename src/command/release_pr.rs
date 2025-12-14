@@ -266,7 +266,10 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
-        config::release_type::ReleaseType,
+        config::{
+            prerelease::{PrereleaseConfig, PrereleaseStrategy},
+            release_type::ReleaseType,
+        },
         forge::traits::MockForge,
         test_helpers::*,
         updater::manager::ManifestFile,
@@ -671,7 +674,10 @@ mod tests {
 
         let mut config =
             create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
-        config.packages[0].prerelease = Some("beta".to_string());
+        config.packages[0].prerelease = Some(PrereleaseConfig {
+            suffix: Some("beta".to_string()),
+            strategy: PrereleaseStrategy::Versioned,
+        });
 
         let result = common::get_releasable_packages(
             &config,

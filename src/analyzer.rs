@@ -9,6 +9,7 @@ use semver::Version;
 use crate::{
     Result,
     analyzer::release::{Release, Tag},
+    config::prerelease::PrereleaseConfig,
     forge::request::ForgeCommit,
 };
 
@@ -63,11 +64,11 @@ impl Analyzer {
         let mut semver = semver::Version::parse("0.1.0")?;
 
         // Handle prerelease for first release
-        if let Some(ref prerelease_id) = self.config.prerelease {
+        if let Some(prerelease) = &self.config.prerelease {
             semver = helpers::add_prerelease(
                 semver,
-                prerelease_id,
-                self.config.prerelease_version,
+                prerelease.resolved_suffix(),
+                prerelease.strategy,
             )?;
         }
 
@@ -126,12 +127,12 @@ impl Analyzer {
         }
 
         // Handle prerelease transitions
-        let next = if let Some(ref prerelease_id) = self.config.prerelease {
+        let next = if let Some(prerelease) = &self.config.prerelease {
             // User wants a prerelease
             self.calculate_next_prerelease_version(
                 current,
                 &commits,
-                prerelease_id,
+                prerelease,
                 version_updater,
             )?
         } else {
@@ -175,10 +176,11 @@ impl Analyzer {
         &self,
         current: &Tag,
         commits: &[String],
-        prerelease_id: &str,
+        prerelease: &PrereleaseConfig,
         version_updater: VersionUpdater,
     ) -> Result<Version> {
         // User wants a prerelease
+        let prerelease_id = prerelease.resolved_suffix();
         if current.semver.pre.is_empty() {
             // Currently stable, starting a prerelease
             let next_stable =
@@ -186,7 +188,7 @@ impl Analyzer {
             let version = helpers::add_prerelease(
                 next_stable,
                 prerelease_id,
-                self.config.prerelease_version,
+                prerelease.strategy,
             )?;
             Ok(version)
         } else {
@@ -206,7 +208,7 @@ impl Analyzer {
                 let version = helpers::add_prerelease(
                     stable_next,
                     prerelease_id,
-                    self.config.prerelease_version,
+                    prerelease.strategy,
                 )?;
                 Ok(version)
             }
@@ -244,8 +246,18 @@ impl Analyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::*;
+    use crate::{
+        config::prerelease::{PrereleaseConfig, PrereleaseStrategy},
+        test_helpers::*,
+    };
     use semver::Version as SemVer;
+
+    fn resolved_prerelease(name: &str) -> PrereleaseConfig {
+        PrereleaseConfig {
+            suffix: Some(name.to_string()),
+            strategy: PrereleaseStrategy::Versioned,
+        }
+    }
 
     #[test]
     fn test_analyzer_new() {
@@ -771,7 +783,7 @@ mod tests {
     #[test]
     fn test_prerelease_start_from_stable() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(resolved_prerelease("alpha"));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -800,7 +812,7 @@ mod tests {
     #[test]
     fn test_prerelease_continue_same_identifier() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(resolved_prerelease("alpha"));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -852,7 +864,7 @@ mod tests {
     #[test]
     fn test_prerelease_switch_identifier() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("beta".to_string());
+        config.prerelease = Some(resolved_prerelease("beta"));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -879,7 +891,7 @@ mod tests {
     #[test]
     fn test_prerelease_first_release() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(resolved_prerelease("alpha"));
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits =
@@ -898,7 +910,7 @@ mod tests {
     #[test]
     fn test_prerelease_breaking_change() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(resolved_prerelease("alpha"));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -928,7 +940,7 @@ mod tests {
     #[test]
     fn test_prerelease_with_tag_prefix() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("rc".to_string());
+        config.prerelease = Some(resolved_prerelease("rc"));
         config.tag_prefix = Some("v".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 

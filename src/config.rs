@@ -8,7 +8,10 @@ use crate::forge::config::DEFAULT_COMMIT_SEARCH_DEPTH;
 
 pub mod changelog;
 pub mod package;
+pub mod prerelease;
 pub mod release_type;
+
+use self::prerelease::PrereleaseConfig;
 
 /// Default configuration filename
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
@@ -23,12 +26,9 @@ pub struct Config {
     pub first_release_search_depth: u64,
     /// Generates different release PRs for each package defined in config
     pub separate_pull_requests: bool,
-    /// Global prerelease identifier (e.g., "alpha", "beta", "rc").
-    /// Can be overridden per package
-    pub prerelease: Option<String>,
-    /// Whether to append .1, .2, etc. to prerelease versions
-    /// Can be overridden per package
-    pub prerelease_version: bool,
+    /// Global prerelease configuration (suffix + strategy). Packages can
+    /// override this configuration.
+    pub prerelease: PrereleaseConfig,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: bool,
     /// Always increments minor version on feature commits
@@ -49,8 +49,7 @@ impl Default for Config {
         Self {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
-            prerelease: None,
-            prerelease_version: true,
+            prerelease: PrereleaseConfig::default(),
             breaking_always_increment_major: true,
             features_always_increment_minor: true,
             custom_major_increment_regex: None,

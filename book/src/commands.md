@@ -288,7 +288,9 @@ in your `releasaurus.toml` file:
 
 ```toml
 # Global prerelease for all packages
-prerelease = "alpha"
+[prerelease]
+suffix = "alpha"
+strategy = "versioned"
 
 [[package]]
 path = "."
@@ -306,14 +308,14 @@ release_type = "rust"
 [[package]]
 path = "./packages/experimental"
 release_type = "rust"
-prerelease = "beta"  # Beta releases for this package
+prerelease = { suffix = "beta", strategy = "versioned" }  # Beta releases for this package
 ```
 
 **Prerelease Behavior:**
 
-- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `prerelease = "alpha"`)
+- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `suffix = "alpha"`)
 - **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier in config)
-- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change `prerelease = "beta"` in config)
+- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change `suffix = "beta"` in config)
 - **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (remove `prerelease` from config)
 
 To change prerelease identifiers or graduate to stable, update your

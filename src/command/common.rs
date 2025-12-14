@@ -8,7 +8,12 @@ use crate::{
     Result,
     analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
     command::types::ReleasablePackage,
-    config::{Config, package::PackageConfig, release_type::ReleaseType},
+    config::{
+        Config,
+        package::PackageConfig,
+        prerelease::PrereleaseConfig,
+        release_type::ReleaseType,
+    },
     forge::{
         config::RemoteConfig, manager::ForgeManager, request::ForgeCommit,
     },
@@ -47,37 +52,17 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
     package.tag_prefix.clone().unwrap_or(default_for_package)
 }
 
-/// Determines prerelease identifier with consistent priority logic.
+/// Resolves a package's prerelease configuration with the correct priority.
 ///
-/// This function is used by both `release-pr` and `release` commands to ensure
-/// consistent prerelease version behavior across the entire workflow.
-///
-/// # Priority
-/// package config > global config
-pub fn get_prerelease(
+/// Package configuration overrides the global config. Providing an empty or
+/// `null` suffix in a package explicitly disables prereleases for that package.
+pub fn resolve_prerelease(
     config: &Config,
     package: &PackageConfig,
-) -> Option<String> {
-    package
+) -> Option<PrereleaseConfig> {
+    config
         .prerelease
-        .clone()
-        .or_else(|| config.prerelease.clone())
-}
-
-/// Returns the prerelease_version flag with consistent priority logic.
-///
-/// This function is used by both `release-pr` and `release` commands to ensure
-/// consistent prerelease version behavior across the entire workflow.
-///
-/// # Priority
-/// package config > global config
-pub fn get_prerelease_version(
-    config: &Config,
-    package: &PackageConfig,
-) -> bool {
-    package
-        .prerelease_version
-        .unwrap_or(config.prerelease_version)
+        .resolve_with_override(package.prerelease.as_ref())
 }
 
 /// Generates [`AnalyzerConfig`] from [`Config`], [`RemoteConfig`],
@@ -90,9 +75,8 @@ pub fn generate_analyzer_config(
     package: &PackageConfig,
     tag_prefix: String,
 ) -> AnalyzerConfig {
-    // Determine prerelease with priority: override > package > global
-    let prerelease = get_prerelease(config, package);
-    let prerelease_version = get_prerelease_version(config, package);
+    // Determine prerelease with priority: package > global
+    let prerelease = resolve_prerelease(config, package);
 
     let mut release_commit_matcher = None;
 
@@ -132,7 +116,6 @@ pub fn generate_analyzer_config(
         release_link_base_url: remote_config.release_link_base_url.clone(),
         tag_prefix: Some(tag_prefix),
         prerelease,
-        prerelease_version,
         release_commit_matcher,
         breaking_always_increment_major,
         features_always_increment_minor,
@@ -395,7 +378,13 @@ async fn get_commits_for_all_packages_separately(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::release_type::ReleaseType, test_helpers};
+    use crate::{
+        config::{
+            prerelease::{PrereleaseConfig, PrereleaseStrategy},
+            release_type::ReleaseType,
+        },
+        test_helpers,
+    };
 
     use super::*;
 
@@ -410,7 +399,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -435,7 +423,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -460,7 +447,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -485,7 +471,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: Some("my-special-tag-prefix-v".into()),
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -508,7 +493,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: Some("v".into()),
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -551,7 +535,6 @@ mod tests {
                 release_type: Some(ReleaseType::Generic),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -566,7 +549,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -594,7 +576,6 @@ mod tests {
                 release_type: Some(ReleaseType::Generic),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -609,7 +590,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -637,7 +617,6 @@ mod tests {
                 release_type: Some(ReleaseType::Generic),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -652,7 +631,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(true),
@@ -677,7 +655,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -691,141 +668,69 @@ mod tests {
     }
 
     #[test]
-    fn test_get_prerelease_package_overrides_global() {
+    fn test_resolve_prerelease_package_overrides_global() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
                 name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                prerelease_version: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
+                ..PackageConfig::default()
             }]);
-        // Set both global and package
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("beta".to_string());
+        config.prerelease.suffix = Some("alpha".to_string());
+        config.packages[0].prerelease = Some(PrereleaseConfig {
+            suffix: Some("beta".to_string()),
+            strategy: PrereleaseStrategy::Static,
+        });
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0])
+            .expect("expected prerelease");
 
-        // Package should win over global
-        assert_eq!(result, Some("beta".to_string()));
+        assert_eq!(result.suffix.as_deref(), Some("beta"));
+        assert_eq!(result.strategy, PrereleaseStrategy::Static);
     }
 
     #[test]
-    fn test_get_prerelease_version_package_overrides_global() {
+    fn test_resolve_prerelease_uses_global_when_package_not_set() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
                 name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                prerelease_version: Some(true),
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
+                ..PackageConfig::default()
             }]);
-        // Set both global and package
-        config.prerelease = Some("alpha".to_string());
-        config.prerelease_version = true;
-        config.packages[0].prerelease = Some("beta".to_string());
-        config.packages[0].prerelease_version = Some(false);
+        config.prerelease.suffix = Some("alpha".to_string());
 
-        let result = get_prerelease_version(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0])
+            .expect("expected prerelease");
 
-        // Package should win over global
-        assert_eq!(result, false);
+        assert_eq!(result.suffix.as_deref(), Some("alpha"));
+        assert_eq!(result.strategy, PrereleaseStrategy::Versioned);
     }
 
     #[test]
-    fn test_get_prerelease_uses_global_when_package_not_set() {
+    fn test_resolve_prerelease_can_disable_with_null_suffix() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
                 name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                prerelease_version: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
+                ..PackageConfig::default()
             }]);
-        // Set only global
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease.suffix = Some("alpha".to_string());
+        config.packages[0].prerelease = Some(PrereleaseConfig {
+            suffix: None,
+            strategy: PrereleaseStrategy::Versioned,
+        });
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0]);
 
-        // Should use global
-        assert_eq!(result, Some("alpha".to_string()));
+        assert!(result.is_none());
     }
 
     #[test]
-    fn test_get_prerelease_version_uses_global_when_package_not_set() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                prerelease_version: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            }]);
-        // Set only global
-        config.prerelease = Some("alpha".to_string());
-        config.prerelease_version = false;
-
-        let result = get_prerelease_version(&config, &config.packages[0]);
-
-        // Should use global
-        assert_eq!(result, false);
-    }
-
-    #[test]
-    fn test_get_prerelease_returns_none_when_nothing_set() {
+    fn test_resolve_prerelease_returns_none_when_not_configured() {
         let config = test_helpers::create_test_config(vec![PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            prerelease_version: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         }]);
-        // Nothing set
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0]);
 
-        // Should return None
-        assert_eq!(result, None);
+        assert!(result.is_none());
     }
 
     #[test]
@@ -837,7 +742,6 @@ mod tests {
             release_type: Some(ReleaseType::Generic),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: Some(true),
@@ -892,7 +796,6 @@ mod tests {
             release_type: Some(ReleaseType::Node),
             tag_prefix: None,
             prerelease: None,
-            prerelease_version: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: None,
@@ -926,7 +829,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: Some(false),
@@ -963,7 +865,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: None,
@@ -1006,7 +907,6 @@ mod tests {
                 release_type: Some(ReleaseType::Node),
                 tag_prefix: None,
                 prerelease: None,
-                prerelease_version: None,
                 additional_paths: None,
                 additional_manifest_files: None,
                 breaking_always_increment_major: None,

@@ -17,11 +17,11 @@
       "default": false
     },
     "prerelease": {
-      "description": "Changelog generation settings.",
+      "description": "Prerelease configuration defaults applied to all packages.",
       "$ref": "#/$defs/PrereleaseConfig",
       "default": {
         "suffix": null,
-        "strategy": "versioned" 
+        "strategy": "versioned"
       }
     },
     "breaking_always_increment_major": {
