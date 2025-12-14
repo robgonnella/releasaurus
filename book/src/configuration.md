@@ -102,7 +102,7 @@ release_type = "node"
 
 This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
 
-#### Prerelease Versions (Alpha/Beta/RC)
+#### Prerelease Versions Without Increments
 
 You can generate prerelease versions without increments:
 
