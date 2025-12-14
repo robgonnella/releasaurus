@@ -17,17 +17,12 @@
       "default": false
     },
     "prerelease": {
-      "description": "Global prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\").\nCan be overridden per package",
-      "type": [
-        "string",
-        "null"
-      ],
-      "default": null
-    },
-    "prerelease_version": {
-      "description": "Whether to append .1, .2, etc. to prerelease versions.\nCan be overridden per package",
-      "type": "boolean",
-      "default": true
+      "description": "Changelog generation settings.",
+      "$ref": "#/$defs/PrereleaseConfig",
+      "default": {
+        "suffix": null,
+        "strategy": "versioned" 
+      }
     },
     "breaking_always_increment_major": {
       "description": "Always increments major version on breaking commits",
@@ -92,7 +87,7 @@
       ]
     }
   },
-  "$defs": {
+  "$defs": {    
     "ChangelogConfig": {
       "description": "Changelog configuration (applies to all packages)",
       "type": "object",
@@ -174,18 +169,14 @@
           "default": null
         },
         "prerelease": {
-          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
-          "type": [
-            "string",
-            "null"
-          ],
-          "default": null
-        },
-        "prerelease_version": {
-          "description": "Whether to append .1, .2, etc. to prerelease versions",
-          "type": [
-            "boolean",
-            "null"
+          "description": "Prerelease configuration for this package",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PrereleaseConfig"
+            },
+            {
+              "type": "null"
+            }
           ],
           "default": null
         },
@@ -242,6 +233,29 @@
             "null"
           ],
           "default": null
+        }
+      }
+    },
+    "PrereleaseConfig": {
+      "description": "Prerelease configuration",
+      "type": "object",
+      "properties": {
+        "suffix": {
+          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "strategy": {
+          "description": "Prerelease versioning strategy",
+          "type": "string",
+          "enum": [
+            "versioned",
+            "static"
+          ],
+          "default": "versioned"
         }
       }
     },
