@@ -115,7 +115,7 @@ path = "."
 release_type = "java"
 ```
 
-This creates versions like `v1.0.0-SNAPSHOT`, `v1.0.0-SNAPSHOT`, etc.
+This creates versions like `v1.0.0-SNAPSHOT`, `v1.1.0-SNAPSHOT`, etc. (without incremental suffixes like .1, .2)
 
 ## Configuration Structure
 
