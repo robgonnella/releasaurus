@@ -637,8 +637,8 @@ mod tests {
     }
 
     #[test]
-    fn test_add_prerelease_to_prerelease_version() {
-        // Adding prerelease to an existing prerelease replaces it
+    fn test_change_prerelease_suffix() {
+        // Changing prerelease suffix to an existing prerelease replaces it
         let version = Version::parse("1.0.0-alpha.5").unwrap();
         let result =
             add_prerelease(version, "beta", PrereleaseStrategy::Versioned)

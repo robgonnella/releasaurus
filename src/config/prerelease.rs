@@ -6,10 +6,17 @@ use crate::Result;
 
 /// Determines how prerelease identifiers should be appended to versions
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    PartialEq,
+    Eq,
+    Default,
 )]
 #[serde(rename_all = "lowercase")]
-#[derive(Default)]
 pub enum PrereleaseStrategy {
     /// Adds numeric suffixes like `.1`, `.2`, etc. to prerelease identifiers.
     #[default]
