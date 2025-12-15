@@ -52,8 +52,9 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
 
 /// Resolves a package's prerelease configuration with the correct priority.
 ///
-/// Package configuration overrides the global config. Providing an empty or
-/// `null` suffix in a package explicitly disables prereleases for that package.
+/// Package configuration overrides the global config. Providing prerelease
+/// config with an empty or `None` suffix in a package explicitly disables
+/// prereleases for that package.
 pub fn resolve_prerelease(
     config: &Config,
     package: &PackageConfig,
