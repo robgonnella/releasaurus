@@ -6,6 +6,7 @@ on:
 
 jobs:
   releasaurus:
+    if: ${{ github.repository == 'robgonnella/releasaurus' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
