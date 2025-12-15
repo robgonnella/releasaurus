@@ -29,13 +29,6 @@ pub struct PrereleaseConfig {
 }
 
 impl PrereleaseConfig {
-    fn sanitized_suffix(&self) -> Option<String> {
-        self.suffix
-            .as_ref()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-    }
-
     /// Resolves this config against an optional override, returning the final
     /// prerelease settings when a suffix is available
     pub fn resolve_with_override(
@@ -55,5 +48,12 @@ impl PrereleaseConfig {
         self.suffix
             .as_deref()
             .ok_or(eyre!("resolved prerelease config must include suffix"))
+    }
+
+    fn sanitized_suffix(&self) -> Option<String> {
+        self.suffix
+            .as_ref()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
     }
 }
