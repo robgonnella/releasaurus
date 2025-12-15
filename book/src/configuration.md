@@ -93,7 +93,9 @@ release_type = "rust"
 Create alpha prerelease versions:
 
 ```toml
-prerelease = "alpha"
+[prerelease]
+suffix = "alpha"
+strategy = "versioned"
 
 [[package]]
 path = "."
@@ -101,6 +103,22 @@ release_type = "node"
 ```
 
 This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
+
+### Prerelease Versions Without Increments
+
+You can generate prerelease versions without increments:
+
+```toml
+[prerelease]
+suffix = "SNAPSHOT"
+strategy = "static"
+
+[[package]]
+path = "."
+release_type = "java"
+```
+
+This creates versions like `v1.0.0-SNAPSHOT`, `v1.1.0-SNAPSHOT`, etc. (without incremental suffixes like .1, .2)
 
 ## Configuration Structure
 
@@ -110,8 +128,12 @@ The configuration file uses TOML format with these main sections:
   history depth for initial release analysis
 - **`separate_pull_requests`** - (optional, default: false) Create separate PRs
   for each package in monorepos
-- **`prerelease`** - (optional, default: "") Sets prerelease identifier for all
-  defined packages
+- **`[prerelease]`** - (optional) Global prerelease configuration
+  - `suffix` - (optional) Identifier to append (e.g., `"alpha"`, `"beta"`,
+    `"SNAPSHOT"`). Omit or set to `null` to disable prereleases.
+  - `strategy` - (optional, default: `"versioned"`) Controls whether numeric
+    counters are appended. Use `"versioned"` for `.1`, `.2` increments or
+    `"static"` to reuse the raw suffix (e.g., `1.0.0-SNAPSHOT`).
 - **`[changelog]`** - Customizes changelog generation and formatting
   - `body` - (optional) Tera template for changelog content
   - `skip_ci` - (optional, default: false) Exclude CI commits from changelog (optional, default: false)
@@ -134,7 +156,9 @@ The configuration file uses TOML format with these main sections:
   - `release_type`: (required) The release type for this package, see below for
     options
   - `tag_prefix`: (optional) The tag prefix to use for this package
-  - `prerelease`: (optional) The prerelease suffix to use for this package
+  - `prerelease`: (optional) Inline table that overrides global prerelease
+    config for this package, e.g. `prerelease = { suffix = "beta",
+strategy = "static" }`
 
 ## Default Configuration
 
@@ -150,8 +174,10 @@ first_release_search_depth = 400
 # Create separate pull requests for each package (default: false)
 separate_pull_requests = false
 
-# Global prerelease identifier (default: none)
-# prerelease = ""
+# Global prerelease configuration (default: disabled)
+# [prerelease]
+# suffix = "alpha"    # Uncomment to enable prereleases
+# strategy = "versioned"
 
 # Version increment behavior (defaults shown)
 breaking_always_increment_major = true
@@ -202,8 +228,8 @@ workspace_root = "."
 # - if name is not set and workspace_root and path are both "."
 #   - "v"
 # tag_prefix = ""
-# Package-specific prerelease identifier (default: none)
-# prerelease = ""
+# Package-specific prerelease override (default: inherit global settings)
+# prerelease = { suffix = "beta", strategy = "versioned" }
 # Additional paths to include commits from (default: none)
 # additional_paths = []
 # Additional manifest files to apply generic version updates to (default: none)
@@ -766,8 +792,8 @@ details on generic release types.
 
 ### `prerelease`
 
-Optional prerelease identifier for creating pre-release versions
-(e.g., alpha, beta, rc). Can be configured globally or per-package.
+Optional prerelease configuration for creating pre-release versions (e.g. alpha,
+beta, rc). You can configure a global default and override it per package.
 
 **Configuration Priority:** Package config > Global config
 
@@ -777,7 +803,9 @@ Set a prerelease identifier for all packages:
 
 ```toml
 # All packages will use alpha prereleases
-prerelease = "alpha"
+[prerelease]
+suffix = "alpha"
+strategy = "versioned"
 
 [[package]]
 path = "."
@@ -793,7 +821,9 @@ Override the global setting for specific packages:
 
 ```toml
 # Global default is beta
-prerelease = "beta"
+[prerelease]
+suffix = "beta"
+strategy = "versioned"
 
 [[package]]
 path = "./apps/web"
@@ -803,27 +833,27 @@ release_type = "node"
 [[package]]
 path = "./apps/api"
 release_type = "rust"
-prerelease = "rc"  # Override: this package uses rc instead
+prerelease = { suffix = "rc", strategy = "versioned" }  # Override
 ```
 
-#### Prerelease Version Behavior
+#### Prerelease Versioned Behavior
 
 **Starting a Prerelease:**
 
 - Current: `v1.0.0`
-- With `feat:` commit and `prerelease = "alpha"`
+- With `feat:` commit and `suffix = "alpha", strategy = "versioned"`
 - Result: `v1.1.0-alpha.1`
 
 **Continuing a Prerelease:**
 
 - Current: `v1.1.0-alpha.1`
-- With `fix:` commit and `prerelease = "alpha"`
+- With `fix:` commit and `suffix = "alpha", strategy = "versioned"`
 - Result: `v1.1.0-alpha.2`
 
 **Switching Prerelease Identifier:**
 
 - Current: `v1.0.0-alpha.3`
-- With `feat:` commit and `prerelease = "beta"`
+- With `feat:` commit and `suffix = "beta", strategy = "versioned"`
 - Result: `v1.1.0-beta.1` (calculates next version and switches identifier)
 
 **Graduating to Stable:**
@@ -832,13 +862,37 @@ prerelease = "rc"  # Override: this package uses rc instead
 - With `fix:` commit and no prerelease configured
 - Result: `v1.0.0` (removes prerelease suffix)
 
-#### Common Prerelease Identifiers
+#### Common Prerelease Versioned Identifiers
 
 - **`alpha`** - Early testing phase, expect significant changes
 - **`beta`** - Feature complete, testing and bug fixes
 - **`rc`** - Release candidate, final testing before stable release
 - **`preview`** - Preview release for gathering feedback
 - **`dev`** - Development/nightly builds
+
+#### Prerelease Static Behavior
+
+**Starting a Prerelease:**
+
+- Current: `v1.0.0`
+- With `fix:` commit and `suffix = "SNAPSHOT", strategy = "static"`
+- Result: `v1.0.1-SNAPSHOT`
+
+**Continuing a Prerelease:**
+
+- Current: `v1.0.1-SNAPSHOT`
+- With `feat:` commit and `suffix = "SNAPSHOT", strategy = "static"`
+- Result: `v1.1.0-SNAPSHOT`
+
+**Graduating to Stable:**
+
+- Current: `v1.0.1-SNAPSHOT`
+- With `fix:` commit and no prerelease configured
+- Result: `v1.0.1` (removes prerelease suffix)
+
+#### Common Prerelease Static Identifiers
+
+- **`SNAPSHOT`** - Java snapshot versioning
 
 #### Example: Monorepo with Mixed Prerelease States
 
@@ -856,13 +910,13 @@ tag_prefix = "core-v"
 path = "./packages/experimental"
 release_type = "rust"
 tag_prefix = "experimental-v"
-prerelease = "alpha"  # Experimental features in alpha
+prerelease = { suffix = "alpha", strategy = "versioned" }
 
 [[package]]
 path = "./apps/web"
 release_type = "node"
 tag_prefix = "web-v"
-prerelease = "beta"  # Web app in beta testing
+prerelease = { suffix = "beta", strategy = "versioned" }
 ```
 
 ### Version Increment Configuration

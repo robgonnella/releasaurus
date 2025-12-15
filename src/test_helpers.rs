@@ -13,7 +13,7 @@ use crate::{
     },
     config::{
         Config, changelog::ChangelogConfig, package::PackageConfig,
-        release_type::ReleaseType,
+        prerelease::PrereleaseConfig, release_type::ReleaseType,
     },
     forge::{
         config::RemoteConfig,
@@ -65,7 +65,7 @@ pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
     Config {
         first_release_search_depth: 100,
         separate_pull_requests: false,
-        prerelease: None,
+        prerelease: PrereleaseConfig::default(),
         breaking_always_increment_major: true,
         features_always_increment_minor: true,
         custom_major_increment_regex: None,
@@ -104,12 +104,11 @@ pub fn create_test_config_simple(
     Config {
         first_release_search_depth: 100,
         separate_pull_requests: false,
-        prerelease: None,
+        prerelease: PrereleaseConfig::default(),
         breaking_always_increment_major: true,
         features_always_increment_minor: true,
         custom_major_increment_regex: None,
         custom_minor_increment_regex: None,
-
         changelog: ChangelogConfig {
             body: "## Changes\n{{ commits }}".to_string(),
             skip_ci: false,

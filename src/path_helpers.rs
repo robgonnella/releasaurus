@@ -9,7 +9,11 @@ pub fn package_path(package: &PackageConfig, file: Option<&str>) -> String {
         pkg_path = pkg_path.join(file);
     }
 
-    pkg_path.display().to_string().replace("./", "")
+    pkg_path
+        .display()
+        .to_string()
+        .replace("\\", "/")
+        .replace("./", "")
 }
 
 pub fn workspace_path(package: &PackageConfig, file: Option<&str>) -> String {
@@ -19,7 +23,11 @@ pub fn workspace_path(package: &PackageConfig, file: Option<&str>) -> String {
         wrkspc_path = wrkspc_path.join(file);
     }
 
-    wrkspc_path.display().to_string().replace("./", "")
+    wrkspc_path
+        .display()
+        .to_string()
+        .replace("\\", "/")
+        .replace("./", "")
 }
 
 #[cfg(test)]

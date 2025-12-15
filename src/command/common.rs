@@ -8,7 +8,10 @@ use crate::{
     Result,
     analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
     command::types::ReleasablePackage,
-    config::{Config, package::PackageConfig, release_type::ReleaseType},
+    config::{
+        Config, package::PackageConfig, prerelease::PrereleaseConfig,
+        release_type::ReleaseType,
+    },
     forge::{
         config::RemoteConfig, manager::ForgeManager, request::ForgeCommit,
     },
@@ -47,21 +50,18 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
     package.tag_prefix.clone().unwrap_or(default_for_package)
 }
 
-/// Determines prerelease identifier with consistent priority logic.
+/// Resolves a package's prerelease configuration with the correct priority.
 ///
-/// This function is used by both `release-pr` and `release` commands to ensure
-/// consistent prerelease version behavior across the entire workflow.
-///
-/// # Priority
-/// package config > global config
-pub fn get_prerelease(
+/// Package configuration overrides the global config. Providing prerelease
+/// config with an empty or `None` suffix in a package explicitly disables
+/// prereleases for that package.
+pub fn resolve_prerelease(
     config: &Config,
     package: &PackageConfig,
-) -> Option<String> {
-    package
+) -> Option<PrereleaseConfig> {
+    config
         .prerelease
-        .clone()
-        .or_else(|| config.prerelease.clone())
+        .resolve_with_override(package.prerelease.as_ref())
 }
 
 /// Generates [`AnalyzerConfig`] from [`Config`], [`RemoteConfig`],
@@ -74,8 +74,8 @@ pub fn generate_analyzer_config(
     package: &PackageConfig,
     tag_prefix: String,
 ) -> AnalyzerConfig {
-    // Determine prerelease with priority: override > package > global
-    let prerelease = get_prerelease(config, package);
+    // Determine prerelease with priority: package > global
+    let prerelease = resolve_prerelease(config, package);
 
     let mut release_commit_matcher = None;
 
@@ -299,7 +299,8 @@ pub fn filter_commits_for_package(
         'file_loop: for file in commit.files.iter() {
             let file_path = Path::new(file);
             for package_path in package_paths.iter() {
-                let normalized_path = package_path.replace("./", "");
+                let normalized_path =
+                    package_path.replace("\\", "/").replace("./", "");
                 let mut normalized_path = Path::new(&normalized_path);
                 if package_path == "." {
                     normalized_path = Path::new("");
@@ -376,7 +377,13 @@ async fn get_commits_for_all_packages_separately(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::release_type::ReleaseType, test_helpers};
+    use crate::{
+        config::{
+            prerelease::{PrereleaseConfig, PrereleaseStrategy},
+            release_type::ReleaseType,
+        },
+        test_helpers,
+    };
 
     use super::*;
 
@@ -660,80 +667,69 @@ mod tests {
     }
 
     #[test]
-    fn test_get_prerelease_package_overrides_global() {
+    fn test_resolve_prerelease_package_overrides_global() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
                 name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
+                ..PackageConfig::default()
             }]);
-        // Set both global and package
-        config.prerelease = Some("alpha".to_string());
-        config.packages[0].prerelease = Some("beta".to_string());
+        config.prerelease.suffix = Some("alpha".to_string());
+        config.packages[0].prerelease = Some(PrereleaseConfig {
+            suffix: Some("beta".to_string()),
+            strategy: PrereleaseStrategy::Static,
+        });
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0])
+            .expect("expected prerelease");
 
-        // Package should win over global
-        assert_eq!(result, Some("beta".to_string()));
+        assert_eq!(result.suffix.as_deref(), Some("beta"));
+        assert_eq!(result.strategy, PrereleaseStrategy::Static);
     }
 
     #[test]
-    fn test_get_prerelease_uses_global_when_package_not_set() {
+    fn test_resolve_prerelease_uses_global_when_package_not_set() {
         let mut config =
             test_helpers::create_test_config(vec![PackageConfig {
                 name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
+                ..PackageConfig::default()
             }]);
-        // Set only global
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease.suffix = Some("alpha".to_string());
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0])
+            .expect("expected prerelease");
 
-        // Should use global
-        assert_eq!(result, Some("alpha".to_string()));
+        assert_eq!(result.suffix.as_deref(), Some("alpha"));
+        assert_eq!(result.strategy, PrereleaseStrategy::Versioned);
     }
 
     #[test]
-    fn test_get_prerelease_returns_none_when_nothing_set() {
+    fn test_resolve_prerelease_can_disable_with_null_suffix() {
+        let mut config =
+            test_helpers::create_test_config(vec![PackageConfig {
+                name: "my-package".into(),
+                ..PackageConfig::default()
+            }]);
+        config.prerelease.suffix = Some("alpha".to_string());
+        config.packages[0].prerelease = Some(PrereleaseConfig {
+            suffix: None,
+            strategy: PrereleaseStrategy::Versioned,
+        });
+
+        let result = resolve_prerelease(&config, &config.packages[0]);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_resolve_prerelease_returns_none_when_not_configured() {
         let config = test_helpers::create_test_config(vec![PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         }]);
-        // Nothing set
 
-        let result = get_prerelease(&config, &config.packages[0]);
+        let result = resolve_prerelease(&config, &config.packages[0]);
 
-        // Should return None
-        assert_eq!(result, None);
+        assert!(result.is_none());
     }
 
     #[test]

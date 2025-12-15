@@ -3,12 +3,14 @@
 //! Parses conventional commits, determines semantic version bumps,
 //! and generates formatted changelogs using Tera templates.
 
+use log::*;
 use next_version::VersionUpdater;
 use semver::Version;
 
 use crate::{
     Result,
     analyzer::release::{Release, Tag},
+    config::prerelease::{PrereleaseConfig, PrereleaseStrategy},
     forge::request::ForgeCommit,
 };
 
@@ -63,8 +65,12 @@ impl Analyzer {
         let mut semver = semver::Version::parse("0.1.0")?;
 
         // Handle prerelease for first release
-        if let Some(ref prerelease_id) = self.config.prerelease {
-            semver = helpers::add_prerelease(semver, prerelease_id)?;
+        if let Some(prerelease) = &self.config.prerelease {
+            semver = helpers::add_prerelease(
+                semver,
+                prerelease.resolved_suffix()?,
+                prerelease.strategy,
+            )?;
         }
 
         let mut tag_name = semver.to_string();
@@ -122,20 +128,32 @@ impl Analyzer {
         }
 
         // Handle prerelease transitions
-        let next = if let Some(ref prerelease_id) = self.config.prerelease {
+        let next = if let Some(prerelease) = &self.config.prerelease {
+            info!(
+                "calculating next prerelease version: suffix: {:?}, strategy: {:?}",
+                prerelease.suffix, prerelease.strategy
+            );
+
             // User wants a prerelease
             self.calculate_next_prerelease_version(
                 current,
                 &commits,
-                prerelease_id,
+                prerelease,
                 version_updater,
             )?
         } else {
             // No prerelease requested
             if current.semver.pre.is_empty() {
                 // Normal stable version bump
+                debug!(
+                    "no prerelease configured - preforming standard version update"
+                );
                 version_updater.increment(&current.semver, commits)
             } else {
+                info!(
+                    "graduating current prerelease, {}, to stable version",
+                    current.semver
+                );
                 // Graduate from prerelease to stable
                 // Just remove prerelease suffix without bumping version
                 helpers::graduate_prerelease(&current.semver)
@@ -171,32 +189,72 @@ impl Analyzer {
         &self,
         current: &Tag,
         commits: &[String],
-        prerelease_id: &str,
+        prerelease: &PrereleaseConfig,
         version_updater: VersionUpdater,
     ) -> Result<Version> {
         // User wants a prerelease
+        let prerelease_id = prerelease.resolved_suffix()?;
         if current.semver.pre.is_empty() {
+            info!(
+                "current version, {}, is not a prerelease: starting new prerelease",
+                current.semver
+            );
+
             // Currently stable, starting a prerelease
             let next_stable =
                 version_updater.increment(&current.semver, commits);
-            let version = helpers::add_prerelease(next_stable, prerelease_id)?;
+
+            let version = helpers::add_prerelease(
+                next_stable,
+                prerelease_id,
+                prerelease.strategy,
+            )?;
             Ok(version)
         } else {
             // Currently in a prerelease
             let current_pre_id =
                 current.semver.pre.as_str().split('.').next().unwrap_or("");
             if current_pre_id == prerelease_id {
-                // Same prerelease identifier - increment it
-                Ok(version_updater.increment(&current.semver, commits))
+                info!(
+                    "current version, {}, is prerelease that matches config",
+                    current.semver
+                );
+                match prerelease.strategy {
+                    PrereleaseStrategy::Static => {
+                        info!("preforming static prerelease increment");
+                        // first graduate to remove suffix
+                        let mut version =
+                            helpers::graduate_prerelease(&current.semver);
+                        // then increment version as normal
+                        version = version_updater.increment(&version, commits);
+                        // finally re-add the static prerelease suffix
+                        Ok(helpers::add_prerelease(
+                            version,
+                            prerelease_id,
+                            prerelease.strategy,
+                        )?)
+                    }
+                    PrereleaseStrategy::Versioned => {
+                        // Same prerelease identifier - increment it
+                        info!("preforming versioned prerelease increment");
+                        Ok(version_updater.increment(&current.semver, commits))
+                    }
+                }
             } else {
+                info!(
+                    "current tag has prerelease that does not match config - graduating prerelease and adding new prerelease suffix"
+                );
                 // Different prerelease identifier - switch to new one
                 // Graduate to stable, calculate next version, then add new prerelease
                 let stable_current =
                     helpers::graduate_prerelease(&current.semver);
                 let stable_next =
                     version_updater.increment(&stable_current, commits);
-                let version =
-                    helpers::add_prerelease(stable_next, prerelease_id)?;
+                let version = helpers::add_prerelease(
+                    stable_next,
+                    prerelease_id,
+                    prerelease.strategy,
+                )?;
                 Ok(version)
             }
         }
@@ -233,8 +291,21 @@ impl Analyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::*;
+    use crate::{
+        config::prerelease::{PrereleaseConfig, PrereleaseStrategy},
+        test_helpers::*,
+    };
     use semver::Version as SemVer;
+
+    fn create_prerelease_config(
+        name: &str,
+        strategy: PrereleaseStrategy,
+    ) -> PrereleaseConfig {
+        PrereleaseConfig {
+            suffix: Some(name.to_string()),
+            strategy,
+        }
+    }
 
     #[test]
     fn test_analyzer_new() {
@@ -760,7 +831,10 @@ mod tests {
     #[test]
     fn test_prerelease_start_from_stable() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "alpha",
+            PrereleaseStrategy::Versioned,
+        ));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -789,7 +863,10 @@ mod tests {
     #[test]
     fn test_prerelease_continue_same_identifier() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "alpha",
+            PrereleaseStrategy::Versioned,
+        ));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -841,7 +918,10 @@ mod tests {
     #[test]
     fn test_prerelease_switch_identifier() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("beta".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "beta",
+            PrereleaseStrategy::Versioned,
+        ));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -868,7 +948,10 @@ mod tests {
     #[test]
     fn test_prerelease_first_release() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "alpha",
+            PrereleaseStrategy::Versioned,
+        ));
         let analyzer = Analyzer::new(config).unwrap();
 
         let commits =
@@ -887,7 +970,10 @@ mod tests {
     #[test]
     fn test_prerelease_breaking_change() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("alpha".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "alpha",
+            PrereleaseStrategy::Versioned,
+        ));
         let analyzer = Analyzer::new(config).unwrap();
 
         let current_tag = release::Tag {
@@ -915,9 +1001,76 @@ mod tests {
     }
 
     #[test]
+    fn test_new_prerelease_with_static_strategy() {
+        let mut config = create_test_analyzer_config(None);
+        config.prerelease = Some(create_prerelease_config(
+            "snapshot",
+            PrereleaseStrategy::Static,
+        ));
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "abc123".to_string(),
+            name: "1.0.0".to_string(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: None,
+        };
+
+        let commits = vec![create_test_forge_commit(
+            "def456",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        let tag = release.tag.unwrap();
+        assert_eq!(tag.semver, SemVer::parse("1.1.0-snapshot").unwrap());
+        assert_eq!(tag.name, "1.1.0-snapshot");
+    }
+
+    #[test]
+    fn test_continuing_prerelease_with_static_strategy() {
+        let mut config = create_test_analyzer_config(None);
+        config.prerelease = Some(create_prerelease_config(
+            "SNAPSHOT",
+            PrereleaseStrategy::Static,
+        ));
+
+        let analyzer = Analyzer::new(config).unwrap();
+
+        let current_tag = release::Tag {
+            sha: "abc123".to_string(),
+            name: "1.0.0-SNAPSHOT".to_string(),
+            semver: SemVer::parse("1.0.0-SNAPSHOT").unwrap(),
+            timestamp: None,
+        };
+
+        let commits = vec![create_test_forge_commit(
+            "def456",
+            "feat: new feature",
+            1000,
+        )];
+
+        let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+        assert!(result.is_some());
+        let release = result.unwrap();
+        let tag = release.tag.unwrap();
+        assert_eq!(tag.semver, SemVer::parse("1.1.0-SNAPSHOT").unwrap());
+        assert_eq!(tag.name, "1.1.0-SNAPSHOT");
+    }
+
+    #[test]
     fn test_prerelease_with_tag_prefix() {
         let mut config = create_test_analyzer_config(None);
-        config.prerelease = Some("rc".to_string());
+        config.prerelease = Some(create_prerelease_config(
+            "rc",
+            PrereleaseStrategy::Versioned,
+        ));
         config.tag_prefix = Some("v".to_string());
         let analyzer = Analyzer::new(config).unwrap();
 
