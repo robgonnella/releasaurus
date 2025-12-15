@@ -45,7 +45,7 @@ pub struct AnalyzerConfig {
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
-    /// Fully-resolved prerelease settings (if enabled).
+    /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
     /// regex to match and exclude release commits
     pub release_commit_matcher: Option<Regex>,

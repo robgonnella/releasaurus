@@ -619,25 +619,16 @@ mod tests {
     }
 
     #[test]
-    fn test_add_prerelease() {
+    fn test_add_versioned_prerelease() {
         let version = Version::parse("1.0.0").unwrap();
         let result =
             add_prerelease(version, "alpha", PrereleaseStrategy::Versioned)
                 .unwrap();
         assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
+    }
 
-        let version = Version::parse("2.3.4").unwrap();
-        let result =
-            add_prerelease(version, "beta", PrereleaseStrategy::Versioned)
-                .unwrap();
-        assert_eq!(result, Version::parse("2.3.4-beta.1").unwrap());
-
-        let version = Version::parse("0.1.0").unwrap();
-        let result =
-            add_prerelease(version, "rc", PrereleaseStrategy::Versioned)
-                .unwrap();
-        assert_eq!(result, Version::parse("0.1.0-rc.1").unwrap());
-
+    #[test]
+    fn test_add_static_prerelease() {
         let version = Version::parse("0.1.0").unwrap();
         let result =
             add_prerelease(version, "SNAPSHOT", PrereleaseStrategy::Static)

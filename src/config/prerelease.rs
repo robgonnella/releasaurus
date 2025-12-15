@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-/// Determines how prerelease identifiers should be appended to versions.
+/// Determines how prerelease identifiers should be appended to versions
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq,
 )]
@@ -14,18 +14,17 @@ pub enum PrereleaseStrategy {
     /// Adds numeric suffixes like `.1`, `.2`, etc. to prerelease identifiers.
     #[default]
     Versioned,
-    /// Reuses the exact prerelease identifier without numeric suffixes.
+    /// Reuses the exact prerelease identifier without numeric suffixes
     Static,
 }
 
-
-/// User-configurable prerelease settings at global and package scopes.
+/// Configurable prerelease settings for both global and package scopes
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(default)]
 pub struct PrereleaseConfig {
-    /// Prerelease identifier (e.g., "alpha", "beta", "rc", "SNAPSHOT").
+    /// Prerelease identifier (e.g., "alpha", "beta", "rc", "SNAPSHOT")
     pub suffix: Option<String>,
-    /// How prerelease suffixes should be applied to versions.
+    /// How prerelease suffixes should be applied to versions
     pub strategy: PrereleaseStrategy,
 }
 
@@ -38,7 +37,7 @@ impl PrereleaseConfig {
     }
 
     /// Resolves this config against an optional override, returning the final
-    /// prerelease settings when a suffix is available.
+    /// prerelease settings when a suffix is available
     pub fn resolve_with_override(
         &self,
         override_cfg: Option<&PrereleaseConfig>,
@@ -51,7 +50,7 @@ impl PrereleaseConfig {
         })
     }
 
-    /// Returns the sanitized suffix for configs that have been resolved.
+    /// Returns the sanitized suffix for configs that have been resolved
     pub fn resolved_suffix(&self) -> Result<&str> {
         self.suffix
             .as_deref()
