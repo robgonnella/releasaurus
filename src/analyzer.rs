@@ -67,7 +67,7 @@ impl Analyzer {
         if let Some(prerelease) = &self.config.prerelease {
             semver = helpers::add_prerelease(
                 semver,
-                prerelease.resolved_suffix(),
+                prerelease.resolved_suffix()?,
                 prerelease.strategy,
             )?;
         }
@@ -180,7 +180,7 @@ impl Analyzer {
         version_updater: VersionUpdater,
     ) -> Result<Version> {
         // User wants a prerelease
-        let prerelease_id = prerelease.resolved_suffix();
+        let prerelease_id = prerelease.resolved_suffix()?;
         if current.semver.pre.is_empty() {
             // Currently stable, starting a prerelease
             let next_stable =

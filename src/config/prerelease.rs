@@ -1,5 +1,8 @@
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::Result;
 
 /// Determines how prerelease identifiers should be appended to versions.
 #[derive(
@@ -49,9 +52,9 @@ impl PrereleaseConfig {
     }
 
     /// Returns the sanitized suffix for configs that have been resolved.
-    pub fn resolved_suffix(&self) -> &str {
+    pub fn resolved_suffix(&self) -> Result<&str> {
         self.suffix
             .as_deref()
-            .expect("resolved prerelease config must include suffix")
+            .ok_or(eyre!("resolved prerelease config must include suffix"))
     }
 }
