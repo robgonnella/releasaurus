@@ -9,9 +9,7 @@ use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
     command::types::ReleasablePackage,
     config::{
-        Config,
-        package::PackageConfig,
-        prerelease::PrereleaseConfig,
+        Config, package::PackageConfig, prerelease::PrereleaseConfig,
         release_type::ReleaseType,
     },
     forge::{

@@ -639,12 +639,9 @@ mod tests {
         assert_eq!(result, Version::parse("0.1.0-rc.1").unwrap());
 
         let version = Version::parse("0.1.0").unwrap();
-        let result = add_prerelease(
-            version,
-            "SNAPSHOT",
-            PrereleaseStrategy::Static,
-        )
-        .unwrap();
+        let result =
+            add_prerelease(version, "SNAPSHOT", PrereleaseStrategy::Static)
+                .unwrap();
         assert_eq!(result, Version::parse("0.1.0-SNAPSHOT").unwrap());
     }
 

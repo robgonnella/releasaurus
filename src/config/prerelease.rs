@@ -2,20 +2,19 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Determines how prerelease identifiers should be appended to versions.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq,
+)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum PrereleaseStrategy {
     /// Adds numeric suffixes like `.1`, `.2`, etc. to prerelease identifiers.
+    #[default]
     Versioned,
     /// Reuses the exact prerelease identifier without numeric suffixes.
     Static,
 }
 
-impl Default for PrereleaseStrategy {
-    fn default() -> Self {
-        Self::Versioned
-    }
-}
 
 /// User-configurable prerelease settings at global and package scopes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]

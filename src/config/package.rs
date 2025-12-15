@@ -1,9 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{
-    prerelease::PrereleaseConfig, release_type::ReleaseType,
-};
+use crate::config::{prerelease::PrereleaseConfig, release_type::ReleaseType};
 
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
