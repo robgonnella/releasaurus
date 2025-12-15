@@ -17,7 +17,7 @@
       "default": false
     },
     "prerelease": {
-      "description": "Prerelease configuration defaults applied to all packages.",
+      "description": "Global prerelease configuration (suffix + strategy). Packages can\noverride this configuration.",
       "$ref": "#/$defs/PrereleaseConfig",
       "default": {
         "suffix": null,
@@ -87,7 +87,41 @@
       ]
     }
   },
-  "$defs": {    
+  "$defs": {
+    "PrereleaseConfig": {
+      "description": "Configurable prerelease settings for both global and package scopes",
+      "type": "object",
+      "properties": {
+        "suffix": {
+          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "strategy": {
+          "description": "How prerelease suffixes should be applied to versions",
+          "$ref": "#/$defs/PrereleaseStrategy",
+          "default": "versioned"
+        }
+      }
+    },
+    "PrereleaseStrategy": {
+      "description": "Determines how prerelease identifiers should be appended to versions",
+      "oneOf": [
+        {
+          "description": "Adds numeric suffixes like `.1`, `.2`, etc. to prerelease identifiers.",
+          "type": "string",
+          "const": "versioned"
+        },
+        {
+          "description": "Reuses the exact prerelease identifier without numeric suffixes",
+          "type": "string",
+          "const": "static"
+        }
+      ]
+    },
     "ChangelogConfig": {
       "description": "Changelog configuration (applies to all packages)",
       "type": "object",
@@ -169,7 +203,7 @@
           "default": null
         },
         "prerelease": {
-          "description": "Prerelease configuration for this package",
+          "description": "Optional prerelease configuration that overrides global settings",
           "anyOf": [
             {
               "$ref": "#/$defs/PrereleaseConfig"
@@ -233,29 +267,6 @@
             "null"
           ],
           "default": null
-        }
-      }
-    },
-    "PrereleaseConfig": {
-      "description": "Prerelease configuration",
-      "type": "object",
-      "properties": {
-        "suffix": {
-          "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
-          "type": [
-            "string",
-            "null"
-          ],
-          "default": null
-        },
-        "strategy": {
-          "description": "Prerelease versioning strategy",
-          "type": "string",
-          "enum": [
-            "versioned",
-            "static"
-          ],
-          "default": "versioned"
         }
       }
     },
