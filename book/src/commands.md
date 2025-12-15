@@ -283,8 +283,7 @@ guide for more details on `RELEASAURUS_DEBUG`.
 
 ### Prerelease Versions
 
-Both `release-pr` and `release` commands support prerelease versions configured
-in your `releasaurus.toml` file:
+Prerelease versions can be configured in your `releasaurus.toml` file:
 
 ```toml
 # Global prerelease for all packages
@@ -311,9 +310,14 @@ release_type = "rust"
 prerelease = { suffix = "beta", strategy = "versioned" }  # Beta releases for this package
 ```
 
+The prerelease strategy can be one of "versioned" or "static". A "versioned"
+strategy will result in a trailing version as part of the prerelease, e.g.
+`-alpha.0, -alpha.1 ...`. A "static" strategy will only add a static prerelease
+suffix, e.g. `-SNAPSHOT`.
+
 **Prerelease Behavior:**
 
-- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `suffix = "alpha"`)
+- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `suffix = "alpha", strategy = "versioned"`)
 - **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier in config)
 - **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change `suffix = "beta"` in config)
 - **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (remove `prerelease` from config)

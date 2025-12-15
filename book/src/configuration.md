@@ -104,7 +104,7 @@ release_type = "node"
 
 This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
 
-#### Prerelease Versions Without Increments
+### Prerelease Versions Without Increments
 
 You can generate prerelease versions without increments:
 
@@ -158,7 +158,7 @@ The configuration file uses TOML format with these main sections:
   - `tag_prefix`: (optional) The tag prefix to use for this package
   - `prerelease`: (optional) Inline table that overrides global prerelease
     config for this package, e.g. `prerelease = { suffix = "beta",
-    strategy = "static" }`
+strategy = "static" }`
 
 ## Default Configuration
 
@@ -175,9 +175,9 @@ first_release_search_depth = 400
 separate_pull_requests = false
 
 # Global prerelease configuration (default: disabled)
-[prerelease]
+# [prerelease]
 # suffix = "alpha"    # Uncomment to enable prereleases
-strategy = "versioned"
+# strategy = "versioned"
 
 # Version increment behavior (defaults shown)
 breaking_always_increment_major = true
@@ -836,24 +836,24 @@ release_type = "rust"
 prerelease = { suffix = "rc", strategy = "versioned" }  # Override
 ```
 
-#### Prerelease Version Behavior
+#### Prerelease Versioned Behavior
 
 **Starting a Prerelease:**
 
 - Current: `v1.0.0`
-- With `feat:` commit and `suffix = "alpha"`
+- With `feat:` commit and `suffix = "alpha", strategy = "versioned"`
 - Result: `v1.1.0-alpha.1`
 
 **Continuing a Prerelease:**
 
 - Current: `v1.1.0-alpha.1`
-- With `fix:` commit and `suffix = "alpha"`
+- With `fix:` commit and `suffix = "alpha", strategy = "versioned"`
 - Result: `v1.1.0-alpha.2`
 
 **Switching Prerelease Identifier:**
 
 - Current: `v1.0.0-alpha.3`
-- With `feat:` commit and `suffix = "beta"`
+- With `feat:` commit and `suffix = "beta", strategy = "versioned"`
 - Result: `v1.1.0-beta.1` (calculates next version and switches identifier)
 
 **Graduating to Stable:**
@@ -862,13 +862,37 @@ prerelease = { suffix = "rc", strategy = "versioned" }  # Override
 - With `fix:` commit and no prerelease configured
 - Result: `v1.0.0` (removes prerelease suffix)
 
-#### Common Prerelease Identifiers
+#### Common Prerelease Versioned Identifiers
 
 - **`alpha`** - Early testing phase, expect significant changes
 - **`beta`** - Feature complete, testing and bug fixes
 - **`rc`** - Release candidate, final testing before stable release
 - **`preview`** - Preview release for gathering feedback
 - **`dev`** - Development/nightly builds
+
+#### Prerelease Static Behavior
+
+**Starting a Prerelease:**
+
+- Current: `v1.0.0`
+- With `fix:` commit and `suffix = "SNAPSHOT", strategy = "static"`
+- Result: `v1.0.1-SNAPSHOT`
+
+**Continuing a Prerelease:**
+
+- Current: `v1.0.1-SNAPSHOT`
+- With `feat:` commit and `suffix = "SNAPSHOT", strategy = "static"`
+- Result: `v1.1.0-SNAPSHOT`
+
+**Graduating to Stable:**
+
+- Current: `v1.0.1-SNAPSHOT`
+- With `fix:` commit and no prerelease configured
+- Result: `v1.0.1` (removes prerelease suffix)
+
+#### Common Prerelease Static Identifiers
+
+- **`SNAPSHOT`** - Java snapshot versioning
 
 #### Example: Monorepo with Mixed Prerelease States
 
