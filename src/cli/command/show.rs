@@ -1,13 +1,37 @@
 //! Projected release command implementation.
+use clap::Subcommand;
 use log::*;
 use std::path::Path;
 use tokio::fs;
 
 use crate::{
-    Result, ShowCommand,
-    command::{common, types::ReleasablePackage},
+    Result,
+    cli::{common, types::ReleasablePackage},
     forge::manager::ForgeManager,
 };
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum ShowCommand {
+    /// Outputs the projected next release in json
+    NextRelease {
+        /// Output projected-release json directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+        /// Optionally restrict output to just 1 specific package
+        #[arg(short, long)]
+        package: Option<String>,
+    },
+    /// Outputs the release notes associated with a given tag
+    ReleaseNotes {
+        /// Output release notes directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+
+        /// Gets release notes associated with specific tag
+        #[arg(short, long, required = true)]
+        tag: String,
+    },
+}
 
 /// Get projected next release info as JSON, optionally filtered by package name.
 pub async fn execute(
@@ -89,7 +113,6 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
-        command::types::ReleasablePackage,
         config::release_type::ReleaseType,
         forge::traits::MockForge,
         test_helpers::*,

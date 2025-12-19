@@ -11,24 +11,13 @@
 //! - Creating release pull requests
 //! - Tagging and Publishing releases to various forge platforms (GitHub, GitLab, Gitea)
 //!
-//! ## Commands
-//!
-//! - `release-pr`: Create a release preparation pull request
-//! - `release`: Execute the final release process
-//! - `projected-release`: Outputs the entire projected next release object as json
-//!
-//! ## Usage
-//!
-//! ```bash
-//! releasaurus release-pr        # Create a release PR
-//! releasaurus release           # Publish the release
-//! releasaurus projected-release # Output projected next release as json
+//! See complete documentation at <https://releasaurus.rgon.io>
 //! ```
 
 use clap::Parser;
 
 use releasaurus::{
-    Args, Command, Result, ShowCommand, release, release_pr, show,
+    Cli, Command, Result, ShowCommand, release, release_pr, show,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -65,23 +54,23 @@ fn initialize_logger(debug: bool, silent: bool) -> Result<()> {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let mut args = Args::parse();
+    let mut cli = Cli::parse();
 
     let mut silence_logs = false;
 
     if std::env::var(DEBUG_ENV_VAR).is_ok() {
-        args.debug = true;
+        cli.debug = true;
     }
 
     if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
-        args.dry_run = true;
+        cli.dry_run = true;
     }
 
-    if args.dry_run {
-        args.debug = true;
+    if cli.dry_run {
+        cli.debug = true;
     }
 
-    if let Command::Show { command } = &args.command {
+    if let Command::Show { command } = &cli.command {
         match command {
             ShowCommand::NextRelease { out_file, .. } => {
                 if out_file.is_none() {
@@ -96,12 +85,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    initialize_logger(args.debug, silence_logs)?;
+    initialize_logger(cli.debug, silence_logs)?;
 
-    let remote = args.get_remote()?;
+    let remote = cli.get_remote()?;
     let forge_manager = remote.get_forge_manager().await?;
 
-    match args.command {
+    match cli.command {
         Command::ReleasePR => release_pr::execute(&forge_manager).await,
         Command::Release => release::execute(&forge_manager).await,
         Command::Show { command } => {

@@ -80,9 +80,11 @@ seamlessly.
 
 ```bash
 # Same workflow, different platforms
-releasaurus release-pr --github-repo "https://github.com/team/project"
-releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/project"
-releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
+releasaurus release-pr --forge github --repo "https://github.com/team/project"
+releasaurus release-pr --forge gitlab \
+  --repo "https://gitlab.company.com/team/project"
+releasaurus release-pr --forge gitea \
+  --repo "https://git.company.com/team/project"
 ```
 
 ### 🔍 Simple Configuration

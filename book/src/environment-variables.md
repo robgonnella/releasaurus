@@ -13,11 +13,33 @@ usage patterns.
 
 **Purpose**: Authentication token for GitHub API access
 
-**Required Scopes**:
+**Token Types:**
 
-- `repo` (for private repositories)
-- `public_repo` (for public repositories)
-- `write:packages` (if publishing packages)
+Releasaurus supports both classic and fine-grained personal access tokens.
+
+**Classic Personal Access Token - Required Scopes:**
+
+- `repo` (full control of private repositories)
+  - Includes: `repo:status`, `repo_deployment`, `public_repo`,
+    `repo:invite`, `security_events`
+
+**Fine-Grained Personal Access Token - Required Permissions:**
+
+- **Contents**: Read and write access (for reading/updating files and
+  creating commits)
+- **Issues**: Read and write access (for managing PR labels)
+- **Pull requests**: Read and write access (for creating and updating
+  release PRs)
+
+**Fine-Grained Personal Access Token - Optional Permissions:**
+
+The following permissions may be needed depending on your workflow
+configuration:
+
+- **Actions**: Read and write access (if using the GitHub Action and need
+  to trigger workflow runs)
+- **Workflows**: Read and write access (if using the GitHub Action and need
+  to modify workflows)
 
 **Example**:
 
@@ -29,12 +51,15 @@ export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
 
 ```bash
 # With environment variable set
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Without environment variable (less secure)
 releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --token "ghp_xxxxxxxxxxxxxxxxxxxx"
 ```
 
 #### `GITLAB_TOKEN`
@@ -61,15 +86,19 @@ export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
 
 ```bash
 # GitLab.com
-releasaurus release-pr --gitlab-repo "https://gitlab.com/group/project"
+releasaurus release-pr \
+  --forge gitlab \
+  --repo "https://gitlab.com/group/project"
 
 # Self-hosted GitLab
-releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
+releasaurus release-pr \
+  --forge gitlab \
+  --repo "https://gitlab.company.com/team/repo"
 ```
 
 #### `GITEA_TOKEN`
 
-**Purpose**: Authentication token for Gitea/Forge API access
+**Purpose**: Authentication token for Gitea/Forgejo API access
 
 **Required Permissions**:
 
@@ -86,11 +115,19 @@ export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 
 ```bash
 # Self-hosted Gitea
-releasaurus release-pr --gitea-repo "https://git.company.com/org/repo"
+releasaurus release-pr \
+  --forge gitea \
+  --repo "https://git.company.com/org/repo"
 
-# Forge instance
-releasaurus release-pr --gitea-repo "https://forgejo.example.com/user/project"
+# Forgejo instance
+releasaurus release-pr \
+  --forge gitea \
+  --repo "https://forgejo.example.com/user/project"
 ```
+
+**Token Selection**: Releasaurus automatically selects the appropriate
+environment variable based on the `--forge` flag. Use `--token` to override
+or when the environment variable is not set.
 
 ## Debug Configuration
 
@@ -114,31 +151,39 @@ export RELEASAURUS_DEBUG=true
 ```bash
 # Enable debug mode via environment variable
 export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Alternative: use the --debug flag
-releasaurus release-pr --github-repo "https://github.com/owner/repo" --debug
+releasaurus release-pr \
+  --debug \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **Note**: Debug mode is enabled whenever `RELEASAURUS_DEBUG` is set to any
-value. To disable debug mode, the variable must be unset or empty. The `--debug`
-flag will always enable debug mode regardless of the environment variable value.
+value. To disable debug mode, the variable must be unset or empty. The
+`--debug` flag will always enable debug mode regardless of the environment
+variable value.
 
 ### `RELEASAURUS_DRY_RUN`
 
-**Purpose**: Enable dry-run mode to test release workflows without making actual
-changes
+**Purpose**: Enable dry-run mode to test release workflows without making
+actual changes
 
 **Values**:
 
-- Any value (including `true`, `false`, `1`, `0`, etc.) - Enable dry-run mode
+- Any value (including `true`, `false`, `1`, `0`, etc.) - Enable dry-run
+  mode
 - Unset or empty - Disable dry-run mode (default)
 
 **Behavior**:
 
 - Performs all analysis and validation steps
 - Logs detailed information about what would happen
-- Prevents any modifications to your forge platform (branches, PRs, tags, releases)
+- Prevents any modifications to your forge platform (branches, PRs, tags,
+  releases)
 - **Automatically enables debug mode** for maximum visibility
 
 **Example**:
@@ -152,11 +197,19 @@ export RELEASAURUS_DRY_RUN=true
 ```bash
 # Enable dry-run mode via environment variable
 export RELEASAURUS_DRY_RUN=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Alternative: use the --dry-run flag
-releasaurus release-pr --dry-run --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **Output**: Produces detailed debug logs prefixed with `dry_run:` showing
@@ -164,8 +217,8 @@ exactly what operations would be performed, including PR titles, version
 numbers, file changes, and release notes.
 
 **Note**: Dry-run mode automatically enables debug logging regardless of the
-`RELEASAURUS_DEBUG` setting. This ensures you have maximum visibility into what
-would happen during the release process.
+`RELEASAURUS_DEBUG` setting. This ensures you have maximum visibility into
+what would happen during the release process.
 
 ## Next Steps
 

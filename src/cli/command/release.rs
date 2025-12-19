@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 use crate::{
     Result,
-    command::common::{self, PRMetadata},
+    cli::common::{self, PRMetadata},
     config::package::PackageConfig,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, TAGGED_LABEL},

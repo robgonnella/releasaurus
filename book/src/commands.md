@@ -1,14 +1,13 @@
 # Commands
 
-Releasaurus provides commands for release automation and inspection: two that
-work together to create a safe, reviewable release process, and one for querying
-release information. The two-stage release approach ensures that all changes are
-reviewed before publication while automating the tedious aspects of version
+Releasaurus provides commands for release automation and inspection to create a
+safe, reviewable release process. The goal is to help ensure that all changes
+are reviewed before publication while automating the tedious aspects of version
 management and changelog generation.
 
 **Important**: Releasaurus operates entirely through forge platform APIs
-without requiring local repository clones. You can run these commands from any
-location with network access to your forge platform.
+without requiring local repository clones. You can run these commands from
+any location with network access to your forge platform.
 
 ## Command Overview
 
@@ -60,19 +59,28 @@ Returns projected next release information as JSON:
 
 ```bash
 # Get all projected releases
-releasaurus show next-release --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Filter to specific package
-releasaurus show next-release --package my-pkg --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Write to file
-releasaurus show next-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --out-file releases.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Test locally
-releasaurus show next-release --local-repo "."
+releasaurus show next-release --forge local --repo "."
 ```
 
-**Output:** JSON array of releasable packages with version, commits, and notes.
+**Output:** JSON array of releasable packages with version, commits, and
+notes.
 
 #### `show release-notes`
 
@@ -80,19 +88,27 @@ Retrieves release notes for an existing tag:
 
 ```bash
 # Display release notes
-releasaurus show release-notes --tag v1.0.0 --github-repo "https://github.com/owner/repo"
+releasaurus show release-notes \
+  --tag v1.0.0 \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Save to file
-releasaurus show release-notes --tag v1.0.0 --out-file notes.txt --github-repo "https://github.com/owner/repo"
+releasaurus show release-notes \
+  --tag v1.0.0 \
+  --out-file notes.txt \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **Output:** Release notes text for the specified tag.
 
-**Custom Notifications:** Use these commands to build notification scripts that
-announce upcoming releases (pre-release) or published releases (post-release)
-to Slack, Discord, email, or other channels.
+**Custom Notifications:** Use these commands to build notification scripts
+that announce upcoming releases (pre-release) or published releases
+(post-release) to Slack, Discord, email, or other channels.
 
-See [Environment Variables](./environment-variables.md) for authentication setup.
+See [Environment Variables](./environment-variables.md) for authentication
+setup.
 
 ## Basic Usage Pattern
 
@@ -101,17 +117,21 @@ directory):
 
 ```bash
 # Step 1: Create release preparation PR (run from anywhere)
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Step 2: Review and merge the PR (done via web interface)
 
 # Step 3: Publish the release (run from anywhere)
-releasaurus release --github-repo "https://github.com/owner/repo"
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **Note**: These commands work by accessing your repository through the forge
-API, analyzing commits and files, creating branches with updates, and managing
-pull requests—all without requiring a local clone.
+API, analyzing commits and files, creating branches with updates, and
+managing pull requests—all without requiring a local clone.
 
 ## Global Options
 
@@ -119,24 +139,36 @@ All commands support these global options:
 
 ### Platform Selection
 
-Choose your Git forge platform by specifying the repository URL:
+Choose your Git forge platform using the `--forge` flag with a repository
+URL:
 
 ```bash
 # GitHub
---github-repo "https://github.com/owner/repository"
+--forge github --repo "https://github.com/owner/repository"
 
 # GitLab
---gitlab-repo "https://gitlab.com/group/project"
+--forge gitlab --repo "https://gitlab.com/group/project"
 
 # Gitea (or Forgejo)
---gitea-repo "https://git.example.com/owner/repo"
+--forge gitea --repo "https://git.example.com/owner/repo"
+
+# Local repository (for testing)
+--forge local --repo "."
 ```
+
+**Available forge types:**
+
+- `github` - For github.com and GitHub Enterprise
+- `gitlab` - For gitlab.com and self-hosted GitLab instances
+- `gitea` - For gitea.com and self-hosted Gitea instances
+- `local` - For testing against local repositories
 
 ### Dry Run Mode
 
-Test your release workflow without making any actual changes to your repository.
-Dry-run mode performs all analysis and validation steps while logging what
-actions would be taken, but prevents any modifications to your forge platform.
+Test your release workflow without making any actual changes to your
+repository. Dry-run mode performs all analysis and validation steps while
+logging what actions would be taken, but prevents any modifications to your
+forge platform.
 
 **Note:** Dry-run mode automatically enables debug logging for maximum
 visibility into what would happen.
@@ -161,29 +193,41 @@ visibility into what would happen.
 
 ```bash
 # Via command line flag
-releasaurus release-pr --dry-run --github-repo "https://github.com/owner/repo"
-releasaurus release --dry-run --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+releasaurus release \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Via environment variable
 export RELEASAURUS_DRY_RUN=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
-**Output:** Dry-run mode produces detailed debug logs prefixed with `dry_run:`
-that show exactly what operations would be performed, including PR titles,
-version numbers, file changes, and release notes. Debug mode is automatically
-enabled to provide maximum visibility.
+**Output:** Dry-run mode produces detailed debug logs prefixed with
+`dry_run:` that show exactly what operations would be performed, including
+PR titles, version numbers, file changes, and release notes. Debug mode is
+automatically enabled to provide maximum visibility.
 
 ### Local Repository Mode
 
-Test your release workflow against a local repository without making any changes
-to remote forge platforms. Local repository mode is ideal for testing
+Test your release workflow against a local repository without making any
+changes to remote forge platforms. Local repository mode is ideal for testing
 configuration changes before committing them.
 
-**Use case:** Validate your `releasaurus.toml` configuration, version detection,
-and changelog generation against your local working directory before pushing
-changes to your remote forge.
+**Use case:** Validate your `releasaurus.toml` configuration, version
+detection, and changelog generation against your local working directory
+before pushing changes to your remote forge.
 
 **What local repository mode does:**
 
@@ -206,13 +250,13 @@ changes to your remote forge.
 
 ```bash
 # Test from current directory
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # Test from specific path
-releasaurus release-pr --local-repo "/path/to/your/repo"
+releasaurus release-pr --forge local --repo "/path/to/your/repo"
 
 # Works with release command too
-releasaurus release --local-repo "."
+releasaurus release --forge local --repo "."
 ```
 
 **Typical workflow:**
@@ -222,7 +266,7 @@ releasaurus release --local-repo "."
 vim releasaurus.toml
 
 # 2. Test locally to verify configuration
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # 3. Review the logs to ensure everything looks correct
 
@@ -232,13 +276,15 @@ git commit -m "chore: update release configuration"
 git push
 
 # 5. Run against remote forge
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **Note:** Local repository mode operates on your working directory's Git
 repository and does not require forge authentication tokens. See the
-[Troubleshooting](./troubleshooting.md) guide for help diagnosing configuration
-issues.
+[Troubleshooting](./troubleshooting.md) guide for help diagnosing
+configuration issues.
 
 ### Authentication
 
@@ -246,15 +292,21 @@ Provide access tokens for API authentication:
 
 ```bash
 # Via command line
---github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
---gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
---gitea-token "xxxxxxxxxxxxxxxxxx"
+--token "your_token_here"
 
 # Via environment variables (recommended)
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
 export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
 export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 ```
+
+Releasaurus automatically selects the appropriate environment variable based
+on the `--forge` type:
+
+- `--forge github` uses `GITHUB_TOKEN`
+- `--forge gitlab` uses `GITLAB_TOKEN`
+- `--forge gitea` uses `GITEA_TOKEN`
+- `--forge local` requires no authentication
 
 ### Debug Logging
 
@@ -307,20 +359,24 @@ release_type = "rust"
 [[package]]
 path = "./packages/experimental"
 release_type = "rust"
-prerelease = { suffix = "beta", strategy = "versioned" }  # Beta releases for this package
+prerelease = { suffix = "beta", strategy = "versioned" }  # Beta releases
 ```
 
 The prerelease strategy can be one of "versioned" or "static". A "versioned"
 strategy will result in a trailing version as part of the prerelease, e.g.
-`-alpha.0, -alpha.1 ...`. A "static" strategy will only add a static prerelease
-suffix, e.g. `-SNAPSHOT`.
+`-alpha.0, -alpha.1 ...`. A "static" strategy will only add a static
+prerelease suffix, e.g. `-SNAPSHOT`.
 
 **Prerelease Behavior:**
 
-- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and `suffix = "alpha", strategy = "versioned"`)
-- **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier in config)
-- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change `suffix = "beta"` in config)
-- **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (remove `prerelease` from config)
+- **Starting**: `v1.0.0` → `v1.1.0-alpha.1` (with feature commit and
+  `suffix = "alpha", strategy = "versioned"`)
+- **Continuing**: `v1.1.0-alpha.1` → `v1.1.0-alpha.2` (same identifier in
+  config)
+- **Switching**: `v1.0.0-alpha.3` → `v1.1.0-beta.1` (change
+  `suffix = "beta"` in config)
+- **Graduating**: `v1.0.0-alpha.5` → `v1.0.0` (remove `prerelease` from
+  config)
 
 To change prerelease identifiers or graduate to stable, update your
 configuration file and create a new release PR.
@@ -335,12 +391,15 @@ configuration details.
 ```bash
 # With explicit token
 releasaurus release-pr \
-  --github-repo "https://github.com/myorg/myproject" \
-  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+  --forge github \
+  --repo "https://github.com/myorg/myproject" \
+  --token "ghp_xxxxxxxxxxxxxxxxxxxx"
 
 # With environment variable
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-releasaurus release-pr --github-repo "https://github.com/myorg/myproject"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/myorg/myproject"
 ```
 
 ### GitLab
@@ -348,13 +407,15 @@ releasaurus release-pr --github-repo "https://github.com/myorg/myproject"
 ```bash
 # GitLab.com
 releasaurus release-pr \
-  --gitlab-repo "https://gitlab.com/mygroup/myproject" \
-  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+  --forge gitlab \
+  --repo "https://gitlab.com/mygroup/myproject" \
+  --token "glpat_xxxxxxxxxxxxxxxxxxxx"
 
 # Self-hosted GitLab
 releasaurus release-pr \
-  --gitlab-repo "https://gitlab.company.com/team/project" \
-  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
+  --forge gitlab \
+  --repo "https://gitlab.company.com/team/project" \
+  --token "glpat_xxxxxxxxxxxxxxxxxxxx"
 ```
 
 ### Gitea
@@ -362,24 +423,26 @@ releasaurus release-pr \
 ```bash
 # Self-hosted Gitea
 releasaurus release-pr \
-  --gitea-repo "https://git.company.com/team/project" \
-  --gitea-token "xxxxxxxxxxxxxxxxxx"
+  --forge gitea \
+  --repo "https://git.company.com/team/project" \
+  --token "xxxxxxxxxxxxxxxxxx"
 
 # Works with Forgejo too
 releasaurus release-pr \
-  --gitea-repo "https://forgejo.example.com/org/repo" \
-  --gitea-token "xxxxxxxxxxxxxxxxxx"
+  --forge gitea \
+  --repo "https://forgejo.example.com/org/repo" \
+  --token "xxxxxxxxxxxxxxxxxx"
 ```
 
 ## Environment Variables
 
 For security and convenience, use environment variables instead of
 command-line tokens. When environment variables are set, you can omit the
-`--*-token` flags.
+`--token` flag.
 
-See the [Environment Variables](./environment-variables.md) guide for complete
-details on all available environment variables, authentication token setup, and
-configuration options.
+See the [Environment Variables](./environment-variables.md) guide for
+complete details on all available environment variables, authentication token
+setup, and configuration options.
 
 ## Help and Documentation
 
@@ -401,5 +464,4 @@ releasaurus --version
 
 For integration and automation:
 
-- **[Troubleshooting](./troubleshooting.md)** - Common issues and
-  solutions
+- **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions

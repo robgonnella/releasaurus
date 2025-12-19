@@ -7,7 +7,7 @@ use std::{collections::HashSet, path::Path};
 use crate::{
     Result,
     analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
-    command::types::ReleasablePackage,
+    cli::types::ReleasablePackage,
     config::{
         Config, package::PackageConfig, prerelease::PrereleaseConfig,
         release_type::ReleaseType,
