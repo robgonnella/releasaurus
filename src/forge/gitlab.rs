@@ -128,6 +128,7 @@ struct FileInfo {
 #[derive(Debug, Deserialize)]
 struct MergeRequestInfo {
     iid: u64,
+    merge_commit_sha: Option<String>,
     sha: String,
     merged_at: Option<String>,
     description: String,
@@ -655,9 +656,14 @@ impl Forge for Gitlab {
             ));
         }
 
+        let sha = merge_request
+            .merge_commit_sha
+            .clone()
+            .unwrap_or(merge_request.sha.clone());
+
         Ok(Some(PullRequest {
             number: merge_request.iid,
-            sha: merge_request.sha.clone(),
+            sha,
             body: merge_request.description.clone(),
         }))
     }
