@@ -167,12 +167,12 @@ fn get_remote_config(
                     token = value;
                 }
             }
-            ForgeType::Gitea => {}
-            _ => {
+            ForgeType::Gitea => {
                 if let Ok(value) = env::var("GITEA_TOKEN") {
                     token = value;
                 }
             }
+            _ => {}
         }
     }
 
