@@ -109,7 +109,10 @@ struct CommitAuthor {
 }
 
 #[derive(Debug, Deserialize)]
-struct GiteaCommitParent {}
+#[allow(unused)]
+struct GiteaCommitParent {
+    pub sha: String,
+}
 
 #[derive(Debug, Deserialize)]
 struct GiteaCommit {
@@ -400,7 +403,8 @@ impl Forge for Gitea {
         let mut since = None;
 
         if let Some(sha) = sha.clone() {
-            let commit_url = self.base_url.join(&format!("commits/{sha}"))?;
+            let commit_url =
+                self.base_url.join(&format!("git/commits/{sha}"))?;
             let request = self.client.get(commit_url).build()?;
             let response = self.client.execute(request).await?;
             let result = response.error_for_status()?;
