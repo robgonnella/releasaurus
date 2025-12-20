@@ -580,7 +580,10 @@ impl Forge for Github {
         let issues_handler =
             self.instance.issues(&self.config.owner, &self.config.repo);
 
-        info!("looking for closed release prs with pending label");
+        info!(
+            "looking for closed release prs with pending label for branch: {}",
+            req.head_branch
+        );
 
         let issues = issues_handler
             .list()
@@ -606,7 +609,7 @@ impl Forge for Github {
                 .await?;
 
             if let Some(label) = pr.head.label
-                && label.contains(&req.head_branch)
+                && label == format!("{}:{}", self.config.owner, req.head_branch)
             {
                 if let Some(merged) = pr.merged
                     && !merged

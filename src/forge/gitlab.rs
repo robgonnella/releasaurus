@@ -611,7 +611,10 @@ impl Forge for Gitlab {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!("looking for closed release prs with pending label");
+        info!(
+            "looking for closed release prs with pending label for branch: {}",
+            req.head_branch
+        );
 
         // Search for closed merge requests with the pending label
         let endpoint = MergeRequests::builder()

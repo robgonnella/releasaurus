@@ -605,7 +605,10 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!("looking for closed release prs with pending label for branch");
+        info!(
+            "looking for closed release prs with pending label for branch: {}",
+            req.head_branch
+        );
 
         // Search for closed issues with the pending label
         let issues_url = self
