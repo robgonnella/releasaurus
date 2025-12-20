@@ -614,10 +614,11 @@ impl Forge for Github {
                 if let Some(merged) = pr.merged
                     && !merged
                 {
-                    return Err(eyre!(format!(
-                        "found release PR {} but it hasn't been merged yet",
+                    warn!(
+                        "found unmerged closed pr {} with pending label: skipping",
                         pr.number
-                    )));
+                    );
+                    continue;
                 }
 
                 info!(
