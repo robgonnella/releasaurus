@@ -1,12 +1,15 @@
 mod analyzer;
-mod command;
+mod cli;
 pub mod config;
 mod forge;
 mod path_helpers;
 mod updater;
 
-pub use command::{
-    args::Args, args::Command, args::ShowCommand, release, release_pr, show,
+pub use cli::{
+    Cli, Command,
+    command::release,
+    command::release_pr,
+    command::show::{self, ShowCommand},
     types::Result,
 };
 

@@ -13,7 +13,6 @@
 - [CI/CD Integration](./ci-cd-integration.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Supported Languages & Frameworks](./supported-languages.md)
-- [Git Forge Platforms](./forge-platforms.md)
 
 # Configuration
 

@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     Result,
-    command::{
+    cli::{
         common::{self, PRMetadata, PRMetadataFields},
         errors::PendingReleaseError,
         types::ReleasablePackage,

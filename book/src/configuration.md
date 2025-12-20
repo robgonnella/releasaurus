@@ -1134,7 +1134,7 @@ authentication or making remote changes:
 
 ```bash
 # Test from current directory
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # Review the output to verify:
 # - Configuration loads correctly
@@ -1161,12 +1161,15 @@ logging enabled:
 ```bash
 # Via command line flag
 releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --debug
+  --debug \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Or via environment variable
 export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 If there are configuration errors, you'll see clear error messages explaining

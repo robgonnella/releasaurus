@@ -1,84 +1,80 @@
 # Troubleshooting
 
-This guide helps you diagnose and resolve common issues when using Releasaurus.
-If you encounter problems not covered here, please check the
-[GitHub issues](https://github.com/robgonnella/releasaurus/issues) or create a
-new one.
+This guide helps you diagnose and resolve common issues when using
+Releasaurus. If you encounter problems not covered here, please check the
+[GitHub issues](https://github.com/robgonnella/releasaurus/issues) or create
+a new one.
 
 ## Common Issues
 
-### First Release History Configuration
+### Configuring First Release Search Depth
 
-#### Issue: "Not enough commit history found" for first release
+The `first_release_search_depth` setting controls how many commits to analyze
+when **no matching tags are found** for a package's configured prefix. The
+default is 400 commits.
 
-**Symptoms**:
+**When this setting applies:**
 
-- Releasaurus can't determine the next version for first release
-- Error messages about insufficient commit history
-- Empty or incomplete changelog generation on initial release
+This setting **only** affects the first release when Releasaurus cannot find
+any existing tags matching your package's `tag_prefix`. Once a matching tag
+exists, Releasaurus will analyze all commits back to that tag, regardless of
+this setting.
 
-**Cause**: The default `first_release_search_depth` (400 commits) doesn't
-include enough history for your repository's first release analysis.
+**What this setting does:**
 
-**Solution**: Increase the search depth in your `releasaurus.toml`:
+1. **Limits first release analysis** - Prevents analyzing thousands of
+   commits when creating your very first release
+2. **Performance optimization** - Improves speed for repositories with
+   extensive commit history but no existing tags
+
+**When to adjust this setting:**
+
+#### Increase search depth
+
+If you want more comprehensive changelogs for your first release:
 
 ```toml
-# Increase commit search depth for first release
+# Analyze more commits for first release
 first_release_search_depth = 1000
 
 [[package]]
 path = "."
 ```
 
-**Note**: This setting only affects the first release when no tags exist. Once
-you have a release tag, subsequent releases automatically find all commits
-since the last tag.
+**Use case**: You want your first release changelog to include more commit
+history.
 
-#### Issue: Slow first release analysis
+#### Decrease search depth
 
-**Symptoms**:
-
-- Long wait times during first release PR creation
-- Timeouts in CI/CD environments on initial release
-- High API usage during analysis
-
-**Cause**: Searching through extensive commit history for the first release.
-
-**Solution**: Reduce the search depth in your `releasaurus.toml`:
+For faster first release creation:
 
 ```toml
-# Reduce commit search depth for faster first release analysis
+# Search fewer commits for better performance
 first_release_search_depth = 100
 
 [[package]]
 path = "."
 ```
 
-For CI/CD environments with large repositories:
+**Use case**: You want faster first release creation and don't need extensive
+commit history in the initial changelog.
 
-```toml
-# Minimal search depth for CI/CD
-first_release_search_depth = 50
+**Note**: This setting does NOT affect tag discovery. Releasaurus searches
+all tags regardless of this setting. This only limits how many commits are
+analyzed when no matching tags exist.
 
-[[package]]
-path = "."
-```
+#### Issue: Releasaurus doesn't find existing tags
 
-#### Issue: "Could not find any releases" despite having tags
+**Possible causes:**
 
-**Symptoms**:
+1. **Tag prefix mismatch** - Your configured `tag_prefix` doesn't match
+   existing tags
+2. **Tags don't follow semver** - Existing tags don't use semantic versioning
+   format
 
-- Repository has existing tags/releases
-- Releasaurus acts like it's the first release
-- Version numbers don't follow expected sequence
+**Solutions:**
 
-**Causes**:
-
-- Configured tag prefixes in `releasaurus.toml` don't match existing tags
-- Tags exist but don't follow semantic versioning format
-
-**Solution**: Ensure configured tag prefixes match existing tag patterns in
-your `releasaurus.toml`:
+**Match your tag prefix:**
 
 ```toml
 [[package]]
@@ -104,7 +100,25 @@ Common prefix patterns:
 
 **Solutions**:
 
-- **Check token scopes** - Ensure your token has required permissions
+1. **Verify token is set**:
+
+   ```bash
+   # Check environment variable
+   echo $GITHUB_TOKEN
+   echo $GITLAB_TOKEN
+   echo $GITEA_TOKEN
+
+   # Or provide via command line
+   releasaurus release-pr \
+     --forge github \
+     --repo "https://github.com/owner/repo" \
+     --token "your_token"
+   ```
+
+2. **Check token scopes** - Ensure your token has required permissions (see
+   [Environment Variables](./environment-variables.md))
+
+3. **Token expiration** - Generate a new token if the current one has expired
 
 #### Issue: "Repository not found" with valid repository
 
@@ -117,45 +131,63 @@ incorrect.
 
    ```bash
    # Correct format examples
-   --github-repo "https://github.com/owner/repository"
-   --gitlab-repo "https://gitlab.com/group/project"
-   --gitea-repo "https://gitea.example.com/owner/repo"
+   --forge github --repo "https://github.com/owner/repository"
+   --forge gitlab --repo "https://gitlab.com/group/project"
+   --forge gitea --repo "https://gitea.example.com/owner/repo"
    ```
 
 2. **Check repository access** - Ensure your token's associated account has
    appropriate permissions.
 
+3. **Test with local mode first**:
+
+   ```bash
+   # Clone the repository and test locally
+   git clone https://github.com/owner/repo
+   cd repo
+   releasaurus show next-release --forge local --repo "."
+   ```
+
 ## Inspecting Projected Releases
 
-Use the `show next-release` command to inspect what Releasaurus will do before
-creating a PR or making any changes:
+Use the `show next-release` command to inspect what Releasaurus will do
+before creating a PR or making any changes:
 
 ```bash
 # See all projected releases
-releasaurus show next-release --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus show next-release --package my-pkg --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Save output to file for detailed inspection
-releasaurus show next-release --out-file releases.json --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --out-file releases.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus show next-release --local-repo "."
+releasaurus show next-release --forge local --repo "."
 ```
 
 **Use this command to:**
 
 - **Verify version calculation** - Check if the next version matches your
   expectations
-- **Inspect commit analysis** - See which commits are included and how they're
-  categorized
+- **Inspect commit analysis** - See which commits are included and how
+  they're categorized
 - **Validate configuration** - Ensure `releasaurus.toml` settings produce
   desired results
 - **Preview release notes** - Review changelog content before creating a PR
 - **Debug tag matching** - Verify tag prefix configuration matches repository
   tags
-- **Test monorepo setup** - Confirm package detection and independent versioning
+- **Test monorepo setup** - Confirm package detection and independent
+  versioning
 
 The JSON output includes all information that would be used in a release PR,
 making it ideal for diagnosing issues without modifying your repository.
@@ -166,13 +198,25 @@ When troubleshooting any issue, enable debug mode for detailed information:
 
 ```bash
 # Via command line flag
-releasaurus release-pr --debug \
-  --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --debug \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Or via environment variable
 export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
+
+Debug output includes:
+
+- Commit analysis and categorization
+- Version calculation logic
+- File detection and modification details
+- API requests and responses
+- Tag matching and selection
 
 See the [Environment Variables](./environment-variables.md#releasaurus_debug)
 guide for more details on `RELEASAURUS_DEBUG`.
@@ -180,8 +224,24 @@ guide for more details on `RELEASAURUS_DEBUG`.
 ## Dry Run Mode
 
 Before making changes to your repository, use dry-run mode to safely test and
-diagnose issues. **Note:** Dry-run mode automatically enables debug logging for
-maximum visibility.
+diagnose issues:
+
+```bash
+# Via command line flag
+releasaurus release-pr \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Via environment variable
+export RELEASAURUS_DRY_RUN=true
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+**Note:** Dry-run mode automatically enables debug logging for maximum
+visibility.
 
 See the [Commands](./commands.md#dry-run-mode) guide for complete details.
 
@@ -192,10 +252,10 @@ without requiring authentication or making remote changes:
 
 ```bash
 # Test from current directory
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # Test from specific path
-releasaurus release-pr --local-repo "/path/to/your/repo"
+releasaurus release-pr --forge local --repo "/path/to/your/repo"
 ```
 
 **Use local repository mode for:**
@@ -215,7 +275,7 @@ details.
 
 If you're still experiencing issues:
 
-1. **Check existing issues**: [GitHub Issues]
+1. **Check existing issues**: [GitHub Issues](https://github.com/robgonnella/releasaurus/issues)
 2. **Create a new issue** with:
    - Debug output (remove sensitive information)
    - Repository type and structure
@@ -224,5 +284,4 @@ If you're still experiencing issues:
 3. **Include environment details**:
    - Operating system
    - Releasaurus version (`releasaurus --version`)
-
-[GitHub Issues]: https://github.com/robgonnella/releasaurus/issues
+   - Forge platform and hosting type (e.g., GitHub.com, self-hosted GitLab)

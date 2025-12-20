@@ -201,7 +201,10 @@ cargo test updater::yourlanguage::manifests
 cargo test updater::yourlanguage::updater
 
 # Test with real repository
-releasaurus release-pr --local-repo "/path/to/test/project" --debug
+releasaurus release-pr \
+  --forge local \
+  --repo "/path/to/test/project" \
+  --debug
 ```
 
 #### Best Practices

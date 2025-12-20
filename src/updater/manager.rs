@@ -4,25 +4,21 @@ use std::path::Path;
 
 use crate::Result;
 use crate::analyzer::release::Tag;
-use crate::command::types::ReleasablePackage;
+use crate::cli::types::ReleasablePackage;
 use crate::config::package::PackageConfig;
 use crate::config::release_type::ReleaseType;
 use crate::forge::request::FileChange;
 use crate::path_helpers::package_path;
-use crate::updater::generic::updater::GenericUpdater;
-use crate::updater::java::manifests::JavaManifests;
-use crate::updater::java::updater::JavaUpdater;
-use crate::updater::node::manifests::NodeManifests;
-use crate::updater::node::updater::NodeUpdater;
-use crate::updater::php::manifests::PhpManifests;
-use crate::updater::php::updater::PhpUpdater;
-use crate::updater::python::manifests::PythonManifests;
-use crate::updater::python::updater::PythonUpdater;
-use crate::updater::ruby::manifests::RubyManifests;
-use crate::updater::ruby::updater::RubyUpdater;
-use crate::updater::rust::manifests::RustManifests;
-use crate::updater::rust::updater::RustUpdater;
-use crate::updater::traits::{ManifestTargets, PackageUpdater};
+use crate::updater::{
+    generic::updater::GenericUpdater,
+    java::{manifests::JavaManifests, updater::JavaUpdater},
+    node::{manifests::NodeManifests, updater::NodeUpdater},
+    php::{manifests::PhpManifests, updater::PhpUpdater},
+    python::{manifests::PythonManifests, updater::PythonUpdater},
+    ruby::{manifests::RubyManifests, updater::RubyUpdater},
+    rust::{manifests::RustManifests, updater::RustUpdater},
+    traits::{ManifestTargets, PackageUpdater},
+};
 
 #[derive(Debug)]
 pub struct ManifestTarget {

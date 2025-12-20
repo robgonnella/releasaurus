@@ -1,7 +1,8 @@
 # Quick Start
 
-This guide will get you up and running with Releasaurus in just a few minutes.
-We'll walk through releasing a simple project to demonstrate the core workflow.
+This guide will get you up and running with Releasaurus in just a few
+minutes. We'll walk through releasing a simple project to demonstrate the
+core workflow.
 
 ## Prerequisites
 
@@ -15,21 +16,30 @@ Before starting, ensure you have:
 
 ## Step 1: Prepare Your Access Token
 
-Releasaurus needs an access token to create pull requests and releases on your
-behalf.
+Releasaurus needs an access token to create pull requests and releases on
+your behalf.
 
 ### GitHub
 
-1. Go to [GitHub Settings → Personal Access Tokens]
-   (https://github.com/settings/tokens)
-2. Generate a new token with these scopes:
-   - `repo` (for private repositories)
-   - `public_repo` (for public repositories)
+1. Go to [GitHub Settings → Personal Access Tokens](https://github.com/settings/tokens)
+2. Choose either **Classic** or **Fine-grained** token type:
+
+**Classic Token - Required Scopes:**
+
+- `repo` (full control of private repositories)
+
+**Fine-grained Token - Required Permissions:**
+
+- **Contents**: Read and write
+- **Issues**: Read and write
+- **Pull requests**: Read and write
+
+See the [Environment Variables](./environment-variables.md#github_token)
+guide for complete permission details.
 
 ### GitLab
 
-1. Go to [GitLab User Settings → Access Tokens]
-   (https://gitlab.com/-/profile/personal_access_tokens)
+1. Go to [GitLab User Settings → Access Tokens](https://gitlab.com/-/profile/personal_access_tokens)
 2. Create a token with these scopes:
    - `api`
    - `read_repository`
@@ -42,8 +52,8 @@ behalf.
 
 ## Step 2: Configure Your Project (Optional)
 
-Releasaurus works with zero configuration for changelog generation and tagging.
-However, if you want version file updates, you'll need to create a
+Releasaurus works with zero configuration for changelog generation and
+tagging. However, if you want version file updates, you'll need to create a
 `releasaurus.toml` file in your repository root specifying your project's
 `release_type`.
 
@@ -56,7 +66,7 @@ However, if you want version file updates, you'll need to create a
 - **Php**: For projects with `composer.json`
 - **Ruby**: For projects with `Gemfile` or `.gemspec` files
 - **Generic**: For projects without specific language support (see
-  [`additional_manifest_files`](./configuration.md#`additional_manifest_files`)
+  [`additional_manifest_files`](./configuration.md#additional_manifest_files)
   for version updates)
 
 **Minimal configuration example:**
@@ -68,8 +78,8 @@ path = "."
 release_type = "node"
 ```
 
-For more configuration options including changelog filtering, monorepo support,
-prerelease versions, and custom version increment patterns, see the
+For more configuration options including changelog filtering, monorepo
+support, prerelease versions, and custom version increment patterns, see the
 [Configuration](./configuration.md) guide.
 
 ## Step 3: Create a Release PR
@@ -79,18 +89,21 @@ Run the release-pr command with your repository information:
 ```bash
 # GitHub example
 releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_your_token_here"
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --token "ghp_your_token_here"
 
 # GitLab example
 releasaurus release-pr \
-  --gitlab-repo "https://gitlab.com/owner/repo" \
-  --gitlab-token "glpat_your_token_here"
+  --forge gitlab \
+  --repo "https://gitlab.com/owner/repo" \
+  --token "glpat_your_token_here"
 
 # Gitea example
 releasaurus release-pr \
-  --gitea-repo "https://git.example.com/owner/repo" \
-  --gitea-token "your_token_here"
+  --forge gitea \
+  --repo "https://git.example.com/owner/repo" \
+  --token "your_token_here"
 ```
 
 This command will:
@@ -107,8 +120,8 @@ This command will:
 
 1. **Review the pull request** that was created
 2. **Check the changelog** and version updates
-3. **Make any necessary adjustments** by pushing additional commits to the PR
-   branch
+3. **Make any necessary adjustments** by pushing additional commits to the
+   PR branch
 4. **Merge the pull request** when you're satisfied
 
 ## Step 5: Publish the Release
@@ -118,8 +131,9 @@ After merging the release PR, publish the actual release:
 ```bash
 # Use the same platform and credentials as before
 releasaurus release \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_your_token_here"
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --token "ghp_your_token_here"
 ```
 
 This will:
@@ -141,9 +155,14 @@ export GITLAB_TOKEN="glpat_your_token_here"
 # or
 export GITEA_TOKEN="your_token_here"
 
-# Then run commands without --*-token flags
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release --github-repo "https://github.com/owner/repo"
+# Then run commands without --token flag
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 ## Configuration
@@ -175,8 +194,8 @@ Congratulations! You've just completed a full release cycle with Releasaurus:
 
 This quick start used all defaults, but Releasaurus is highly customizable:
 
-- **[Configuration](./configuration.md)** - Customization options and advanced
-  setup
+- **[Configuration](./configuration.md)** - Customization options and
+  advanced setup
 - **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions
 
 ## Common Patterns
@@ -192,10 +211,14 @@ git commit -m "fix: resolve login validation issue"
 git commit -m "docs: update API documentation"
 
 # 2. When ready to release (can be run from anywhere)
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # 3. Review, merge, then publish (can be run from anywhere)
-releasaurus release --github-repo "https://github.com/owner/repo"
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 ### Debug Mode
@@ -204,12 +227,16 @@ If something isn't working as expected, enable debug logging:
 
 ```bash
 # Via command line flag
-releasaurus release-pr --debug \
-  --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --debug \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Or via environment variable
 export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 See the [Environment Variables](./environment-variables.md#releasaurus_debug)
@@ -217,26 +244,33 @@ guide for more details.
 
 ### Dry Run Mode
 
-Before making actual changes to your repository, test your release workflow with
-dry-run mode:
+Before making actual changes to your repository, test your release workflow
+with dry-run mode:
 
 ```bash
 # Via command line flag
-releasaurus release-pr --dry-run \
-  --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Via environment variable
 export RELEASAURUS_DRY_RUN=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Review the logs, then run for real
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 Dry-run mode performs all analysis (commit history, version calculation,
-changelog generation) and logs what would be created or modified, but prevents
-any actual changes to your repository. **Note:** Dry-run mode automatically
-enables debug logging for maximum visibility into the release process.
+changelog generation) and logs what would be created or modified, but
+prevents any actual changes to your repository. **Note:** Dry-run mode
+automatically enables debug logging for maximum visibility into the release
+process.
 
 This is especially useful for:
 
@@ -256,10 +290,12 @@ settings without requiring authentication or making remote changes:
 
 ```bash
 # Test your config locally first
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # Review the output, then run against remote
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 ```
 
 **What gets tested:**
@@ -293,8 +329,8 @@ releases using CI/CD platforms:
 #### GitHub Actions
 
 Releasaurus provides an official GitHub Action that automatically creates
-release PRs when you push to your main branch and publishes releases when those
-PRs are merged. See the
+release PRs when you push to your main branch and publishes releases when
+those PRs are merged. See the
 [CI/CD Integration](./ci-cd-integration.md#github-actions) guide for all
 available options.
 
@@ -328,9 +364,9 @@ With this setup, your releases become completely hands-off:
 
 #### GitLab CI/CD
 
-For GitLab projects, Releasaurus provides an official component that integrates
-seamlessly with GitLab CI/CD pipelines. Create `.gitlab-ci.yml` in your
-repository:
+For GitLab projects, Releasaurus provides an official component that
+integrates seamlessly with GitLab CI/CD pipelines. Create `.gitlab-ci.yml` in
+your repository:
 
 ```yaml
 include:
@@ -339,8 +375,8 @@ include:
       token: $RELEASE_TOKEN
 ```
 
-See the [CI/CD Integration](./ci-cd-integration.md#gitlab-cicd) guide for complete setup
-instructions.
+See the [CI/CD Integration](./ci-cd-integration.md#gitlab-cicd) guide for
+complete setup instructions.
 
 #### Gitea Actions
 
@@ -369,8 +405,8 @@ jobs:
         uses: https://gitea.com/rgon/releasaurus/action/gitea@vX.X.X
 ```
 
-See the [CI/CD Integration](./ci-cd-integration.md#gitea-actions) guide for complete setup
-instructions.
+See the [CI/CD Integration](./ci-cd-integration.md#gitea-actions) guide for
+complete setup instructions.
 
 Ready to dive deeper? Check out the [Commands](./commands.md) section for
 detailed information about all available options and features.
