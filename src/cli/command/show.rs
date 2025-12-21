@@ -37,10 +37,17 @@ pub enum ShowCommand {
 pub async fn execute(
     forge_manager: &ForgeManager,
     cmd: ShowCommand,
+    base_branch_override: Option<String>,
 ) -> Result<()> {
     match cmd {
         ShowCommand::NextRelease { out_file, package } => {
-            show_next_release(forge_manager, out_file, package).await
+            show_next_release(
+                forge_manager,
+                out_file,
+                package,
+                base_branch_override,
+            )
+            .await
         }
         ShowCommand::ReleaseNotes { out_file, tag } => {
             show_release_notes(forge_manager, out_file, tag).await
@@ -72,13 +79,17 @@ async fn show_next_release(
     forge_manager: &ForgeManager,
     out_file: Option<String>,
     package: Option<String>,
+    base_branch_override: Option<String>,
 ) -> Result<()> {
     let mut config = forge_manager.load_config().await?;
     let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
+    let base_branch =
+        common::base_branch(&config, forge_manager, base_branch_override);
 
     let mut releasable_packages =
-        common::get_releasable_packages(&config, forge_manager).await?;
+        common::get_releasable_packages(&config, forge_manager, &base_branch)
+            .await?;
 
     if let Some(package) = package {
         releasable_packages = releasable_packages
@@ -218,7 +229,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 
@@ -234,7 +245,7 @@ mod tests {
             package: Some("pkg-a".to_string()),
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 
@@ -247,7 +258,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 
@@ -264,7 +275,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
 
         // Verify file was created
@@ -291,7 +302,7 @@ mod tests {
             package: Some("pkg-a".to_string()),
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 
@@ -307,7 +318,7 @@ mod tests {
             tag: "v1.0.0".to_string(),
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 
@@ -325,7 +336,7 @@ mod tests {
             tag: "v1.0.0".to_string(),
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
 
         // Verify file was created
@@ -346,7 +357,7 @@ mod tests {
             tag: "v2.1.3".to_string(),
         };
 
-        let result = execute(&manager, cmd).await;
+        let result = execute(&manager, cmd, None).await;
         assert!(result.is_ok());
     }
 

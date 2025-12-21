@@ -21,27 +21,29 @@ static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Execute release command by finding the merged release PR, tagging commits,
 /// and publishing releases to the forge platform.
-pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
+pub async fn execute(
+    forge_manager: &ForgeManager,
+    base_branch_override: Option<String>,
+) -> Result<()> {
     let repo_name = forge_manager.repo_name();
     let mut config = forge_manager.load_config().await?;
     let config = common::process_config(&repo_name, &mut config);
-    let default_branch = forge_manager.default_branch();
+    let base_branch =
+        common::base_branch(&config, forge_manager, base_branch_override);
 
     for package in config.packages.iter() {
         let mut release_branch =
-            format!("{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}");
+            format!("{DEFAULT_PR_BRANCH_PREFIX}-{base_branch}");
 
         if config.separate_pull_requests {
             release_branch = format!(
-                "{DEFAULT_PR_BRANCH_PREFIX}-{default_branch}-{}",
+                "{DEFAULT_PR_BRANCH_PREFIX}-{base_branch}-{}",
                 package.name
             );
         }
 
-        let default_branch = forge_manager.default_branch();
-
         let req = GetPrRequest {
-            base_branch: default_branch.clone(),
+            base_branch: base_branch.clone(),
             head_branch: release_branch.to_string(),
         };
 
@@ -157,7 +159,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .times(2)
+            .times(1)
             .returning(|| "main".to_string());
 
         mock_forge
@@ -201,7 +203,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager).await;
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 
@@ -234,7 +236,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .times(2)
+            .times(1)
             .returning(|| "main".to_string());
 
         mock_forge
@@ -265,7 +267,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager).await;
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 
@@ -296,7 +298,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .times(2)
+            .times(1)
             .returning(|| "main".to_string());
 
         mock_forge
@@ -311,7 +313,7 @@ mod tests {
 
         // Should not call tag_commit, create_release, or replace_pr_labels
 
-        let result = execute(&manager).await;
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 
@@ -358,7 +360,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .times(3)
+            .times(1)
             .returning(|| "main".to_string());
 
         mock_forge
@@ -397,7 +399,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager).await;
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 
@@ -652,7 +654,7 @@ mod tests {
 
         mock_forge
             .expect_default_branch()
-            .times(3)
+            .times(1)
             .returning(|| "main".to_string());
 
         mock_forge
@@ -701,7 +703,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager).await;
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 }

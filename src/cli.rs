@@ -40,6 +40,10 @@ pub struct Cli {
     #[arg(long, default_value_t = false, global = true)]
     pub dry_run: bool,
 
+    /// Base branch for releases. Defaults to repository's default branch
+    #[arg(long, global = true)]
+    pub base_branch: Option<String>,
+
     /// Subcommand to execute
     #[command(subcommand)]
     pub command: Command,
@@ -236,6 +240,7 @@ mod tests {
             forge: Some(ForgeType::Github),
             repo: Some(repo),
             token: Some(token),
+            base_branch: None,
             command: Command::ReleasePR,
         };
 
@@ -258,6 +263,7 @@ mod tests {
             forge: Some(ForgeType::Gitlab),
             repo: Some(repo),
             token: Some(token),
+            base_branch: None,
             command: Command::Release,
         };
 
@@ -280,6 +286,7 @@ mod tests {
             forge: Some(ForgeType::Gitea),
             repo: Some(repo),
             token: Some(token),
+            base_branch: None,
             command: Command::Show {
                 command: ShowCommand::NextRelease {
                     out_file: None,
@@ -306,6 +313,7 @@ mod tests {
             forge: Some(ForgeType::Local),
             repo: Some(repo),
             token: None,
+            base_branch: None,
             command: Command::ReleasePR,
         };
 
@@ -328,6 +336,7 @@ mod tests {
             forge: Some(ForgeType::Gitea),
             repo: Some(repo),
             token: Some(token),
+            base_branch: None,
             command: Command::Show {
                 command: ShowCommand::ReleaseNotes {
                     out_file: None,

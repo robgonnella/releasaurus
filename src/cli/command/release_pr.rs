@@ -31,20 +31,26 @@ struct ReleasePr {
 
 /// Analyze commits since last tags, generate changelogs, update version files,
 /// and create or update release PR.
-pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
+pub async fn execute(
+    forge_manager: &ForgeManager,
+    base_branch_override: Option<String>,
+) -> Result<()> {
     let mut config = forge_manager.load_config().await?;
     let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
+    let base_branch =
+        common::base_branch(&config, forge_manager, base_branch_override);
 
     let releasable_packages =
-        common::get_releasable_packages(&config, forge_manager).await?;
+        common::get_releasable_packages(&config, forge_manager, &base_branch)
+            .await?;
 
     info!("releasable packages: {:#?}", releasable_packages);
 
     let prs_by_branch = gather_release_prs_by_branch(
         &releasable_packages,
-        forge_manager,
         &config,
+        &base_branch,
     )
     .await?;
 
@@ -52,7 +58,8 @@ pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
         return Ok(());
     }
 
-    create_branch_release_prs(prs_by_branch, forge_manager).await?;
+    create_branch_release_prs(prs_by_branch, forge_manager, &base_branch)
+        .await?;
 
     Ok(())
 }
@@ -60,13 +67,13 @@ pub async fn execute(forge_manager: &ForgeManager) -> Result<()> {
 async fn create_branch_release_prs(
     prs_by_branch: HashMap<String, Vec<ReleasePr>>,
     forge_manager: &ForgeManager,
+    base_branch: &str,
 ) -> Result<()> {
-    let default_branch = forge_manager.default_branch();
     // create a single pr per branch
     for (release_branch, prs) in prs_by_branch {
         let single_pr = prs.len() == 1;
 
-        let mut title = format!("chore({default_branch}): release");
+        let mut title = format!("chore({base_branch}): release");
         let mut body: Vec<String> = vec![];
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -80,7 +87,7 @@ async fn create_branch_release_prs(
         }
 
         let in_process_release_req = GetPrRequest {
-            base_branch: default_branch.clone(),
+            base_branch: base_branch.into(),
             head_branch: release_branch.clone(),
         };
 
@@ -110,7 +117,7 @@ async fn create_branch_release_prs(
         let pr = forge_manager
             .get_open_release_pr(GetPrRequest {
                 head_branch: release_branch.clone(),
-                base_branch: default_branch.clone(),
+                base_branch: base_branch.into(),
             })
             .await?;
 
@@ -128,7 +135,7 @@ async fn create_branch_release_prs(
             let pr = forge_manager
                 .create_pr(CreatePrRequest {
                     head_branch: release_branch,
-                    base_branch: default_branch.clone(),
+                    base_branch: base_branch.into(),
                     title,
                     body: body.join("\n"),
                 })
@@ -151,11 +158,9 @@ async fn create_branch_release_prs(
 
 async fn gather_release_prs_by_branch(
     releasable_packages: &[ReleasablePackage],
-    forge_manager: &ForgeManager,
     config: &Config,
+    base_branch: &str,
 ) -> Result<HashMap<String, Vec<ReleasePr>>> {
-    let default_branch = forge_manager.default_branch();
-
     let mut prs_by_branch: HashMap<String, Vec<ReleasePr>> = HashMap::new();
 
     for pkg in releasable_packages.iter() {
@@ -178,11 +183,10 @@ async fn gather_release_prs_by_branch(
             }
         }
 
-        let mut title =
-            format!("chore({}): release {}", default_branch, pkg.name);
+        let mut title = format!("chore({}): release {}", base_branch, pkg.name);
 
         let mut release_branch =
-            format!("{DEFAULT_PR_BRANCH_PREFIX}-{}", default_branch);
+            format!("{DEFAULT_PR_BRANCH_PREFIX}-{}", base_branch);
 
         if config.separate_pull_requests {
             release_branch = format!("{release_branch}-{}", pkg.name);
@@ -308,28 +312,17 @@ mod tests {
         }
     }
 
-    /// Creates a forge manager with basic mocks for PR gathering tests
-    fn basic_forge_manager() -> ForgeManager {
-        let mut mock = MockForge::new();
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
-        mock.expect_get_file_content().returning(|_| Ok(None));
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
-        ForgeManager::new(Box::new(mock))
-    }
-
     // ===== gather_release_prs_by_branch Tests =====
 
     #[tokio::test]
     async fn gathers_single_pr_on_shared_branch() {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
-        let manager = basic_forge_manager();
+
         let config =
             create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+        let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
             .unwrap();
 
@@ -345,13 +338,13 @@ mod tests {
             releasable_package("pkg-a", "1.0.0", ReleaseType::Node),
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
-        let manager = basic_forge_manager();
+
         let config = create_test_config_simple(vec![
             ("pkg-a", ".", ReleaseType::Node),
             ("pkg-b", ".", ReleaseType::Node),
         ]);
 
-        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+        let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
             .unwrap();
 
@@ -365,14 +358,14 @@ mod tests {
             releasable_package("pkg-a", "1.0.0", ReleaseType::Node),
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
-        let manager = basic_forge_manager();
+
         let mut config = create_test_config_simple(vec![
             ("pkg-a", ".", ReleaseType::Node),
             ("pkg-b", ".", ReleaseType::Node),
         ]);
         config.separate_pull_requests = true;
 
-        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+        let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
             .unwrap();
 
@@ -385,11 +378,11 @@ mod tests {
     async fn includes_changelog_file_change() {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
-        let manager = basic_forge_manager();
+
         let config =
             create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let result = gather_release_prs_by_branch(&packages, &manager, &config)
+        let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
             .unwrap();
 
@@ -412,11 +405,10 @@ mod tests {
             content: r#"version = "1.0.0""#.to_string(),
         }]);
 
-        let manager = basic_forge_manager();
         let config =
             create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let result = gather_release_prs_by_branch(&[pkg], &manager, &config)
+        let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
             .unwrap();
 
@@ -439,11 +431,10 @@ mod tests {
             content: "# My Package\n\nNo version here".to_string(),
         }]);
 
-        let manager = basic_forge_manager();
         let config =
             create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
 
-        let result = gather_release_prs_by_branch(&[pkg], &manager, &config)
+        let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
             .unwrap();
 
@@ -459,6 +450,7 @@ mod tests {
 
     #[tokio::test]
     async fn creates_new_pr_when_none_exists() {
+        let base_branch = "main";
         let mut prs = HashMap::new();
         prs.insert(
             "releasaurus-release-main".to_string(),
@@ -485,15 +477,21 @@ mod tests {
         mock.expect_remote_config()
             .returning(create_test_remote_config);
 
-        let result =
-            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
-                .await;
+        let result = create_branch_release_prs(
+            prs,
+            &ForgeManager::new(Box::new(mock)),
+            base_branch,
+        )
+        .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn updates_existing_pr() {
+        let base_branch = "main";
+
         let mut prs = HashMap::new();
+
         prs.insert(
             "releasaurus-release-main".to_string(),
             vec![ReleasePr {
@@ -519,15 +517,21 @@ mod tests {
         mock.expect_remote_config()
             .returning(create_test_remote_config);
 
-        let result =
-            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
-                .await;
+        let result = create_branch_release_prs(
+            prs,
+            &ForgeManager::new(Box::new(mock)),
+            base_branch,
+        )
+        .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn fails_when_pending_release_exists() {
+        let base_branch = "main";
+
         let mut prs = HashMap::new();
+
         prs.insert(
             "releasaurus-release-main".to_string(),
             vec![ReleasePr {
@@ -545,9 +549,12 @@ mod tests {
         mock.expect_remote_config()
             .returning(create_test_remote_config);
 
-        let result =
-            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
-                .await;
+        let result = create_branch_release_prs(
+            prs,
+            &ForgeManager::new(Box::new(mock)),
+            base_branch,
+        )
+        .await;
 
         assert!(result.is_err());
         let err = format!("{}", result.unwrap_err());
@@ -556,7 +563,10 @@ mod tests {
 
     #[tokio::test]
     async fn combines_bodies_for_multiple_packages() {
+        let base_branch = "main";
+
         let mut prs = HashMap::new();
+
         prs.insert(
             "releasaurus-release-main".to_string(),
             vec![
@@ -592,9 +602,12 @@ mod tests {
         mock.expect_remote_config()
             .returning(create_test_remote_config);
 
-        let result =
-            create_branch_release_prs(prs, &ForgeManager::new(Box::new(mock)))
-                .await;
+        let result = create_branch_release_prs(
+            prs,
+            &ForgeManager::new(Box::new(mock)),
+            base_branch,
+        )
+        .await;
         assert!(result.is_ok());
     }
 
@@ -622,6 +635,7 @@ mod tests {
         let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
+            "main",
         )
         .await
         .unwrap();
@@ -648,6 +662,7 @@ mod tests {
         let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
+            "main",
         )
         .await
         .unwrap();
@@ -682,6 +697,7 @@ mod tests {
         let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
+            "main",
         )
         .await
         .unwrap();
@@ -704,6 +720,7 @@ mod tests {
     #[tokio::test]
     async fn succeeds_with_no_releasable_packages() {
         let mut mock = MockForge::new();
+
         mock.expect_load_config().returning(|| {
             Ok(create_test_config_simple(vec![(
                 "repo",
@@ -721,7 +738,7 @@ mod tests {
             Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current")))
         });
 
-        let result = execute(&ForgeManager::new(Box::new(mock))).await;
+        let result = execute(&ForgeManager::new(Box::new(mock)), None).await;
         assert!(result.is_ok());
     }
 }

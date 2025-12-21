@@ -4,6 +4,14 @@
   "description": "Configuration properties for `releasaurus.toml`",
   "type": "object",
   "properties": {
+    "base_branch": {
+      "description": "The base branch to target for release PRs, tagging, and releases\ndefaults to default_branch for repository",
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
     "first_release_search_depth": {
       "description": "Maximum number of commits to search for the first release when no\ntags exist.",
       "type": "integer",

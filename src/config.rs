@@ -21,6 +21,9 @@ pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 #[serde(default)]
 /// Configuration properties for `releasaurus.toml`
 pub struct Config {
+    /// The base branch to target for release PRs, tagging, and releases
+    /// defaults to default_branch for repository
+    pub base_branch: Option<String>,
     /// Maximum number of commits to search for the first release when no
     /// tags exist.
     pub first_release_search_depth: u64,
@@ -47,6 +50,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            base_branch: None,
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
             prerelease: PrereleaseConfig::default(),
