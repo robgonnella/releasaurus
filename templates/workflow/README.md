@@ -13,15 +13,16 @@ include:
 
 ## Inputs
 
-| Name                   | Description                                                             | Default           | Required |
-| ---------------------- | ----------------------------------------------------------------------- | ----------------- | -------- |
-| `repo`                 | The GitLab project URL to affect                                        | `$CI_PROJECT_URL` | No       |
-| `token`                | GitLab token with permissions to create MRs, tags, labels, and releases |                   | Yes      |
-| `debug`                | Enable debug logs                                                       | `""`              | No       |
-| `release_pr_job_name`  | Customize the generated job name for release-pr command                 | `release-pr`      | No       |
-| `release_pr_job_stage` | Stage in which to run release-pr job                                    | `.pre`            | No       |
-| `release_job_name`     | Customize the generated job name for release command                    | `release`         | No       |
-| `release_job_stage`    | Stage in which to run release job                                       | `.pre`            | No       |
+| Name                   | Description                                                             | Default              | Required |
+| ---------------------- | ----------------------------------------------------------------------- | -------------------- | -------- |
+| `repo`                 | The GitLab project URL to affect                                        | `$CI_PROJECT_URL`    | No       |
+| `token`                | GitLab token with permissions to create MRs, tags, labels, and releases |                      | Yes      |
+| `debug`                | Enable debug logs                                                       | `""`                 | No       |
+| `release_pr_job_name`  | Customize the generated job name for release-pr command                 | `release-pr`         | No       |
+| `release_pr_job_stage` | Stage in which to run release-pr job                                    | `.pre`               | No       |
+| `release_job_name`     | Customize the generated job name for release command                    | `release`            | No       |
+| `release_job_stage`    | Stage in which to run release job                                       | `.pre`               | No       |
+| `base_branch`          | The base branch to target                                               | `$CI_DEFAULT_BRANCH` | No       |
 
 ## What This Component Does
 

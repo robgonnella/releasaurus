@@ -463,7 +463,7 @@ on merge commits for tracking feature integration.
 #### `skip_release_commits` (Optional)
 
 Excludes release commits from the changelog. When set to `true`, commits that
-match the release commit pattern (e.g., `chore(<default_branch>): release <package-name>`)
+match the release commit pattern (e.g., `chore(<base_branch>): release <package-name>`)
 will not appear in generated changelogs.
 
 ```toml

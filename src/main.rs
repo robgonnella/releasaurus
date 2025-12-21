@@ -91,10 +91,14 @@ async fn main() -> Result<()> {
     let forge_manager = remote.get_forge_manager().await?;
 
     match cli.command {
-        Command::ReleasePR => release_pr::execute(&forge_manager).await,
-        Command::Release => release::execute(&forge_manager).await,
+        Command::ReleasePR => {
+            release_pr::execute(&forge_manager, cli.base_branch).await
+        }
+        Command::Release => {
+            release::execute(&forge_manager, cli.base_branch).await
+        }
         Command::Show { command } => {
-            show::execute(&forge_manager, command).await
+            show::execute(&forge_manager, command, cli.base_branch).await
         }
     }
 }

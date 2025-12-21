@@ -13,14 +13,23 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/gitea/release@v0.7.1
-      if: "${{ startsWith(gitea.event.head_commit.message, format('chore({0}): release', gitea.event.repository.default_branch)) }}"
+    - name: check commit
+      id: check_commit
+      shell: base
+      run: |
+        if [[ ${{ gitea.event.head_commit.message }} =~ ^chore.*: release.+ ]]; then
+            echo "is_release_commit=true" >> $GITEA_OUTPUT
+        else
+          echo "is_release_commit=false" >> $GITEA_OUTPUT
+        fi
+    - uses: robgonnella/releasaurus/action/gitea/release@v0.8.0
+      if: ${{ steps.check_commit.outputs.is_release_commit == 'true' }}
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
-    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.7.1
-      if: "${{ !startsWith(gitea.event.head_commit.message, format('chore({0}): release', gitea.event.repository.default_branch)) }}"
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.8.0
+      if: ${{ steps.check_commit.outputs.is_release_commit == 'false' }}
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}

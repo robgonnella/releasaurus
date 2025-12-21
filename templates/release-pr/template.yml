@@ -15,6 +15,9 @@ spec:
     job_stage:
       description: The stage in which to run the job
       default: .pre
+    base_branch:
+      description: The base branch to target
+      default: $CI_DEFAULT_BRANCH
 ---
 "$[[ inputs.job_name ]]":
   image:
@@ -27,8 +30,9 @@ spec:
   resource_group: releasaurus
   interruptible: false
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH &&
+    - if: $CI_COMMIT_BRANCH == $[[ inputs.base_branch ]] &&
         $CI_COMMIT_MESSAGE !~ /chore\(.+\):\srelease.+/
   script: releasaurus release-pr
+    --forge gitlab
     --gitlab-repo $[[ inputs.repo ]]
     --gitlab-token $[[ inputs.token ]]

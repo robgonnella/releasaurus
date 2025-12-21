@@ -70,7 +70,7 @@ pub fn resolve_prerelease(
 pub fn generate_analyzer_config(
     config: &Config,
     remote_config: &RemoteConfig,
-    default_branch: &str,
+    base_branch: &str,
     package: &PackageConfig,
     tag_prefix: String,
 ) -> AnalyzerConfig {
@@ -80,7 +80,7 @@ pub fn generate_analyzer_config(
     let mut release_commit_matcher = None;
 
     if let Ok(matcher) = Regex::new(&format!(
-        r#"^chore\({default_branch}\): release {}"#,
+        r#"^chore\({base_branch}\): release {}"#,
         package.name
     )) {
         release_commit_matcher = Some(matcher);
@@ -123,11 +123,21 @@ pub fn generate_analyzer_config(
     }
 }
 
+pub fn base_branch(
+    config: &Config,
+    manager: &ForgeManager,
+    cli_override: Option<String>,
+) -> String {
+    cli_override
+        .or(config.base_branch.clone())
+        .unwrap_or(manager.default_branch())
+}
+
 pub async fn get_releasable_packages(
     config: &Config,
     forge_manager: &ForgeManager,
+    base_branch: &str,
 ) -> Result<Vec<ReleasablePackage>> {
-    let default_branch = forge_manager.default_branch();
     let repo_name = forge_manager.repo_name();
     let remote_config = forge_manager.remote_config();
 
@@ -142,6 +152,7 @@ pub async fn get_releasable_packages(
 
     for package in config.packages.iter() {
         let tag_prefix = get_tag_prefix(package, &repo_name);
+
         let current_tag =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
 
@@ -163,7 +174,7 @@ pub async fn get_releasable_packages(
         let analyzer_config = generate_analyzer_config(
             config,
             &remote_config,
-            &default_branch,
+            base_branch,
             package,
             tag_prefix.clone(),
         );

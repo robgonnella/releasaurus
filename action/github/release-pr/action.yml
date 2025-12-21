@@ -12,12 +12,14 @@ inputs:
 outputs: {}
 runs:
   using: docker
-  image: docker://rgonnella/releasaurus:v0.7.1
+  image: docker://rgonnella/releasaurus:v0.8.0
   env:
     RELEASAURUS_DEBUG: ${{ inputs.debug }}
   args:
     - release-pr
-    - --github-repo
+    - --forge
+    - github
+    - --repo
     - ${{ inputs.repo }}
-    - --github-token
+    - --token
     - ${{ inputs.token }}

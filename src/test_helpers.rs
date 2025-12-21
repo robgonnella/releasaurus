@@ -63,6 +63,7 @@ pub fn create_test_remote_config() -> RemoteConfig {
 /// ```
 pub fn create_test_config(packages: Vec<PackageConfig>) -> Config {
     Config {
+        base_branch: None,
         first_release_search_depth: 100,
         separate_pull_requests: false,
         prerelease: PrereleaseConfig::default(),
@@ -102,6 +103,7 @@ pub fn create_test_config_simple(
     packages: Vec<(&str, &str, ReleaseType)>,
 ) -> Config {
     Config {
+        base_branch: None,
         first_release_search_depth: 100,
         separate_pull_requests: false,
         prerelease: PrereleaseConfig::default(),

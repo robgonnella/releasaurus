@@ -15,13 +15,14 @@ include:
 
 ## Inputs
 
-| Name        | Description                                               | Default           | Required |
-| ----------- | --------------------------------------------------------- | ----------------- | -------- |
-| `repo`      | The GitLab project URL to affect                          | `$CI_PROJECT_URL` | No       |
-| `token`     | GitLab token with permissions to create tags and releases |                   | Yes      |
-| `debug`     | Enable debug logs                                         | `""`              | No       |
-| `job_name`  | Customize the generated job name                          | `release`         | No       |
-| `job_stage` | Stage in which to run the release job                     | `.pre`            | No       |
+| Name          | Description                                               | Default              | Required |
+| ------------- | --------------------------------------------------------- | -------------------- | -------- |
+| `repo`        | The GitLab project URL to affect                          | `$CI_PROJECT_URL`    | No       |
+| `token`       | GitLab token with permissions to create tags and releases |                      | Yes      |
+| `debug`       | Enable debug logs                                         | `""`                 | No       |
+| `job_name`    | Customize the generated job name                          | `release`            | No       |
+| `job_stage`   | Stage in which to run the release job                     | `.pre`               | No       |
+| `base_branch` | The base branch to target                                 | `$CI_DEFAULT_BRANCH` | No       |
 
 ## What This Component Does
 
