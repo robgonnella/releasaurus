@@ -35,6 +35,14 @@ pub struct UpdatePrRequest {
     pub body: String,
 }
 
+/// Response data for retrieving release by tag.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ReleaseByTagResponse {
+    pub tag: String,
+    pub sha: String,
+    pub notes: String,
+}
+
 /// Request to replace all labels on a pull request.
 #[derive(Debug, Clone)]
 pub struct PrLabelsRequest {

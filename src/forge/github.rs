@@ -37,7 +37,7 @@ use crate::{
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            UpdatePrRequest,
+            ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -290,7 +290,22 @@ impl Forge for Github {
         }
     }
 
-    async fn get_release_notes(&self, tag: &str) -> Result<String> {
+    async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
+        let tag_ref = self
+            .instance
+            .repos(&self.config.owner, &self.config.repo)
+            .get_ref(&Reference::Tag(tag.into()))
+            .await?;
+
+        let sha = match tag_ref.object {
+            Object::Commit { sha, .. } => sha,
+            Object::Tag { sha, .. } => sha,
+            _ => "".into(),
+        };
+
         let release = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
@@ -300,7 +315,11 @@ impl Forge for Github {
 
         let body = release.body.unwrap_or_default();
 
-        Ok(body)
+        Ok(ReleaseByTagResponse {
+            tag: tag.into(),
+            sha,
+            notes: body,
+        })
     }
 
     async fn get_latest_tag_for_prefix(

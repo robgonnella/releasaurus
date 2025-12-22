@@ -19,7 +19,8 @@ use crate::{
         config::RemoteConfig,
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
-            GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -106,7 +107,10 @@ impl Forge for LocalRepo {
         }
     }
 
-    async fn get_release_notes(&self, _tag: &str) -> Result<String> {
+    async fn get_release_by_tag(
+        &self,
+        _tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
         Err(eyre!("not implemented for local forge"))
     }
 

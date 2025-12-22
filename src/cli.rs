@@ -338,7 +338,7 @@ mod tests {
             token: Some(token),
             base_branch: None,
             command: Command::Show {
-                command: ShowCommand::ReleaseNotes {
+                command: ShowCommand::Release {
                     out_file: None,
                     tag: "v1.0.0".into(),
                 },

@@ -13,7 +13,8 @@ use crate::{
         config::RemoteConfig,
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
-            GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            UpdatePrRequest,
         },
     },
 };
@@ -35,7 +36,10 @@ pub trait Forge: Any {
     /// doesn't exist.
     async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
     /// Retrieves the release notes for a specified tag
-    async fn get_release_notes(&self, tag: &str) -> Result<String>;
+    async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse>;
     /// Create a new branch with file changes and return the commit SHA.
     async fn create_release_branch(
         &self,
