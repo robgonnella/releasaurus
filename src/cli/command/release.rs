@@ -128,8 +128,8 @@ async fn create_package_release(
 mod tests {
     use super::*;
     use crate::{
-        config::release_type::ReleaseType, forge::traits::MockForge,
-        test_helpers::*,
+        config::{Config, release_type::ReleaseType},
+        forge::{config::RemoteConfig, traits::MockForge},
     };
 
     #[tokio::test]
@@ -141,20 +141,15 @@ mod tests {
             .returning(|| "test-repo".to_string());
 
         mock_forge.expect_load_config().returning(|| {
-            Ok(create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                prerelease: None,
-                breaking_always_increment_major: None,
-                features_always_increment_minor: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-            }]))
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("v".to_string()),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
         });
 
         mock_forge
@@ -199,7 +194,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -216,21 +211,16 @@ mod tests {
             .returning(|| "test-repo".to_string());
 
         mock_forge.expect_load_config().returning(|| {
-            let mut config = create_test_config(vec![PackageConfig {
-                name: "pkg-a".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                prerelease: None,
-                breaking_always_increment_major: None,
-                features_always_increment_minor: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-            }]);
-            config.separate_pull_requests = true;
+            let config = Config {
+                separate_pull_requests: true,
+                packages: vec![PackageConfig {
+                    name: "pkg-a".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("pkg-a-v".to_string()),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            };
             Ok(config)
         });
 
@@ -263,7 +253,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -280,20 +270,15 @@ mod tests {
             .returning(|| "test-repo".to_string());
 
         mock_forge.expect_load_config().returning(|| {
-            Ok(create_test_config(vec![PackageConfig {
-                name: "my-package".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                prerelease: None,
-                breaking_always_increment_major: None,
-                features_always_increment_minor: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-            }]))
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("v".to_string()),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
         });
 
         mock_forge
@@ -307,7 +292,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -326,36 +311,27 @@ mod tests {
             .returning(|| "test-repo".to_string());
 
         mock_forge.expect_load_config().returning(|| {
-            Ok(create_test_config(vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    path: "packages/a".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("pkg-a-v".to_string()),
-                    prerelease: None,
-                    breaking_always_increment_major: None,
-                    features_always_increment_minor: None,
-                    custom_major_increment_regex: None,
-                    custom_minor_increment_regex: None,
-                    additional_paths: None,
-                    additional_manifest_files: None,
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    path: "packages/b".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Rust),
-                    tag_prefix: Some("pkg-b-v".to_string()),
-                    prerelease: None,
-                    breaking_always_increment_major: None,
-                    features_always_increment_minor: None,
-                    custom_major_increment_regex: None,
-                    custom_minor_increment_regex: None,
-                    additional_paths: None,
-                    additional_manifest_files: None,
-                },
-            ]))
+            Ok(Config {
+                packages: vec![
+                    PackageConfig {
+                        name: "pkg-a".into(),
+                        path: "packages/a".into(),
+                        workspace_root: ".".into(),
+                        release_type: Some(ReleaseType::Node),
+                        tag_prefix: Some("pkg-a-v".to_string()),
+                        ..PackageConfig::default()
+                    },
+                    PackageConfig {
+                        name: "pkg-b".into(),
+                        path: "packages/b".into(),
+                        workspace_root: ".".into(),
+                        release_type: Some(ReleaseType::Rust),
+                        tag_prefix: Some("pkg-b-v".to_string()),
+                        ..PackageConfig::default()
+                    },
+                ],
+                ..Config::default()
+            })
         });
 
         mock_forge
@@ -395,7 +371,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -423,7 +399,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let forge_manger = ForgeManager::new(Box::new(mock_forge));
 
@@ -465,7 +441,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -500,7 +476,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -541,7 +517,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -576,7 +552,7 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -620,36 +596,27 @@ mod tests {
             .returning(|| "test-repo".to_string());
 
         mock_forge.expect_load_config().returning(|| {
-            Ok(create_test_config(vec![
-                PackageConfig {
-                    name: "api".into(),
-                    path: "packages/api".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("api-v".to_string()),
-                    prerelease: None,
-                    breaking_always_increment_major: None,
-                    features_always_increment_minor: None,
-                    custom_major_increment_regex: None,
-                    custom_minor_increment_regex: None,
-                    additional_paths: None,
-                    additional_manifest_files: None,
-                },
-                PackageConfig {
-                    name: "web".into(),
-                    path: "packages/web".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("web-v".to_string()),
-                    prerelease: None,
-                    breaking_always_increment_major: None,
-                    features_always_increment_minor: None,
-                    custom_major_increment_regex: None,
-                    custom_minor_increment_regex: None,
-                    additional_paths: None,
-                    additional_manifest_files: None,
-                },
-            ]))
+            Ok(Config {
+                packages: vec![
+                    PackageConfig {
+                        name: "api".into(),
+                        path: "packages/api".into(),
+                        workspace_root: ".".into(),
+                        release_type: Some(ReleaseType::Node),
+                        tag_prefix: Some("api-v".to_string()),
+                        ..PackageConfig::default()
+                    },
+                    PackageConfig {
+                        name: "web".into(),
+                        path: "packages/web".into(),
+                        workspace_root: ".".into(),
+                        release_type: Some(ReleaseType::Node),
+                        tag_prefix: Some("web-v".to_string()),
+                        ..PackageConfig::default()
+                    },
+                ],
+                ..Config::default()
+            })
         });
 
         mock_forge
@@ -699,11 +666,123 @@ mod tests {
 
         mock_forge
             .expect_remote_config()
-            .returning(create_test_remote_config);
+            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
         let result = execute(&manager, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_uses_config_base_branch_override() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|| {
+            Ok(Config {
+                base_branch: Some("develop".into()),
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(0)
+            .returning(|| "main".to_string());
+
+        mock_forge
+                .expect_get_merged_release_pr()
+            .withf(|req| {
+                req.base_branch == "develop"
+                    && req.head_branch == "releasaurus-release-develop"
+            })
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 42,
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"## Changes\\n\\n- feat: new feature\"}}-->\n<details>".to_string(),
+                }))
+            });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        execute(&manager, None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_uses_cli_base_branch_override() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|| {
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("v".to_string()),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .times(0)
+            .returning(|| "main".to_string());
+
+        mock_forge
+                .expect_get_merged_release_pr()
+            .withf(|req| {
+                req.base_branch == "develop"
+                    && req.head_branch == "releasaurus-release-develop"
+            })
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 42,
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"## Changes\\n\\n- feat: new feature\"}}-->\n<details>".to_string(),
+                }))
+            });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+        mock_forge
+            .expect_remote_config()
+            .returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager, Some("develop".to_string())).await;
         assert!(result.is_ok());
     }
 }

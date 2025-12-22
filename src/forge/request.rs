@@ -44,7 +44,7 @@ pub struct PrLabelsRequest {
 
 /// Normalized commit data returned from any forge platform with metadata
 /// and links.
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Default, Eq)]
 pub struct ForgeCommit {
     pub id: String,
     pub short_id: String,

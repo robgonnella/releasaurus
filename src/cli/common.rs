@@ -130,7 +130,7 @@ pub fn base_branch(
 ) -> String {
     cli_override
         .or(config.base_branch.clone())
-        .unwrap_or(manager.default_branch())
+        .unwrap_or_else(|| manager.default_branch())
 }
 
 pub async fn get_releasable_packages(
@@ -388,12 +388,9 @@ async fn get_commits_for_all_packages_separately(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        config::{
-            prerelease::{PrereleaseConfig, PrereleaseStrategy},
-            release_type::ReleaseType,
-        },
-        test_helpers,
+    use crate::config::{
+        prerelease::{PrereleaseConfig, PrereleaseStrategy},
+        release_type::ReleaseType,
     };
 
     use super::*;
@@ -537,36 +534,23 @@ mod tests {
     fn test_process_config_derives_package_names() {
         let repo_name = "test-repo";
 
-        let mut config = test_helpers::create_test_config(vec![
-            PackageConfig {
-                name: "".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-            PackageConfig {
-                name: "".into(),
-                path: "packages/api".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-        ]);
+        let mut config = Config {
+            packages: vec![
+                PackageConfig {
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    path: "packages/api".into(),
+                    release_type: Some(ReleaseType::Node),
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
         let processed = process_config(repo_name, &mut config);
 
@@ -578,36 +562,25 @@ mod tests {
     fn test_process_config_preserves_existing_names() {
         let repo_name = "test-repo";
 
-        let mut config = test_helpers::create_test_config(vec![
-            PackageConfig {
-                name: "my-custom-name".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-            PackageConfig {
-                name: "another-name".into(),
-                path: "packages/api".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-        ]);
+        let mut config = Config {
+            packages: vec![
+                PackageConfig {
+                    name: "my-custom-name".into(),
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "another-name".into(),
+                    path: "packages/api".into(),
+                    release_type: Some(ReleaseType::Node),
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
         let processed = process_config(repo_name, &mut config);
 
@@ -619,36 +592,25 @@ mod tests {
     fn test_process_config_mixed_names() {
         let repo_name = "test-repo";
 
-        let mut config = test_helpers::create_test_config(vec![
-            PackageConfig {
-                name: "explicit-name".into(),
-                path: "packages/frontend".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Generic),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-            PackageConfig {
-                name: "".into(),
-                path: "packages/backend".into(),
-                workspace_root: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: Some(true),
-                features_always_increment_minor: Some(true),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            },
-        ]);
+        let mut config = Config {
+            packages: vec![
+                PackageConfig {
+                    name: "explicit-name".into(),
+                    path: "packages/frontend".into(),
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    path: "packages/backend".into(),
+                    release_type: Some(ReleaseType::Node),
+                    breaking_always_increment_major: Some(true),
+                    features_always_increment_minor: Some(true),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
         let processed = process_config(repo_name, &mut config);
 
@@ -679,11 +641,13 @@ mod tests {
 
     #[test]
     fn test_resolve_prerelease_package_overrides_global() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "my-package".into(),
                 ..PackageConfig::default()
-            }]);
+            }],
+            ..Config::default()
+        };
         config.prerelease.suffix = Some("alpha".to_string());
         config.packages[0].prerelease = Some(PrereleaseConfig {
             suffix: Some("beta".to_string()),
@@ -699,11 +663,13 @@ mod tests {
 
     #[test]
     fn test_resolve_prerelease_uses_global_when_package_not_set() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "my-package".into(),
                 ..PackageConfig::default()
-            }]);
+            }],
+            ..Config::default()
+        };
         config.prerelease.suffix = Some("alpha".to_string());
 
         let result = resolve_prerelease(&config, &config.packages[0])
@@ -715,11 +681,13 @@ mod tests {
 
     #[test]
     fn test_resolve_prerelease_can_disable_with_null_suffix() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "my-package".into(),
                 ..PackageConfig::default()
-            }]);
+            }],
+            ..Config::default()
+        };
         config.prerelease.suffix = Some("alpha".to_string());
         config.packages[0].prerelease = Some(PrereleaseConfig {
             suffix: None,
@@ -733,10 +701,13 @@ mod tests {
 
     #[test]
     fn test_resolve_prerelease_returns_none_when_not_configured() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "my-package".into(),
-            ..PackageConfig::default()
-        }]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = resolve_prerelease(&config, &config.packages[0]);
 
@@ -761,31 +732,37 @@ mod tests {
         };
 
         // Create tag with timestamp 2000
-        let mut tag =
-            test_helpers::create_test_tag("v1.0.0", "1.0.0", "tag-sha");
-        tag.timestamp = Some(2000);
+        let tag = Tag {
+            name: "v1.0.0".into(),
+            semver: semver::Version::parse("1.0.0").unwrap(),
+            sha: "tag-sha".into(),
+            timestamp: Some(2000),
+        };
 
         // Create commits with various timestamps
-        let mut old_commit = test_helpers::create_test_forge_commit(
-            "old-commit",
-            "feat: old feature",
-            1000, // Before tag
-        );
-        old_commit.files = vec!["src/main.rs".to_string()];
+        let old_commit = ForgeCommit {
+            id: "old-commit".into(),
+            message: "feat: old feature".into(),
+            timestamp: 1000, // Before tag
+            files: vec!["src/main.rs".to_string()],
+            ..ForgeCommit::default()
+        };
 
-        let mut equal_commit = test_helpers::create_test_forge_commit(
-            "equal-commit",
-            "feat: equal feature",
-            2000, // Equal to tag
-        );
-        equal_commit.files = vec!["src/lib.rs".to_string()];
+        let equal_commit = ForgeCommit {
+            id: "equal-commit".into(),
+            message: "feat: equal feature".into(),
+            timestamp: 2000, // Equal to tag
+            files: vec!["src/lib.rs".to_string()],
+            ..ForgeCommit::default()
+        };
 
-        let mut new_commit = test_helpers::create_test_forge_commit(
-            "new-commit",
-            "feat: new feature",
-            3000, // After tag
-        );
-        new_commit.files = vec!["src/utils.rs".to_string()];
+        let new_commit = ForgeCommit {
+            id: "new-commit".into(),
+            message: "feat: new feature".into(),
+            timestamp: 3000, // After tag
+            files: vec!["src/utils.rs".to_string()],
+            ..ForgeCommit::default()
+        };
 
         let commits = vec![old_commit, equal_commit, new_commit];
 
@@ -799,22 +776,16 @@ mod tests {
 
     #[test]
     fn test_generate_analyzer_config_uses_global_defaults() {
-        let config = test_helpers::create_test_config(vec![PackageConfig {
-            name: "test-pkg".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Node),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-        }]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "test-pkg".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
-        let remote_config = test_helpers::create_test_remote_config();
+        let remote_config = RemoteConfig::default();
         let analyzer_config = generate_analyzer_config(
             &config,
             &remote_config,
@@ -831,27 +802,22 @@ mod tests {
 
     #[test]
     fn test_generate_analyzer_config_package_overrides_boolean_flags() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "test-pkg".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
                 release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
                 breaking_always_increment_major: Some(false),
                 features_always_increment_minor: Some(false),
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            }]);
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         // Global config has defaults true
         config.breaking_always_increment_major = true;
         config.features_always_increment_minor = true;
 
-        let remote_config = test_helpers::create_test_remote_config();
+        let remote_config = RemoteConfig::default();
         let analyzer_config = generate_analyzer_config(
             &config,
             &remote_config,
@@ -867,27 +833,22 @@ mod tests {
 
     #[test]
     fn test_generate_analyzer_config_package_overrides_custom_regex() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "test-pkg".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
                 release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: None,
-                features_always_increment_minor: None,
                 custom_major_increment_regex: Some("PKG_MAJOR".to_string()),
                 custom_minor_increment_regex: Some("PKG_MINOR".to_string()),
-            }]);
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         // Set global custom regex
         config.custom_major_increment_regex = Some("GLOBAL_MAJOR".to_string());
         config.custom_minor_increment_regex = Some("GLOBAL_MINOR".to_string());
 
-        let remote_config = test_helpers::create_test_remote_config();
+        let remote_config = RemoteConfig::default();
         let analyzer_config = generate_analyzer_config(
             &config,
             &remote_config,
@@ -909,27 +870,20 @@ mod tests {
 
     #[test]
     fn test_generate_analyzer_config_uses_global_when_package_not_set() {
-        let mut config =
-            test_helpers::create_test_config(vec![PackageConfig {
+        let mut config = Config {
+            packages: vec![PackageConfig {
                 name: "test-pkg".into(),
-                path: ".".into(),
-                workspace_root: ".".into(),
                 release_type: Some(ReleaseType::Node),
-                tag_prefix: None,
-                prerelease: None,
-                additional_paths: None,
-                additional_manifest_files: None,
-                breaking_always_increment_major: None,
-                features_always_increment_minor: None,
-                custom_major_increment_regex: None,
-                custom_minor_increment_regex: None,
-            }]);
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         // Set only global config
         config.breaking_always_increment_major = false;
         config.custom_major_increment_regex = Some("MAJOR".to_string());
 
-        let remote_config = test_helpers::create_test_remote_config();
+        let remote_config = RemoteConfig::default();
         let analyzer_config = generate_analyzer_config(
             &config,
             &remote_config,
@@ -944,5 +898,67 @@ mod tests {
             analyzer_config.custom_major_increment_regex,
             Some("MAJOR".to_string())
         );
+    }
+
+    #[test]
+    fn test_base_branch_cli_override_takes_precedence() {
+        use crate::forge::{manager::ForgeManager, traits::MockForge};
+
+        let config = Config {
+            base_branch: Some("develop".to_string()),
+            ..Config::default()
+        };
+
+        let mut mock = MockForge::new();
+
+        mock.expect_default_branch()
+            .returning(|| "main".to_string());
+        mock.expect_remote_config().returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock));
+
+        let result =
+            base_branch(&config, &manager, Some("feature-branch".to_string()));
+
+        assert_eq!(result, "feature-branch");
+    }
+
+    #[test]
+    fn test_base_branch_uses_config_when_no_cli_override() {
+        use crate::forge::{manager::ForgeManager, traits::MockForge};
+
+        let config = Config {
+            base_branch: Some("develop".to_string()),
+            ..Config::default()
+        };
+
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
+            .returning(|| "main".to_string());
+        mock.expect_remote_config().returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock));
+
+        let result = base_branch(&config, &manager, None);
+
+        assert_eq!(result, "develop");
+    }
+
+    #[test]
+    fn test_base_branch_uses_default_when_no_config_or_cli() {
+        use crate::forge::{manager::ForgeManager, traits::MockForge};
+
+        let config = Config::default();
+
+        let mut mock = MockForge::new();
+        mock.expect_default_branch()
+            .returning(|| "main".to_string());
+        mock.expect_remote_config().returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock));
+
+        let result = base_branch(&config, &manager, None);
+
+        assert_eq!(result, "main");
     }
 }

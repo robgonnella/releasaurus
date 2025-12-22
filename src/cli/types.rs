@@ -16,7 +16,8 @@ pub struct ReleasablePackage {
     pub name: String,
     /// Path to package directory relative to workspace_root path
     pub path: String,
-    /// Path to the workspace root directory for this package relative to the repository root
+    /// Path to the workspace root directory for this package relative to the
+    /// repository root
     pub workspace_root: String,
     /// The [`ReleaseType`] for this package
     pub release_type: ReleaseType,

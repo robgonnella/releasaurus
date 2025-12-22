@@ -83,12 +83,11 @@ mod tests {
         analyzer::{group::GroupParser, release::Release},
         config::prerelease::PrereleaseStrategy,
         forge::request::ForgeCommit,
-        test_helpers,
     };
 
     #[test]
     fn test_update_release_with_commit() {
-        let analyzer_config = test_helpers::create_test_analyzer_config(None);
+        let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -240,9 +239,10 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_ci() {
-        let mut analyzer_config =
-            test_helpers::create_test_analyzer_config(None);
-        analyzer_config.skip_ci = true;
+        let analyzer_config = AnalyzerConfig {
+            skip_ci: true,
+            ..AnalyzerConfig::default()
+        };
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -290,9 +290,10 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_chore() {
-        let mut analyzer_config =
-            test_helpers::create_test_analyzer_config(None);
-        analyzer_config.skip_chore = true;
+        let analyzer_config = AnalyzerConfig {
+            skip_chore: true,
+            ..AnalyzerConfig::default()
+        };
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -340,9 +341,10 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_miscellaneous() {
-        let mut analyzer_config =
-            test_helpers::create_test_analyzer_config(None);
-        analyzer_config.skip_miscellaneous = true;
+        let analyzer_config = AnalyzerConfig {
+            skip_miscellaneous: true,
+            ..AnalyzerConfig::default()
+        };
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -390,11 +392,12 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_multiple_types() {
-        let mut analyzer_config =
-            test_helpers::create_test_analyzer_config(None);
-        analyzer_config.skip_ci = true;
-        analyzer_config.skip_chore = true;
-        analyzer_config.skip_miscellaneous = true;
+        let analyzer_config = AnalyzerConfig {
+            skip_ci: true,
+            skip_chore: true,
+            skip_miscellaneous: true,
+            ..AnalyzerConfig::default()
+        };
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -473,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_preserves_author_info() {
-        let analyzer_config = test_helpers::create_test_analyzer_config(None);
+        let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -503,9 +506,10 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_author_info_with_skip_options() {
-        let mut analyzer_config =
-            test_helpers::create_test_analyzer_config(None);
-        analyzer_config.skip_ci = true;
+        let analyzer_config = AnalyzerConfig {
+            skip_ci: true,
+            ..AnalyzerConfig::default()
+        };
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
@@ -554,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_no_skip_includes_all() {
-        let analyzer_config = test_helpers::create_test_analyzer_config(None);
+        let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 

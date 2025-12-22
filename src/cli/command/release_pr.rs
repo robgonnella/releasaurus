@@ -271,11 +271,15 @@ mod tests {
     use crate::{
         analyzer::release::{Release, Tag},
         config::{
+            package::PackageConfig,
             prerelease::{PrereleaseConfig, PrereleaseStrategy},
             release_type::ReleaseType,
         },
-        forge::traits::MockForge,
-        test_helpers::*,
+        forge::{
+            config::RemoteConfig,
+            request::{ForgeCommit, PullRequest},
+            traits::MockForge,
+        },
         updater::manager::ManifestFile,
     };
     use semver::Version as SemVer;
@@ -319,8 +323,14 @@ mod tests {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
 
-        let config =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -339,10 +349,21 @@ mod tests {
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
 
-        let config = create_test_config_simple(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Node),
-        ]);
+        let config = Config {
+            packages: vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -359,11 +380,22 @@ mod tests {
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
 
-        let mut config = create_test_config_simple(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Node),
-        ]);
-        config.separate_pull_requests = true;
+        let config = Config {
+            separate_pull_requests: true,
+            packages: vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -379,8 +411,14 @@ mod tests {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
 
-        let config =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -405,8 +443,14 @@ mod tests {
             content: r#"version = "1.0.0""#.to_string(),
         }]);
 
-        let config =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
@@ -431,8 +475,14 @@ mod tests {
             content: "# My Package\n\nNo version here".to_string(),
         }]);
 
-        let config =
-            create_test_config_simple(vec![("pkg", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
@@ -471,11 +521,15 @@ mod tests {
             })
         });
         mock.expect_get_open_release_pr().returning(|_| Ok(None));
-        mock.expect_create_pr()
-            .returning(|_| Ok(create_test_pull_request(1, "sha")));
+        mock.expect_create_pr().returning(|_| {
+            Ok(PullRequest {
+                number: 1,
+                sha: "sha".into(),
+                body: "".into(),
+            })
+        });
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         let result = create_branch_release_prs(
             prs,
@@ -510,12 +564,16 @@ mod tests {
                 sha: "sha".to_string(),
             })
         });
-        mock.expect_get_open_release_pr()
-            .returning(|_| Ok(Some(create_test_pull_request(42, "sha"))));
+        mock.expect_get_open_release_pr().returning(|_| {
+            Ok(Some(PullRequest {
+                number: 42,
+                sha: "sha".into(),
+                body: "".into(),
+            }))
+        });
         mock.expect_update_pr().returning(|_| Ok(()));
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         let result = create_branch_release_prs(
             prs,
@@ -544,10 +602,14 @@ mod tests {
         let mut mock = MockForge::new();
         mock.expect_default_branch()
             .returning(|| "main".to_string());
-        mock.expect_get_merged_release_pr()
-            .returning(|_| Ok(Some(create_test_pull_request(99, "sha"))));
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_get_merged_release_pr().returning(|_| {
+            Ok(Some(PullRequest {
+                number: 99,
+                sha: "sha".into(),
+                body: "".into(),
+            }))
+        });
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         let result = create_branch_release_prs(
             prs,
@@ -597,10 +659,15 @@ mod tests {
             .withf(|req| {
                 req.body.contains("Body A") && req.body.contains("Body B")
             })
-            .returning(|_| Ok(create_test_pull_request(1, "sha")));
+            .returning(|_| {
+                Ok(PullRequest {
+                    number: 1,
+                    sha: "sha".into(),
+                    body: "".into(),
+                })
+            });
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         let result = create_branch_release_prs(
             prs,
@@ -619,19 +686,36 @@ mod tests {
         mock.expect_default_branch()
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
         mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_| {
-            let mut commit = create_test_forge_commit("abc", "feat: new", 1000);
-            commit.files = vec!["main.rs".to_string()];
+            let commit = ForgeCommit {
+                id: "abc".into(),
+                message: "feat: new".into(),
+                timestamp: 1000,
+                files: vec!["main.rs".to_string()],
+                ..ForgeCommit::default()
+            };
             Ok(vec![commit])
         });
-        mock.expect_get_latest_tag_for_prefix()
-            .returning(|_| Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old"))));
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(Tag {
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "old".into(),
+                ..Tag::default()
+            }))
+        });
 
-        let config =
-            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "repo".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
@@ -650,15 +734,26 @@ mod tests {
         mock.expect_default_branch()
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
         mock.expect_get_commits().returning(|_| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
-            Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current")))
+            Ok(Some(Tag {
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "current".into(),
+                ..Tag::default()
+            }))
         });
 
-        let config =
-            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "repo".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let result = common::get_releasable_packages(
             &config,
             &ForgeManager::new(Box::new(mock)),
@@ -676,23 +771,39 @@ mod tests {
         mock.expect_default_branch()
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
         mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_| {
-            let mut commit = create_test_forge_commit("abc", "feat: new", 1000);
-            commit.files = vec!["main.rs".to_string()];
+            let commit = ForgeCommit {
+                id: "abc".into(),
+                message: "feat: new".into(),
+                timestamp: 1000,
+                files: vec!["main.rs".to_string()],
+                ..ForgeCommit::default()
+            };
             Ok(vec![commit])
         });
-        mock.expect_get_latest_tag_for_prefix()
-            .returning(|_| Ok(Some(create_test_tag("v1.0.0", "1.0.0", "old"))));
-
-        let mut config =
-            create_test_config_simple(vec![("repo", ".", ReleaseType::Node)]);
-        config.packages[0].prerelease = Some(PrereleaseConfig {
-            suffix: Some("beta".to_string()),
-            strategy: PrereleaseStrategy::Versioned,
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(Tag {
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "old".into(),
+                ..Tag::default()
+            }))
         });
+
+        let config = Config {
+            packages: vec![PackageConfig {
+                name: "repo".into(),
+                release_type: Some(ReleaseType::Node),
+                prerelease: Some(PrereleaseConfig {
+                    suffix: Some("beta".to_string()),
+                    strategy: PrereleaseStrategy::Versioned,
+                }),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
         let result = common::get_releasable_packages(
             &config,
@@ -722,23 +833,83 @@ mod tests {
         let mut mock = MockForge::new();
 
         mock.expect_load_config().returning(|| {
-            Ok(create_test_config_simple(vec![(
-                "repo",
-                ".",
-                ReleaseType::Node,
-            )]))
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "repo".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
         });
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_default_branch()
             .returning(|| "main".to_string());
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
         mock.expect_get_commits().returning(|_| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
-            Ok(Some(create_test_tag("v1.0.0", "1.0.0", "current")))
+            Ok(Some(Tag {
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "current".into(),
+                ..Tag::default()
+            }))
         });
 
         let result = execute(&ForgeManager::new(Box::new(mock)), None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn uses_cli_base_branch_override() {
+        let mut mock = MockForge::new();
+
+        mock.expect_load_config().returning(|| {
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "repo".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
+        });
+        mock.expect_repo_name().returning(|| "repo".to_string());
+        mock.expect_default_branch()
+            .times(0)
+            .returning(|| "main".to_string());
+        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(Tag {
+                name: "v1.0.0".into(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "current".into(),
+                ..Tag::default()
+            }))
+        });
+        mock.expect_get_open_release_pr()
+            .withf(|req| req.base_branch == "develop")
+            .returning(|_| Ok(None));
+        mock.expect_create_pr()
+            .withf(|req| {
+                req.base_branch == "develop"
+                    && req.head_branch == "releasaurus-release-develop"
+            })
+            .returning(|_| {
+                Ok(PullRequest {
+                    number: 1,
+                    sha: "test-sha".to_string(),
+                    body: "test body".to_string(),
+                })
+            });
+        mock.expect_replace_pr_labels().returning(|_| Ok(()));
+
+        let result = execute(
+            &ForgeManager::new(Box::new(mock)),
+            Some("develop".to_string()),
+        )
+        .await;
         assert!(result.is_ok());
     }
 }

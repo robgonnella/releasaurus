@@ -12,6 +12,3 @@ pub use cli::{
     command::show::{self, ShowCommand},
     types::Result,
 };
-
-#[cfg(test)]
-pub mod test_helpers;
