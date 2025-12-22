@@ -96,8 +96,8 @@ impl PyProject {
 mod tests {
     use super::*;
     use crate::{
+        analyzer::release::Tag,
         config::release_type::ReleaseType,
-        test_helpers::create_test_tag,
         updater::manager::{ManifestFile, UpdaterPackage},
     };
 
@@ -117,7 +117,12 @@ version = "1.0.0"
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -144,7 +149,12 @@ version = "1.0.0"
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -172,7 +182,12 @@ dynamic = ["version"]
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -198,7 +213,12 @@ dynamic = ["version"]
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -228,7 +248,12 @@ requests = "^2.28.0"
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -257,7 +282,12 @@ requires = ["setuptools", "wheel"]
         let package = UpdaterPackage {
             package_name: "my-package".to_string(),
             manifest_files: vec![manifest.clone()],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -286,7 +316,12 @@ requires = ["setuptools", "wheel"]
         let package = UpdaterPackage {
             package_name: "test".to_string(),
             manifest_files: vec![manifest1, manifest2],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 
@@ -310,7 +345,12 @@ requires = ["setuptools", "wheel"]
         let package = UpdaterPackage {
             package_name: "test".to_string(),
             manifest_files: vec![manifest],
-            next_version: create_test_tag("v2.0.0", "2.0.0", "abc"),
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
             release_type: ReleaseType::Python,
         };
 

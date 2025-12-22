@@ -124,9 +124,8 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
-        config::release_type::ReleaseType,
-        forge::traits::MockForge,
-        test_helpers::*,
+        config::{Config, package::PackageConfig, release_type::ReleaseType},
+        forge::{config::RemoteConfig, traits::MockForge},
     };
     use semver::Version as SemVer;
 
@@ -163,29 +162,17 @@ mod tests {
     }
 
     /// Creates a mock forge manager that returns the given packages
-    fn mock_forge_with_packages(
-        packages: Vec<(&str, &str, ReleaseType)>,
-    ) -> ForgeManager {
+    fn mock_forge_with_packages(packages: Vec<PackageConfig>) -> ForgeManager {
         let mut mock = MockForge::new();
-
-        // Convert to owned data to satisfy 'static lifetime requirement
-        let owned_packages: Vec<(String, String, ReleaseType)> = packages
-            .into_iter()
-            .map(|(name, path, rt)| (name.to_string(), path.to_string(), rt))
-            .collect();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_load_config().returning(move || {
-            let config_packages: Vec<(&str, &str, ReleaseType)> =
-                owned_packages
-                    .iter()
-                    .map(|(name, path, rt)| {
-                        (name.as_str(), path.as_str(), rt.clone())
-                    })
-                    .collect();
-            Ok(create_test_config_simple(config_packages))
+            Ok(Config {
+                packages: packages.to_owned(),
+                ..Config::default()
+            })
         });
 
         mock.expect_default_branch()
@@ -196,8 +183,7 @@ mod tests {
 
         mock.expect_get_commits().returning(|_| Ok(vec![]));
 
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         ForgeManager::new(Box::new(mock))
     }
@@ -209,8 +195,7 @@ mod tests {
         mock.expect_get_release_notes()
             .returning(move |_| Ok(notes.clone()));
 
-        mock.expect_remote_config()
-            .returning(create_test_remote_config);
+        mock.expect_remote_config().returning(RemoteConfig::default);
 
         ForgeManager::new(Box::new(mock))
     }
@@ -219,10 +204,20 @@ mod tests {
 
     #[tokio::test]
     async fn next_release_returns_all_packages_when_no_filter() {
-        let manager = mock_forge_with_packages(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Rust),
-        ]);
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                release_type: Some(ReleaseType::Rust),
+                ..PackageConfig::default()
+            },
+        ];
+
+        let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: None,
@@ -235,10 +230,20 @@ mod tests {
 
     #[tokio::test]
     async fn next_release_filters_to_specific_package() {
-        let manager = mock_forge_with_packages(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Rust),
-        ]);
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                release_type: Some(ReleaseType::Rust),
+                ..PackageConfig::default()
+            },
+        ];
+
+        let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: None,
@@ -292,10 +297,20 @@ mod tests {
 
     #[tokio::test]
     async fn next_release_combines_filter_and_file_output() {
-        let manager = mock_forge_with_packages(vec![
-            ("pkg-a", ".", ReleaseType::Node),
-            ("pkg-b", ".", ReleaseType::Rust),
-        ]);
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                release_type: Some(ReleaseType::Rust),
+                ..PackageConfig::default()
+            },
+        ];
+
+        let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: Some("/tmp/filtered.json".to_string()),
