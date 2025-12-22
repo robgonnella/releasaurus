@@ -10,7 +10,7 @@ use crate::{
 pub type Result<T> = EyreResult<T>;
 
 /// Represents a release-able package in manifest
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ReleasablePackage {
     /// The name of this package
     pub name: String,

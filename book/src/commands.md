@@ -82,26 +82,30 @@ releasaurus show next-release --forge local --repo "."
 **Output:** JSON array of releasable packages with version, commits, and
 notes.
 
-#### `show release-notes`
+#### `show release`
 
-Retrieves release notes for an existing tag:
+Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:
 
 ```bash
 # Display release notes
-releasaurus show release-notes \
+releasaurus show release \
   --tag v1.0.0 \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save to file
-releasaurus show release-notes \
+releasaurus show release \
   --tag v1.0.0 \
-  --out-file notes.txt \
+  --out-file release.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 ```
 
-**Output:** Release notes text for the specified tag.
+**Output:** JSON object containing release data with fields:
+
+- `tag` - The release tag name
+- `sha` - The commit SHA the tag points to
+- `notes` - The release notes content
 
 **Custom Notifications:** Use these commands to build notification scripts
 that announce upcoming releases (pre-release) or published releases

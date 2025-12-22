@@ -9,7 +9,8 @@ use crate::{
         config::RemoteConfig,
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
-            GetPrRequest, PrLabelsRequest, PullRequest, UpdatePrRequest,
+            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -52,8 +53,11 @@ impl ForgeManager {
         self.forge.load_config().await
     }
 
-    pub async fn get_release_notes(&self, tag: &str) -> Result<String> {
-        self.forge.get_release_notes(tag).await
+    pub async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
+        self.forge.get_release_by_tag(tag).await
     }
 
     pub async fn load_manifest_targets(

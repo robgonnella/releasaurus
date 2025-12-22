@@ -25,7 +25,7 @@ use gitlab::{
                     CreateCommit,
                 },
                 files::File,
-                tags::{CreateTag, Tags, TagsOrderBy},
+                tags::{CreateTag, Tag as GitlabTagBuilder, Tags, TagsOrderBy},
             },
         },
     },
@@ -51,7 +51,7 @@ use crate::{
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            UpdatePrRequest,
+            ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -352,10 +352,35 @@ impl Forge for Gitlab {
         }
     }
 
-    async fn get_release_notes(&self, tag: &str) -> Result<String> {
+    async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
+        let tag_endpoint = GitlabTagBuilder::builder()
+            .project(&self.project_id)
+            .tag_name(tag)
+            .build()?;
+
+        let result: std::result::Result<
+            GitlabTag,
+            gitlab::api::ApiError<gitlab::RestError>,
+        > = tag_endpoint.query_async(&self.gl).await;
+
+        let tag = match result {
+            Ok(tag) => Ok(tag),
+            Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
+                if status == StatusCode::NOT_FOUND {
+                    return Err(eyre!(format!("tag not found: {tag}")));
+                }
+
+                Err(eyre!(msg))
+            }
+            Err(err) => Err(eyre!(err)),
+        }?;
+
         let endpoint = ProjectReleaseByTag::builder()
             .project(&self.project_id)
-            .tag(tag.into())
+            .tag(tag.name.clone().into())
             .build()?;
 
         let result: std::result::Result<
@@ -364,11 +389,16 @@ impl Forge for Gitlab {
         > = endpoint.query_async(&self.gl).await;
 
         match result {
-            Ok(release) => Ok(release.description),
+            Ok(release) => Ok(ReleaseByTagResponse {
+                tag: tag.name,
+                sha: tag.commit.id,
+                notes: release.description,
+            }),
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == StatusCode::NOT_FOUND {
                     return Err(eyre!(format!(
-                        "no release found for tag: {tag}"
+                        "no release found for tag: {}",
+                        tag.name
                     )));
                 }
 

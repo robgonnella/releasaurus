@@ -26,7 +26,7 @@ use crate::{
         request::{
             Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
             ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            UpdatePrRequest,
+            ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -343,16 +343,37 @@ impl Forge for Gitea {
         }
     }
 
-    async fn get_release_notes(&self, tag: &str) -> Result<String> {
-        let endpoint = self.base_url.join(&format!("releases/tags/{tag}"))?;
-        let request = self.client.get(endpoint).build()?;
+    async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
+        let tag_endpoint = self.base_url.join(&format!("tags/{tag}"))?;
+        let request = self.client.get(tag_endpoint).build()?;
         let response = self.client.execute(request).await?;
         if response.status() == StatusCode::NOT_FOUND {
-            return Err(eyre!(format!("no release found for tag: {tag}")));
+            return Err(eyre!(format!("tag not found: {tag}")));
+        }
+        let result = response.error_for_status()?;
+        let tag: GiteaTag = result.json().await?;
+
+        let release_endpoint =
+            self.base_url.join(&format!("releases/tags/{}", tag.name))?;
+        let request = self.client.get(release_endpoint).build()?;
+        let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Err(eyre!(format!(
+                "no release found for tag: {}",
+                tag.name
+            )));
         }
         let result = response.error_for_status()?;
         let release: GiteaRelease = result.json().await?;
-        Ok(release.body)
+
+        Ok(ReleaseByTagResponse {
+            tag: tag.name.clone(),
+            sha: tag.commit.sha.clone(),
+            notes: release.body.clone(),
+        })
     }
 
     async fn get_latest_tag_for_prefix(
