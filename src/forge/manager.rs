@@ -45,12 +45,16 @@ impl ForgeManager {
         self.forge.default_branch()
     }
 
-    pub async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
-        self.forge.get_file_content(path).await
+    pub async fn get_file_content(
+        &self,
+        branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>> {
+        self.forge.get_file_content(branch, path).await
     }
 
-    pub async fn load_config(&self) -> Result<Config> {
-        self.forge.load_config().await
+    pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
+        self.forge.load_config(branch).await
     }
 
     pub async fn get_release_by_tag(
@@ -62,6 +66,7 @@ impl ForgeManager {
 
     pub async fn load_manifest_targets(
         &self,
+        branch: Option<String>,
         targets: Vec<ManifestTarget>,
     ) -> Result<Option<Vec<ManifestFile>>> {
         if targets.is_empty() {
@@ -71,7 +76,9 @@ impl ForgeManager {
         let mut manifests = vec![];
 
         for target in targets.iter() {
-            if let Some(content) = self.get_file_content(&target.path).await? {
+            if let Some(content) =
+                self.get_file_content(branch.clone(), &target.path).await?
+            {
                 manifests.push(ManifestFile {
                     is_workspace: target.is_workspace,
                     path: target.path.clone(),
@@ -97,9 +104,14 @@ impl ForgeManager {
 
     pub async fn get_commits(
         &self,
+        branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
-        self.forge.get_commits(sha).await
+        debug!(
+            "getting commits for branch [{:?}] starting from sha: {:?}",
+            branch, sha
+        );
+        self.forge.get_commits(branch, sha).await
     }
 
     pub async fn get_open_release_pr(
@@ -197,7 +209,7 @@ mod tests {
             .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
-        let result = manager.load_manifest_targets(vec![]).await.unwrap();
+        let result = manager.load_manifest_targets(None, vec![]).await.unwrap();
 
         assert!(result.is_none());
     }
@@ -208,7 +220,9 @@ mod tests {
         mock_forge
             .expect_remote_config()
             .returning(RemoteConfig::default);
-        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+        mock_forge
+            .expect_get_file_content()
+            .returning(|_, _| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let targets = vec![ManifestTarget {
@@ -216,7 +230,8 @@ mod tests {
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
         }];
-        let result = manager.load_manifest_targets(targets).await.unwrap();
+        let result =
+            manager.load_manifest_targets(None, targets).await.unwrap();
 
         assert!(result.is_none());
     }
@@ -229,12 +244,18 @@ mod tests {
             .returning(RemoteConfig::default);
         mock_forge
             .expect_get_file_content()
-            .with(mockall::predicate::eq("package.json"))
-            .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
+            .with(
+                mockall::predicate::eq(None),
+                mockall::predicate::eq("package.json"),
+            )
+            .returning(|_, _| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
         mock_forge
             .expect_get_file_content()
-            .with(mockall::predicate::eq("Cargo.toml"))
-            .returning(|_| Ok(None));
+            .with(
+                mockall::predicate::eq(None),
+                mockall::predicate::eq("Cargo.toml"),
+            )
+            .returning(|_, _| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let targets = vec![
@@ -249,7 +270,8 @@ mod tests {
                 basename: "Cargo.toml".to_string(),
             },
         ];
-        let result = manager.load_manifest_targets(targets).await.unwrap();
+        let result =
+            manager.load_manifest_targets(None, targets).await.unwrap();
 
         assert!(result.is_some());
         let manifests = result.unwrap();

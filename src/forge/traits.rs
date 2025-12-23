@@ -31,10 +31,14 @@ pub trait Forge: Any {
     /// Fetch the default branch name (e.g., "main" or "master").
     fn default_branch(&self) -> String;
     /// Load releasaurus.toml configuration from repository root.
-    async fn load_config(&self) -> Result<Config>;
+    async fn load_config(&self, branch: Option<String>) -> Result<Config>;
     /// Fetch file content from repository by path, returning None if file
     /// doesn't exist.
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>>;
+    async fn get_file_content(
+        &self,
+        branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>>;
     /// Retrieves the release notes for a specified tag
     async fn get_release_by_tag(
         &self,
@@ -57,6 +61,7 @@ pub trait Forge: Any {
     /// SHA.
     async fn get_commits(
         &self,
+        branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>>;
     /// Find an open release PR matching the given branch criteria.

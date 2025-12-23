@@ -35,7 +35,9 @@ pub async fn execute(
     forge_manager: &ForgeManager,
     base_branch_override: Option<String>,
 ) -> Result<()> {
-    let mut config = forge_manager.load_config().await?;
+    let mut config = forge_manager
+        .load_config(base_branch_override.clone())
+        .await?;
     let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
     let base_branch =
@@ -687,8 +689,8 @@ mod tests {
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_file_content().returning(|_| Ok(None));
-        mock.expect_get_commits().returning(|_| {
+        mock.expect_get_file_content().returning(|_, _| Ok(None));
+        mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
                 id: "abc".into(),
                 message: "feat: new".into(),
@@ -735,7 +737,7 @@ mod tests {
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
                 name: "v1.0.0".into(),
@@ -772,8 +774,8 @@ mod tests {
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_file_content().returning(|_| Ok(None));
-        mock.expect_get_commits().returning(|_| {
+        mock.expect_get_file_content().returning(|_, _| Ok(None));
+        mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
                 id: "abc".into(),
                 message: "feat: new".into(),
@@ -832,7 +834,7 @@ mod tests {
     async fn succeeds_with_no_releasable_packages() {
         let mut mock = MockForge::new();
 
-        mock.expect_load_config().returning(|| {
+        mock.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![PackageConfig {
                     name: "repo".into(),
@@ -846,7 +848,7 @@ mod tests {
         mock.expect_default_branch()
             .returning(|| "main".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
                 name: "v1.0.0".into(),
@@ -864,7 +866,7 @@ mod tests {
     async fn uses_cli_base_branch_override() {
         let mut mock = MockForge::new();
 
-        mock.expect_load_config().returning(|| {
+        mock.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![PackageConfig {
                     name: "repo".into(),
@@ -879,7 +881,7 @@ mod tests {
             .times(0)
             .returning(|| "main".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
                 name: "v1.0.0".into(),

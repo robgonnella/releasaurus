@@ -26,7 +26,9 @@ pub async fn execute(
     base_branch_override: Option<String>,
 ) -> Result<()> {
     let repo_name = forge_manager.repo_name();
-    let mut config = forge_manager.load_config().await?;
+    let mut config = forge_manager
+        .load_config(base_branch_override.clone())
+        .await?;
     let config = common::process_config(&repo_name, &mut config);
     let base_branch =
         common::base_branch(&config, forge_manager, base_branch_override);
@@ -140,7 +142,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![PackageConfig {
                     name: "my-package".into(),
@@ -210,7 +212,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             let config = Config {
                 separate_pull_requests: true,
                 packages: vec![PackageConfig {
@@ -269,7 +271,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![PackageConfig {
                     name: "my-package".into(),
@@ -310,7 +312,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![
                     PackageConfig {
@@ -595,7 +597,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![
                     PackageConfig {
@@ -682,7 +684,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 base_branch: Some("develop".into()),
                 packages: vec![PackageConfig {
@@ -737,7 +739,7 @@ mod tests {
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock_forge.expect_load_config().returning(|| {
+        mock_forge.expect_load_config().returning(|_| {
             Ok(Config {
                 packages: vec![PackageConfig {
                     name: "my-package".into(),
