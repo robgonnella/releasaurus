@@ -49,9 +49,9 @@ use crate::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
-            ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest,
+            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -533,10 +533,8 @@ impl Forge for Gitlab {
 
     async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        let default_branch_name = self.default_branch();
-
         let mut actions: Vec<CommitAction> = vec![];
 
         for change in req.file_changes {
@@ -545,7 +543,7 @@ impl Forge for Gitlab {
             let mut update_type = CommitActionType::Update;
 
             let existing_content = self
-                .get_file_content(Some(req.branch.clone()), &change.path)
+                .get_file_content(Some(req.base_branch.clone()), &change.path)
                 .await?;
 
             if existing_content.is_none() {
@@ -569,8 +567,8 @@ impl Forge for Gitlab {
 
         let endpoint = CreateCommit::builder()
             .project(&self.project_id)
-            .start_branch(default_branch_name)
-            .branch(req.branch)
+            .start_branch(req.base_branch)
+            .branch(req.release_branch)
             .actions(actions)
             .commit_message(req.message)
             .force(true)

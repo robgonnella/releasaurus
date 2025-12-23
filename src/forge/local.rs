@@ -18,7 +18,7 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -279,7 +279,7 @@ impl Forge for LocalRepo {
 
     async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         warn!("local_mode: would create branch: req: {:#?}", req);
         Ok(Commit {

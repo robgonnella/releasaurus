@@ -35,9 +35,9 @@ use crate::{
             RemoteConfig,
         },
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
-            ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest,
+            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -152,7 +152,7 @@ impl Github {
 
     async fn get_tree_entries(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Vec<GithubTreeEntry>> {
         let mut entries: Vec<GithubTreeEntry> = vec![];
 
@@ -160,7 +160,10 @@ impl Github {
             let mut content = change.content;
             if matches!(change.update_type, FileUpdateType::Prepend)
                 && let Some(existing_content) = self
-                    .get_file_content(Some(req.branch.clone()), &change.path)
+                    .get_file_content(
+                        Some(req.base_branch.clone()),
+                        &change.path,
+                    )
                     .await?
             {
                 content = format!("{content}{existing_content}");
@@ -501,32 +504,33 @@ impl Forge for Github {
 
     async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        let default_branch = self.default_branch();
-
-        let default_ref = self
+        let r#ref = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
-            .get_ref(&params::repos::Reference::Branch(default_branch))
+            .get_ref(&params::repos::Reference::Branch(req.base_branch.clone()))
             .await?;
 
-        let default_sha = match default_ref.object {
+        let starting_sha = match r#ref.object {
             Object::Commit { sha, .. } => Ok(sha),
-            _ => Err(eyre!("failed to find sha of default branch")),
+            _ => Err(eyre!(format!(
+                "failed to find HEAD sha for base branch: {}",
+                req.base_branch
+            ))),
         }?;
 
         let tree = self.get_tree_entries(req.clone()).await?;
 
         let tree = self
             .create_tree(GithubTree {
-                base_tree: default_sha.clone(),
+                base_tree: starting_sha.clone(),
                 tree,
             })
             .await?;
 
         let commit = self
-            .create_commit(&req.message, &default_sha, &tree.sha)
+            .create_commit(&req.message, &starting_sha, &tree.sha)
             .await?;
 
         info!("created commit for branch: sha: {}", commit.sha);
@@ -534,14 +538,22 @@ impl Forge for Github {
         let target_ref = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
-            .get_ref(&params::repos::Reference::Branch(req.branch.clone()))
+            .get_ref(&params::repos::Reference::Branch(
+                req.release_branch.clone(),
+            ))
             .await;
 
         if target_ref.is_ok() {
-            info!("release branch {} already exists: updating", req.branch);
+            info!(
+                "release branch {} already exists: updating",
+                req.release_branch
+            );
             let endpoint = format!(
                 "{}/repos/{}/{}/git/refs/heads/{}",
-                self.base_uri, self.config.owner, self.config.repo, req.branch
+                self.base_uri,
+                self.config.owner,
+                self.config.repo,
+                req.release_branch
             );
             let _: serde_json::Value = self
                 .instance
@@ -557,12 +569,12 @@ impl Forge for Github {
             return Ok(commit);
         }
 
-        info!("creating release branch {}", req.branch);
+        info!("creating release branch {}", req.release_branch);
 
         self.instance
             .repos(&self.config.owner, &self.config.repo)
             .create_ref(
-                &params::repos::Reference::Branch(req.branch),
+                &params::repos::Reference::Branch(req.release_branch),
                 commit.sha.clone(),
             )
             .await?;

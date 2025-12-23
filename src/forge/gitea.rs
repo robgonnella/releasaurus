@@ -24,9 +24,9 @@ use crate::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, FileUpdateType,
-            ForgeCommit, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest,
+            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -172,6 +172,7 @@ struct GiteaFileChange {
 // Update once below issue is resolved
 // https://github.com/go-gitea/gitea/issues/35538
 struct GiteaModifyFiles {
+    pub old_ref_name: String,
     pub new_branch: String,
     pub message: String,
     pub files: Vec<GiteaFileChange>,
@@ -521,11 +522,11 @@ impl Forge for Gitea {
 
     async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         // TODO: Once below issue is resolved we can delete this call
         // https://github.com/go-gitea/gitea/issues/35538
-        self.delete_branch_if_exists(&req.branch).await?;
+        self.delete_branch_if_exists(&req.release_branch).await?;
         // pause execution to wait for any PRs that might have been closed as
         // a result to fully register as closed
         sleep(Duration::from_millis(3000)).await;
@@ -537,7 +538,7 @@ impl Forge for Gitea {
             let mut sha = None;
             let mut content = change.content.clone();
             let existing_content = self
-                .get_file_content(Some(req.branch.clone()), &change.path)
+                .get_file_content(Some(req.base_branch.clone()), &change.path)
                 .await?;
             if let Some(existing_content) = existing_content {
                 sha = Some(self.get_file_sha(&change.path).await?);
@@ -559,7 +560,8 @@ impl Forge for Gitea {
         // Update once below issue is resolved
         // https://github.com/go-gitea/gitea/issues/35538
         let body = GiteaModifyFiles {
-            new_branch: req.branch,
+            old_ref_name: req.base_branch,
+            new_branch: req.release_branch,
             message: req.message,
             files: file_changes,
             // force: true,

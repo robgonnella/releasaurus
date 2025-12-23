@@ -15,8 +15,8 @@ use crate::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         manager::ForgeManager,
         request::{
-            CreateBranchRequest, CreatePrRequest, FileChange, FileUpdateType,
-            GetPrRequest, PrLabelsRequest, UpdatePrRequest,
+            CreatePrRequest, CreateReleaseBranchRequest, FileChange,
+            FileUpdateType, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
         },
     },
     updater::{generic::updater::GenericUpdater, manager::UpdateManager},
@@ -108,8 +108,9 @@ async fn create_branch_release_prs(
 
         info!("creating / updating release branch: {release_branch}");
         forge_manager
-            .create_release_branch(CreateBranchRequest {
-                branch: release_branch.clone(),
+            .create_release_branch(CreateReleaseBranchRequest {
+                base_branch: base_branch.to_string(),
+                release_branch: release_branch.clone(),
                 message: title.clone(),
                 file_changes,
             })
