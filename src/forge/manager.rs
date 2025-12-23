@@ -8,7 +8,7 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -130,7 +130,7 @@ impl ForgeManager {
 
     pub async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         if self.remote_config.dry_run {
             warn!("dry_run: would create release branch: req: {:#?}", req);
@@ -291,9 +291,10 @@ mod tests {
             });
 
         let manager = ForgeManager::new(Box::new(mock_forge));
-        let req = CreateBranchRequest {
-            branch: "release-branch".to_string(),
-            message: "chore: release".to_string(),
+        let req = CreateReleaseBranchRequest {
+            base_branch: "main".into(),
+            release_branch: "release-branch".into(),
+            message: "chore: release".into(),
             file_changes: vec![],
         };
         let result = manager.create_release_branch(req).await.unwrap();

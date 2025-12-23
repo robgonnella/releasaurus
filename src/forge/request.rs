@@ -98,8 +98,9 @@ pub struct FileChange {
 
 /// Request to create a new branch with file changes and commit message.
 #[derive(Debug, Clone)]
-pub struct CreateBranchRequest {
-    pub branch: String,
+pub struct CreateReleaseBranchRequest {
+    pub base_branch: String,
+    pub release_branch: String,
     pub message: String,
     pub file_changes: Vec<FileChange>,
 }

@@ -12,7 +12,7 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreateBranchRequest, CreatePrRequest, ForgeCommit,
+            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -47,7 +47,7 @@ pub trait Forge: Any {
     /// Create a new branch with file changes and return the commit SHA.
     async fn create_release_branch(
         &self,
-        req: CreateBranchRequest,
+        req: CreateReleaseBranchRequest,
     ) -> Result<Commit>;
     /// Create a git tag pointing to a specific commit SHA.
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()>;
