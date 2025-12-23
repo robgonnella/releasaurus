@@ -309,8 +309,16 @@ impl Forge for Gitea {
         self.default_branch.clone()
     }
 
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
-        let raw_url = self.base_url.join(&format!("raw/{path}"))?;
+    async fn get_file_content(
+        &self,
+        branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>> {
+        let mut raw_url = self.base_url.join(&format!("raw/{path}"))?;
+        if let Some(branch) = branch {
+            raw_url =
+                self.base_url.join(&format!("raw/{path}?ref={branch}"))?;
+        }
         let request = self.client.get(raw_url).build()?;
         let response = self.client.execute(request).await?;
         if response.status() == StatusCode::NOT_FOUND {
@@ -322,9 +330,9 @@ impl Forge for Gitea {
         Ok(Some(content))
     }
 
-    async fn load_config(&self) -> Result<Config> {
+    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
         if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -412,6 +420,7 @@ impl Forge for Gitea {
 
     async fn get_commits(
         &self,
+        branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut page = 1;
@@ -440,6 +449,10 @@ impl Forge for Gitea {
                 .query_pairs_mut()
                 .append_pair("limit", &page_limit.to_string())
                 .append_pair("page", &page.to_string());
+
+            if let Some(branch) = branch.clone() {
+                commits_url.query_pairs_mut().append_pair("sha", &branch);
+            }
 
             if let Some(since) = since.clone() {
                 commits_url.query_pairs_mut().append_pair("since", &since);
@@ -523,7 +536,9 @@ impl Forge for Gitea {
             let mut op = GiteaFileChangeOperation::Update;
             let mut sha = None;
             let mut content = change.content.clone();
-            let existing_content = self.get_file_content(&change.path).await?;
+            let existing_content = self
+                .get_file_content(Some(req.branch.clone()), &change.path)
+                .await?;
             if let Some(existing_content) = existing_content {
                 sha = Some(self.get_file_sha(&change.path).await?);
                 if matches!(change.update_type, FileUpdateType::Prepend) {

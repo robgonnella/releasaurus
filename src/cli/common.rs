@@ -147,6 +147,7 @@ pub async fn get_releasable_packages(
         forge_manager,
         &config.packages,
         &repo_name,
+        base_branch,
     )
     .await?;
 
@@ -194,11 +195,17 @@ pub async fn get_releasable_packages(
                 UpdateManager::additional_manifest_targets(package);
 
             let manifest_files = forge_manager
-                .load_manifest_targets(release_manifest_targets)
+                .load_manifest_targets(
+                    Some(base_branch.into()),
+                    release_manifest_targets,
+                )
                 .await?;
 
             let additional_manifest_files = forge_manager
-                .load_manifest_targets(additional_manifest_targets)
+                .load_manifest_targets(
+                    Some(base_branch.into()),
+                    additional_manifest_targets,
+                )
                 .await?;
 
             releasable_packages.push(ReleasablePackage {
@@ -242,6 +249,7 @@ pub async fn get_commits_for_all_packages(
     forge_manager: &ForgeManager,
     packages: &[PackageConfig],
     repo_name: &str,
+    base_branch: &str,
 ) -> Result<Vec<ForgeCommit>> {
     info!("attempting to get commits for all packages at once");
     let mut starting_sha = None;
@@ -275,12 +283,15 @@ pub async fn get_commits_for_all_packages(
             forge_manager,
             packages,
             repo_name,
+            base_branch,
         )
         .await;
     }
 
     info!("getting commits");
-    forge_manager.get_commits(starting_sha).await
+    forge_manager
+        .get_commits(Some(base_branch.into()), starting_sha)
+        .await
 }
 
 /// Filters list of commit to just the commits pertaining to a specific package
@@ -358,6 +369,7 @@ async fn get_commits_for_all_packages_separately(
     forge_manager: &ForgeManager,
     packages: &[PackageConfig],
     repo_name: &str,
+    base_branch: &str,
 ) -> Result<Vec<ForgeCommit>> {
     let mut cache: HashSet<ForgeCommit> = HashSet::new();
 
@@ -374,7 +386,9 @@ async fn get_commits_for_all_packages_separately(
             package.name, current_sha
         );
 
-        let commits = forge_manager.get_commits(current_sha).await?;
+        let commits = forge_manager
+            .get_commits(Some(base_branch.into()), current_sha)
+            .await?;
 
         cache.extend(commits);
     }

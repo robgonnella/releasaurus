@@ -159,8 +159,9 @@ impl Github {
         for change in req.file_changes.into_iter() {
             let mut content = change.content;
             if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) =
-                    self.get_file_content(&change.path).await?
+                && let Some(existing_content) = self
+                    .get_file_content(Some(req.branch.clone()), &change.path)
+                    .await?
             {
                 content = format!("{content}{existing_content}");
             }
@@ -221,9 +222,9 @@ impl Forge for Github {
         self.default_branch.clone()
     }
 
-    async fn load_config(&self) -> Result<Config> {
+    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
         if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -243,14 +244,27 @@ impl Forge for Github {
         }
     }
 
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
-        let result = self
-            .instance
-            .repos(&self.config.owner, &self.config.repo)
-            .get_content()
-            .path(path)
-            .send()
-            .await;
+    async fn get_file_content(
+        &self,
+        branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>> {
+        let result = if let Some(branch) = branch {
+            self.instance
+                .repos(&self.config.owner, &self.config.repo)
+                .get_content()
+                .path(path)
+                .r#ref(branch)
+                .send()
+                .await
+        } else {
+            self.instance
+                .repos(&self.config.owner, &self.config.repo)
+                .get_content()
+                .path(path)
+                .send()
+                .await
+        };
 
         match result {
             Err(octocrab::Error::GitHub { source, backtrace }) => {
@@ -375,8 +389,10 @@ impl Forge for Github {
 
     async fn get_commits(
         &self,
+        branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
+        let branch = branch.clone().unwrap_or(self.default_branch());
         let search_depth = self.commit_search_depth.lock().await;
 
         let mut commits = vec![];
@@ -384,8 +400,6 @@ impl Forge for Github {
         let page: Page<RepoCommit>;
 
         if let Some(sha) = sha.clone() {
-            debug!("getting commits starting from sha: {sha}");
-
             let vars = ShaDateQueryVariables {
                 owner: self.config.owner.clone(),
                 repo: self.config.repo.clone(),
@@ -408,6 +422,7 @@ impl Forge for Github {
                 .repos(&self.config.owner, &self.config.repo)
                 .list_commits()
                 .since(since)
+                .sha(&branch)
                 .send()
                 .await?;
         } else {
@@ -415,6 +430,7 @@ impl Forge for Github {
                 .instance
                 .repos(&self.config.owner, &self.config.repo)
                 .list_commits()
+                .sha(&branch)
                 .send()
                 .await?;
         }

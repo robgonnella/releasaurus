@@ -281,9 +281,9 @@ impl Forge for Gitlab {
         self.default_branch.clone()
     }
 
-    async fn load_config(&self) -> Result<Config> {
+    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
         if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -302,11 +302,17 @@ impl Forge for Gitlab {
         }
     }
 
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
+    async fn get_file_content(
+        &self,
+        branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>> {
+        let r#ref = branch.unwrap_or("HEAD".into());
+
         let endpoint = File::builder()
             .project(&self.project_id)
             .file_path(path)
-            .ref_("HEAD")
+            .ref_(&r#ref)
             .build()?;
 
         let result: std::result::Result<
@@ -441,8 +447,11 @@ impl Forge for Gitlab {
 
     async fn get_commits(
         &self,
+        branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
+        let branch = branch.clone().unwrap_or(self.default_branch());
+
         let search_depth = self.commit_search_depth.lock().await;
 
         let mut builder = Commits::builder();
@@ -452,7 +461,7 @@ impl Forge for Gitlab {
             .order(CommitsOrder::Default);
 
         if let Some(sha) = sha.clone() {
-            let range = format!("{sha}..HEAD");
+            let range = format!("{sha}..{branch}");
             builder.ref_name(range);
         }
 
@@ -535,7 +544,9 @@ impl Forge for Gitlab {
 
             let mut update_type = CommitActionType::Update;
 
-            let existing_content = self.get_file_content(&change.path).await?;
+            let existing_content = self
+                .get_file_content(Some(req.branch.clone()), &change.path)
+                .await?;
 
             if existing_content.is_none() {
                 update_type = CommitActionType::Create;

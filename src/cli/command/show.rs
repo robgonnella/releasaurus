@@ -91,7 +91,9 @@ async fn show_next_release(
     package: Option<String>,
     base_branch_override: Option<String>,
 ) -> Result<()> {
-    let mut config = forge_manager.load_config().await?;
+    let mut config = forge_manager
+        .load_config(base_branch_override.clone())
+        .await?;
     let repo_name = forge_manager.repo_name();
     let config = common::process_config(&repo_name, &mut config);
     let base_branch =
@@ -174,7 +176,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_load_config().returning(move || {
+        mock.expect_load_config().returning(move |_| {
             Ok(Config {
                 packages: packages.to_owned(),
                 ..Config::default()
@@ -187,7 +189,7 @@ mod tests {
         mock.expect_get_latest_tag_for_prefix()
             .returning(|_| Ok(None));
 
-        mock.expect_get_commits().returning(|_| Ok(vec![]));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
         mock.expect_remote_config().returning(RemoteConfig::default);
 

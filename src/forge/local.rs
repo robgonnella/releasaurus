@@ -86,7 +86,11 @@ impl Forge for LocalRepo {
         RemoteConfig::default()
     }
 
-    async fn get_file_content(&self, path: &str) -> Result<Option<String>> {
+    async fn get_file_content(
+        &self,
+        _branch: Option<String>,
+        path: &str,
+    ) -> Result<Option<String>> {
         let full_path = Path::new(&self.repo_path).join(path);
         if !full_path.exists() {
             return Ok(None);
@@ -95,9 +99,9 @@ impl Forge for LocalRepo {
         Ok(Some(content))
     }
 
-    async fn load_config(&self) -> Result<Config> {
+    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
         if let Some(content) =
-            self.get_file_content(DEFAULT_CONFIG_FILE).await?
+            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
         {
             let config: Config = toml::from_str(&content)?;
             Ok(config)
@@ -167,6 +171,7 @@ impl Forge for LocalRepo {
 
     async fn get_commits(
         &self,
+        _branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let repo = self.repo.lock().await;
