@@ -12,7 +12,8 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -36,8 +37,7 @@ pub trait Forge: Any {
     /// doesn't exist.
     async fn get_file_content(
         &self,
-        branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>>;
     /// Retrieves the release notes for a specified tag
     async fn get_release_by_tag(
@@ -49,6 +49,8 @@ pub trait Forge: Any {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit>;
+    /// Creates a commit on a target branch
+    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit>;
     /// Create a git tag pointing to a specific commit SHA.
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()>;
     /// Find the most recent tag matching the given prefix (e.g., "v" or

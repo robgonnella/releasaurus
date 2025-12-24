@@ -128,6 +128,7 @@ The configuration file uses TOML format with these main sections:
   history depth for initial release analysis
 - **`separate_pull_requests`** - (optional, default: false) Create separate PRs
   for each package in monorepos
+- **`auto_start_next`** - (optional, default: false) Automatically bump patch versions after release
 - **`[prerelease]`** - (optional) Global prerelease configuration
   - `suffix` - (optional) Identifier to append (e.g., `"alpha"`, `"beta"`,
     `"SNAPSHOT"`). Omit or set to `null` to disable prereleases.
@@ -156,6 +157,7 @@ The configuration file uses TOML format with these main sections:
   - `release_type`: (required) The release type for this package, see below for
     options
   - `tag_prefix`: (optional) The tag prefix to use for this package
+  - `auto_start_next`: (optional) Override global auto_start_next setting
   - `prerelease`: (optional) Inline table that overrides global prerelease
     config for this package, e.g. `prerelease = { suffix = "beta",
 strategy = "static" }`
@@ -392,6 +394,30 @@ With this configuration:
 - Teams can merge and release packages independently
 - No need to coordinate releases across all packages
 - Each package maintains its own version history
+
+## Auto Start Next Release
+
+Automatically bumps patch versions after publishing a release. After
+`releasaurus release` completes, manifest files are updated and chore commits
+are pushed for each targeted package directly to the base branch to start the
+next release cycle. No PRs are created and no tagging occurs at this time, only
+manifest version file updates.
+
+```toml
+# Enable globally for all packages
+auto_start_next = true
+
+# Or override per package
+[[package]]
+path = "./packages/core"
+release_type = "rust"
+auto_start_next = false  # Disable for this package
+```
+
+**Default**: `false`
+
+Package-level settings override the global configuration. See
+[`start-next` command](./commands.md#start-next) for more details.
 
 ## Changelog Configuration
 

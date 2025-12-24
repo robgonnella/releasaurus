@@ -18,7 +18,8 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -88,10 +89,9 @@ impl Forge for LocalRepo {
 
     async fn get_file_content(
         &self,
-        _branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        let full_path = Path::new(&self.repo_path).join(path);
+        let full_path = Path::new(&self.repo_path).join(&req.path);
         if !full_path.exists() {
             return Ok(None);
         }
@@ -100,8 +100,12 @@ impl Forge for LocalRepo {
     }
 
     async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
+        if let Some(content) = self
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: DEFAULT_CONFIG_FILE.into(),
+            })
+            .await?
         {
             let config: Config = toml::from_str(&content)?;
             Ok(config)
@@ -282,9 +286,12 @@ impl Forge for LocalRepo {
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         warn!("local_mode: would create branch: req: {:#?}", req);
-        Ok(Commit {
-            sha: "abc123".into(),
-        })
+        Ok(Commit { sha: "None".into() })
+    }
+
+    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+        warn!("local_mode: would create commit: req: {:#?}", req);
+        Ok(Commit { sha: "None".into() })
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
@@ -315,7 +322,7 @@ impl Forge for LocalRepo {
         warn!("local_mode: would create release pr: req: {:#?}", req);
         Ok(PullRequest {
             number: 0,
-            sha: "fff".into(),
+            sha: "None".into(),
             body: req.body,
         })
     }

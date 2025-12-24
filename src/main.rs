@@ -17,7 +17,7 @@
 use clap::Parser;
 
 use releasaurus::{
-    Cli, Command, Result, ShowCommand, release, release_pr, show,
+    Cli, Command, Result, ShowCommand, release, release_pr, show, start_next,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -99,6 +99,9 @@ async fn main() -> Result<()> {
         }
         Command::Show { command } => {
             show::execute(&forge_manager, command, cli.base_branch).await
+        }
+        Command::StartNext { packages } => {
+            start_next::execute(&forge_manager, packages, cli.base_branch).await
         }
     }
 }

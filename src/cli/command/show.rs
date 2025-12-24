@@ -1,4 +1,4 @@
-//! Projected release command implementation.
+//! Shows information about prior and upcoming releases
 use clap::Subcommand;
 use log::*;
 use std::path::Path;

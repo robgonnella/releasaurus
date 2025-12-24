@@ -26,12 +26,17 @@ pub async fn execute(
     base_branch_override: Option<String>,
 ) -> Result<()> {
     let repo_name = forge_manager.repo_name();
+
     let mut config = forge_manager
         .load_config(base_branch_override.clone())
         .await?;
-    let config = common::process_config(&repo_name, &mut config);
+
+    config = common::process_config(&repo_name, &mut config);
+
     let base_branch =
         common::base_branch(&config, forge_manager, base_branch_override);
+
+    let mut auto_start_packages = vec![];
 
     for package in config.packages.iter() {
         let mut release_branch =
@@ -60,7 +65,23 @@ pub async fn execute(
             };
 
             forge_manager.replace_pr_labels(req).await?;
+
+            let auto_start_next =
+                common::resolve_auto_start_next(&config, package);
+
+            if auto_start_next {
+                auto_start_packages.push(package.name.clone());
+            };
         }
+    }
+
+    if !auto_start_packages.is_empty() {
+        config
+            .packages
+            .retain(|p| auto_start_packages.contains(&p.name));
+
+        common::start_next_release(&config, forge_manager, &base_branch)
+            .await?;
     }
 
     Ok(())
@@ -408,16 +429,9 @@ mod tests {
         let package = PackageConfig {
             name: "pkg-b".into(),
             path: "packages/b".into(),
-            workspace_root: ".".into(),
             release_type: Some(ReleaseType::Rust),
             tag_prefix: Some("pkg-b-v".to_string()),
-            prerelease: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-            additional_paths: None,
-            additional_manifest_files: None,
+            ..PackageConfig::default()
         };
 
         let pr = PullRequest {
@@ -449,17 +463,9 @@ mod tests {
 
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
             release_type: Some(ReleaseType::Node),
             tag_prefix: Some("v".to_string()),
-            prerelease: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-            additional_paths: None,
-            additional_manifest_files: None,
+            ..PackageConfig::default()
         };
 
         let pr = PullRequest {
@@ -484,17 +490,9 @@ mod tests {
 
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
             release_type: Some(ReleaseType::Node),
             tag_prefix: Some("v".to_string()),
-            prerelease: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-            additional_paths: None,
-            additional_manifest_files: None,
+            ..PackageConfig::default()
         };
 
         let pr = PullRequest {
@@ -525,17 +523,9 @@ mod tests {
 
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
             release_type: Some(ReleaseType::Node),
             tag_prefix: Some("v".to_string()),
-            prerelease: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-            additional_paths: None,
-            additional_manifest_files: None,
+            ..PackageConfig::default()
         };
 
         let pr = PullRequest {
@@ -560,17 +550,9 @@ mod tests {
 
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
             release_type: Some(ReleaseType::Node),
             tag_prefix: Some("v".to_string()),
-            prerelease: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
-            additional_paths: None,
-            additional_manifest_files: None,
+            ..PackageConfig::default()
         };
 
         let pr = PullRequest {
@@ -785,6 +767,201 @@ mod tests {
         let manager = ForgeManager::new(Box::new(mock_forge));
 
         let result = execute(&manager, Some("develop".to_string())).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_auto_start_next_enabled_globally() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|_| {
+            Ok(Config {
+                auto_start_next: Some(true),
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 42,
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"Release\"}}-->\n<details>".to_string(),
+                }))
+            });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock_forge
+            .expect_remote_config()
+            .returning(RemoteConfig::default);
+
+        // Expect start_next to be called
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(crate::analyzer::release::Tag {
+                    name: "v1.0.0".into(),
+                    semver: semver::Version::parse("1.0.0").unwrap(),
+                    ..Default::default()
+                }))
+            });
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        mock_forge.expect_create_commit().returning(|_| {
+            Ok(crate::forge::request::Commit {
+                sha: "new-sha".into(),
+            })
+        });
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_auto_start_next_enabled_at_package_level() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|_| {
+            Ok(Config {
+                auto_start_next: Some(false),
+                packages: vec![
+                    PackageConfig {
+                        name: "pkg1".into(),
+                        release_type: Some(ReleaseType::Node),
+                        auto_start_next: Some(true),
+                        ..PackageConfig::default()
+                    },
+                    PackageConfig {
+                        name: "pkg2".into(),
+                        release_type: Some(ReleaseType::Node),
+                        ..PackageConfig::default()
+                    },
+                ],
+                ..Config::default()
+            })
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 42,
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"pkg1\",\"tag\":\"v1.0.0\",\"notes\":\"Release\"}}-->\n<details>\n\n<!--{\"metadata\":{\"name\":\"pkg2\",\"tag\":\"v1.0.0\",\"notes\":\"Release\"}}-->\n<details>".to_string(),
+                }))
+            });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock_forge
+            .expect_remote_config()
+            .returning(RemoteConfig::default);
+
+        mock_forge
+            .expect_get_latest_tag_for_prefix()
+            .returning(|_| {
+                Ok(Some(crate::analyzer::release::Tag {
+                    name: "v1.0.0".into(),
+                    semver: semver::Version::parse("1.0.0").unwrap(),
+                    ..Default::default()
+                }))
+            });
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        mock_forge.expect_create_commit().returning(|_| {
+            Ok(crate::forge::request::Commit {
+                sha: "new-sha".into(),
+            })
+        });
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager, None).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_auto_start_next_not_called_when_disabled() {
+        let mut mock_forge = MockForge::new();
+
+        mock_forge
+            .expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_load_config().returning(|_| {
+            Ok(Config {
+                packages: vec![PackageConfig {
+                    name: "my-package".into(),
+                    release_type: Some(ReleaseType::Node),
+                    ..PackageConfig::default()
+                }],
+                ..Config::default()
+            })
+        });
+
+        mock_forge
+            .expect_default_branch()
+            .returning(|| "main".to_string());
+
+        mock_forge
+            .expect_get_merged_release_pr()
+            .returning(|_| {
+                Ok(Some(PullRequest {
+                    number: 42,
+                    sha: "abc123".to_string(),
+                    body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"Release\"}}-->\n<details>".to_string(),
+                }))
+            });
+
+        mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+        mock_forge
+            .expect_create_release()
+            .returning(|_, _, _| Ok(()));
+        mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+        mock_forge
+            .expect_remote_config()
+            .returning(RemoteConfig::default);
+
+        // Should NOT call start_next functions
+        mock_forge.expect_get_latest_tag_for_prefix().times(0);
+        mock_forge.expect_create_commit().times(0);
+
+        let manager = ForgeManager::new(Box::new(mock_forge));
+
+        let result = execute(&manager, None).await;
         assert!(result.is_ok());
     }
 }

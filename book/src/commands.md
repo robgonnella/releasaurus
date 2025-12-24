@@ -39,6 +39,59 @@ This command finalizes the release:
 - Supports prerelease versions (alpha, beta, rc, etc.)
 - Supports dry-run mode for testing
 
+### `start-next`
+
+**Purpose**: Prepare for the next development cycle by bumping patch versions
+
+This command helps maintain a continuous development workflow by automatically
+incrementing patch versions immediately after a release:
+
+- Bumps patch version in manifest files for each package
+- Creates "chore" commits directly on the base branch
+- Does NOT create pull requests or tags
+- Skips packages that haven't been tagged yet
+- Supports filtering to specific packages with `--packages` flag
+- Ensures version numbers are always ahead of the last release
+
+**Usage:**
+
+```bash
+# Start next release cycle for all packages
+releasaurus start-next \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Target specific packages only
+releasaurus start-next \
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --packages pkg-a,pkg-b
+
+# With custom base branch
+releasaurus start-next \
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --base-branch develop
+```
+
+**When to use:**
+
+- After merging a release PR and publishing a release
+- To immediately bump versions for the next development cycle
+- To keep manifest versions ahead of released versions
+
+**How it works:**
+
+1. Identifies all packages that have been previously tagged
+2. Analyzes each package's current version from its latest tag
+3. Bumps the patch version (e.g., `1.2.3` → `1.2.4`)
+4. Updates manifest files (package.json, Cargo.toml, etc.)
+5. Creates a chore commit directly on the base branch
+
+**Note:** This command commits directly to your base branch without creating
+a pull request. Make sure you have the appropriate permissions and that your
+branch protection rules allow this operation.
+
 ### `show`
 
 **Purpose**: Query release information without making changes
@@ -129,6 +182,11 @@ releasaurus release-pr \
 
 # Step 3: Publish the release (run from anywhere)
 releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Step 4 (Optional): Start next development cycle
+releasaurus start-next \
   --forge github \
   --repo "https://github.com/owner/repo"
 ```
@@ -457,8 +515,7 @@ Get help for any command:
 releasaurus --help
 
 # Command-specific help
-releasaurus release-pr --help
-releasaurus release --help
+releasaurus <cmd> --help
 
 # Version information
 releasaurus --version

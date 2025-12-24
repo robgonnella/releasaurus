@@ -690,7 +690,7 @@ mod tests {
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_file_content().returning(|_, _| Ok(None));
+        mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
                 id: "abc".into(),
@@ -775,7 +775,7 @@ mod tests {
             .returning(|| "main".to_string());
         mock.expect_repo_name().returning(|| "repo".to_string());
         mock.expect_remote_config().returning(RemoteConfig::default);
-        mock.expect_get_file_content().returning(|_, _| Ok(None));
+        mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
                 id: "abc".into(),

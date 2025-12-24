@@ -132,8 +132,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        println!("result: {:#?}", result);
-
         assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);

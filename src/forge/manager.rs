@@ -8,7 +8,8 @@ use crate::{
     forge::{
         config::RemoteConfig,
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest, ForgeCommit,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
             GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             UpdatePrRequest,
         },
@@ -47,10 +48,9 @@ impl ForgeManager {
 
     pub async fn get_file_content(
         &self,
-        branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        self.forge.get_file_content(branch, path).await
+        self.forge.get_file_content(req).await
     }
 
     pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
@@ -76,15 +76,23 @@ impl ForgeManager {
         let mut manifests = vec![];
 
         for target in targets.iter() {
-            if let Some(content) =
-                self.get_file_content(branch.clone(), &target.path).await?
+            debug!("looking for manifest target: {}", target.path);
+            if let Some(content) = self
+                .get_file_content(GetFileContentRequest {
+                    branch: branch.clone(),
+                    path: target.path.to_string(),
+                })
+                .await?
             {
+                info!("found manifest target: {}", target.path);
                 manifests.push(ManifestFile {
                     is_workspace: target.is_workspace,
                     path: target.path.clone(),
                     basename: target.basename.clone(),
                     content,
                 });
+            } else {
+                debug!("no file found for path: {}", target.path);
             }
         }
 
@@ -137,6 +145,17 @@ impl ForgeManager {
             return Ok(Commit { sha: "fff".into() });
         }
         self.forge.create_release_branch(req).await
+    }
+
+    pub async fn create_commit(
+        &self,
+        req: CreateCommitRequest,
+    ) -> Result<Commit> {
+        if self.remote_config.dry_run {
+            warn!("dry_run: would create commit: req: {:#?}", req);
+            return Ok(Commit { sha: "fff".into() });
+        }
+        self.forge.create_commit(req).await
     }
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
@@ -199,7 +218,7 @@ impl ForgeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forge::traits::MockForge;
+    use crate::forge::{request::GetFileContentRequest, traits::MockForge};
 
     #[tokio::test]
     async fn load_manifest_targets_returns_none_for_empty_targets() {
@@ -220,9 +239,7 @@ mod tests {
         mock_forge
             .expect_remote_config()
             .returning(RemoteConfig::default);
-        mock_forge
-            .expect_get_file_content()
-            .returning(|_, _| Ok(None));
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let targets = vec![ManifestTarget {
@@ -244,18 +261,18 @@ mod tests {
             .returning(RemoteConfig::default);
         mock_forge
             .expect_get_file_content()
-            .with(
-                mockall::predicate::eq(None),
-                mockall::predicate::eq("package.json"),
-            )
-            .returning(|_, _| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
+            .with(mockall::predicate::eq(GetFileContentRequest {
+                branch: None,
+                path: "package.json".to_string(),
+            }))
+            .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
         mock_forge
             .expect_get_file_content()
-            .with(
-                mockall::predicate::eq(None),
-                mockall::predicate::eq("Cargo.toml"),
-            )
-            .returning(|_, _| Ok(None));
+            .with(mockall::predicate::eq(GetFileContentRequest {
+                branch: None,
+                path: "Cargo.toml".to_string(),
+            }))
+            .returning(|_| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let targets = vec![
@@ -291,6 +308,7 @@ mod tests {
             });
 
         let manager = ForgeManager::new(Box::new(mock_forge));
+
         let req = CreateReleaseBranchRequest {
             base_branch: "main".into(),
             release_branch: "release-branch".into(),

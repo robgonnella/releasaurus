@@ -13,7 +13,7 @@
       "default": null
     },
     "first_release_search_depth": {
-      "description": "Maximum number of commits to search for the first release when no\ntags exist.",
+      "description": "Maximum number of commits to search for the first release when no\ntags exist",
       "type": "integer",
       "format": "uint64",
       "minimum": 0,
@@ -25,12 +25,20 @@
       "default": false
     },
     "prerelease": {
-      "description": "Global prerelease configuration (suffix + strategy). Packages can\noverride this configuration.",
+      "description": "Global prerelease configuration (suffix + strategy). Packages can\noverride this configuration",
       "$ref": "#/$defs/PrereleaseConfig",
       "default": {
         "suffix": null,
         "strategy": "versioned"
       }
+    },
+    "auto_start_next": {
+      "description": "Global config to auto start next release for all packages. Packages\ncan override this configuration",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
     },
     "breaking_always_increment_major": {
       "description": "Always increments major version on breaking commits",
@@ -85,6 +93,7 @@
           "release_type": null,
           "tag_prefix": null,
           "prerelease": null,
+          "auto_start_next": null,
           "additional_paths": null,
           "additional_manifest_files": null,
           "breaking_always_increment_major": null,
@@ -219,6 +228,14 @@
             {
               "type": "null"
             }
+          ],
+          "default": null
+        },
+        "auto_start_next": {
+          "description": "Auto starts next release for this package by performing a patch version\nupdate to version files and pushing a \"chore\" commit to the base_branch",
+          "type": [
+            "boolean",
+            "null"
           ],
           "default": null
         },

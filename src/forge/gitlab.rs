@@ -49,9 +49,10 @@ use crate::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest,
-            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
-            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -282,8 +283,12 @@ impl Forge for Gitlab {
     }
 
     async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
+        if let Some(content) = self
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: DEFAULT_CONFIG_FILE.into(),
+            })
+            .await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -304,14 +309,13 @@ impl Forge for Gitlab {
 
     async fn get_file_content(
         &self,
-        branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        let r#ref = branch.unwrap_or("HEAD".into());
+        let r#ref = req.branch.unwrap_or("HEAD".into());
 
         let endpoint = File::builder()
             .project(&self.project_id)
-            .file_path(path)
+            .file_path(&req.path)
             .ref_(&r#ref)
             .build()?;
 
@@ -322,14 +326,12 @@ impl Forge for Gitlab {
 
         match result {
             Ok(file_info) => {
-                info!("found file at path: {path}");
                 let decoded = BASE64_STANDARD.decode(file_info.content)?;
                 let content = String::from_utf8(decoded)?;
                 return Ok(Some(content));
             }
             Err(gitlab::api::ApiError::GitlabService { status, data }) => {
                 if status == StatusCode::NOT_FOUND {
-                    info!("no file found for path: {path}");
                     return Ok(None);
                 }
                 let msg = format!(
@@ -341,7 +343,6 @@ impl Forge for Gitlab {
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == StatusCode::NOT_FOUND {
-                    info!("no file found for path: {path}");
                     return Ok(None);
                 }
                 let msg = format!(
@@ -543,7 +544,10 @@ impl Forge for Gitlab {
             let mut update_type = CommitActionType::Update;
 
             let existing_content = self
-                .get_file_content(Some(req.base_branch.clone()), &change.path)
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(req.base_branch.clone()),
+                    path: change.path.to_string(),
+                })
                 .await?;
 
             if existing_content.is_none() {
@@ -572,6 +576,69 @@ impl Forge for Gitlab {
             .actions(actions)
             .commit_message(req.message)
             .force(true)
+            .build()?;
+
+        let commit: CreatedCommit = endpoint.query_async(&self.gl).await?;
+
+        Ok(Commit { sha: commit.id })
+    }
+
+    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+        let mut actions: Vec<CommitAction> = vec![];
+
+        for change in req.file_changes {
+            let mut content = change.content;
+
+            let mut update_type = CommitActionType::Update;
+
+            let existing_content = self
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(req.target_branch.clone()),
+                    path: change.path.to_string(),
+                })
+                .await?;
+
+            if existing_content.is_none() {
+                update_type = CommitActionType::Create;
+            }
+
+            if matches!(change.update_type, FileUpdateType::Prepend)
+                && let Some(existing_content) = existing_content.clone()
+            {
+                content = format!("{content}{existing_content}");
+            }
+
+            if content == existing_content.unwrap_or_default() {
+                warn!(
+                    "skipping file update content matches existing state: {}",
+                    change.path
+                );
+                continue;
+            }
+
+            let action = CommitAction::builder()
+                .action(update_type)
+                .content(content.as_bytes().to_owned())
+                .file_path(change.path.clone())
+                .build()?;
+
+            actions.push(action)
+        }
+
+        if actions.is_empty() {
+            warn!(
+                "commit would result in no changes: target_branch: {}, message: {}",
+                req.target_branch, req.message,
+            );
+            return Ok(Commit { sha: "None".into() });
+        }
+
+        let endpoint = CreateCommit::builder()
+            .project(&self.project_id)
+            .branch(&req.target_branch)
+            .actions(actions)
+            .commit_message(req.message)
+            .force(false)
             .build()?;
 
         let commit: CreatedCommit = endpoint.query_async(&self.gl).await?;
