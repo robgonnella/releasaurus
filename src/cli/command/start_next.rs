@@ -101,9 +101,7 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        let result = execute(&forge_manager, None, None).await;
-
-        assert!(result.is_ok());
+        execute(&forge_manager, None, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -198,9 +196,7 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        let result = execute(&forge_manager, None, None).await;
-
-        assert!(result.is_ok());
+        execute(&forge_manager, None, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -226,10 +222,9 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        let result =
-            execute(&forge_manager, None, Some("develop".into())).await;
-
-        assert!(result.is_ok());
+        execute(&forge_manager, None, Some("develop".into()))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -253,9 +248,7 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        let result = execute(&forge_manager, None, None).await;
-
-        assert!(result.is_ok());
+        execute(&forge_manager, None, None).await.unwrap();
     }
 
     #[tokio::test]

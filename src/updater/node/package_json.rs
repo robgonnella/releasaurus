@@ -136,7 +136,6 @@ mod tests {
 
         let result = package_json.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
@@ -184,7 +183,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"^3.0.0\""));
     }
@@ -232,7 +230,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"^3.0.0\""));
     }
@@ -280,7 +277,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"workspace:^1.0.0\""));
     }
@@ -328,7 +324,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"repo:^1.0.0\""));
     }
@@ -377,7 +372,6 @@ mod tests {
             .process_package(&package_root, &[package_root.clone(), package_a])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-a\": \"^1.0.0\""));
     }
@@ -412,7 +406,6 @@ mod tests {
 
         let result = package_json.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -476,7 +469,6 @@ mod tests {
 
         let result = package_json.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
         assert!(updated.contains("\"description\": \"A test package\""));

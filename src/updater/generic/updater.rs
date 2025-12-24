@@ -86,7 +86,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.content, r#"version = "2.0.0""#);
         assert_eq!(change.path, "test.txt");
@@ -99,7 +98,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         assert!(result.unwrap().content.contains("'2.0.0'"));
     }
 
@@ -110,7 +108,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         assert_eq!(result.unwrap().content, r#""version": "2.0.0""#);
     }
 
@@ -121,7 +118,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         assert_eq!(result.unwrap().content, "version   =   \"2.0.0\"");
     }
 
@@ -132,7 +128,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         assert!(result.unwrap().content.contains("2.0.0-beta.2"));
     }
 
@@ -145,7 +140,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         let content = result.unwrap().content;
         assert!(content.contains("version = \"2.0.0\""));
         assert!(content.contains("name = \"my-package\""));
@@ -179,7 +173,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         assert!(result.unwrap().content.contains("2.0.0"));
     }
 
@@ -192,7 +185,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         let content = result.unwrap().content;
         assert!(content.contains("version: \"2.5.3\""));
         assert!(content.contains("metadata:"));
@@ -208,7 +200,6 @@ mod tests {
 
         let result = GenericUpdater::update_manifest(&manifest, &next_version);
 
-        assert!(result.is_some());
         let content = result.unwrap().content;
         assert!(content.contains("const Version = \"3.2.1\""));
         assert!(content.contains("package main"));

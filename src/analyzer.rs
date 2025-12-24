@@ -310,28 +310,14 @@ mod tests {
     #[test]
     fn test_analyzer_new() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config.clone());
-
-        assert!(analyzer.is_ok());
-        let analyzer = analyzer.unwrap();
+        let analyzer = Analyzer::new(config.clone()).unwrap();
         assert_eq!(analyzer.config.tag_prefix, config.tag_prefix);
-    }
-
-    #[test]
-    fn test_analyzer_new_with_tag_prefix() {
-        let config = AnalyzerConfig {
-            tag_prefix: Some("v".to_string()),
-            ..AnalyzerConfig::default()
-        };
-        let analyzer = Analyzer::new(config);
-        assert!(analyzer.is_ok());
     }
 
     #[test]
     fn test_analyze_empty_commits() {
         let config = AnalyzerConfig::default();
         let analyzer = Analyzer::new(config).unwrap();
-
         let result = analyzer.analyze(vec![], None).unwrap();
         assert!(result.is_none());
     }
@@ -358,7 +344,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert!(release.tag.is_some());
         assert_eq!(
@@ -389,7 +374,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert!(release.tag.is_some());
         assert_eq!(
@@ -419,7 +403,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert!(release.tag.is_some());
         assert_eq!(
@@ -449,7 +432,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert!(release.tag.is_some());
         assert_eq!(
@@ -475,9 +457,7 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
-        assert!(release.tag.is_some());
         assert_eq!(release.tag.as_ref().unwrap().name, "v0.1.0");
     }
 
@@ -495,7 +475,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(release.commits.len(), 1);
     }
@@ -535,7 +514,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(release.commits.len(), 3);
         // Should bump minor due to features
@@ -589,7 +567,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should only have 2 commits (feat and fix), ci commits filtered out
         assert_eq!(release.commits.len(), 2);
@@ -621,7 +598,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have both commits
         assert_eq!(release.commits.len(), 2);
@@ -671,7 +647,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should only have 2 commits (feat and fix), chore commits filtered out
         assert_eq!(release.commits.len(), 2);
@@ -708,7 +683,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have both commits
         assert_eq!(release.commits.len(), 2);
@@ -758,7 +732,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should only have 2 commits (feat and fix), miscellaneous filtered out
         assert_eq!(release.commits.len(), 2);
@@ -795,7 +768,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have both commits
         assert_eq!(release.commits.len(), 2);
@@ -861,7 +833,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should only have 3 commits (feat, fix, docs)
         assert_eq!(release.commits.len(), 3);
@@ -897,7 +868,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have include_author set to true
         assert!(release.include_author);
@@ -917,7 +887,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have include_author set to false by default
         assert!(!release.include_author);
@@ -948,7 +917,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should have all commits since none are ci
         assert_eq!(release.commits.len(), 2);
@@ -1019,7 +987,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(
             release.tag.unwrap().semver,
@@ -1054,7 +1021,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(
             release.tag.unwrap().semver,
@@ -1086,7 +1052,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(
             release.tag.unwrap().semver,
@@ -1121,7 +1086,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Should switch to beta and calculate next version
         assert_eq!(
@@ -1150,7 +1114,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, None).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         assert_eq!(
             release.tag.unwrap().semver,
@@ -1185,7 +1148,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         // Breaking change should bump major version
         assert_eq!(
@@ -1221,7 +1183,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         let tag = release.tag.unwrap();
         assert_eq!(tag.semver, SemVer::parse("1.1.0-snapshot").unwrap());
@@ -1255,7 +1216,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         let tag = release.tag.unwrap();
         assert_eq!(tag.semver, SemVer::parse("1.1.0-SNAPSHOT").unwrap());
@@ -1290,7 +1250,6 @@ mod tests {
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
-        assert!(result.is_some());
         let release = result.unwrap();
         let tag = release.tag.unwrap();
         assert_eq!(tag.semver, SemVer::parse("1.1.0-rc.1").unwrap());
@@ -1321,8 +1280,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // In 0.x versions with breaking_always_increment_major=false,
@@ -1358,7 +1315,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
         let release = result.unwrap();
 
         // Breaking syntax still triggers major bump (custom regex is additive)
@@ -1392,8 +1348,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // Custom regex matches "doc" in commit message, bumps major
@@ -1426,8 +1380,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // In 0.x versions with features_always_increment_minor=false,
@@ -1461,8 +1413,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // Custom regex matches "ci" in commit message, bumps minor
@@ -1495,8 +1445,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // Feat syntax still triggers minor bump (custom regex is additive)
@@ -1545,8 +1493,6 @@ mod tests {
         ];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // With both flags disabled, only minor bump
@@ -1589,8 +1535,6 @@ mod tests {
         ];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // With both flags disabled, only patch bump
@@ -1624,8 +1568,6 @@ mod tests {
         }];
 
         let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
-        assert!(result.is_some());
-
         let release = result.unwrap();
 
         // Custom regex matches "wow" and triggers major bump

@@ -72,7 +72,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].content, "version=2.0.0");
@@ -102,7 +101,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].content, "version  =  3.0.0");
@@ -132,7 +130,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].content, "  version=2.5.0");
@@ -163,7 +160,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
         let updated = changes[0].content.clone();
@@ -229,7 +225,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -285,7 +280,6 @@ mod tests {
 
         let result = properties.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
 

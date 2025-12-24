@@ -241,8 +241,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -267,8 +266,7 @@ mod tests {
             package: Some("pkg-a".to_string()),
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -280,8 +278,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -297,8 +294,7 @@ mod tests {
             package: None,
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
 
         // Verify file was created
         assert!(out_file.exists(), "Output file should be created");
@@ -334,8 +330,7 @@ mod tests {
             package: Some("pkg-a".to_string()),
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     // ===== Release SubCommand Tests =====
@@ -354,8 +349,7 @@ mod tests {
             tag: "v1.0.0".to_string(),
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -376,8 +370,7 @@ mod tests {
             tag: "v1.0.0".to_string(),
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
 
         // Verify file was created
         assert!(out_file.exists(), "Output file should be created");
@@ -406,8 +399,7 @@ mod tests {
             tag: "v2.1.3".to_string(),
         };
 
-        let result = execute(&manager, cmd, None).await;
-        assert!(result.is_ok());
+        execute(&manager, cmd, None).await.unwrap();
     }
 
     // ===== JSON Serialization Tests =====

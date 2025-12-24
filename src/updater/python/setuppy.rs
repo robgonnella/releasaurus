@@ -72,7 +72,6 @@ mod tests {
 
         let result = setuppy.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version=\"2.0.0\""));
     }
@@ -102,7 +101,6 @@ mod tests {
 
         let result = setuppy.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version='2.0.0'"));
     }
@@ -132,7 +130,6 @@ mod tests {
 
         let result = setuppy.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version   =   \"2.0.0\""));
     }
@@ -173,7 +170,6 @@ setup(
 
         let result = setuppy.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version=\"2.0.0\""));
         assert!(updated.contains("name='my-package'"));
@@ -214,7 +210,6 @@ setup(
 
         let result = setuppy.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
