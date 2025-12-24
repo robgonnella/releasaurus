@@ -12,7 +12,7 @@ use crate::{
 
 /// Structured commit with parsed conventional commit fields, author
 /// metadata, and changelog categorization.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Commit {
     pub id: String,
     pub short_id: String,

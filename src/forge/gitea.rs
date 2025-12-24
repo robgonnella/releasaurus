@@ -24,9 +24,10 @@ use crate::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest,
-            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
-            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -173,7 +174,7 @@ struct GiteaFileChange {
 // https://github.com/go-gitea/gitea/issues/35538
 struct GiteaModifyFiles {
     pub old_ref_name: String,
-    pub new_branch: String,
+    pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<GiteaFileChange>,
     // pub force: bool,
@@ -312,18 +313,17 @@ impl Forge for Gitea {
 
     async fn get_file_content(
         &self,
-        branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        let mut raw_url = self.base_url.join(&format!("raw/{path}"))?;
-        if let Some(branch) = branch {
-            raw_url =
-                self.base_url.join(&format!("raw/{path}?ref={branch}"))?;
+        let mut raw_url = self.base_url.join(&format!("raw/{}", req.path))?;
+        if let Some(branch) = req.branch {
+            raw_url = self
+                .base_url
+                .join(&format!("raw/{}?ref={branch}", req.path))?;
         }
         let request = self.client.get(raw_url).build()?;
         let response = self.client.execute(request).await?;
         if response.status() == StatusCode::NOT_FOUND {
-            info!("no file found in repo at path: {path}");
             return Ok(None);
         }
         let result = response.error_for_status()?;
@@ -332,8 +332,12 @@ impl Forge for Gitea {
     }
 
     async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
+        if let Some(content) = self
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: DEFAULT_CONFIG_FILE.into(),
+            })
+            .await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -538,7 +542,10 @@ impl Forge for Gitea {
             let mut sha = None;
             let mut content = change.content.clone();
             let existing_content = self
-                .get_file_content(Some(req.base_branch.clone()), &change.path)
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(req.base_branch.clone()),
+                    path: change.path.to_string(),
+                })
                 .await?;
             if let Some(existing_content) = existing_content {
                 sha = Some(self.get_file_sha(&change.path).await?);
@@ -561,10 +568,72 @@ impl Forge for Gitea {
         // https://github.com/go-gitea/gitea/issues/35538
         let body = GiteaModifyFiles {
             old_ref_name: req.base_branch,
-            new_branch: req.release_branch,
+            new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
             // force: true,
+        };
+
+        let contents_url = self.base_url.join("contents")?;
+        let request = self.client.post(contents_url).json(&body).build()?;
+        let response = self.client.execute(request).await?;
+        let result = response.error_for_status()?;
+        let created: GiteaCreatedCommit = result.json().await?;
+
+        Ok(created.commit)
+    }
+
+    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+        let mut file_changes: Vec<GiteaFileChange> = vec![];
+
+        for change in req.file_changes.iter() {
+            let mut op = GiteaFileChangeOperation::Update;
+            let mut sha = None;
+            let mut content = change.content.clone();
+            let existing_content = self
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(req.target_branch.clone()),
+                    path: change.path.to_string(),
+                })
+                .await?;
+            if let Some(existing_content) = existing_content.clone() {
+                sha = Some(self.get_file_sha(&change.path).await?);
+                if matches!(change.update_type, FileUpdateType::Prepend) {
+                    content = format!("{content}{existing_content}");
+                }
+            } else {
+                op = GiteaFileChangeOperation::Create;
+            }
+
+            if content == existing_content.unwrap_or_default() {
+                warn!(
+                    "skipping file update content matches existing state: {}",
+                    change.path
+                );
+                continue;
+            }
+
+            file_changes.push(GiteaFileChange {
+                path: change.path.clone(),
+                content: BASE64_STANDARD.encode(&content),
+                operation: op,
+                sha,
+            })
+        }
+
+        if file_changes.is_empty() {
+            warn!(
+                "commit would result in no changes: target_branch: {}, message: {}",
+                req.target_branch, req.message,
+            );
+            return Ok(Commit { sha: "None".into() });
+        }
+
+        let body = GiteaModifyFiles {
+            new_branch: None,
+            old_ref_name: req.target_branch,
+            message: req.message,
+            files: file_changes,
         };
 
         let contents_url = self.base_url.join("contents")?;

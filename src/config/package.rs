@@ -20,6 +20,9 @@ pub struct PackageConfig {
     pub tag_prefix: Option<String>,
     /// Optional prerelease configuration that overrides global settings
     pub prerelease: Option<PrereleaseConfig>,
+    /// Auto starts next release for this package by performing a patch version
+    /// update to version files and pushing a "chore" commit to the base_branch
+    pub auto_start_next: Option<bool>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
     /// Additional paths generic version manifest files to update. Paths must
@@ -44,6 +47,7 @@ impl Default for PackageConfig {
             release_type: None,
             tag_prefix: None,
             prerelease: None,
+            auto_start_next: None,
             additional_paths: None,
             additional_manifest_files: None,
             breaking_always_increment_major: None,

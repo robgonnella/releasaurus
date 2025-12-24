@@ -10,5 +10,6 @@ pub use cli::{
     command::release,
     command::release_pr,
     command::show::{self, ShowCommand},
+    command::start_next,
     types::Result,
 };

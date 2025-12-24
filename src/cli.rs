@@ -75,6 +75,16 @@ pub enum Command {
         #[command(subcommand)]
         command: ShowCommand,
     },
+
+    /// Performs patch version update in manifest version files to start next
+    /// release. This does not create any PRs or perform any tagging. It updates
+    /// the version files and commits the changes to the targeted base branch
+    /// as a "chore" commit
+    StartNext {
+        /// Optional comma separated list of package names to target
+        #[arg(long, value_delimiter(','))]
+        packages: Option<Vec<String>>,
+    },
 }
 
 impl Cli {

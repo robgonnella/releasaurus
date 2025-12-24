@@ -1,4 +1,5 @@
 //! Common functionality shared between release commands
+use chrono::Utc;
 use log::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,9 @@ use crate::{
         release_type::ReleaseType,
     },
     forge::{
-        config::RemoteConfig, manager::ForgeManager, request::ForgeCommit,
+        config::RemoteConfig,
+        manager::ForgeManager,
+        request::{CreateCommitRequest, ForgeCommit},
     },
     path_helpers::package_path,
     updater::manager::UpdateManager,
@@ -48,6 +51,19 @@ pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
         default_for_package = format!("{}-v", name);
     }
     package.tag_prefix.clone().unwrap_or(default_for_package)
+}
+
+/// Resolves a package's auto_start_next configuration with the correct priority
+///
+/// Package configuration overrides the global config. Providing auto_start_next
+/// set to `false` in a package explicitly disables auto_start_next for that
+/// package
+pub fn resolve_auto_start_next(
+    config: &Config,
+    package: &PackageConfig,
+) -> bool {
+    let opt = package.auto_start_next.or(config.auto_start_next);
+    opt.unwrap_or_default()
 }
 
 /// Resolves a package's prerelease configuration with the correct priority.
@@ -133,23 +149,70 @@ pub fn base_branch(
         .unwrap_or_else(|| manager.default_branch())
 }
 
-pub async fn get_releasable_packages(
+pub async fn start_next_release(
     config: &Config,
+    forge_manager: &ForgeManager,
+    base_branch: &str,
+) -> Result<()> {
+    // This is not added to changelog or tracked anywhere so we can just use
+    // a fake dummy commit to trigger a patch version update
+    let commits = vec![ForgeCommit {
+        id: "dummy".into(),
+        short_id: "dummy".into(),
+        message: "fix: dummy commit".into(),
+        timestamp: Utc::now().timestamp(),
+        files: config
+            .packages
+            .iter()
+            .map(|p| package_path(p, Some("dummy.txt")))
+            .collect::<Vec<String>>(),
+        ..ForgeCommit::default()
+    }];
+
+    let releasable_packages = get_releasable_packages_for_commits(
+        config,
+        &commits,
+        forge_manager,
+        base_branch,
+    )
+    .await?;
+
+    for pkg in releasable_packages.iter() {
+        let file_changes = UpdateManager::get_package_manifest_file_changes(
+            pkg,
+            &releasable_packages,
+        )?;
+
+        info!("updating manifest files for package: {}", pkg.name);
+
+        let req = CreateCommitRequest {
+            target_branch: base_branch.to_string(),
+            file_changes,
+            message: format!(
+                "chore({}): bump patch version {} - {}",
+                base_branch,
+                pkg.name,
+                pkg.release.tag.clone().unwrap_or_default().semver
+            ),
+        };
+
+        let commit = forge_manager.create_commit(req).await?;
+
+        info!("created commit: {}", commit.sha);
+    }
+
+    Ok(())
+}
+
+pub async fn get_releasable_packages_for_commits(
+    config: &Config,
+    commits: &[ForgeCommit],
     forge_manager: &ForgeManager,
     base_branch: &str,
 ) -> Result<Vec<ReleasablePackage>> {
     let repo_name = forge_manager.repo_name();
     let remote_config = forge_manager.remote_config();
-
     let mut releasable_packages: Vec<ReleasablePackage> = vec![];
-
-    let commits = get_commits_for_all_packages(
-        forge_manager,
-        &config.packages,
-        &repo_name,
-        base_branch,
-    )
-    .await?;
 
     for package in config.packages.iter() {
         let tag_prefix = get_tag_prefix(package, &repo_name);
@@ -158,17 +221,21 @@ pub async fn get_releasable_packages(
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
 
         info!(
-            "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}",
-            package.name, package.workspace_root, package.path, tag_prefix
-        );
-
-        info!(
-            "package_name: {}, current tag {:#?}",
-            package.name, current_tag
+            "processing package: \n\tname: {}, \n\tworkspace_root: {}, \n\tpath: {}, \n\ttag_prefix: {}\n\tcurrent_tag: {:?}",
+            package.name,
+            package.workspace_root,
+            package.path,
+            tag_prefix,
+            current_tag
         );
 
         let package_commits =
-            filter_commits_for_package(package, current_tag.clone(), &commits);
+            filter_commits_for_package(package, current_tag.clone(), commits);
+
+        if package_commits.is_empty() {
+            warn!("no processable commits found for package: {}", package.name);
+            continue;
+        }
 
         info!("processing commits for package: {}", package.name);
 
@@ -223,6 +290,30 @@ pub async fn get_releasable_packages(
     }
 
     Ok(releasable_packages)
+}
+
+pub async fn get_releasable_packages(
+    config: &Config,
+    forge_manager: &ForgeManager,
+    base_branch: &str,
+) -> Result<Vec<ReleasablePackage>> {
+    let repo_name = forge_manager.repo_name();
+
+    let commits = get_commits_for_all_packages(
+        forge_manager,
+        &config.packages,
+        &repo_name,
+        base_branch,
+    )
+    .await?;
+
+    get_releasable_packages_for_commits(
+        config,
+        &commits,
+        forge_manager,
+        base_branch,
+    )
+    .await
 }
 
 /// Extract package name from its path, using repository name for root
@@ -415,17 +506,7 @@ mod tests {
 
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -441,15 +522,7 @@ mod tests {
             name: "my-package".into(),
             path: "packages/my-package".into(),
             workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -465,15 +538,7 @@ mod tests {
             name: "".into(),
             path: "packages/my-package".into(),
             workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -489,15 +554,8 @@ mod tests {
             name: "my-package".into(),
             path: "packages/my-package".into(),
             workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
             tag_prefix: Some("my-special-tag-prefix-v".into()),
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         let tag_prefix = get_tag_prefix(&package, repo_name);
@@ -511,15 +569,7 @@ mod tests {
             name: "".into(),
             path: "packages/my-package".into(),
             workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: Some("v".into()),
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
         // Test with simple directory name
         let name = derive_package_name(&package, "test-repo");
@@ -637,16 +687,7 @@ mod tests {
         let package = PackageConfig {
             name: "explicit-package-name".into(),
             path: "packages/something".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         let name = derive_package_name(&package, "test-repo");
@@ -732,17 +773,7 @@ mod tests {
     fn test_filter_commits_for_package_filters_by_tag_timestamp() {
         let package = PackageConfig {
             name: "my-package".into(),
-            path: ".".into(),
-            workspace_root: ".".into(),
-            release_type: Some(ReleaseType::Generic),
-            tag_prefix: None,
-            prerelease: None,
-            additional_paths: None,
-            additional_manifest_files: None,
-            breaking_always_increment_major: Some(true),
-            features_always_increment_minor: Some(true),
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            ..PackageConfig::default()
         };
 
         // Create tag with timestamp 2000

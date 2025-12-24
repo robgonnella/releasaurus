@@ -25,13 +25,16 @@ pub struct Config {
     /// defaults to default_branch for repository
     pub base_branch: Option<String>,
     /// Maximum number of commits to search for the first release when no
-    /// tags exist.
+    /// tags exist
     pub first_release_search_depth: u64,
     /// Generates different release PRs for each package defined in config
     pub separate_pull_requests: bool,
     /// Global prerelease configuration (suffix + strategy). Packages can
-    /// override this configuration.
+    /// override this configuration
     pub prerelease: PrereleaseConfig,
+    /// Global config to auto start next release for all packages. Packages
+    /// can override this configuration
+    pub auto_start_next: Option<bool>,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: bool,
     /// Always increments minor version on feature commits
@@ -54,6 +57,7 @@ impl Default for Config {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             separate_pull_requests: false,
             prerelease: PrereleaseConfig::default(),
+            auto_start_next: None,
             breaking_always_increment_major: true,
             features_always_increment_minor: true,
             custom_major_increment_regex: None,

@@ -11,6 +11,13 @@ pub struct PullRequest {
     pub body: String,
 }
 
+/// Request to get content for a file path in the remote repo
+#[derive(Debug, Clone, PartialEq)]
+pub struct GetFileContentRequest {
+    pub branch: Option<String>,
+    pub path: String,
+}
+
 /// Request to find a pull request by comparing head and base branch names.
 #[derive(Debug, Clone)]
 pub struct GetPrRequest {
@@ -88,19 +95,24 @@ pub enum FileUpdateType {
 /// File modification for branch creation, supporting updates and new files.
 #[derive(Debug, Clone, Serialize)]
 pub struct FileChange {
-    /// Relative path to the file starting from repo root.
     pub path: String,
-    /// File content to write or prepend.
     pub content: String,
-    /// Whether to replace entire file or prepend to existing content.
     pub update_type: FileUpdateType,
 }
 
-/// Request to create a new branch with file changes and commit message.
+/// Request to create a branch using base_branch as starting point
 #[derive(Debug, Clone)]
 pub struct CreateReleaseBranchRequest {
     pub base_branch: String,
     pub release_branch: String,
+    pub message: String,
+    pub file_changes: Vec<FileChange>,
+}
+
+/// Request to create a new commit on a branch with file changes
+#[derive(Debug, Clone)]
+pub struct CreateCommitRequest {
+    pub target_branch: String,
     pub message: String,
     pub file_changes: Vec<FileChange>,
 }

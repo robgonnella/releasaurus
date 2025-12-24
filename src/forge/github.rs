@@ -35,8 +35,9 @@ use crate::{
             RemoteConfig,
         },
         request::{
-            Commit, CreatePrRequest, CreateReleaseBranchRequest,
-            FileUpdateType, ForgeCommit, GetPrRequest, PrLabelsRequest,
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, FileChange, FileUpdateType,
+            ForgeCommit, GetFileContentRequest, GetPrRequest, PrLabelsRequest,
             PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
@@ -152,22 +153,36 @@ impl Github {
 
     async fn get_tree_entries(
         &self,
-        req: CreateReleaseBranchRequest,
+        base_branch: &str,
+        file_changes: Vec<FileChange>,
     ) -> Result<Vec<GithubTreeEntry>> {
         let mut entries: Vec<GithubTreeEntry> = vec![];
 
-        for change in req.file_changes.into_iter() {
+        for change in file_changes.into_iter() {
             let mut content = change.content;
+
+            let existing_content = self
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(base_branch.to_string()),
+                    path: change.path.to_string(),
+                })
+                .await?;
+
             if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) = self
-                    .get_file_content(
-                        Some(req.base_branch.clone()),
-                        &change.path,
-                    )
-                    .await?
+                && let Some(existing_content) = existing_content.clone()
             {
                 content = format!("{content}{existing_content}");
             }
+
+            if content == existing_content.unwrap_or_default() {
+                warn!(
+                    "skipping file update content matches existing state: {}",
+                    change.path
+                );
+
+                continue;
+            }
+
             let path = change
                 .path
                 .replace("\\", "/")
@@ -186,7 +201,7 @@ impl Github {
         Ok(entries)
     }
 
-    async fn create_commit(
+    async fn create_tree_commit(
         &self,
         message: &str,
         parent_sha: &str,
@@ -226,8 +241,12 @@ impl Forge for Github {
     }
 
     async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        if let Some(content) =
-            self.get_file_content(branch, DEFAULT_CONFIG_FILE).await?
+        if let Some(content) = self
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: DEFAULT_CONFIG_FILE.into(),
+            })
+            .await?
         {
             let config: Config = toml::from_str(&content)?;
 
@@ -249,14 +268,13 @@ impl Forge for Github {
 
     async fn get_file_content(
         &self,
-        branch: Option<String>,
-        path: &str,
+        req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        let result = if let Some(branch) = branch {
+        let result = if let Some(branch) = req.branch {
             self.instance
                 .repos(&self.config.owner, &self.config.repo)
                 .get_content()
-                .path(path)
+                .path(&req.path)
                 .r#ref(branch)
                 .send()
                 .await
@@ -264,7 +282,7 @@ impl Forge for Github {
             self.instance
                 .repos(&self.config.owner, &self.config.repo)
                 .get_content()
-                .path(path)
+                .path(&req.path)
                 .send()
                 .await
         };
@@ -272,12 +290,11 @@ impl Forge for Github {
         match result {
             Err(octocrab::Error::GitHub { source, backtrace }) => {
                 if source.status_code == StatusCode::NOT_FOUND {
-                    info!("no file found for path: {path}");
                     Ok(None)
                 } else {
                     let msg = format!(
-                        "error getting contents for path: {path}, status: {}, backtrace: {backtrace}",
-                        source.status_code
+                        "error getting contents for path: {}, status: {}, backtrace: {backtrace}",
+                        req.path, source.status_code
                     );
                     error!("{msg}");
                     Err(eyre!(msg))
@@ -285,7 +302,8 @@ impl Forge for Github {
             }
             Err(err) => {
                 let msg = format!(
-                    "encountered error getting file contents for path: {path}: {err}"
+                    "encountered error getting file contents for path: {}: {err}",
+                    req.path
                 );
                 error!("{msg}");
                 Err(eyre!(msg))
@@ -294,14 +312,16 @@ impl Forge for Github {
                 let items = data.take_items();
 
                 if items.is_empty() {
-                    info!("no file found for path: {path}");
                     return Ok(None);
                 }
 
                 if let Some(content) = items[0].decoded_content() {
                     Ok(Some(content))
                 } else {
-                    Err(eyre!("failed to decode file content for path: {path}"))
+                    Err(eyre!(
+                        "failed to decode file content for path: {}",
+                        req.path
+                    ))
                 }
             }
         }
@@ -515,22 +535,24 @@ impl Forge for Github {
         let starting_sha = match r#ref.object {
             Object::Commit { sha, .. } => Ok(sha),
             _ => Err(eyre!(format!(
-                "failed to find HEAD sha for base branch: {}",
+                "failed to find HEAD for base branch: {}",
                 req.base_branch
             ))),
         }?;
 
-        let tree = self.get_tree_entries(req.clone()).await?;
+        let entries = self
+            .get_tree_entries(&req.base_branch, req.file_changes)
+            .await?;
 
         let tree = self
             .create_tree(GithubTree {
                 base_tree: starting_sha.clone(),
-                tree,
+                tree: entries,
             })
             .await?;
 
         let commit = self
-            .create_commit(&req.message, &starting_sha, &tree.sha)
+            .create_tree_commit(&req.message, &starting_sha, &tree.sha)
             .await?;
 
         info!("created commit for branch: sha: {}", commit.sha);
@@ -580,6 +602,71 @@ impl Forge for Github {
             .await?;
 
         Ok(commit)
+    }
+
+    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+        let base_ref = self
+            .instance
+            .repos(&self.config.owner, &self.config.repo)
+            .get_ref(&params::repos::Reference::Branch(
+                req.target_branch.clone(),
+            ))
+            .await?;
+
+        let starting_sha = match base_ref.object {
+            Object::Commit { sha, .. } => Ok(sha),
+            _ => Err(eyre!(format!(
+                "failed to find HEAD for base branch: {}",
+                req.target_branch
+            ))),
+        }?;
+
+        let entries = self
+            .get_tree_entries(&req.target_branch, req.file_changes)
+            .await?;
+
+        if entries.is_empty() {
+            warn!(
+                "commit would result in no changes: target_branch: {}, message: {}",
+                req.target_branch, req.message,
+            );
+            return Ok(Commit { sha: "None".into() });
+        }
+
+        let tree = self
+            .create_tree(GithubTree {
+                base_tree: starting_sha.clone(),
+                tree: entries,
+            })
+            .await?;
+
+        let commit = self
+            .create_tree_commit(&req.message, &starting_sha, &tree.sha)
+            .await?;
+
+        info!("created commit for branch: sha: {}", commit.sha);
+
+        info!("updating branch: {}", req.target_branch);
+
+        let endpoint = format!(
+            "{}/repos/{}/{}/git/refs/heads/{}",
+            self.base_uri,
+            self.config.owner,
+            self.config.repo,
+            req.target_branch
+        );
+
+        let _: serde_json::Value = self
+            .instance
+            .patch(
+                endpoint,
+                Some(&serde_json::json!({
+                  "sha": commit.sha,
+                })),
+            )
+            .await?;
+
+        return Ok(commit);
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
