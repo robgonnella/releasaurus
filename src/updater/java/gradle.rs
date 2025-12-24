@@ -73,7 +73,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
         assert_eq!(change[0].content, r#"version = "2.0.0""#);
@@ -103,7 +102,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
         assert_eq!(change[0].content, "version = '2.0.0'");
@@ -133,7 +131,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
         assert_eq!(change[0].content, r#"version = "3.5.0""#);
@@ -163,7 +160,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
         assert_eq!(change[0].content, r#"project.version = "4.0.0""#);
@@ -225,7 +221,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -281,7 +276,6 @@ mod tests {
 
         let result = gradle.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
         assert_eq!(change[0].content, "version   =   \"2.0.0\"");

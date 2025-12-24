@@ -935,7 +935,6 @@ mod tests {
         );
 
         // Should return Some when skip_ci is false
-        assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Ci);
         assert_eq!(commit.title, "update github actions workflow");
@@ -990,7 +989,6 @@ mod tests {
         );
 
         // Should return Some when skip_chore is false
-        assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Chore);
         assert_eq!(commit.title, "update dependencies");
@@ -1045,7 +1043,6 @@ mod tests {
         );
 
         // Should return Some when skip_miscellaneous is false
-        assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.group, Group::Miscellaneous);
         assert_eq!(commit.title, "random commit message without type");
@@ -1121,7 +1118,6 @@ mod tests {
             &analyzer_config,
         );
 
-        assert!(result.is_some());
         let commit = result.unwrap();
         assert_eq!(commit.author_name, "John Doe");
         assert_eq!(commit.author_email, "john.doe@example.com");

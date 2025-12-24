@@ -87,7 +87,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
     }
@@ -120,7 +119,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("s.version = \"2.0.0\""));
     }
@@ -153,7 +151,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = '2.0.0'"));
     }
@@ -185,7 +182,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version   =   \"2.0.0\""));
     }
@@ -223,7 +219,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
         assert!(updated.contains("spec.name = \"my-gem\""));
@@ -261,7 +256,6 @@ end
 
         let result = gemspec.process_packages(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));

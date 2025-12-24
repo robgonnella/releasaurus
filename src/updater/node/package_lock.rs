@@ -169,7 +169,6 @@ mod tests {
 
         let result = package_lock.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
@@ -207,7 +206,6 @@ mod tests {
 
         let result = package_lock.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
         // Should appear twice: once at root, once in packages[""]
@@ -263,7 +261,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
@@ -317,7 +314,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
@@ -371,7 +367,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         let parsed: Value = serde_json::from_str(&updated).unwrap();
         assert_eq!(
@@ -413,7 +408,6 @@ mod tests {
 
         let result = package_lock.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
@@ -449,7 +443,6 @@ mod tests {
 
         let result = package_lock.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -516,7 +509,6 @@ mod tests {
 
         let result = package_lock.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
         assert!(updated.contains("\"lockfileVersion\": 2"));

@@ -121,7 +121,6 @@ version = "1.0.0"
             .process_package(&package, slice::from_ref(&package))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
     }
@@ -172,7 +171,6 @@ version = "1.0.0"
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
         assert!(updated.contains("version = \"3.0.0\""));
@@ -213,7 +211,6 @@ version = "5.0.0"
             .process_package(&package, slice::from_ref(&package))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
         assert!(updated.contains("version = \"5.0.0\""));
@@ -259,7 +256,6 @@ checksum = "abc123"
             .process_package(&package, slice::from_ref(&package))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
         assert!(updated.contains("dependencies = ["));
@@ -330,7 +326,6 @@ checksum = "abc123"
             .process_package(&package, slice::from_ref(&package))
             .unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -416,7 +411,6 @@ version = "5.0.0"
             )
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         // Main package should be updated to 3.0.0
         assert!(updated.contains("name = \"main-package\""));

@@ -221,8 +221,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -280,8 +279,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -321,8 +319,7 @@ mod tests {
 
         // Should not call tag_commit, create_release, or replace_pr_labels
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -398,8 +395,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -440,8 +436,9 @@ mod tests {
             body: "<!--{\"metadata\":{\"name\":\"pkg-a\",\"tag\":\"pkg-a-v1.0.0\",\"notes\":\"Release notes for pkg-a\"}}-->\n<details>\n<!--{\"metadata\":{\"name\":\"pkg-b\",\"tag\":\"pkg-b-v2.0.0\",\"notes\":\"Release notes for pkg-b\"}}-->\n<details>".to_string(),
         };
 
-        let result = create_package_release(&forge_manger, &package, &pr).await;
-        assert!(result.is_ok());
+        create_package_release(&forge_manger, &package, &pr)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -474,8 +471,9 @@ mod tests {
             body: "<!--{\"metadata\":{\"name\":\"my-package\",\"tag\":\"v1.0.0\",\"notes\":\"  Trimmed notes  \\n  \"}}-->\n<details>".to_string(),
         };
 
-        let result = create_package_release(&manager, &package, &pr).await;
-        assert!(result.is_ok());
+        create_package_release(&manager, &package, &pr)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -502,7 +500,6 @@ mod tests {
         };
 
         let result = create_package_release(&manager, &package, &pr).await;
-        assert!(result.is_err());
         assert!(
             result
                 .unwrap_err()
@@ -562,7 +559,6 @@ mod tests {
         };
 
         let result = create_package_release(&manager, &package, &pr).await;
-        assert!(result.is_err());
         assert!(
             result
                 .unwrap_err()
@@ -654,8 +650,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -766,8 +761,9 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, Some("develop".to_string())).await;
-        assert!(result.is_ok());
+        execute(&manager, Some("develop".to_string()))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -834,8 +830,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -909,8 +904,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -961,7 +955,6 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let result = execute(&manager, None).await;
-        assert!(result.is_ok());
+        execute(&manager, None).await.unwrap();
     }
 }

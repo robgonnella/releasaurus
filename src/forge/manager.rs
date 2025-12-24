@@ -290,7 +290,6 @@ mod tests {
         let result =
             manager.load_manifest_targets(None, targets).await.unwrap();
 
-        assert!(result.is_some());
         let manifests = result.unwrap();
         assert_eq!(manifests.len(), 1);
         assert_eq!(manifests[0].basename, "package.json");
@@ -331,9 +330,7 @@ mod tests {
             });
 
         let manager = ForgeManager::new(Box::new(mock_forge));
-        let result = manager.tag_commit("v1.0.0", "abc123").await;
-
-        assert!(result.is_ok());
+        manager.tag_commit("v1.0.0", "abc123").await.unwrap();
     }
 
     #[tokio::test]
@@ -375,9 +372,7 @@ mod tests {
             title: "Updated title".to_string(),
             body: "Updated body".to_string(),
         };
-        let result = manager.update_pr(req).await;
-
-        assert!(result.is_ok());
+        manager.update_pr(req).await.unwrap();
     }
 
     #[tokio::test]
@@ -395,9 +390,7 @@ mod tests {
             pr_number: 42,
             labels: vec!["release".to_string()],
         };
-        let result = manager.replace_pr_labels(req).await;
-
-        assert!(result.is_ok());
+        manager.replace_pr_labels(req).await.unwrap();
     }
 
     #[tokio::test]
@@ -411,10 +404,9 @@ mod tests {
             });
 
         let manager = ForgeManager::new(Box::new(mock_forge));
-        let result = manager
+        manager
             .create_release("v1.0.0", "abc123", "Release notes")
-            .await;
-
-        assert!(result.is_ok());
+            .await
+            .unwrap();
     }
 }

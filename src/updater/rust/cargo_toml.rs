@@ -171,7 +171,6 @@ version = "1.0.0"
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
     }
@@ -219,7 +218,6 @@ package-b = "1.0.0"
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
@@ -267,7 +265,6 @@ package-b = { version = "1.0.0", features = ["serde"] }
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"3.0.0\""));
         assert!(updated.contains("features = [\"serde\"]"));
@@ -316,7 +313,6 @@ package-b = "1.0.0"
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
@@ -364,7 +360,6 @@ package-b = "1.0.0"
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("package-b = \"3.0.0\""));
     }
@@ -430,7 +425,6 @@ serde = "1.0"
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
         assert!(updated.contains("edition = \"2021\""));
@@ -469,7 +463,6 @@ serde = "1.0"
 
         let result = cargo_toml.process_package(&package, &[]).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));

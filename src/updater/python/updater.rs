@@ -90,7 +90,6 @@ version = "1.0.0"
 
         let result = updater.update(&package, vec![]).unwrap();
 
-        assert!(result.is_some());
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
 

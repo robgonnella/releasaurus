@@ -254,10 +254,7 @@ mod tests {
             command: Command::ReleasePR,
         };
 
-        let result = cli_config.get_remote();
-        assert!(result.is_ok());
-
-        let remote = result.unwrap();
+        let remote = cli_config.get_remote().unwrap();
 
         assert!(matches!(remote, Remote::Github(_)));
     }
@@ -277,10 +274,7 @@ mod tests {
             command: Command::Release,
         };
 
-        let result = cli_config.get_remote();
-        assert!(result.is_ok());
-
-        let remote = result.unwrap();
+        let remote = cli_config.get_remote().unwrap();
 
         assert!(matches!(remote, Remote::Gitlab(_)));
     }
@@ -305,10 +299,7 @@ mod tests {
             },
         };
 
-        let result = cli_config.get_remote();
-        assert!(result.is_ok());
-
-        let remote = result.unwrap();
+        let remote = cli_config.get_remote().unwrap();
 
         assert!(matches!(remote, Remote::Gitea(_)));
     }
@@ -327,10 +318,7 @@ mod tests {
             command: Command::ReleasePR,
         };
 
-        let result = cli_config.get_remote();
-        assert!(result.is_ok());
-
-        let remote = result.unwrap();
+        let remote = cli_config.get_remote().unwrap();
 
         assert!(matches!(remote, Remote::Local(_)));
     }

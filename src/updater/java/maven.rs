@@ -144,7 +144,6 @@ mod tests {
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>2.0.0</version>"));
     }
@@ -185,7 +184,6 @@ mod tests {
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap().content;
         assert!(updated.contains("<groupId>com.example</groupId>"));
         assert!(updated.contains("<artifactId>my-app</artifactId>"));
@@ -226,7 +224,6 @@ mod tests {
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>3.0.0</version>"));
         assert!(updated.contains("<version>4.12</version>"));
@@ -265,7 +262,6 @@ mod tests {
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>2.5.0</version>"));
         assert!(updated.contains("<modelVersion>4.0.0</modelVersion>"));
@@ -303,7 +299,6 @@ mod tests {
 
         let result = maven.process_package(&package).unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -367,7 +362,6 @@ mod tests {
 
         let result = maven.update_pom_file(&manifest, &package).unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>3.0.0</version>"));
         assert!(updated.contains("<version>5.0.0</version>"));

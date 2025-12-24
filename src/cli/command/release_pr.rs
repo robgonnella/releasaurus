@@ -432,7 +432,6 @@ mod tests {
             .iter()
             .find(|fc| fc.path.contains("CHANGELOG.md"));
 
-        assert!(changelog.is_some());
         assert_eq!(changelog.unwrap().update_type, FileUpdateType::Prepend);
     }
 
@@ -464,7 +463,6 @@ mod tests {
             .iter()
             .find(|fc| fc.path == "VERSION");
 
-        assert!(version_change.is_some());
         assert!(version_change.unwrap().content.contains("2.0.0"));
     }
 
@@ -534,13 +532,13 @@ mod tests {
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        let result = create_branch_release_prs(
+        create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
             base_branch,
         )
-        .await;
-        assert!(result.is_ok());
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -578,13 +576,13 @@ mod tests {
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        let result = create_branch_release_prs(
+        create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
             base_branch,
         )
-        .await;
-        assert!(result.is_ok());
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -621,7 +619,6 @@ mod tests {
         )
         .await;
 
-        assert!(result.is_err());
         let err = format!("{}", result.unwrap_err());
         assert!(err.contains("pending release"));
     }
@@ -672,13 +669,13 @@ mod tests {
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        let result = create_branch_release_prs(
+        create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
             base_branch,
         )
-        .await;
-        assert!(result.is_ok());
+        .await
+        .unwrap();
     }
 
     // ===== get_releasable_packages Tests =====
@@ -859,8 +856,9 @@ mod tests {
             }))
         });
 
-        let result = execute(&ForgeManager::new(Box::new(mock)), None).await;
-        assert!(result.is_ok());
+        execute(&ForgeManager::new(Box::new(mock)), None)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -908,11 +906,11 @@ mod tests {
             });
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
 
-        let result = execute(
+        execute(
             &ForgeManager::new(Box::new(mock)),
             Some("develop".to_string()),
         )
-        .await;
-        assert!(result.is_ok());
+        .await
+        .unwrap();
     }
 }

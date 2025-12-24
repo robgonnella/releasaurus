@@ -137,7 +137,6 @@ mod tests {
             .process_package(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version \"2.0.0\""));
     }
@@ -188,7 +187,6 @@ mod tests {
             .process_package(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version \"2.0.0\""));
         assert!(updated.contains("version \"3.0.0\""));
@@ -229,7 +227,6 @@ mod tests {
             .process_package(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version \"2.0.0\""));
         assert!(updated.contains("version \"5.0.0\""));
@@ -266,7 +263,6 @@ package-a@^1.0.0:
             .process_package(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version \"2.0.0\""));
     }
@@ -303,7 +299,6 @@ package-a@^1.0.0:
             .process_package(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("  version \"2.0.0\""));
         assert!(updated.contains("  resolved"));
@@ -341,7 +336,6 @@ package-a@^1.0.0:
             .process_package(&package, slice::from_ref(&package))
             .unwrap();
 
-        assert!(result.is_some());
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
         assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
@@ -442,7 +436,6 @@ package-a@^1.0.0:
             .process_package(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
-        assert!(result.is_some());
         let updated = result.unwrap()[0].content.clone();
         // Both entries should be updated to 2.0.0
         assert_eq!(updated.matches("version \"2.0.0\"").count(), 2);
