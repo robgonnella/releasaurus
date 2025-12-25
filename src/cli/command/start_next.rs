@@ -2,31 +2,34 @@
 //! manifest files for each package
 use log::*;
 
-use crate::{Result, cli::common, forge::manager::ForgeManager};
+use crate::{
+    Result, cli::common, config::Config, forge::manager::ForgeManager,
+};
 
 /// Perform patch version update on manifest files and commit as "chore" to
 /// start the next release cycle
 pub async fn execute(
     forge_manager: &ForgeManager,
     targets: Option<Vec<String>>,
-    base_branch_override: Option<String>,
+    config: Config,
 ) -> Result<()> {
-    let repo_name = forge_manager.repo_name();
+    let base_branch = config.base_branch()?;
 
-    let mut config = forge_manager
-        .load_config(base_branch_override.clone())
-        .await?;
-
-    config = common::process_config(&repo_name, &mut config);
-
-    if let Some(targets) = targets {
-        config.packages.retain(|p| targets.contains(&p.name));
-    }
+    let target_packages = if let Some(targets) = targets {
+        config
+            .packages
+            .iter()
+            .filter(|p| targets.contains(&p.name))
+            .cloned()
+            .collect()
+    } else {
+        config.packages.clone()
+    };
 
     let mut tagged_packages = vec![];
 
-    for p in config.packages.iter() {
-        let tag_prefix = common::get_tag_prefix(p, &repo_name);
+    for p in target_packages.iter() {
+        let tag_prefix = p.tag_prefix()?;
         let current =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
         if current.is_none() {
@@ -40,12 +43,8 @@ pub async fn execute(
         tagged_packages.push(p.clone());
     }
 
-    config.packages = tagged_packages;
-
-    let base_branch =
-        common::base_branch(&config, forge_manager, base_branch_override);
-
-    common::start_next_release(&config, forge_manager, &base_branch).await
+    common::start_next_release(&config.packages, forge_manager, &base_branch)
+        .await
 }
 
 #[cfg(test)]
@@ -60,27 +59,24 @@ mod tests {
 
     #[tokio::test]
     async fn succeeds_when_package_has_tag() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![PackageConfig {
+                name: "test-pkg".into(),
+                path: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "test-pkg".into(),
-                    path: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
-
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
@@ -101,72 +97,75 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, None, None).await.unwrap();
+        execute(&forge_manager, None, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn skips_packages_without_tags() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![PackageConfig {
+                name: "untagged-pkg".into(),
+                path: ".".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "untagged-pkg".into(),
-                    path: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
-
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock.expect_get_latest_tag_for_prefix()
             .returning(|_| Ok(None));
 
+        mock.expect_get_file_content().returning(|_| Ok(None));
+
+        mock.expect_create_commit().returning(|_| {
+            Ok(Commit {
+                sha: "new-commit-sha".into(),
+            })
+        });
+
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, None, None).await.unwrap()
+        execute(&forge_manager, None, config).await.unwrap()
     }
 
     #[tokio::test]
     async fn handles_multiple_packages() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    path: "./packages/a".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("pkg-a-v".to_string()),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    path: "./packages/b".into(),
+                    release_type: Some(ReleaseType::Rust),
+                    tag_prefix: Some("pkg-b-v".to_string()),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![
-                    PackageConfig {
-                        name: "pkg-a".into(),
-                        path: "./packages/a".into(),
-                        release_type: Some(ReleaseType::Node),
-                        ..PackageConfig::default()
-                    },
-                    PackageConfig {
-                        name: "pkg-b".into(),
-                        path: "./packages/b".into(),
-                        release_type: Some(ReleaseType::Rust),
-                        ..PackageConfig::default()
-                    },
-                ],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
-
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
             if prefix.contains("pkg-a") {
@@ -196,96 +195,82 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, None, None).await.unwrap();
+        execute(&forge_manager, None, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn uses_base_branch_override() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("develop".into()),
+            packages: vec![],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|branch| {
-            assert_eq!(branch, Some("develop".to_string()));
-            Ok(Config {
-                packages: vec![],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        mock.expect_default_branch()
-            .times(0)
-            .returning(|| "main".to_string());
-
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, None, Some("develop".into()))
-            .await
-            .unwrap();
+        execute(&forge_manager, None, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn succeeds_with_empty_package_list() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
-
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, None, None).await.unwrap();
+        execute(&forge_manager, None, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn filters_to_specific_packages() {
-        let mut mock = MockForge::new();
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    path: "./packages/a".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("pkg-a-v".to_string()),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    path: "./packages/b".into(),
+                    release_type: Some(ReleaseType::Rust),
+                    tag_prefix: Some("pkg-b-v".to_string()),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
 
-        mock.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![
-                    PackageConfig {
-                        name: "pkg-a".into(),
-                        path: "./packages/a".into(),
-                        release_type: Some(ReleaseType::Node),
-                        ..PackageConfig::default()
-                    },
-                    PackageConfig {
-                        name: "pkg-b".into(),
-                        path: "./packages/b".into(),
-                        release_type: Some(ReleaseType::Rust),
-                        ..PackageConfig::default()
-                    },
-                ],
-                ..Config::default()
-            })
-        });
+        let mut mock = MockForge::new();
 
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
-
         // Only expect calls for pkg-a
         mock.expect_get_latest_tag_for_prefix()
-            .times(2)
+            .times(3)
             .returning(|req| {
                 if req.contains("pkg-a") {
                     Ok(Some(Tag {
@@ -307,7 +292,7 @@ mod tests {
         mock.expect_get_file_content().returning(|_| Ok(None));
 
         mock.expect_create_commit()
-            .times(1)
+            .times(2)
             .withf(|req| req.message.contains("chore(main): bump"))
             .returning(|_| {
                 Ok(Commit {
@@ -317,7 +302,7 @@ mod tests {
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
-        execute(&forge_manager, Some(vec!["pkg-a".into()]), None)
+        execute(&forge_manager, Some(vec!["pkg-a".into()]), config)
             .await
             .unwrap()
     }

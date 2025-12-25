@@ -1,54 +1,25 @@
 //! Shows information about prior and upcoming releases
-use clap::Subcommand;
 use log::*;
 use std::path::Path;
 use tokio::fs;
 
 use crate::{
     Result,
-    cli::{common, types::ReleasablePackage},
+    cli::{ShowCommand, common, types::ReleasablePackage},
+    config::Config,
     forge::manager::ForgeManager,
 };
-
-#[derive(Subcommand, Debug, Clone)]
-pub enum ShowCommand {
-    /// Outputs the projected next release in json
-    NextRelease {
-        /// Output projected-release json directly to file
-        #[arg(short, long)]
-        out_file: Option<String>,
-        /// Optionally restrict output to just 1 specific package
-        #[arg(short, long)]
-        package: Option<String>,
-    },
-    /// Outputs the release data associated with a given tag
-    Release {
-        /// Output release notes directly to file
-        #[arg(short, long)]
-        out_file: Option<String>,
-
-        /// Gets release notes associated with specific tag
-        #[arg(long, required = true)]
-        tag: String,
-    },
-}
 
 /// Get projected next release info as JSON, optionally filtered by package name.
 pub async fn execute(
     forge_manager: &ForgeManager,
     cmd: ShowCommand,
-    base_branch_override: Option<String>,
+    config: Config,
 ) -> Result<()> {
     match cmd {
-        ShowCommand::NextRelease { out_file, package } => {
-            show_next_release(
-                forge_manager,
-                out_file,
-                package,
-                base_branch_override,
-            )
-            .await
-        }
+        ShowCommand::NextRelease {
+            out_file, package, ..
+        } => show_next_release(config, forge_manager, out_file, package).await,
         ShowCommand::Release { out_file, tag } => {
             show_release(forge_manager, out_file, tag).await
         }
@@ -86,22 +57,19 @@ async fn show_release(
 }
 
 async fn show_next_release(
+    config: Config,
     forge_manager: &ForgeManager,
     out_file: Option<String>,
     package: Option<String>,
-    base_branch_override: Option<String>,
 ) -> Result<()> {
-    let mut config = forge_manager
-        .load_config(base_branch_override.clone())
-        .await?;
-    let repo_name = forge_manager.repo_name();
-    let config = common::process_config(&repo_name, &mut config);
-    let base_branch =
-        common::base_branch(&config, forge_manager, base_branch_override);
+    let base_branch = config.base_branch()?;
 
-    let mut releasable_packages =
-        common::get_releasable_packages(&config, forge_manager, &base_branch)
-            .await?;
+    let mut releasable_packages = common::get_releasable_packages(
+        &config.packages,
+        forge_manager,
+        &base_branch,
+    )
+    .await?;
 
     if let Some(package) = package {
         releasable_packages = releasable_packages
@@ -183,9 +151,6 @@ mod tests {
             })
         });
 
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
-
         mock.expect_get_latest_tag_for_prefix()
             .returning(|_| Ok(None));
 
@@ -225,23 +190,36 @@ mod tests {
             PackageConfig {
                 name: "pkg-a".into(),
                 release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
                 ..PackageConfig::default()
             },
             PackageConfig {
                 name: "pkg-b".into(),
                 release_type: Some(ReleaseType::Rust),
+                tag_prefix: Some("pkg-b-v".to_string()),
                 ..PackageConfig::default()
             },
         ];
+
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: packages.clone(),
+            ..Config::default()
+        };
 
         let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: None,
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     #[tokio::test]
@@ -250,39 +228,69 @@ mod tests {
             PackageConfig {
                 name: "pkg-a".into(),
                 release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
                 ..PackageConfig::default()
             },
             PackageConfig {
                 name: "pkg-b".into(),
                 release_type: Some(ReleaseType::Rust),
+                tag_prefix: Some("pkg-b-v".to_string()),
                 ..PackageConfig::default()
             },
         ];
+
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: packages.clone(),
+            ..Config::default()
+        };
 
         let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: Some("pkg-a".to_string()),
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn next_release_handles_empty_packages() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![],
+            ..Config::default()
+        };
+
         let manager = mock_forge_with_packages(vec![]);
 
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: None,
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn next_release_creates_file_with_valid_json() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![],
+            ..Config::default()
+        };
+
         let manager = mock_forge_with_packages(vec![]);
 
         let temp_dir = tempfile::tempdir().unwrap();
@@ -292,9 +300,14 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: Some(out_file_str),
             package: None,
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
 
         // Verify file was created
         assert!(out_file.exists(), "Output file should be created");
@@ -314,23 +327,86 @@ mod tests {
             PackageConfig {
                 name: "pkg-a".into(),
                 release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
                 ..PackageConfig::default()
             },
             PackageConfig {
                 name: "pkg-b".into(),
                 release_type: Some(ReleaseType::Rust),
+                tag_prefix: Some("pkg-b-v".to_string()),
                 ..PackageConfig::default()
             },
         ];
+
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: packages.clone(),
+            ..Config::default()
+        };
 
         let manager = mock_forge_with_packages(packages);
 
         let cmd = ShowCommand::NextRelease {
             out_file: Some("/tmp/filtered.json".to_string()),
             package: Some("pkg-a".to_string()),
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn next_release_uses_branch_override() {
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
+                ..PackageConfig::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                release_type: Some(ReleaseType::Rust),
+                tag_prefix: Some("pkg-b-v".to_string()),
+                ..PackageConfig::default()
+            },
+        ];
+
+        let config = Config {
+            base_branch: Some("develop".into()),
+            packages: packages.clone(),
+            ..Config::default()
+        };
+
+        let mut mock = MockForge::new();
+
+        mock.expect_repo_name()
+            .returning(|| "test-repo".to_string());
+
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(None));
+
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        mock.expect_remote_config().returning(RemoteConfig::default);
+
+        let manager = ForgeManager::new(Box::new(mock));
+
+        let cmd = ShowCommand::NextRelease {
+            out_file: Some("/tmp/filtered.json".to_string()),
+            package: Some("pkg-a".to_string()),
+            overrides: crate::cli::SharedCommandOverrides {
+                package_overrides: vec![],
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
+        };
+
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     // ===== Release SubCommand Tests =====
@@ -344,12 +420,14 @@ mod tests {
             notes,
         );
 
+        let config = Config::default();
+
         let cmd = ShowCommand::Release {
             out_file: None,
             tag: "v1.0.0".to_string(),
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     #[tokio::test]
@@ -361,6 +439,8 @@ mod tests {
             notes.clone(),
         );
 
+        let config = Config::default();
+
         let temp_dir = tempfile::tempdir().unwrap();
         let out_file = temp_dir.path().join("release.json");
         let out_file_str = out_file.to_str().unwrap().to_string();
@@ -370,7 +450,7 @@ mod tests {
             tag: "v1.0.0".to_string(),
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
 
         // Verify file was created
         assert!(out_file.exists(), "Output file should be created");
@@ -394,12 +474,14 @@ mod tests {
             notes,
         );
 
+        let config = Config::default();
+
         let cmd = ShowCommand::Release {
             out_file: None,
             tag: "v2.1.3".to_string(),
         };
 
-        execute(&manager, cmd, None).await.unwrap();
+        execute(&manager, cmd, config).await.unwrap();
     }
 
     // ===== JSON Serialization Tests =====

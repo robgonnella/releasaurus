@@ -6,10 +6,6 @@ mod path_helpers;
 mod updater;
 
 pub use cli::{
-    Cli, Command,
-    command::release,
-    command::release_pr,
-    command::show::{self, ShowCommand},
-    command::start_next,
-    types::Result,
+    Cli, Command, ShowCommand, command::release, command::release_pr,
+    command::show, command::start_next, types::Result,
 };

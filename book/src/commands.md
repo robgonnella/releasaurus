@@ -348,6 +348,83 @@ repository and does not require forge authentication tokens. See the
 [Troubleshooting](./troubleshooting.md) guide for help diagnosing
 configuration issues.
 
+### Configuration Overrides
+
+Override configuration properties from the command line without modifying your
+`releasaurus.toml` file. This is useful for testing different settings, creating
+one-off releases with custom configurations, or using different values in
+CI/CD pipelines.
+
+**Available overrides:**
+
+- `--base-branch <branch>` - Override the base branch for the release
+- `--prerelease-suffix <suffix>` - Set or override global prerelease
+  suffix. This is applied to all packages
+- `--prerelease-strategy <strategy>` - Set global prerelease strategy
+  (`versioned` or `static`). This is applied to all packages
+- `--set-package <package_name>.<property>=<value>` - Override
+  package-specific properties. The takes precedence over all global overrides
+  and config. Not all properties are overridable. If you try to set an
+  unsupported property and error will be displayed with available valid values.
+  Currently there is support for
+  `--set-package <pkg_name>.prerelease.suffix=<suffix>` and
+  `--set-package <pkg_name>.prerelease.strategy=<strategy>`
+
+**Override precedence (highest to lowest):**
+
+1. Package-specific CLI overrides (`--set-package`)
+2. Global CLI overrides (`--base-branch`, `--prerelease-*`)
+3. Package configuration in `releasaurus.toml`
+4. Global configuration in `releasaurus.toml`
+5. Default values
+
+**Usage examples:**
+
+```bash
+# Override base branch
+releasaurus release-pr \
+  --base-branch develop \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override global prerelease configuration
+releasaurus release-pr \
+  --prerelease-suffix beta \
+  --prerelease-strategy versioned \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package-specific prerelease suffix
+releasaurus release-pr \
+  --set-package my-pkg.prerelease.suffix=rc \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package-specific prerelease strategy
+releasaurus release-pr \
+  --set-package my-pkg.prerelease.strategy=static \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Combine multiple overrides
+releasaurus release-pr \
+  --base-branch staging \
+  --prerelease-suffix alpha \ # applies to all packages
+  --set-package frontend.prerelease.suffix=beta \ # applies only to frontend
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+**Use cases:**
+
+- Test prerelease configurations without modifying your config file
+- Create emergency releases from different branches
+- Use different settings across environments / branches (dev/staging/prod)
+- Override per-package settings for specific releases
+
+See the [Configuration](./configuration.md) guide for details on
+prerelease configuration.
+
 ### Authentication
 
 Provide access tokens for API authentication:
