@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ use crate::Result;
     PartialEq,
     Eq,
     Default,
+    ValueEnum,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum PrereleaseStrategy {
@@ -36,31 +38,10 @@ pub struct PrereleaseConfig {
 }
 
 impl PrereleaseConfig {
-    /// Resolves this config against an optional override, returning the final
-    /// prerelease settings when a suffix is available
-    pub fn resolve_with_override(
-        &self,
-        override_cfg: Option<&PrereleaseConfig>,
-    ) -> Option<PrereleaseConfig> {
-        let candidate = override_cfg.unwrap_or(self);
-        candidate.sanitized_suffix().map(|suffix| {
-            let mut resolved = candidate.clone();
-            resolved.suffix = Some(suffix);
-            resolved
-        })
-    }
-
-    /// Returns the sanitized suffix for configs that have been resolved
-    pub fn resolved_suffix(&self) -> Result<&str> {
+    /// Returns the suffix for configs that have been resolved
+    pub fn suffix(&self) -> Result<&str> {
         self.suffix
             .as_deref()
             .ok_or(eyre!("resolved prerelease config must include suffix"))
-    }
-
-    fn sanitized_suffix(&self) -> Option<String> {
-        self.suffix
-            .as_ref()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
     }
 }

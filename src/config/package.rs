@@ -1,7 +1,14 @@
+use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{prerelease::PrereleaseConfig, release_type::ReleaseType};
+use crate::{
+    Result,
+    analyzer::config::AnalyzerConfig,
+    config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+};
+
+pub const DEFAULT_TAG_PREFIX: &str = "v";
 
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -36,6 +43,9 @@ pub struct PackageConfig {
     pub custom_major_increment_regex: Option<String>,
     /// Custom commit type regex matcher to increment minor version
     pub custom_minor_increment_regex: Option<String>,
+    /// derived from all other provided config
+    #[serde(skip)]
+    pub analyzer_config: AnalyzerConfig,
 }
 
 impl Default for PackageConfig {
@@ -54,6 +64,16 @@ impl Default for PackageConfig {
             features_always_increment_minor: None,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
+            analyzer_config: AnalyzerConfig::default(),
         }
+    }
+}
+
+impl PackageConfig {
+    pub fn tag_prefix(&self) -> Result<String> {
+        self.tag_prefix.clone().ok_or(eyre!(format!(
+            "failed to resolve tag prefix for package: {}",
+            self.name
+        )))
     }
 }

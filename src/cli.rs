@@ -1,10 +1,12 @@
 //! CLI top-level definition for release automation workflow.
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::eyre::{ContextCompat, eyre};
 use git_url_parse::GitUrl;
+use merge::Merge;
 use secrecy::SecretString;
-use std::env;
+use serde::Deserialize;
+use std::{collections::HashMap, env};
 
 pub mod command;
 pub mod common;
@@ -12,7 +14,8 @@ pub mod errors;
 pub mod types;
 
 use crate::{
-    Result, ShowCommand,
+    Result,
+    config::prerelease::PrereleaseStrategy,
     forge::config::{Remote, RemoteConfig},
 };
 
@@ -61,11 +64,115 @@ pub enum ForgeType {
     Local,
 }
 
+#[derive(Debug, Clone)]
+pub struct PackagePathOverride {
+    pub package_name: String,
+    pub path: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Merge, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackageOverrides {
+    #[serde(rename = "prerelease.suffix")]
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_suffix: Option<String>,
+    #[serde(rename = "prerelease.strategy")]
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_strategy: Option<PrereleaseStrategy>,
+}
+
+#[derive(Debug, Clone, Default, Merge, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GlobalOverrides {
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub base_branch: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_suffix: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_strategy: Option<PrereleaseStrategy>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct SharedCommandOverrides {
+    /// Override package properties using dot notation
+    /// Example: --set-package my-pkg.prerelease.suffix=beta
+    #[arg(long = "set-package", value_parser = parse_package_override, value_name = "KEY=VALUE")]
+    package_overrides: Vec<PackagePathOverride>,
+
+    /// Global override for prerelease suffix. Can be overridden either via
+    /// package config or "--set-package" overrides
+    #[arg(long)]
+    prerelease_suffix: Option<String>,
+
+    /// Global override for prerelease strategy. Can be overridden either
+    /// via package config or "--set-package" overrides
+    #[arg(long, value_enum)]
+    prerelease_strategy: Option<PrereleaseStrategy>,
+}
+
+fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
+    let parts: Vec<&str> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        return Err(eyre!(format!(
+            "Invalid format: '{}'. Expected package_name.path=value",
+            s
+        )));
+    }
+
+    let key = parts[0];
+    let value = parts[1];
+    let key_parts: Vec<&str> = key.split('.').collect();
+
+    if key_parts.len() < 2 {
+        return Err(eyre!(format!(
+            "Invalid key: '{}'. Expected package_name.path",
+            key
+        )));
+    }
+
+    Ok(PackagePathOverride {
+        package_name: key_parts[0].to_string(),
+        // Support nested like "prerelease.suffix"
+        path: key_parts[1..].join("."),
+        value: value.to_string(),
+    })
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum ShowCommand {
+    /// Outputs the projected next release in json
+    NextRelease {
+        /// Output projected-release json directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+        /// Optionally restrict output to just 1 specific package
+        #[arg(short, long)]
+        package: Option<String>,
+
+        #[command(flatten)]
+        overrides: SharedCommandOverrides,
+    },
+    /// Outputs the release data associated with a given tag
+    Release {
+        /// Output release notes directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+
+        /// Gets release notes associated with specific tag
+        #[arg(long, required = true)]
+        tag: String,
+    },
+}
+
 /// Release operation subcommands.
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Analyze commits and create a release pull request
-    ReleasePR,
+    ReleasePR {
+        #[command(flatten)]
+        overrides: SharedCommandOverrides,
+    },
 
     /// Create a git tag and publish release after PR merge
     Release,
@@ -81,6 +188,9 @@ pub enum Command {
     /// the version files and commits the changes to the targeted base branch
     /// as a "chore" commit
     StartNext {
+        #[command(flatten)]
+        overrides: SharedCommandOverrides,
+
         /// Optional comma separated list of package names to target
         #[arg(long, value_delimiter(','))]
         packages: Option<Vec<String>>,
@@ -88,6 +198,80 @@ pub enum Command {
 }
 
 impl Cli {
+    /// Gathers the list of provided path override options, like
+    /// --releasaurus.prerelease.suffix=beta, and collects them into a single
+    /// struct of all allowed overrides properties for each package name.
+    /// Returns HashMap<pkg_name, Option<PackageOverrides>>
+    pub fn get_package_overrides(
+        &self,
+    ) -> Result<HashMap<String, PackageOverrides>> {
+        let mut map: HashMap<String, PackageOverrides> = HashMap::new();
+
+        let mut map_overrides =
+            |overrides: &SharedCommandOverrides| -> Result<()> {
+                for path_override in overrides.package_overrides.clone() {
+                    let value = serde_json::json!({
+                      path_override.path.clone(): path_override.value
+                    });
+
+                    let mut overrides: PackageOverrides =
+                        serde_json::from_value(value)?;
+
+                    if let Some(existing) =
+                        map.get(&path_override.package_name).cloned()
+                    {
+                        overrides.merge(existing);
+                    }
+
+                    map.insert(path_override.package_name.clone(), overrides);
+                }
+
+                Ok(())
+            };
+
+        match &self.command {
+            Command::ReleasePR { overrides, .. } => {
+                map_overrides(overrides)?;
+            }
+            Command::StartNext { overrides, .. } => {
+                map_overrides(overrides)?;
+            }
+            Command::Show {
+                command: ShowCommand::NextRelease { overrides, .. },
+            } => {
+                map_overrides(overrides)?;
+            }
+            _ => {}
+        };
+
+        Ok(map)
+    }
+
+    pub fn get_global_overrides(&self) -> GlobalOverrides {
+        let mut global_overrides = GlobalOverrides {
+            base_branch: self.base_branch.clone(),
+            ..GlobalOverrides::default()
+        };
+
+        let cmd_overrides = match &self.command {
+            Command::ReleasePR { overrides, .. } => Some(overrides),
+            Command::StartNext { overrides, .. } => Some(overrides),
+            Command::Show {
+                command: ShowCommand::NextRelease { overrides, .. },
+            } => Some(overrides),
+            _ => None,
+        };
+
+        if let Some(overrides) = cmd_overrides {
+            global_overrides.prerelease_suffix =
+                overrides.prerelease_suffix.clone();
+            global_overrides.prerelease_strategy =
+                overrides.prerelease_strategy;
+        }
+
+        global_overrides
+    }
+
     /// Configure remote repository connection from CLI arguments
     pub fn get_remote(&self) -> Result<Remote> {
         let mut missing = vec![];
@@ -251,7 +435,13 @@ mod tests {
             repo: Some(repo),
             token: Some(token),
             base_branch: None,
-            command: Command::ReleasePR,
+            command: Command::ReleasePR {
+                overrides: SharedCommandOverrides {
+                    package_overrides: vec![],
+                    prerelease_strategy: None,
+                    prerelease_suffix: None,
+                },
+            },
         };
 
         let remote = cli_config.get_remote().unwrap();
@@ -295,6 +485,11 @@ mod tests {
                 command: ShowCommand::NextRelease {
                     out_file: None,
                     package: None,
+                    overrides: SharedCommandOverrides {
+                        package_overrides: vec![],
+                        prerelease_strategy: None,
+                        prerelease_suffix: None,
+                    },
                 },
             },
         };
@@ -315,7 +510,13 @@ mod tests {
             repo: Some(repo),
             token: None,
             base_branch: None,
-            command: Command::ReleasePR,
+            command: Command::ReleasePR {
+                overrides: SharedCommandOverrides {
+                    package_overrides: vec![],
+                    prerelease_suffix: None,
+                    prerelease_strategy: None,
+                },
+            },
         };
 
         let remote = cli_config.get_remote().unwrap();

@@ -1,20 +1,15 @@
 //! Common functionality shared between release commands
 use chrono::Utc;
 use log::*;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::Path};
 
 use crate::{
     Result,
-    analyzer::{Analyzer, config::AnalyzerConfig, release::Tag},
+    analyzer::{Analyzer, release::Tag},
     cli::types::ReleasablePackage,
-    config::{
-        Config, package::PackageConfig, prerelease::PrereleaseConfig,
-        release_type::ReleaseType,
-    },
+    config::{package::PackageConfig, release_type::ReleaseType},
     forge::{
-        config::RemoteConfig,
         manager::ForgeManager,
         request::{CreateCommitRequest, ForgeCommit},
     },
@@ -34,123 +29,8 @@ pub struct PRMetadata {
     pub metadata: PRMetadataFields,
 }
 
-pub fn process_config(repo_name: &str, config: &mut Config) -> Config {
-    for package in config.packages.iter_mut() {
-        package.name = derive_package_name(package, repo_name);
-    }
-    // drop mutability
-    config.clone()
-}
-
-/// Resolve tag prefix for package from config or generate default based on
-/// package path for monorepo support.
-pub fn get_tag_prefix(package: &PackageConfig, repo_name: &str) -> String {
-    let mut default_for_package = "v".to_string();
-    let name = derive_package_name(package, repo_name);
-    if package.workspace_root != "." || package.path != "." {
-        default_for_package = format!("{}-v", name);
-    }
-    package.tag_prefix.clone().unwrap_or(default_for_package)
-}
-
-/// Resolves a package's auto_start_next configuration with the correct priority
-///
-/// Package configuration overrides the global config. Providing auto_start_next
-/// set to `false` in a package explicitly disables auto_start_next for that
-/// package
-pub fn resolve_auto_start_next(
-    config: &Config,
-    package: &PackageConfig,
-) -> bool {
-    let opt = package.auto_start_next.or(config.auto_start_next);
-    opt.unwrap_or_default()
-}
-
-/// Resolves a package's prerelease configuration with the correct priority.
-///
-/// Package configuration overrides the global config. Providing prerelease
-/// config with an empty or `None` suffix in a package explicitly disables
-/// prereleases for that package.
-pub fn resolve_prerelease(
-    config: &Config,
-    package: &PackageConfig,
-) -> Option<PrereleaseConfig> {
-    config
-        .prerelease
-        .resolve_with_override(package.prerelease.as_ref())
-}
-
-/// Generates [`AnalyzerConfig`] from [`Config`], [`RemoteConfig`],
-/// [`PackageConfig`], and tag_prefix [`String`].
-/// Prerelease priority: CLI override > package config > global config
-pub fn generate_analyzer_config(
-    config: &Config,
-    remote_config: &RemoteConfig,
-    base_branch: &str,
-    package: &PackageConfig,
-    tag_prefix: String,
-) -> AnalyzerConfig {
-    // Determine prerelease with priority: package > global
-    let prerelease = resolve_prerelease(config, package);
-
-    let mut release_commit_matcher = None;
-
-    if let Ok(matcher) = Regex::new(&format!(
-        r#"^chore\({base_branch}\): release {}"#,
-        package.name
-    )) {
-        release_commit_matcher = Some(matcher);
-    }
-
-    let breaking_always_increment_major = package
-        .breaking_always_increment_major
-        .unwrap_or(config.breaking_always_increment_major);
-
-    let features_always_increment_minor = package
-        .features_always_increment_minor
-        .unwrap_or(config.features_always_increment_minor);
-
-    let custom_major_increment_regex = package
-        .custom_major_increment_regex
-        .clone()
-        .or(config.custom_major_increment_regex.clone());
-
-    let custom_minor_increment_regex = package
-        .custom_minor_increment_regex
-        .clone()
-        .or(config.custom_minor_increment_regex.clone());
-
-    AnalyzerConfig {
-        body: config.changelog.body.clone(),
-        include_author: config.changelog.include_author,
-        skip_chore: config.changelog.skip_chore,
-        skip_ci: config.changelog.skip_ci,
-        skip_miscellaneous: config.changelog.skip_miscellaneous,
-        skip_merge_commits: config.changelog.skip_merge_commits,
-        skip_release_commits: config.changelog.skip_release_commits,
-        release_link_base_url: remote_config.release_link_base_url.clone(),
-        tag_prefix: Some(tag_prefix),
-        prerelease,
-        release_commit_matcher,
-        breaking_always_increment_major,
-        features_always_increment_minor,
-        custom_major_increment_regex,
-        custom_minor_increment_regex,
-    }
-}
-
-pub fn base_branch(
-    config: &Config,
-    manager: &ForgeManager,
-    cli_override: Option<String>,
-) -> String {
-    cli_override
-        .or(config.base_branch.clone())
-        .unwrap_or_else(|| manager.default_branch())
-}
-
 pub async fn start_next_release(
-    config: &Config,
+    packages: &[PackageConfig],
     forge_manager: &ForgeManager,
     base_branch: &str,
 ) -> Result<()> {
@@ -161,8 +41,7 @@ pub async fn start_next_release(
         short_id: "dummy".into(),
         message: "fix: dummy commit".into(),
         timestamp: Utc::now().timestamp(),
-        files: config
-            .packages
+        files: packages
             .iter()
             .map(|p| package_path(p, Some("dummy.txt")))
             .collect::<Vec<String>>(),
@@ -170,7 +49,7 @@ pub async fn start_next_release(
     }];
 
     let releasable_packages = get_releasable_packages_for_commits(
-        config,
+        packages,
         &commits,
         forge_manager,
         base_branch,
@@ -205,17 +84,15 @@ pub async fn start_next_release(
 }
 
 pub async fn get_releasable_packages_for_commits(
-    config: &Config,
+    packages: &[PackageConfig],
     commits: &[ForgeCommit],
     forge_manager: &ForgeManager,
     base_branch: &str,
 ) -> Result<Vec<ReleasablePackage>> {
-    let repo_name = forge_manager.repo_name();
-    let remote_config = forge_manager.remote_config();
     let mut releasable_packages: Vec<ReleasablePackage> = vec![];
 
-    for package in config.packages.iter() {
-        let tag_prefix = get_tag_prefix(package, &repo_name);
+    for package in packages.iter() {
+        let tag_prefix = package.tag_prefix()?;
 
         let current_tag =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
@@ -239,15 +116,7 @@ pub async fn get_releasable_packages_for_commits(
 
         info!("processing commits for package: {}", package.name);
 
-        let analyzer_config = generate_analyzer_config(
-            config,
-            &remote_config,
-            base_branch,
-            package,
-            tag_prefix.clone(),
-        );
-
-        let analyzer = Analyzer::new(analyzer_config)?;
+        let analyzer = Analyzer::new(package.analyzer_config.clone())?;
 
         if let Some(release) = analyzer.analyze(package_commits, current_tag)? {
             info!("package: {}, release: {:#?}", package.name, release);
@@ -293,44 +162,21 @@ pub async fn get_releasable_packages_for_commits(
 }
 
 pub async fn get_releasable_packages(
-    config: &Config,
+    packages: &[PackageConfig],
     forge_manager: &ForgeManager,
     base_branch: &str,
 ) -> Result<Vec<ReleasablePackage>> {
-    let repo_name = forge_manager.repo_name();
-
-    let commits = get_commits_for_all_packages(
-        forge_manager,
-        &config.packages,
-        &repo_name,
-        base_branch,
-    )
-    .await?;
+    let commits =
+        get_commits_for_all_packages(forge_manager, packages, base_branch)
+            .await?;
 
     get_releasable_packages_for_commits(
-        config,
+        packages,
         &commits,
         forge_manager,
         base_branch,
     )
     .await
-}
-
-/// Extract package name from its path, using repository name for root
-/// packages.
-pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
-    if !package.name.is_empty() {
-        return package.name.to_string();
-    }
-
-    let path = Path::new(&package.workspace_root).join(&package.path);
-
-    if let Some(name) = path.file_name() {
-        return name.display().to_string();
-    }
-
-    // if all else fails just return the name of the repository
-    repo_name.into()
 }
 
 /// Retrieves all commits for all packages using the oldest found tag across
@@ -339,7 +185,6 @@ pub fn derive_package_name(package: &PackageConfig, repo_name: &str) -> String {
 pub async fn get_commits_for_all_packages(
     forge_manager: &ForgeManager,
     packages: &[PackageConfig],
-    repo_name: &str,
     base_branch: &str,
 ) -> Result<Vec<ForgeCommit>> {
     info!("attempting to get commits for all packages at once");
@@ -347,7 +192,7 @@ pub async fn get_commits_for_all_packages(
     let mut oldest_timestamp = i64::MAX;
 
     for package in packages.iter() {
-        let tag_prefix = get_tag_prefix(package, repo_name);
+        let tag_prefix = package.tag_prefix()?;
 
         if let Some(tag) =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?
@@ -373,7 +218,6 @@ pub async fn get_commits_for_all_packages(
         return get_commits_for_all_packages_separately(
             forge_manager,
             packages,
-            repo_name,
             base_branch,
         )
         .await;
@@ -459,13 +303,12 @@ pub fn filter_commits_for_package(
 async fn get_commits_for_all_packages_separately(
     forge_manager: &ForgeManager,
     packages: &[PackageConfig],
-    repo_name: &str,
     base_branch: &str,
 ) -> Result<Vec<ForgeCommit>> {
     let mut cache: HashSet<ForgeCommit> = HashSet::new();
 
     for package in packages.iter() {
-        let tag_prefix = get_tag_prefix(package, repo_name);
+        let tag_prefix = package.tag_prefix()?;
 
         let current_tag =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
@@ -493,517 +336,361 @@ async fn get_commits_for_all_packages_separately(
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{
-        prerelease::{PrereleaseConfig, PrereleaseStrategy},
-        release_type::ReleaseType,
-    };
-
     use super::*;
+    use crate::forge::{
+        config::RemoteConfig, request::Commit, traits::MockForge,
+    };
+    use semver::Version as SemVer;
 
     #[test]
-    fn test_get_tag_prefix_using_standard_default() {
-        let repo_name = "test-repo";
-
+    fn filter_commits_for_package_includes_commits_in_package_path() {
         let package = PackageConfig {
-            name: "my-package".into(),
-            ..PackageConfig::default()
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            ..Default::default()
         };
+        let commits = vec![
+            ForgeCommit {
+                id: "abc123".into(),
+                short_id: "abc123".into(),
+                message: "feat: test change".into(),
+                timestamp: 1000,
+                files: vec!["packages/api/src/main.rs".into()],
+                ..Default::default()
+            },
+            ForgeCommit {
+                id: "def456".into(),
+                short_id: "def456".into(),
+                message: "feat: test change".into(),
+                timestamp: 2000,
+                files: vec!["packages/web/index.html".into()],
+                ..Default::default()
+            },
+        ];
 
-        let tag_prefix = get_tag_prefix(&package, repo_name);
+        let result = filter_commits_for_package(&package, None, &commits);
 
-        assert_eq!(tag_prefix, "v");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "abc123");
     }
 
     #[test]
-    fn test_get_tag_prefix_using_name() {
-        let repo_name = "test-repo";
-
+    fn filter_commits_for_package_excludes_commits_before_tag_timestamp() {
         let package = PackageConfig {
-            name: "my-package".into(),
-            path: "packages/my-package".into(),
-            workspace_root: ".".into(),
-            ..PackageConfig::default()
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            ..Default::default()
         };
-
-        let tag_prefix = get_tag_prefix(&package, repo_name);
-
-        assert_eq!(tag_prefix, "my-package-v");
-    }
-
-    #[test]
-    fn test_get_tag_prefix_using_path() {
-        let repo_name = "test-repo";
-
-        let package = PackageConfig {
-            name: "".into(),
-            path: "packages/my-package".into(),
-            workspace_root: ".".into(),
-            ..PackageConfig::default()
-        };
-
-        let tag_prefix = get_tag_prefix(&package, repo_name);
-
-        assert_eq!(tag_prefix, "my-package-v");
-    }
-
-    #[test]
-    fn test_get_tag_prefix_using_configured_prefix() {
-        let repo_name = "test-repo";
-
-        let package = PackageConfig {
-            name: "my-package".into(),
-            path: "packages/my-package".into(),
-            workspace_root: ".".into(),
-            tag_prefix: Some("my-special-tag-prefix-v".into()),
-            ..PackageConfig::default()
-        };
-
-        let tag_prefix = get_tag_prefix(&package, repo_name);
-
-        assert_eq!(tag_prefix, "my-special-tag-prefix-v");
-    }
-
-    #[test]
-    fn test_derive_package_name_from_directory() {
-        let mut package = PackageConfig {
-            name: "".into(),
-            path: "packages/my-package".into(),
-            workspace_root: ".".into(),
-            ..PackageConfig::default()
-        };
-        // Test with simple directory name
-        let name = derive_package_name(&package, "test-repo");
-        assert_eq!(name, "my-package");
-
-        // Test with nested path
-        package.name = "".into();
-        package.path = "crates/core/utils".into();
-        let name = derive_package_name(&package, "test-repo");
-        assert_eq!(name, "utils");
-
-        // Test with root path
-        package.name = "".into();
-        package.path = ".".into();
-        let name = derive_package_name(&package, "test-repo");
-        assert_eq!(name, "test-repo");
-
-        // Test with single directory
-        package.name = "".into();
-        package.path = "backend".into();
-        let name = derive_package_name(&package, "test-repo");
-        assert_eq!(name, "backend");
-    }
-
-    #[test]
-    fn test_process_config_derives_package_names() {
-        let repo_name = "test-repo";
-
-        let mut config = Config {
-            packages: vec![
-                PackageConfig {
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    path: "packages/api".into(),
-                    release_type: Some(ReleaseType::Node),
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
-
-        let processed = process_config(repo_name, &mut config);
-
-        assert_eq!(processed.packages[0].name, "test-repo");
-        assert_eq!(processed.packages[1].name, "api");
-    }
-
-    #[test]
-    fn test_process_config_preserves_existing_names() {
-        let repo_name = "test-repo";
-
-        let mut config = Config {
-            packages: vec![
-                PackageConfig {
-                    name: "my-custom-name".into(),
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "another-name".into(),
-                    path: "packages/api".into(),
-                    release_type: Some(ReleaseType::Node),
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
-
-        let processed = process_config(repo_name, &mut config);
-
-        assert_eq!(processed.packages[0].name, "my-custom-name");
-        assert_eq!(processed.packages[1].name, "another-name");
-    }
-
-    #[test]
-    fn test_process_config_mixed_names() {
-        let repo_name = "test-repo";
-
-        let mut config = Config {
-            packages: vec![
-                PackageConfig {
-                    name: "explicit-name".into(),
-                    path: "packages/frontend".into(),
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    path: "packages/backend".into(),
-                    release_type: Some(ReleaseType::Node),
-                    breaking_always_increment_major: Some(true),
-                    features_always_increment_minor: Some(true),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
-
-        let processed = process_config(repo_name, &mut config);
-
-        assert_eq!(processed.packages[0].name, "explicit-name");
-        assert_eq!(processed.packages[1].name, "backend");
-    }
-
-    #[test]
-    fn test_derive_package_name_with_explicit_name() {
-        let package = PackageConfig {
-            name: "explicit-package-name".into(),
-            path: "packages/something".into(),
-            ..PackageConfig::default()
-        };
-
-        let name = derive_package_name(&package, "test-repo");
-        assert_eq!(name, "explicit-package-name");
-    }
-
-    #[test]
-    fn test_resolve_prerelease_package_overrides_global() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-        config.prerelease.suffix = Some("alpha".to_string());
-        config.packages[0].prerelease = Some(PrereleaseConfig {
-            suffix: Some("beta".to_string()),
-            strategy: PrereleaseStrategy::Static,
-        });
-
-        let result = resolve_prerelease(&config, &config.packages[0])
-            .expect("expected prerelease");
-
-        assert_eq!(result.suffix.as_deref(), Some("beta"));
-        assert_eq!(result.strategy, PrereleaseStrategy::Static);
-    }
-
-    #[test]
-    fn test_resolve_prerelease_uses_global_when_package_not_set() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-        config.prerelease.suffix = Some("alpha".to_string());
-
-        let result = resolve_prerelease(&config, &config.packages[0])
-            .expect("expected prerelease");
-
-        assert_eq!(result.suffix.as_deref(), Some("alpha"));
-        assert_eq!(result.strategy, PrereleaseStrategy::Versioned);
-    }
-
-    #[test]
-    fn test_resolve_prerelease_can_disable_with_null_suffix() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-        config.prerelease.suffix = Some("alpha".to_string());
-        config.packages[0].prerelease = Some(PrereleaseConfig {
-            suffix: None,
-            strategy: PrereleaseStrategy::Versioned,
-        });
-
-        let result = resolve_prerelease(&config, &config.packages[0]);
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_resolve_prerelease_returns_none_when_not_configured() {
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-
-        let result = resolve_prerelease(&config, &config.packages[0]);
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_filter_commits_for_package_filters_by_tag_timestamp() {
-        let package = PackageConfig {
-            name: "my-package".into(),
-            ..PackageConfig::default()
-        };
-
-        // Create tag with timestamp 2000
         let tag = Tag {
-            name: "v1.0.0".into(),
-            semver: semver::Version::parse("1.0.0").unwrap(),
-            sha: "tag-sha".into(),
-            timestamp: Some(2000),
+            name: "api-v1.0.0".into(),
+            sha: "old-sha".into(),
+            semver: SemVer::parse("1.0.0").unwrap(),
+            timestamp: Some(1500),
         };
+        let commits = vec![
+            ForgeCommit {
+                id: "abc123".into(),
+                short_id: "abc123".into(),
+                message: "feat: test change".into(),
+                timestamp: 1000,
+                files: vec!["packages/api/src/main.rs".into()],
+                ..Default::default()
+            },
+            ForgeCommit {
+                id: "def456".into(),
+                short_id: "def456".into(),
+                message: "feat: test change".into(),
+                timestamp: 2000,
+                files: vec!["packages/api/src/lib.rs".into()],
+                ..Default::default()
+            },
+        ];
 
-        // Create commits with various timestamps
-        let old_commit = ForgeCommit {
-            id: "old-commit".into(),
-            message: "feat: old feature".into(),
-            timestamp: 1000, // Before tag
-            files: vec!["src/main.rs".to_string()],
-            ..ForgeCommit::default()
-        };
-
-        let equal_commit = ForgeCommit {
-            id: "equal-commit".into(),
-            message: "feat: equal feature".into(),
-            timestamp: 2000, // Equal to tag
-            files: vec!["src/lib.rs".to_string()],
-            ..ForgeCommit::default()
-        };
-
-        let new_commit = ForgeCommit {
-            id: "new-commit".into(),
-            message: "feat: new feature".into(),
-            timestamp: 3000, // After tag
-            files: vec!["src/utils.rs".to_string()],
-            ..ForgeCommit::default()
-        };
-
-        let commits = vec![old_commit, equal_commit, new_commit];
-
-        // Filter with tag - should exclude commits older than tag timestamp
         let result = filter_commits_for_package(&package, Some(tag), &commits);
 
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "def456");
+    }
+
+    #[test]
+    fn filter_commits_for_package_handles_root_directory() {
+        let package = PackageConfig {
+            name: "root".into(),
+            path: ".".into(),
+            tag_prefix: Some("v".into()),
+            ..Default::default()
+        };
+        let commits = vec![
+            ForgeCommit {
+                id: "abc123".into(),
+                short_id: "abc123".into(),
+                message: "feat: test change".into(),
+                timestamp: 1000,
+                files: vec!["src/main.rs".into()],
+                ..Default::default()
+            },
+            ForgeCommit {
+                id: "def456".into(),
+                short_id: "def456".into(),
+                message: "feat: test change".into(),
+                timestamp: 2000,
+                files: vec!["README.md".into()],
+                ..Default::default()
+            },
+        ];
+
+        let result = filter_commits_for_package(&package, None, &commits);
+
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].id, "equal-commit");
-        assert_eq!(result[1].id, "new-commit");
     }
 
     #[test]
-    fn test_generate_analyzer_config_uses_global_defaults() {
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "test-pkg".into(),
+    fn filter_commits_for_package_includes_additional_paths() {
+        let package = PackageConfig {
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            additional_paths: Some(vec!["shared/utils".into()]),
+            ..Default::default()
+        };
+        let commits = vec![
+            ForgeCommit {
+                id: "abc123".into(),
+                short_id: "abc123".into(),
+                message: "feat: test change".into(),
+                timestamp: 1000,
+                files: vec!["packages/api/src/main.rs".into()],
+                ..Default::default()
+            },
+            ForgeCommit {
+                id: "def456".into(),
+                short_id: "def456".into(),
+                message: "feat: test change".into(),
+                timestamp: 2000,
+                files: vec!["shared/utils/helpers.rs".into()],
+                ..Default::default()
+            },
+            ForgeCommit {
+                id: "ghi789".into(),
+                short_id: "ghi789".into(),
+                message: "feat: test change".into(),
+                timestamp: 3000,
+                files: vec!["other/file.rs".into()],
+                ..Default::default()
+            },
+        ];
+
+        let result = filter_commits_for_package(&package, None, &commits);
+
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().any(|c| c.id == "abc123"));
+        assert!(result.iter().any(|c| c.id == "def456"));
+    }
+
+    #[test]
+    fn filter_commits_for_package_returns_empty_when_no_matches() {
+        let package = PackageConfig {
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            ..Default::default()
+        };
+        let commits = vec![ForgeCommit {
+            id: "abc123".into(),
+            short_id: "abc123".into(),
+            message: "feat: test change".into(),
+            timestamp: 1000,
+            files: vec!["packages/web/index.html".into()],
+            ..Default::default()
+        }];
+
+        let result = filter_commits_for_package(&package, None, &commits);
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_commits_for_all_packages_uses_oldest_tag() {
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                path: "packages/a".into(),
+                tag_prefix: Some("pkg-a-v".into()),
                 release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-
-        let remote_config = RemoteConfig::default();
-        let analyzer_config = generate_analyzer_config(
-            &config,
-            &remote_config,
-            "main",
-            &config.packages[0],
-            "v".to_string(),
-        );
-
-        assert!(analyzer_config.breaking_always_increment_major);
-        assert!(analyzer_config.features_always_increment_minor);
-        assert_eq!(analyzer_config.custom_major_increment_regex, None);
-        assert_eq!(analyzer_config.custom_minor_increment_regex, None);
-    }
-
-    #[test]
-    fn test_generate_analyzer_config_package_overrides_boolean_flags() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "test-pkg".into(),
+                ..Default::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                path: "packages/b".into(),
+                tag_prefix: Some("pkg-b-v".into()),
                 release_type: Some(ReleaseType::Node),
-                breaking_always_increment_major: Some(false),
-                features_always_increment_minor: Some(false),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-
-        // Global config has defaults true
-        config.breaking_always_increment_major = true;
-        config.features_always_increment_minor = true;
-
-        let remote_config = RemoteConfig::default();
-        let analyzer_config = generate_analyzer_config(
-            &config,
-            &remote_config,
-            "main",
-            &config.packages[0],
-            "v".to_string(),
-        );
-
-        // Package config should override global
-        assert!(!analyzer_config.breaking_always_increment_major);
-        assert!(!analyzer_config.features_always_increment_minor);
-    }
-
-    #[test]
-    fn test_generate_analyzer_config_package_overrides_custom_regex() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "test-pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                custom_major_increment_regex: Some("PKG_MAJOR".to_string()),
-                custom_minor_increment_regex: Some("PKG_MINOR".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-
-        // Set global custom regex
-        config.custom_major_increment_regex = Some("GLOBAL_MAJOR".to_string());
-        config.custom_minor_increment_regex = Some("GLOBAL_MINOR".to_string());
-
-        let remote_config = RemoteConfig::default();
-        let analyzer_config = generate_analyzer_config(
-            &config,
-            &remote_config,
-            "main",
-            &config.packages[0],
-            "v".to_string(),
-        );
-
-        // Package config should override global
-        assert_eq!(
-            analyzer_config.custom_major_increment_regex,
-            Some("PKG_MAJOR".to_string())
-        );
-        assert_eq!(
-            analyzer_config.custom_minor_increment_regex,
-            Some("PKG_MINOR".to_string())
-        );
-    }
-
-    #[test]
-    fn test_generate_analyzer_config_uses_global_when_package_not_set() {
-        let mut config = Config {
-            packages: vec![PackageConfig {
-                name: "test-pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
-
-        // Set only global config
-        config.breaking_always_increment_major = false;
-        config.custom_major_increment_regex = Some("MAJOR".to_string());
-
-        let remote_config = RemoteConfig::default();
-        let analyzer_config = generate_analyzer_config(
-            &config,
-            &remote_config,
-            "main",
-            &config.packages[0],
-            "v".to_string(),
-        );
-
-        // Should use global config
-        assert!(!analyzer_config.breaking_always_increment_major);
-        assert_eq!(
-            analyzer_config.custom_major_increment_regex,
-            Some("MAJOR".to_string())
-        );
-    }
-
-    #[test]
-    fn test_base_branch_cli_override_takes_precedence() {
-        use crate::forge::{manager::ForgeManager, traits::MockForge};
-
-        let config = Config {
-            base_branch: Some("develop".to_string()),
-            ..Config::default()
-        };
+                ..Default::default()
+            },
+        ];
 
         let mut mock = MockForge::new();
-
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
+        mock.expect_repo_name().returning(|| "test-repo".into());
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        let manager = ForgeManager::new(Box::new(mock));
+        mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
+            if prefix.contains("pkg-a") {
+                Ok(Some(Tag {
+                    name: "pkg-a-v1.0.0".into(),
+                    sha: "sha-a".into(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                    timestamp: Some(1000),
+                }))
+            } else {
+                Ok(Some(Tag {
+                    name: "pkg-b-v1.0.0".into(),
+                    sha: "sha-b".into(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                    timestamp: Some(2000),
+                }))
+            }
+        });
 
+        mock.expect_get_commits()
+            .withf(|branch, sha| {
+                branch.as_deref() == Some("main")
+                    && sha.as_deref() == Some("sha-a")
+            })
+            .returning(|_, _| {
+                Ok(vec![ForgeCommit {
+                    id: "commit1".into(),
+                    short_id: "commit1".into(),
+                    message: "feat: test change".into(),
+                    timestamp: 1500,
+                    files: vec!["file.rs".into()],
+                    ..Default::default()
+                }])
+            });
+
+        let forge_manager = ForgeManager::new(Box::new(mock));
         let result =
-            base_branch(&config, &manager, Some("feature-branch".to_string()));
+            get_commits_for_all_packages(&forge_manager, &packages, "main")
+                .await
+                .unwrap();
 
-        assert_eq!(result, "feature-branch");
+        assert_eq!(result.len(), 1);
     }
 
-    #[test]
-    fn test_base_branch_uses_config_when_no_cli_override() {
-        use crate::forge::{manager::ForgeManager, traits::MockForge};
-
-        let config = Config {
-            base_branch: Some("develop".to_string()),
-            ..Config::default()
-        };
+    #[tokio::test]
+    async fn get_commits_for_all_packages_falls_back_when_untagged_package_exists()
+     {
+        let packages = vec![
+            PackageConfig {
+                name: "pkg-a".into(),
+                path: "packages/a".into(),
+                tag_prefix: Some("pkg-a-v".into()),
+                release_type: Some(ReleaseType::Node),
+                ..Default::default()
+            },
+            PackageConfig {
+                name: "pkg-b".into(),
+                path: "packages/b".into(),
+                tag_prefix: Some("pkg-b-v".into()),
+                release_type: Some(ReleaseType::Node),
+                ..Default::default()
+            },
+        ];
 
         let mut mock = MockForge::new();
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
+        mock.expect_repo_name().returning(|| "test-repo".into());
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        let manager = ForgeManager::new(Box::new(mock));
+        mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
+            if prefix.contains("pkg-a") {
+                Ok(Some(Tag {
+                    name: "pkg-a-v1.0.0".into(),
+                    sha: "sha-a".into(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                    timestamp: Some(1000),
+                }))
+            } else {
+                Ok(None)
+            }
+        });
 
-        let result = base_branch(&config, &manager, None);
+        mock.expect_get_commits().returning(|_, _| {
+            Ok(vec![ForgeCommit {
+                id: "commit1".into(),
+                short_id: "commit1".into(),
+                message: "feat: test change".into(),
+                timestamp: 1500,
+                files: vec!["file.rs".into()],
+                ..Default::default()
+            }])
+        });
 
-        assert_eq!(result, "develop");
+        let forge_manager = ForgeManager::new(Box::new(mock));
+        let result =
+            get_commits_for_all_packages(&forge_manager, &packages, "main")
+                .await
+                .unwrap();
+
+        assert_eq!(result.len(), 1);
     }
 
-    #[test]
-    fn test_base_branch_uses_default_when_no_config_or_cli() {
-        use crate::forge::{manager::ForgeManager, traits::MockForge};
-
-        let config = Config::default();
+    #[tokio::test]
+    async fn get_releasable_packages_returns_empty_when_no_commits() {
+        let packages = vec![PackageConfig {
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            release_type: Some(ReleaseType::Node),
+            ..Default::default()
+        }];
 
         let mut mock = MockForge::new();
-        mock.expect_default_branch()
-            .returning(|| "main".to_string());
+        mock.expect_repo_name().returning(|| "test-repo".into());
         mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(None));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
-        let manager = ForgeManager::new(Box::new(mock));
+        let forge_manager = ForgeManager::new(Box::new(mock));
+        let result = get_releasable_packages(&packages, &forge_manager, "main")
+            .await
+            .unwrap();
 
-        let result = base_branch(&config, &manager, None);
+        assert!(result.is_empty());
+    }
 
-        assert_eq!(result, "main");
+    #[tokio::test]
+    async fn start_next_release_creates_commits_for_packages() {
+        let packages = vec![PackageConfig {
+            name: "api".into(),
+            path: "packages/api".into(),
+            tag_prefix: Some("api-v".into()),
+            release_type: Some(ReleaseType::Node),
+            ..Default::default()
+        }];
+
+        let mut mock = MockForge::new();
+        mock.expect_repo_name().returning(|| "test-repo".into());
+        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_get_latest_tag_for_prefix().returning(|_| {
+            Ok(Some(Tag {
+                name: "api-v1.0.0".into(),
+                sha: "sha".into(),
+                semver: SemVer::parse("1.0.0").unwrap(),
+                timestamp: Some(1000),
+            }))
+        });
+        mock.expect_get_file_content().returning(|_| Ok(None));
+        mock.expect_create_commit().returning(|_| {
+            Ok(Commit {
+                sha: "new-sha".into(),
+            })
+        });
+
+        let forge_manager = ForgeManager::new(Box::new(mock));
+        let result =
+            start_next_release(&packages, &forge_manager, "main").await;
+
+        assert!(result.is_ok());
     }
 }

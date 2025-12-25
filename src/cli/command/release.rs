@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 use crate::{
     Result,
     cli::common::{self, PRMetadata},
-    config::package::PackageConfig,
+    config::{Config, package::PackageConfig},
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, TAGGED_LABEL},
         manager::ForgeManager,
@@ -23,18 +23,11 @@ static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 /// and publishing releases to the forge platform.
 pub async fn execute(
     forge_manager: &ForgeManager,
-    base_branch_override: Option<String>,
+    config: Config,
 ) -> Result<()> {
-    let repo_name = forge_manager.repo_name();
+    let mut config = config.clone();
 
-    let mut config = forge_manager
-        .load_config(base_branch_override.clone())
-        .await?;
-
-    config = common::process_config(&repo_name, &mut config);
-
-    let base_branch =
-        common::base_branch(&config, forge_manager, base_branch_override);
+    let base_branch = config.base_branch()?;
 
     let mut auto_start_packages = vec![];
 
@@ -66,8 +59,7 @@ pub async fn execute(
 
             forge_manager.replace_pr_labels(req).await?;
 
-            let auto_start_next =
-                common::resolve_auto_start_next(&config, package);
+            let auto_start_next = config.auto_start_next(package);
 
             if auto_start_next {
                 auto_start_packages.push(package.name.clone());
@@ -80,8 +72,12 @@ pub async fn execute(
             .packages
             .retain(|p| auto_start_packages.contains(&p.name));
 
-        common::start_next_release(&config, forge_manager, &base_branch)
-            .await?;
+        common::start_next_release(
+            &config.packages,
+            forge_manager,
+            &base_branch,
+        )
+        .await?;
     }
 
     Ok(())
@@ -157,28 +153,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_creates_release_for_merged_pr() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("v".to_string()),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -221,35 +211,28 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_execute_handles_separate_pull_requests() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            separate_pull_requests: true,
+            packages: vec![PackageConfig {
+                name: "pkg-a".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("pkg-a-v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            let config = Config {
-                separate_pull_requests: true,
-                packages: vec![PackageConfig {
-                    name: "pkg-a".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("pkg-a-v".to_string()),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            };
-            Ok(config)
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -279,33 +262,27 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_execute_skips_packages_without_merged_pr() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("v".to_string()),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -319,45 +296,39 @@ mod tests {
 
         // Should not call tag_commit, create_release, or replace_pr_labels
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_execute_processes_multiple_packages() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![
+                PackageConfig {
+                    name: "pkg-a".into(),
+                    path: "packages/a".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("pkg-a-v".to_string()),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg-b".into(),
+                    path: "packages/b".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Rust),
+                    tag_prefix: Some("pkg-b-v".to_string()),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![
-                    PackageConfig {
-                        name: "pkg-a".into(),
-                        path: "packages/a".into(),
-                        workspace_root: ".".into(),
-                        release_type: Some(ReleaseType::Node),
-                        tag_prefix: Some("pkg-a-v".to_string()),
-                        ..PackageConfig::default()
-                    },
-                    PackageConfig {
-                        name: "pkg-b".into(),
-                        path: "packages/b".into(),
-                        workspace_root: ".".into(),
-                        release_type: Some(ReleaseType::Rust),
-                        tag_prefix: Some("pkg-b-v".to_string()),
-                        ..PackageConfig::default()
-                    },
-                ],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -395,7 +366,7 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
@@ -569,40 +540,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_multiple_packages_single_pr() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![
+                PackageConfig {
+                    name: "api".into(),
+                    path: "packages/api".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("api-v".to_string()),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "web".into(),
+                    path: "packages/web".into(),
+                    workspace_root: ".".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("web-v".to_string()),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![
-                    PackageConfig {
-                        name: "api".into(),
-                        path: "packages/api".into(),
-                        workspace_root: ".".into(),
-                        release_type: Some(ReleaseType::Node),
-                        tag_prefix: Some("api-v".to_string()),
-                        ..PackageConfig::default()
-                    },
-                    PackageConfig {
-                        name: "web".into(),
-                        path: "packages/web".into(),
-                        workspace_root: ".".into(),
-                        release_type: Some(ReleaseType::Node),
-                        tag_prefix: Some("web-v".to_string()),
-                        ..PackageConfig::default()
-                    },
-                ],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .times(1)
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -650,27 +615,25 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_uses_config_base_branch_override() {
+        let config = Config {
+            base_branch: Some("develop".into()),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                base_branch: Some("develop".into()),
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
 
         mock_forge
             .expect_default_branch()
@@ -705,28 +668,27 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_uses_cli_base_branch_override() {
+        let config = Config {
+            base_branch: Some("develop".into()),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("v".to_string()),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
 
         mock_forge
             .expect_default_branch()
@@ -761,34 +723,28 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, Some("develop".to_string()))
-            .await
-            .unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_auto_start_next_enabled_globally() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            auto_start_next: Some(true),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                release_type: Some(ReleaseType::Node),
+                tag_prefix: Some("v".to_string()),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                auto_start_next: Some(true),
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -830,40 +786,37 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_auto_start_next_enabled_at_package_level() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            auto_start_next: Some(false),
+            packages: vec![
+                PackageConfig {
+                    name: "pkg1".into(),
+                    release_type: Some(ReleaseType::Node),
+                    auto_start_next: Some(true),
+                    tag_prefix: Some("v".to_string()),
+                    ..PackageConfig::default()
+                },
+                PackageConfig {
+                    name: "pkg2".into(),
+                    release_type: Some(ReleaseType::Node),
+                    tag_prefix: Some("v".to_string()),
+                    ..PackageConfig::default()
+                },
+            ],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                auto_start_next: Some(false),
-                packages: vec![
-                    PackageConfig {
-                        name: "pkg1".into(),
-                        release_type: Some(ReleaseType::Node),
-                        auto_start_next: Some(true),
-                        ..PackageConfig::default()
-                    },
-                    PackageConfig {
-                        name: "pkg2".into(),
-                        release_type: Some(ReleaseType::Node),
-                        ..PackageConfig::default()
-                    },
-                ],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -904,31 +857,26 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_auto_start_next_not_called_when_disabled() {
+        let config = Config {
+            base_branch: Some("main".into()),
+            packages: vec![PackageConfig {
+                name: "my-package".into(),
+                release_type: Some(ReleaseType::Node),
+                ..PackageConfig::default()
+            }],
+            ..Config::default()
+        };
+
         let mut mock_forge = MockForge::new();
 
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
-
-        mock_forge.expect_load_config().returning(|_| {
-            Ok(Config {
-                packages: vec![PackageConfig {
-                    name: "my-package".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                }],
-                ..Config::default()
-            })
-        });
-
-        mock_forge
-            .expect_default_branch()
-            .returning(|| "main".to_string());
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -955,6 +903,6 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        execute(&manager, None).await.unwrap();
+        execute(&manager, config).await.unwrap();
     }
 }

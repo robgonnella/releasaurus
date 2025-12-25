@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
         cli.debug = true;
     }
 
-    if let Command::Show { command } = &cli.command {
+    if let Command::Show { command, .. } = &cli.command {
         match command {
             ShowCommand::NextRelease { out_file, .. } => {
                 if out_file.is_none() {
@@ -90,18 +90,38 @@ async fn main() -> Result<()> {
     let remote = cli.get_remote()?;
     let forge_manager = remote.get_forge_manager().await?;
 
+    let global_overrides = cli.get_global_overrides();
+    let package_overrides = cli.get_package_overrides()?;
+
+    log::debug!("global overrides: {:#?}", global_overrides);
+    log::debug!("package overrides: {:#?}", package_overrides);
+
+    let mut config = forge_manager
+        .load_config(global_overrides.base_branch.clone())
+        .await?;
+
+    let remote_config = forge_manager.remote_config();
+    let repo_name = forge_manager.repo_name();
+    let default_branch = forge_manager.default_branch();
+
+    let config = config.resolve(
+        &repo_name,
+        &default_branch,
+        &remote_config.release_link_base_url,
+        package_overrides,
+        global_overrides,
+    );
+
     match cli.command {
-        Command::ReleasePR => {
-            release_pr::execute(&forge_manager, cli.base_branch).await
+        Command::ReleasePR { .. } => {
+            release_pr::execute(&forge_manager, config).await
         }
-        Command::Release => {
-            release::execute(&forge_manager, cli.base_branch).await
-        }
+        Command::Release => release::execute(&forge_manager, config).await,
         Command::Show { command } => {
-            show::execute(&forge_manager, command, cli.base_branch).await
+            show::execute(&forge_manager, command, config).await
         }
-        Command::StartNext { packages } => {
-            start_next::execute(&forge_manager, packages, cli.base_branch).await
+        Command::StartNext { packages, .. } => {
+            start_next::execute(&forge_manager, packages, config).await
         }
     }
 }

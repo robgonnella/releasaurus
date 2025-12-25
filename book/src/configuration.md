@@ -104,6 +104,11 @@ release_type = "node"
 
 This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
 
+**Note:** Prerelease settings can be overridden from the command line
+without modifying this file. See [Configuration
+Overrides](./commands.md#configuration-overrides) in the Commands guide
+for details.
+
 ### Prerelease Versions Without Increments
 
 You can generate prerelease versions without increments:
@@ -118,49 +123,57 @@ path = "."
 release_type = "java"
 ```
 
-This creates versions like `v1.0.0-SNAPSHOT`, `v1.1.0-SNAPSHOT`, etc. (without incremental suffixes like .1, .2)
+This creates versions like `v1.0.0-SNAPSHOT`, `v1.1.0-SNAPSHOT`, etc.
+(without incremental suffixes like .1, .2)
 
 ## Configuration Structure
 
 The configuration file uses TOML format with these main sections:
 
-- **`first_release_search_depth`** - (optional, default: 400) Controls commit
-  history depth for initial release analysis
-- **`separate_pull_requests`** - (optional, default: false) Create separate PRs
-  for each package in monorepos
-- **`auto_start_next`** - (optional, default: false) Automatically bump patch versions after release
+- **`base_branch`** - (optional) The base branch to target for release
+  PRs, tagging, and releases. Defaults to repository's default branch.
+  Can be overridden via `--base-branch` flag.
+- **`first_release_search_depth`** - (optional, default: 400) Controls
+  commit history depth for initial release analysis
+- **`separate_pull_requests`** - (optional, default: false) Create
+  separate PRs for each package in monorepos
+- **`auto_start_next`** - (optional, default: false) Automatically bump
+  patch versions after release
 - **`[prerelease]`** - (optional) Global prerelease configuration
-  - `suffix` - (optional) Identifier to append (e.g., `"alpha"`, `"beta"`,
-    `"SNAPSHOT"`). Omit or set to `null` to disable prereleases.
-  - `strategy` - (optional, default: `"versioned"`) Controls whether numeric
-    counters are appended. Use `"versioned"` for `.1`, `.2` increments or
-    `"static"` to reuse the raw suffix (e.g., `1.0.0-SNAPSHOT`).
+  - `suffix` - (optional) Identifier to append (e.g., `"alpha"`,
+    `"beta"`, `"SNAPSHOT"`). Omit or set to `null` to disable
+    prereleases. Can be overridden via CLI flags.
+  - `strategy` - (optional, default: `"versioned"`) Controls whether
+    numeric counters are appended. Use `"versioned"` for `.1`, `.2`
+    increments or `"static"` to reuse the raw suffix (e.g.,
+    `1.0.0-SNAPSHOT`). Can be overridden via CLI flags.
 - **`[changelog]`** - Customizes changelog generation and formatting
   - `body` - (optional) Tera template for changelog content
-  - `skip_ci` - (optional, default: false) Exclude CI commits from changelog (optional, default: false)
+  - `skip_ci` - (optional, default: false) Exclude CI commits from
+    changelog
   - `skip_chore` - (optional, default: false) Exclude chore commits from
     changelog (optional, default: false)
-  - `skip_miscellaneous` - (optional, default: false) Exclude non-conventional
-    commits from changelog (optional, default: false)
-  - `skip_merge_commits` - (optional, default: true) Exclude merge commits from
-    changelog
-  - `skip_release_commits` - (optional, default: true) Exclude release commits
-    from changelog
-  - `include_author` - (optional, default: false) Include commit author names in
-    changelog
+  - `skip_miscellaneous` - (optional, default: false) Exclude
+    non-conventional commits from changelog
+  - `skip_merge_commits` - (optional, default: true) Exclude merge
+    commits from changelog
+  - `skip_release_commits` - (optional, default: true) Exclude release
+    commits from changelog
+  - `include_author` - (optional, default: false) Include commit author
+    names in changelog
 - **`[[package]]`** - Defines packages within the repository with their
   release type (can have multiple)
   - `name` - (optional) The name for this package. This will be derived from
     the package path if not provided
-  - `path` - (required) The path to the directory for this package relative to the
-    repository root
-  - `release_type`: (required) The release type for this package, see below for
-    options
+  - `path` - (required) The path to the directory for this package
+    relative to the repository root
+  - `release_type`: (required) The release type for this package, see
+    below for options
   - `tag_prefix`: (optional) The tag prefix to use for this package
   - `auto_start_next`: (optional) Override global auto_start_next setting
-  - `prerelease`: (optional) Inline table that overrides global prerelease
-    config for this package, e.g. `prerelease = { suffix = "beta",
-strategy = "static" }`
+  - `prerelease`: (optional) Inline table that overrides global
+    prerelease config for this package, e.g. `prerelease = { suffix =
+"beta", strategy = "static" }`
 
 ## Default Configuration
 
