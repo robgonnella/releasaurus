@@ -17,10 +17,12 @@
 # Configuration
 
 - [Configuration File](./configuration.md)
-
+  - [Prerelease Versions](./configuration-prerelease.md)
+  - [Changelog Customization](./configuration-changelog.md)
+  - [Monorepo Setup](./configuration-monorepo.md)
+  - [Configuration Reference](./configuration-reference.md)
 - [Environment Variables](./environment-variables.md)
 
 # About
 
-- [Why Releasaurus?](./why-releasaurus.md)
 - [Contributing](./contributing.md)
