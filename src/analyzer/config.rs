@@ -1,5 +1,6 @@
 //! Configuration for changelog generation and commit analysis.
 
+use derive_builder::Builder;
 use regex::Regex;
 
 use crate::config::prerelease::PrereleaseConfig;
@@ -25,7 +26,8 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp 
  "#;
 
 /// Configuration for commit analysis and changelog generation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder)]
+#[builder(setter(into, strip_option), default)]
 pub struct AnalyzerConfig {
     /// Tera template string for changelog body format.
     pub body: String,

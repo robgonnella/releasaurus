@@ -1,4 +1,5 @@
 use color_eyre::eyre::eyre;
+use derive_builder::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -11,8 +12,9 @@ use crate::{
 pub const DEFAULT_TAG_PREFIX: &str = "v";
 
 /// Package configuration for multi-package repositories and monorepos
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[serde(default)] // Use default for missing fields
+#[builder(setter(into, strip_option), default)]
 pub struct PackageConfig {
     /// Name for this package (default derived from path if not provided)
     pub name: String,

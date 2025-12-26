@@ -82,7 +82,7 @@ impl UpdateManager {
             for manifest_path in additional {
                 let basename = Path::new(&manifest_path)
                     .file_name()
-                    .map(|f| f.display().to_string())
+                    .map(|f| f.to_string_lossy().into_owned())
                     .unwrap_or(manifest_path.clone());
 
                 targets.push(ManifestTarget {
@@ -184,13 +184,17 @@ pub struct UpdaterPackage {
 
 impl UpdaterPackage {
     fn from_releasable_package(pkg: &ReleasablePackage) -> Self {
-        let tag = pkg.release.tag.clone().unwrap_or_default();
+        let tag = pkg.release.tag.as_ref().cloned().unwrap_or_default();
 
         UpdaterPackage {
             package_name: pkg.name.clone(),
             // workspace_root: pkg.workspace_root.clone(),
             release_type: pkg.release_type.clone(),
-            manifest_files: pkg.manifest_files.clone().unwrap_or_default(),
+            manifest_files: pkg
+                .manifest_files
+                .as_ref()
+                .cloned()
+                .unwrap_or_default(),
             next_version: tag,
         }
     }

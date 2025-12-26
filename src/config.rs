@@ -1,9 +1,10 @@
 //! Configuration loading and parsing for `releasaurus.toml` files.
 //!
 //! Supports customizable changelog templates and multi-package repositories.
-use std::{collections::HashMap, path::Path};
+use std::{borrow::Cow, collections::HashMap, path::Path};
 
 use color_eyre::eyre::eyre;
+use derive_builder::Builder;
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -26,9 +27,10 @@ use self::prerelease::PrereleaseConfig;
 /// Default configuration filename
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[schemars(rename = "Releasaurus TOML Configuration Schema")]
 #[serde(default)]
+#[builder(setter(into, strip_option), default)]
 /// Configuration properties for `releasaurus.toml`
 pub struct Config {
     /// The base branch to target for release PRs, tagging, and releases
@@ -90,33 +92,38 @@ impl Config {
     ) -> Config {
         let base_branch = global_overrides
             .base_branch
-            .clone()
-            .or(self.base_branch.clone())
-            .unwrap_or(repo_default_branch.to_string());
+            .or_else(|| self.base_branch.take())
+            .unwrap_or_else(|| repo_default_branch.to_string());
 
         self.base_branch = Some(base_branch.clone());
 
         for package in self.packages.iter_mut() {
-            let package_name = if !package.name.is_empty() {
-                package.name.to_string()
-            } else if let Some(name) = Path::new(&package.workspace_root)
-                .join(&package.path)
-                .file_name()
-            {
-                name.display().to_string()
-            } else {
-                repo_name.to_string()
-            };
-
-            package.name = package_name;
-
-            let mut default_tag_prefix = DEFAULT_TAG_PREFIX.to_string();
-            if package.workspace_root != "." || package.path != "." {
-                default_tag_prefix = format!("{}-v", package.name);
+            // Only derive package name if not explicitly set
+            // (avoids unnecessary clone)
+            if package.name.is_empty() {
+                package.name = if let Some(name) =
+                    Path::new(&package.workspace_root)
+                        .join(&package.path)
+                        .file_name()
+                {
+                    name.to_string_lossy().into_owned()
+                } else {
+                    repo_name.to_string()
+                };
             }
 
-            package.tag_prefix =
-                package.tag_prefix.clone().or(Some(default_tag_prefix));
+            // Use Cow to avoid allocating "v" for root packages
+            let default_tag_prefix: Cow<str> =
+                if package.workspace_root != "." || package.path != "." {
+                    Cow::Owned(format!("{}-v", package.name))
+                } else {
+                    Cow::Borrowed(DEFAULT_TAG_PREFIX)
+                };
+
+            package.tag_prefix = package
+                .tag_prefix
+                .take()
+                .or_else(|| Some(default_tag_prefix.into_owned()));
 
             package.auto_start_next =
                 package.auto_start_next.or(self.auto_start_next);
@@ -126,13 +133,13 @@ impl Config {
             let mut prerelease = self.prerelease.clone();
 
             // package config overrides global config
-            if let Some(pkg_prerelease) = package.prerelease.clone() {
+            if let Some(pkg_prerelease) = package.prerelease.take() {
                 prerelease = pkg_prerelease;
             }
 
             // global cli overrides any config defined in file
-            if global_overrides.prerelease_suffix.is_some() {
-                prerelease.suffix = global_overrides.prerelease_suffix.clone();
+            if let Some(ref suffix) = global_overrides.prerelease_suffix {
+                prerelease.suffix = Some(suffix.clone());
             }
 
             if let Some(strategy) = global_overrides.prerelease_strategy {
@@ -141,8 +148,8 @@ impl Config {
 
             // package specific cli overrides take precedence over all
             if let Some(overrides) = package_overrides.get(&package.name) {
-                if overrides.prerelease_suffix.is_some() {
-                    prerelease.suffix = overrides.prerelease_suffix.clone();
+                if let Some(ref suffix) = overrides.prerelease_suffix {
+                    prerelease.suffix = Some(suffix.clone());
                 }
 
                 if overrides.prerelease_strategy.is_some() {
@@ -183,13 +190,13 @@ impl Config {
 
             let custom_major_increment_regex = package
                 .custom_major_increment_regex
-                .clone()
-                .or(self.custom_major_increment_regex.clone());
+                .take()
+                .or_else(|| self.custom_major_increment_regex.clone());
 
             let custom_minor_increment_regex = package
                 .custom_minor_increment_regex
-                .clone()
-                .or(self.custom_minor_increment_regex.clone());
+                .take()
+                .or_else(|| self.custom_minor_increment_regex.clone());
 
             package.analyzer_config = AnalyzerConfig {
                 body: self.changelog.body.clone(),
@@ -726,5 +733,55 @@ mod tests {
         let analyzer_config = &resolved.packages[0].analyzer_config;
         assert!(!analyzer_config.breaking_always_increment_major);
         assert!(!analyzer_config.features_always_increment_minor);
+    }
+
+    #[test]
+    fn resolve_shares_global_regex_across_multiple_packages() {
+        let mut config = Config {
+            custom_major_increment_regex: Some("^BREAKING:".into()),
+            custom_minor_increment_regex: Some("^FEATURE:".into()),
+            packages: vec![
+                PackageConfig {
+                    name: "pkg1".into(),
+                    path: "packages/pkg1".into(),
+                    ..Default::default()
+                },
+                PackageConfig {
+                    name: "pkg2".into(),
+                    path: "packages/pkg2".into(),
+                    ..Default::default()
+                },
+                PackageConfig {
+                    name: "pkg3".into(),
+                    path: "packages/pkg3".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        let resolved = config.resolve(
+            "test-repo",
+            "main",
+            "https://example.com",
+            HashMap::new(),
+            GlobalOverrides::default(),
+        );
+
+        // All packages should get the global regex config
+        for package in resolved.packages.iter() {
+            assert_eq!(
+                package.analyzer_config.custom_major_increment_regex,
+                Some("^BREAKING:".into()),
+                "Package {} should have global major regex",
+                package.name
+            );
+            assert_eq!(
+                package.analyzer_config.custom_minor_increment_regex,
+                Some("^FEATURE:".into()),
+                "Package {} should have global minor regex",
+                package.name
+            );
+        }
     }
 }

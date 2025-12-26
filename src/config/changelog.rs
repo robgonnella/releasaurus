@@ -1,10 +1,12 @@
+use derive_builder::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::analyzer::config::DEFAULT_BODY;
 
 /// Changelog configuration (applies to all packages)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
+#[builder(setter(into, strip_option), default)]
 #[serde(default)] // Use default for missing fields
 pub struct ChangelogConfig {
     /// Main changelog body template.

@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
 /// Release pull request information with PR number, sha, and body
@@ -59,7 +60,8 @@ pub struct PrLabelsRequest {
 
 /// Normalized commit data returned from any forge platform with metadata
 /// and links.
-#[derive(Debug, Clone, Default, Eq)]
+#[derive(Debug, Clone, Default, Eq, Builder)]
+#[builder(setter(into, strip_option), default)]
 pub struct ForgeCommit {
     pub id: String,
     pub short_id: String,

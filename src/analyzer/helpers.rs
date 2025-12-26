@@ -1,7 +1,7 @@
 use log::*;
 use regex::Regex;
 use semver::{Prerelease, Version};
-use std::sync::LazyLock;
+use std::{borrow::Cow, sync::LazyLock};
 
 use crate::{
     Result,
@@ -60,10 +60,12 @@ pub fn add_prerelease(
     identifier: &str,
     strategy: PrereleaseStrategy,
 ) -> Result<Version> {
-    let pre_str = if matches!(strategy, PrereleaseStrategy::Versioned) {
-        format!("{}.1", identifier)
+    // Use Cow to avoid allocation for Static strategy
+    let pre_str: Cow<str> = if matches!(strategy, PrereleaseStrategy::Versioned)
+    {
+        Cow::Owned(format!("{}.1", identifier))
     } else {
-        identifier.to_string()
+        Cow::Borrowed(identifier)
     };
     version.pre = Prerelease::new(&pre_str)?;
     Ok(version)
@@ -82,7 +84,7 @@ mod tests {
     use crate::{
         analyzer::{group::GroupParser, release::Release},
         config::prerelease::PrereleaseStrategy,
-        forge::request::ForgeCommit,
+        forge::request::ForgeCommitBuilder,
     };
 
     #[test]
@@ -91,29 +93,31 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let forge_commit1 = ForgeCommit {
-            id: "commit1".to_string(),
-            short_id: "comm1".to_string(),
-            link: "https://example.com/commit/commit1".to_string(),
-            author_name: "Author 1".to_string(),
-            author_email: "author1@example.com".to_string(),
-            merge_commit: false,
-            message: "fix: first commit".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let forge_commit1 = ForgeCommitBuilder::default()
+            .id("commit1")
+            .short_id("comm1")
+            .link("https://example.com/commit/commit1")
+            .author_name("Author 1")
+            .author_email("author1@example.com")
+            .merge_commit(false)
+            .message("fix: first commit")
+            .timestamp(1640995200)
+            .files(vec![])
+            .build()
+            .unwrap();
 
-        let forge_commit2 = ForgeCommit {
-            id: "commit2".to_string(),
-            short_id: "comm2".to_string(),
-            link: "https://example.com/commit/commit2".to_string(),
-            author_name: "Author 2".to_string(),
-            author_email: "author2@example.com".to_string(),
-            merge_commit: true,
-            message: "feat: second commit".to_string(),
-            timestamp: 1640995300,
-            files: vec![],
-        };
+        let forge_commit2 = ForgeCommitBuilder::default()
+            .id("commit2")
+            .short_id("comm2")
+            .link("https://example.com/commit/commit2")
+            .author_name("Author 2")
+            .author_email("author2@example.com")
+            .merge_commit(true)
+            .message("feat: second commit")
+            .timestamp(1640995300)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -246,29 +250,31 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let ci_commit = ForgeCommit {
-            id: "ci123".to_string(),
-            short_id: "ci1".to_string(),
-            link: "https://example.com/commit/ci123".to_string(),
-            author_name: "CI Bot".to_string(),
-            author_email: "ci@example.com".to_string(),
-            merge_commit: false,
-            message: "ci: update workflow".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let ci_commit = ForgeCommitBuilder::default()
+            .id("ci123")
+            .short_id("ci1")
+            .link("https://example.com/commit/ci123")
+            .author_name("CI Bot")
+            .author_email("ci@example.com")
+            .merge_commit(false)
+            .message("ci: update workflow")
+            .timestamp(1640995100)
+            .files(vec![])
+            .build()
+            .unwrap();
 
-        let feat_commit = ForgeCommit {
-            id: "feat123".to_string(),
-            short_id: "feat1".to_string(),
-            link: "https://example.com/commit/feat123".to_string(),
-            author_name: "Developer".to_string(),
-            author_email: "dev@example.com".to_string(),
-            merge_commit: false,
-            message: "feat: add feature".to_string(),
-            timestamp: 1640995300,
-            files: vec![],
-        };
+        let feat_commit = ForgeCommitBuilder::default()
+            .id("feat123")
+            .short_id("feat1")
+            .link("https://example.com/commit/feat123")
+            .author_name("Developer")
+            .author_email("dev@example.com")
+            .merge_commit(false)
+            .message("feat: add feature")
+            .timestamp(1640995200)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -297,29 +303,31 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let chore_commit = ForgeCommit {
-            id: "chore123".to_string(),
-            short_id: "cho1".to_string(),
-            link: "https://example.com/commit/chore123".to_string(),
-            author_name: "Maintainer".to_string(),
-            author_email: "maint@example.com".to_string(),
-            merge_commit: false,
-            message: "chore: update dependencies".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let chore_commit = ForgeCommitBuilder::default()
+            .id("chore123")
+            .short_id("cho1")
+            .link("https://example.com/commit/chore123")
+            .author_name("Maintainer")
+            .author_email("maint@example.com")
+            .merge_commit(false)
+            .message("chore: update deps")
+            .timestamp(1640995100)
+            .files(vec![])
+            .build()
+            .unwrap();
 
-        let fix_commit = ForgeCommit {
-            id: "fix123".to_string(),
-            short_id: "fi1".to_string(),
-            link: "https://example.com/commit/fix123".to_string(),
-            author_name: "Developer".to_string(),
-            author_email: "dev@example.com".to_string(),
-            merge_commit: false,
-            message: "fix: fix bug".to_string(),
-            timestamp: 1640995300,
-            files: vec![],
-        };
+        let fix_commit = ForgeCommitBuilder::default()
+            .id("fix123")
+            .short_id("fi1")
+            .link("https://example.com/commit/fix123")
+            .author_name("Developer")
+            .author_email("dev@example.com")
+            .merge_commit(false)
+            .message("fix: bug fix")
+            .timestamp(1640995200)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -348,29 +356,31 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let misc_commit = ForgeCommit {
-            id: "misc123".to_string(),
-            short_id: "mi1".to_string(),
-            link: "https://example.com/commit/misc123".to_string(),
-            author_name: "Random User".to_string(),
-            author_email: "random@example.com".to_string(),
-            merge_commit: false,
-            message: "random commit without type".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let misc_commit = ForgeCommitBuilder::default()
+            .id("misc123")
+            .short_id("mi1")
+            .link("https://example.com/commit/misc123")
+            .author_name("Random")
+            .author_email("random@example.com")
+            .merge_commit(false)
+            .message("random message")
+            .timestamp(1640995100)
+            .files(vec![])
+            .build()
+            .unwrap();
 
-        let feat_commit = ForgeCommit {
-            id: "feat123".to_string(),
-            short_id: "fe1".to_string(),
-            link: "https://example.com/commit/feat123".to_string(),
-            author_name: "Developer".to_string(),
-            author_email: "dev@example.com".to_string(),
-            merge_commit: false,
-            message: "feat: add feature".to_string(),
-            timestamp: 1640995300,
-            files: vec![],
-        };
+        let feat_commit = ForgeCommitBuilder::default()
+            .id("feat123")
+            .short_id("fe1")
+            .link("https://example.com/commit/feat123")
+            .author_name("Developer")
+            .author_email("dev@example.com")
+            .merge_commit(false)
+            .message("feat: add feature")
+            .timestamp(1640995200)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -402,61 +412,66 @@ mod tests {
         let mut release = Release::default();
 
         let commits = vec![
-            ForgeCommit {
-                id: "ci123".to_string(),
-                short_id: "ci1".to_string(),
-                link: "https://example.com/commit/ci123".to_string(),
-                author_name: "CI Bot".to_string(),
-                author_email: "ci@example.com".to_string(),
-                merge_commit: false,
-                message: "ci: update workflow".to_string(),
-                timestamp: 1640995100,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "chore123".to_string(),
-                short_id: "ch1".to_string(),
-                link: "https://example.com/commit/chore123".to_string(),
-                author_name: "Maintainer".to_string(),
-                author_email: "maint@example.com".to_string(),
-                merge_commit: false,
-                message: "chore: cleanup".to_string(),
-                timestamp: 1640995200,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "misc123".to_string(),
-                short_id: "mi1".to_string(),
-                link: "https://example.com/commit/misc123".to_string(),
-                author_name: "Random".to_string(),
-                author_email: "random@example.com".to_string(),
-                merge_commit: false,
-                message: "random commit".to_string(),
-                timestamp: 1640995250,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "feat123".to_string(),
-                short_id: "fe1".to_string(),
-                link: "https://example.com/commit/feat123".to_string(),
-                author_name: "Developer".to_string(),
-                author_email: "dev@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: add feature".to_string(),
-                timestamp: 1640995300,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "fix123".to_string(),
-                short_id: "fi1".to_string(),
-                link: "https://example.com/commit/fix123".to_string(),
-                author_name: "Developer 2".to_string(),
-                author_email: "dev2@example.com".to_string(),
-                merge_commit: false,
-                message: "fix: fix bug".to_string(),
-                timestamp: 1640995400,
-                files: vec![],
-            },
+            ForgeCommitBuilder::default()
+                .id("ci123")
+                .short_id("ci1")
+                .link("https://example.com/commit/ci123")
+                .author_name("CI Bot")
+                .author_email("ci@example.com")
+                .merge_commit(false)
+                .message("ci: update workflow")
+                .timestamp(1640995100)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("chore123")
+                .short_id("ch1")
+                .link("https://example.com/commit/chore123")
+                .author_name("Maintainer")
+                .author_email("maint@example.com")
+                .merge_commit(false)
+                .message("chore: update deps")
+                .timestamp(1640995200)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("misc123")
+                .short_id("mi1")
+                .link("https://example.com/commit/misc123")
+                .author_name("Random")
+                .author_email("random@example.com")
+                .merge_commit(false)
+                .message("random message")
+                .timestamp(1640995300)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("feat123")
+                .short_id("fe1")
+                .link("https://example.com/commit/feat123")
+                .author_name("Developer")
+                .author_email("dev@example.com")
+                .merge_commit(false)
+                .message("feat: add feature")
+                .timestamp(1640995400)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("fix123")
+                .short_id("fi1")
+                .link("https://example.com/commit/fix123")
+                .author_name("Developer")
+                .author_email("dev@example.com")
+                .merge_commit(false)
+                .message("fix: bug fix")
+                .timestamp(1640995500)
+                .files(vec![])
+                .build()
+                .unwrap(),
         ];
 
         for commit in &commits {
@@ -480,17 +495,18 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let commit_with_author = ForgeCommit {
-            id: "author123".to_string(),
-            short_id: "au1".to_string(),
-            link: "https://example.com/commit/author123".to_string(),
-            author_name: "Jane Smith".to_string(),
-            author_email: "jane.smith@example.com".to_string(),
-            merge_commit: false,
-            message: "feat: add new feature".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let commit_with_author = ForgeCommitBuilder::default()
+            .id("author123")
+            .short_id("au1")
+            .link("https://example.com/commit/author123")
+            .author_name("Jane Smith")
+            .author_email("jane.smith@example.com")
+            .merge_commit(false)
+            .message("feat: new feature")
+            .timestamp(1640995100)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -513,29 +529,31 @@ mod tests {
         let group_parser = GroupParser::new();
         let mut release = Release::default();
 
-        let ci_commit = ForgeCommit {
-            id: "ci123".to_string(),
-            short_id: "ci1".to_string(),
-            link: "https://example.com/commit/ci123".to_string(),
-            author_name: "CI Bot".to_string(),
-            author_email: "ci@example.com".to_string(),
-            merge_commit: false,
-            message: "ci: update workflow".to_string(),
-            timestamp: 1640995200,
-            files: vec![],
-        };
+        let ci_commit = ForgeCommitBuilder::default()
+            .id("ci123")
+            .short_id("ci1")
+            .link("https://example.com/commit/ci123")
+            .author_name("CI Bot")
+            .author_email("ci@example.com")
+            .merge_commit(false)
+            .message("ci: update workflow")
+            .timestamp(1640995100)
+            .files(vec![])
+            .build()
+            .unwrap();
 
-        let feat_commit = ForgeCommit {
-            id: "feat123".to_string(),
-            short_id: "fe1".to_string(),
-            link: "https://example.com/commit/feat123".to_string(),
-            author_name: "John Doe".to_string(),
-            author_email: "john.doe@example.com".to_string(),
-            merge_commit: false,
-            message: "feat: add feature".to_string(),
-            timestamp: 1640995300,
-            files: vec![],
-        };
+        let feat_commit = ForgeCommitBuilder::default()
+            .id("feat123")
+            .short_id("fe1")
+            .link("https://example.com/commit/feat123")
+            .author_name("John Doe")
+            .author_email("john.doe@example.com")
+            .merge_commit(false)
+            .message("feat: add feature")
+            .timestamp(1640995200)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         update_release_with_commit(
             &group_parser,
@@ -563,50 +581,54 @@ mod tests {
         let mut release = Release::default();
 
         let commits = vec![
-            ForgeCommit {
-                id: "ci123".to_string(),
-                short_id: "ci1".to_string(),
-                link: "https://example.com/commit/ci123".to_string(),
-                author_name: "CI Bot".to_string(),
-                author_email: "ci@example.com".to_string(),
-                merge_commit: false,
-                message: "ci: update workflow".to_string(),
-                timestamp: 1640995100,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "chore123".to_string(),
-                short_id: "ch1".to_string(),
-                link: "https://example.com/commit/chore123".to_string(),
-                author_name: "Maintainer".to_string(),
-                author_email: "maint@example.com".to_string(),
-                merge_commit: false,
-                message: "chore: cleanup".to_string(),
-                timestamp: 1640995200,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "misc123".to_string(),
-                short_id: "mi1".to_string(),
-                link: "https://example.com/commit/misc123".to_string(),
-                author_name: "Random".to_string(),
-                author_email: "random@example.com".to_string(),
-                merge_commit: false,
-                message: "random commit".to_string(),
-                timestamp: 1640995250,
-                files: vec![],
-            },
-            ForgeCommit {
-                id: "feat123".to_string(),
-                short_id: "fe1".to_string(),
-                link: "https://example.com/commit/feat123".to_string(),
-                author_name: "Developer".to_string(),
-                author_email: "dev@example.com".to_string(),
-                merge_commit: false,
-                message: "feat: add feature".to_string(),
-                timestamp: 1640995300,
-                files: vec![],
-            },
+            ForgeCommitBuilder::default()
+                .id("ci123")
+                .short_id("ci1")
+                .link("https://example.com/commit/ci123")
+                .author_name("CI Bot")
+                .author_email("ci@example.com")
+                .merge_commit(false)
+                .message("ci: update workflow")
+                .timestamp(1640995100)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("chore123")
+                .short_id("ch1")
+                .link("https://example.com/commit/chore123")
+                .author_name("Maintainer")
+                .author_email("maint@example.com")
+                .merge_commit(false)
+                .message("chore: update deps")
+                .timestamp(1640995200)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("misc123")
+                .short_id("mi1")
+                .link("https://example.com/commit/misc123")
+                .author_name("Random")
+                .author_email("random@example.com")
+                .merge_commit(false)
+                .message("random message")
+                .timestamp(1640995300)
+                .files(vec![])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("feat123")
+                .short_id("fe1")
+                .link("https://example.com/commit/feat123")
+                .author_name("Developer")
+                .author_email("dev@example.com")
+                .merge_commit(false)
+                .message("feat: add feature")
+                .timestamp(1640995400)
+                .files(vec![])
+                .build()
+                .unwrap(),
         ];
 
         for commit in &commits {

@@ -1,6 +1,23 @@
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 use crate::config::package::PackageConfig;
+
+/// Normalizes a path by replacing backslashes with forward slashes and removing
+/// all "./" sequences. Uses Cow to avoid allocation when path is already
+/// normalized.
+///
+/// On Unix systems with clean paths, this returns Cow::Borrowed
+/// (zero allocation). Only allocates when normalization is actually needed.
+pub fn normalize_path(path: &str) -> Cow<'_, str> {
+    // Check if normalization is actually needed
+    if path.contains('\\') || path.contains("./") {
+        // Need to normalize - replaces ALL occurrences
+        Cow::Owned(path.replace("\\", "/").replace("./", ""))
+    } else {
+        // Already normalized (no backslashes, no ./ sequences)
+        Cow::Borrowed(path)
+    }
+}
 
 pub fn package_path(package: &PackageConfig, file: Option<&str>) -> String {
     let mut pkg_path = Path::new(&package.workspace_root).join(&package.path);
@@ -85,5 +102,45 @@ mod tests {
         let pkg = create_test_package("workspace", "packages/my-app");
         let result = workspace_path(&pkg, Some("Cargo.lock"));
         assert_eq!(result, "workspace/Cargo.lock");
+    }
+
+    #[test]
+    fn normalize_path_returns_borrowed_for_clean_unix_paths() {
+        let path = "src/main.rs";
+        let result = normalize_path(path);
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result, "src/main.rs");
+    }
+
+    #[test]
+    fn normalize_path_normalizes_windows_paths() {
+        let path = "src\\main.rs";
+        let result = normalize_path(path);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result, "src/main.rs");
+    }
+
+    #[test]
+    fn normalize_path_removes_dot_slash_at_start() {
+        let path = "./src/main.rs";
+        let result = normalize_path(path);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result, "src/main.rs");
+    }
+
+    #[test]
+    fn normalize_path_removes_dot_slash_in_middle() {
+        let path = "packages/./api/src/main.rs";
+        let result = normalize_path(path);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result, "packages/api/src/main.rs");
+    }
+
+    #[test]
+    fn normalize_path_handles_multiple_issues() {
+        let path = ".\\packages\\.\\api";
+        let result = normalize_path(path);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result, "packages/api");
     }
 }

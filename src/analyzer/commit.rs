@@ -1,6 +1,8 @@
+use derive_builder::Builder;
 use git_conventional::Commit as ConventionalCommit;
 use log::*;
 use serde::Serialize;
+use std::borrow::Cow;
 
 use crate::{
     analyzer::{
@@ -12,7 +14,8 @@ use crate::{
 
 /// Structured commit with parsed conventional commit fields, author
 /// metadata, and changelog categorization.
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Builder)]
+#[builder(setter(into, strip_option), default)]
 pub struct Commit {
     pub id: String,
     pub short_id: String,
@@ -48,20 +51,22 @@ impl Commit {
         let timestamp = forge_commit.timestamp;
         let link = forge_commit.link.clone();
 
-        let split_msg = forge_commit
-            .message
-            .split_once("\n")
-            .map(|(m, b)| (m.to_string(), b.to_string()));
+        // Using Cow to avoid unnecessary allocations when trim doesn't change
+        // the string
+        let split_msg = forge_commit.message.split_once("\n");
 
         let (raw_title, raw_body) = match split_msg {
             Some((t, b)) => {
+                // Cow avoids allocation if trim doesn't remove anything
+                let title_cow = trim_to_cow(t);
                 if b.is_empty() {
-                    (t.trim().to_string(), None)
+                    (title_cow.into_owned(), None)
                 } else {
-                    (t.trim().to_string(), Some(b.trim().to_string()))
+                    let body_cow = trim_to_cow(b);
+                    (title_cow.into_owned(), Some(body_cow.into_owned()))
                 }
             }
-            None => (raw_message.to_string(), None),
+            None => (raw_message.clone(), None),
         };
 
         let parsed = ConventionalCommit::parse(raw_message.trim_end());
@@ -119,7 +124,8 @@ impl Commit {
                     return None;
                 }
                 if config.skip_release_commits
-                    && let Some(matcher) = config.release_commit_matcher.clone()
+                    && let Some(matcher) =
+                        config.release_commit_matcher.as_ref()
                     && matcher.is_match(&commit.raw_title)
                 {
                     debug!(
@@ -164,26 +170,48 @@ impl Commit {
     }
 }
 
+/// Helper function for trimming string: only allocates when trim actually
+/// modifies the string.
+///
+/// Benefits:
+/// - If string has no leading/trailing whitespace: returns Cow::Borrowed (zero allocation)
+/// - If string needs trimming: returns Cow::Owned (one allocation)
+///
+/// This is better than always calling `.trim().to_string()` which always allocates.
+fn trim_to_cow(s: &str) -> Cow<'_, str> {
+    let trimmed = s.trim();
+    // Check if trim actually removed anything by comparing lengths
+    if trimmed.len() == s.len() {
+        // No whitespace was removed, just borrow the original
+        Cow::Borrowed(s)
+    } else {
+        // Trim removed whitespace, need to allocate
+        Cow::Owned(trimmed.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use regex::Regex;
 
     use super::*;
-    use crate::analyzer::group::GroupParser;
+    use crate::{
+        analyzer::group::GroupParser, forge::request::ForgeCommitBuilder,
+    };
 
     #[test]
     fn test_parse_conventional_feat_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "abc123".into(),
-            message: "feat: add new user authentication".into(),
-            author_name: "John Doe".into(),
-            author_email: "john@example.com".into(),
-            timestamp: 1640995200,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("abc123")
+            .message("feat: add new user authentication")
+            .author_name("John Doe")
+            .author_email("john@example.com")
+            .timestamp(1640995200)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -211,15 +239,15 @@ mod tests {
     fn test_parse_conventional_feat_commit_with_scope() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "def456".into(),
-            message: "feat(auth): add OAuth2 support".into(),
-            author_name: "Jane Smith".into(),
-            author_email: "jane@example.com".into(),
-            timestamp: 1640995300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("def456")
+            .message("feat(auth): add OAuth2 support")
+            .author_name("Jane Smith")
+            .author_email("jane@example.com")
+            .timestamp(1640995300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -242,15 +270,15 @@ mod tests {
     fn test_parse_conventional_fix_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "ghi789".into(),
-            message: "fix: resolve null pointer exception".into(),
-            author_name: "Bob Johnson".into(),
-            author_email: "bob@example.com".into(),
-            timestamp: 1640995400,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("ghi789")
+            .message("fix: resolve null pointer exception")
+            .author_name("Bob Johnson")
+            .author_email("bob@example.com")
+            .timestamp(1640995400)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -268,15 +296,15 @@ mod tests {
     fn test_parse_breaking_change_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "jkl012".into(),
-            message: "feat!: redesign user API\n\nBREAKING CHANGE: The user API has been completely redesigned".into(),
-            author_name: "Alice Brown".into(),
-            author_email: "alice@example.com".into(),
-            timestamp: 1640995500,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("jkl012")
+            .message("feat!: redesign user API\n\nBREAKING CHANGE: The user API has been completely redesigned")
+            .author_name("Alice Brown")
+            .author_email("alice@example.com")
+            .timestamp(1640995500)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -299,16 +327,16 @@ mod tests {
     fn test_parse_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let message = "feat: add user registration\n\nThis feature allows new users to register\nwith email verification.".to_string();
-        let forge_commit = ForgeCommit {
-            id: "mno345".into(),
-            message,
-            author_name: "Charlie Wilson".into(),
-            author_email: "charlie@example.com".into(),
-            timestamp: 1640995600,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let message = "feat: add user registration\n\nThis feature allows new users to register\nwith email verification.";
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("mno345")
+            .message(message)
+            .author_name("Charlie Wilson")
+            .author_email("charlie@example.com")
+            .timestamp(1640995600)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -327,15 +355,15 @@ mod tests {
     fn test_parse_non_conventional_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "pqr678".into(),
-            message: "Update user authentication logic".into(),
-            author_name: "David Lee".into(),
-            author_email: "david@example.com".into(),
-            timestamp: 1640995700,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("pqr678")
+            .message("Update user authentication logic")
+            .author_name("David Lee")
+            .author_email("david@example.com")
+            .timestamp(1640995700)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -356,16 +384,16 @@ mod tests {
     fn test_parse_non_conventional_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let message = "Update database schema\n\nAdded new indexes for better performance\nand updated user table structure.".to_string();
-        let forge_commit = ForgeCommit {
-            id: "stu901".into(),
-            message,
-            author_name: "Eva Martinez".into(),
-            author_email: "eva@example.com".into(),
-            timestamp: 1640995800,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let message = "Update database schema\n\nAdded new indexes for better performance\nand updated user table structure.";
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("stu901")
+            .message(message)
+            .author_name("Eva Martinez")
+            .author_email("eva@example.com")
+            .timestamp(1640995800)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -383,15 +411,15 @@ mod tests {
     fn test_parses_and_omits_merge_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "vwx234".into(),
-            message: "Merge pull request #123 from feature/auth".into(),
-            author_name: "GitHub".into(),
-            author_email: "noreply@github.com".into(),
-            timestamp: 1640995900,
-            merge_commit: true,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("vwx234")
+            .message("Merge pull request #123 from feature/auth")
+            .author_name("GitHub")
+            .author_email("noreply@github.com")
+            .timestamp(1640995900)
+            .merge_commit(true)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -409,15 +437,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "vwx234".into(),
-            message: "Merge pull request #123 from feature/auth".into(),
-            author_name: "GitHub".into(),
-            author_email: "noreply@github.com".into(),
-            timestamp: 1640995900,
-            merge_commit: true,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("vwx234")
+            .message("Merge pull request #123 from feature/auth")
+            .author_name("GitHub")
+            .author_email("noreply@github.com")
+            .timestamp(1640995900)
+            .merge_commit(true)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -445,16 +473,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "vwx234".into(),
-            message: "chore(main): release test-package test-package-v1.0.0"
-                .into(),
-            author_name: "GitHub".into(),
-            author_email: "noreply@github.com".into(),
-            timestamp: 1640995900,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("vwx234")
+            .message("chore(main): release test-package test-package-v1.0.0")
+            .author_name("GitHub")
+            .author_email("noreply@github.com")
+            .timestamp(1640995900)
+            .merge_commit(false)
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -472,16 +499,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "vwx234".into(),
-            message: "chore(main): release test-package test-package-v1.0.0"
-                .into(),
-            author_name: "GitHub".into(),
-            author_email: "noreply@github.com".into(),
-            timestamp: 1640995900,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("vwx234")
+            .message("chore(main): release test-package test-package-v1.0.0")
+            .author_name("GitHub")
+            .author_email("noreply@github.com")
+            .timestamp(1640995900)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -500,15 +526,15 @@ mod tests {
     fn test_parse_empty_message() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "yz567".into(),
-            message: "".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000000,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("yz567")
+            .message("")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000000)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -526,15 +552,15 @@ mod tests {
     fn test_parse_chore_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "abc890".into(),
-            message: "chore: update dependencies".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000100,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("abc890")
+            .message("chore: update dependencies")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000100)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -550,15 +576,15 @@ mod tests {
     fn test_parse_ci_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "def123".into(),
-            message: "ci: update GitHub Actions workflow".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000200,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("def123")
+            .message("ci: update GitHub Actions workflow")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000200)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -574,15 +600,15 @@ mod tests {
     fn test_parse_docs_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "ghi456".into(),
-            message: "doc: update README with installation instructions".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("ghi456")
+            .message("doc: update README with installation instructions")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -601,15 +627,15 @@ mod tests {
     fn test_parse_test_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "jkl789".into(),
-            message: "test: add unit tests for user service".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("jkl789")
+            .message("test: add unit tests for user service")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -625,15 +651,15 @@ mod tests {
     fn test_parse_refactor_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "mno012".into(),
-            message: "refactor: simplify authentication logic".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("mno012")
+            .message("refactor: simplify authentication logic")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -649,15 +675,15 @@ mod tests {
     fn test_parse_perf_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "pqr345".into(),
-            message: "perf: optimize database queries".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("pqr345")
+            .message("perf: optimize database queries")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -673,15 +699,15 @@ mod tests {
     fn test_parse_style_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "stu678".into(),
-            message: "style: format code with prettier".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("stu678")
+            .message("style: format code with prettier")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -697,15 +723,15 @@ mod tests {
     fn test_parse_revert_commit() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "vwx901".into(),
-            message: "revert: undo breaking changes".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("vwx901")
+            .message("revert: undo breaking changes")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -721,15 +747,15 @@ mod tests {
     fn test_parse_commit_with_trailing_whitespace() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "xyz234".into(),
-            message: "feat: add new feature   \n\n  ".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("xyz234")
+            .message("feat: add new feature   \n\n  ")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -747,15 +773,15 @@ mod tests {
     fn test_parse_commit_with_empty_body() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "abc567".into(),
-            message: "fix: resolve issue\n\n".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("abc567")
+            .message("fix: resolve issue\n\n")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -773,15 +799,15 @@ mod tests {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
         let message = "feat(api)!: remove deprecated endpoints\n\nBREAKING CHANGE: The old v1 API endpoints have been removed".to_string();
-        let forge_commit = ForgeCommit {
-            id: "def890".into(),
-            message,
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("def890")
+            .message(message)
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -803,17 +829,18 @@ mod tests {
     fn test_metadata_preservation() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "unique123".to_string(),
-            short_id: "uni".to_string(),
-            link: "https://custom-forge.com/commit/unique123".to_string(),
-            author_name: "Custom Author".to_string(),
-            author_email: "custom@forge.com".to_string(),
-            merge_commit: false,
-            message: "feat: custom forge commit".to_string(),
-            timestamp: 9999999999,
-            files: vec![],
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("unique123")
+            .short_id("uni")
+            .link("https://custom-forge.com/commit/unique123")
+            .author_name("Custom Author")
+            .author_email("custom@forge.com")
+            .merge_commit(false)
+            .message("feat: custom forge commit")
+            .timestamp(9999999999_i64)
+            .files(vec![])
+            .build()
+            .unwrap();
 
         let commit = Commit::parse_forge_commit(
             &group_parser,
@@ -836,15 +863,15 @@ mod tests {
     fn test_non_conventional_single_line() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "single123".into(),
-            message: "Just a simple commit message".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("single123")
+            .message("Just a simple commit message")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -864,15 +891,15 @@ mod tests {
     fn test_breaking_takes_precedence_over_type() {
         let analyzer_config = AnalyzerConfig::default();
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "breaking123".into(),
-            message: "feat!: feature change".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("breaking123")
+            .message("feat!: feature change")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -893,15 +920,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "ci123".into(),
-            message: "ci: update github actions workflow".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("ci123")
+            .message("ci: update github actions workflow")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -919,15 +946,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "ci123".into(),
-            message: "ci: update github actions workflow".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("ci123")
+            .message("ci: update github actions workflow")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -947,15 +974,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "chore123".into(),
-            message: "chore: update dependencies".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("chore123")
+            .message("chore: update dependencies")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -973,15 +1000,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "chore123".into(),
-            message: "chore: update dependencies".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("chore123")
+            .message("chore: update dependencies")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -1001,15 +1028,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "misc123".into(),
-            message: "random commit message without type".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("misc123")
+            .message("random commit message without type")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -1027,15 +1054,15 @@ mod tests {
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::new();
-        let forge_commit = ForgeCommit {
-            id: "misc123".into(),
-            message: "random commit message without type".into(),
-            author_name: "Test User".into(),
-            author_email: "test@example.com".into(),
-            timestamp: 1641000300,
-            merge_commit: false,
-            ..ForgeCommit::default()
-        };
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("misc123")
+            .message("random commit message without type")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
         let result = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -1121,5 +1148,27 @@ mod tests {
         let commit = result.unwrap();
         assert_eq!(commit.author_name, "John Doe");
         assert_eq!(commit.author_email, "john.doe@example.com");
+    }
+
+    #[test]
+    fn test_trim_to_cow_no_whitespace() {
+        use std::borrow::Cow;
+        // When string has no whitespace, should return Borrowed (zero allocation)
+        let input = "feat: add feature";
+        let result = trim_to_cow(input);
+
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result, "feat: add feature");
+    }
+
+    #[test]
+    fn test_trim_to_cow_with_whitespace() {
+        use std::borrow::Cow;
+        // When string has whitespace, should return Owned (allocates once)
+        let input = "  feat: add feature\n";
+        let result = trim_to_cow(input);
+
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result, "feat: add feature");
     }
 }

@@ -27,7 +27,7 @@ impl Gemspec {
             let file_path = Path::new(&manifest.basename);
 
             if let Some(file_ext) = file_path.extension() {
-                if file_ext.display().to_string() != "gemspec" {
+                if file_ext.to_string_lossy() != "gemspec" {
                     continue;
                 }
 

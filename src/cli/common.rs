@@ -13,7 +13,7 @@ use crate::{
         manager::ForgeManager,
         request::{CreateCommitRequest, ForgeCommit},
     },
-    path_helpers::package_path,
+    path_helpers::{normalize_path, package_path},
     updater::manager::UpdateManager,
 };
 
@@ -71,7 +71,7 @@ pub async fn start_next_release(
                 "chore({}): bump patch version {} - {}",
                 base_branch,
                 pkg.name,
-                pkg.release.tag.clone().unwrap_or_default().semver
+                pkg.release.tag.as_ref().unwrap_or(&Tag::default()).semver
             ),
         };
 
@@ -107,7 +107,7 @@ pub async fn get_releasable_packages_for_commits(
         );
 
         let package_commits =
-            filter_commits_for_package(package, current_tag.clone(), commits);
+            filter_commits_for_package(package, current_tag.as_ref(), commits);
 
         if package_commits.is_empty() {
             warn!("no processable commits found for package: {}", package.name);
@@ -116,7 +116,7 @@ pub async fn get_releasable_packages_for_commits(
 
         info!("processing commits for package: {}", package.name);
 
-        let analyzer = Analyzer::new(package.analyzer_config.clone())?;
+        let analyzer = Analyzer::new(&package.analyzer_config)?;
 
         if let Some(release) = analyzer.analyze(package_commits, current_tag)? {
             info!("package: {}, release: {:#?}", package.name, release);
@@ -232,7 +232,7 @@ pub async fn get_commits_for_all_packages(
 /// Filters list of commit to just the commits pertaining to a specific package
 pub fn filter_commits_for_package(
     package: &PackageConfig,
-    tag: Option<Tag>,
+    tag: Option<&Tag>,
     commits: &[ForgeCommit],
 ) -> Vec<ForgeCommit> {
     let package_full_path = package_path(package, None);
@@ -246,7 +246,7 @@ pub fn filter_commits_for_package(
     let mut package_commits: Vec<ForgeCommit> = vec![];
 
     for commit in commits.iter() {
-        if let Some(tag) = tag.clone()
+        if let Some(tag) = tag
             && let Some(tag_timestamp) = tag.timestamp
             && commit.timestamp < tag_timestamp
         {
@@ -256,12 +256,13 @@ pub fn filter_commits_for_package(
         'file_loop: for file in commit.files.iter() {
             let file_path = Path::new(file);
             for package_path in package_paths.iter() {
-                let normalized_path =
-                    package_path.replace("\\", "/").replace("./", "");
-                let mut normalized_path = Path::new(&normalized_path);
-                if package_path == "." {
-                    normalized_path = Path::new("");
-                }
+                // Use Cow-based normalization to avoid allocation on clean paths
+                let normalized = normalize_path(package_path);
+                let normalized_path = if package_path == "." {
+                    Path::new("")
+                } else {
+                    Path::new(normalized.as_ref())
+                };
                 if file_path.starts_with(normalized_path) {
                     let raw_message = commit.message.to_string();
                     let split_msg = raw_message
@@ -313,7 +314,7 @@ async fn get_commits_for_all_packages_separately(
         let current_tag =
             forge_manager.get_latest_tag_for_prefix(&tag_prefix).await?;
 
-        let current_sha = current_tag.clone().map(|t| t.sha);
+        let current_sha = current_tag.as_ref().map(|t| t.sha.clone());
 
         info!(
             "{}: current tag sha: {:?} : fetching commits",
@@ -337,19 +338,20 @@ async fn get_commits_for_all_packages_separately(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forge::{
-        config::RemoteConfig, request::Commit, traits::MockForge,
+    use crate::{
+        config::package::PackageConfigBuilder,
+        forge::{config::RemoteConfig, request::Commit, traits::MockForge},
     };
     use semver::Version as SemVer;
 
     #[test]
     fn filter_commits_for_package_includes_commits_in_package_path() {
-        let package = PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            ..Default::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("api")
+            .path("packages/api")
+            .tag_prefix("api-v")
+            .build()
+            .unwrap();
         let commits = vec![
             ForgeCommit {
                 id: "abc123".into(),
@@ -377,12 +379,12 @@ mod tests {
 
     #[test]
     fn filter_commits_for_package_excludes_commits_before_tag_timestamp() {
-        let package = PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            ..Default::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("api")
+            .path("packages/api")
+            .tag_prefix("api-v")
+            .build()
+            .unwrap();
         let tag = Tag {
             name: "api-v1.0.0".into(),
             sha: "old-sha".into(),
@@ -408,7 +410,7 @@ mod tests {
             },
         ];
 
-        let result = filter_commits_for_package(&package, Some(tag), &commits);
+        let result = filter_commits_for_package(&package, Some(&tag), &commits);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "def456");
@@ -416,12 +418,12 @@ mod tests {
 
     #[test]
     fn filter_commits_for_package_handles_root_directory() {
-        let package = PackageConfig {
-            name: "root".into(),
-            path: ".".into(),
-            tag_prefix: Some("v".into()),
-            ..Default::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("root")
+            .path(".")
+            .tag_prefix("v")
+            .build()
+            .unwrap();
         let commits = vec![
             ForgeCommit {
                 id: "abc123".into(),
@@ -448,13 +450,13 @@ mod tests {
 
     #[test]
     fn filter_commits_for_package_includes_additional_paths() {
-        let package = PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            additional_paths: Some(vec!["shared/utils".into()]),
-            ..Default::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("api")
+            .path("packages/api")
+            .tag_prefix("api-v")
+            .additional_paths(vec!["shared/utils".into()])
+            .build()
+            .unwrap();
         let commits = vec![
             ForgeCommit {
                 id: "abc123".into(),
@@ -491,12 +493,12 @@ mod tests {
 
     #[test]
     fn filter_commits_for_package_returns_empty_when_no_matches() {
-        let package = PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            ..Default::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("api")
+            .path("packages/api")
+            .tag_prefix("api-v")
+            .build()
+            .unwrap();
         let commits = vec![ForgeCommit {
             id: "abc123".into(),
             short_id: "abc123".into(),
@@ -514,20 +516,20 @@ mod tests {
     #[tokio::test]
     async fn get_commits_for_all_packages_uses_oldest_tag() {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                path: "packages/a".into(),
-                tag_prefix: Some("pkg-a-v".into()),
-                release_type: Some(ReleaseType::Node),
-                ..Default::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                path: "packages/b".into(),
-                tag_prefix: Some("pkg-b-v".into()),
-                release_type: Some(ReleaseType::Node),
-                ..Default::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/a")
+                .tag_prefix("pkg-a-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/b")
+                .tag_prefix("pkg-b-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
         ];
 
         let mut mock = MockForge::new();
@@ -581,20 +583,20 @@ mod tests {
     async fn get_commits_for_all_packages_falls_back_when_untagged_package_exists()
      {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                path: "packages/a".into(),
-                tag_prefix: Some("pkg-a-v".into()),
-                release_type: Some(ReleaseType::Node),
-                ..Default::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                path: "packages/b".into(),
-                tag_prefix: Some("pkg-b-v".into()),
-                release_type: Some(ReleaseType::Node),
-                ..Default::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/a")
+                .tag_prefix("pkg-a-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/b")
+                .tag_prefix("pkg-b-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
         ];
 
         let mut mock = MockForge::new();
@@ -636,13 +638,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_releasable_packages_returns_empty_when_no_commits() {
-        let packages = vec![PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            release_type: Some(ReleaseType::Node),
-            ..Default::default()
-        }];
+        let packages = vec![
+            PackageConfigBuilder::default()
+                .name("api")
+                .path("packages/api")
+                .tag_prefix("api-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
+        ];
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());
@@ -661,13 +665,15 @@ mod tests {
 
     #[tokio::test]
     async fn start_next_release_creates_commits_for_packages() {
-        let packages = vec![PackageConfig {
-            name: "api".into(),
-            path: "packages/api".into(),
-            tag_prefix: Some("api-v".into()),
-            release_type: Some(ReleaseType::Node),
-            ..Default::default()
-        }];
+        let packages = vec![
+            PackageConfigBuilder::default()
+                .name("api")
+                .path("packages/api")
+                .tag_prefix("api-v")
+                .release_type(ReleaseType::Node)
+                .build()
+                .unwrap(),
+        ];
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());

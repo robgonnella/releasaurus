@@ -256,7 +256,7 @@ impl Forge for LocalRepo {
 
             let files = changed_files
                 .iter()
-                .map(|p| p.display().to_string())
+                .map(|p| p.to_string_lossy().into_owned())
                 .collect::<Vec<String>>();
 
             forge_commits.push(ForgeCommit {
