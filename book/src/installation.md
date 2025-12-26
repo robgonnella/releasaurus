@@ -1,95 +1,64 @@
 # Installation
 
-This guide covers different methods to install Releasaurus on your system.
+Get Releasaurus installed and running in under a minute.
 
-## System Requirements
+## Fastest: Pre-built Binary (Recommended)
 
-- **Operating System**: Linux, macOS, or Windows
-- **Internet Access**: Required for API calls to Git forge platforms
+Install via [cargo-binstall](https://github.com/cargo-bins/cargo-binstall)
+for the quickest setup:
 
-## Installation Methods
+```bash
+cargo binstall releasaurus
+```
 
-### Option 1: Install from Crates.io
+This downloads a pre-compiled binary—much faster than compiling from
+source.
 
-The easiest way to install Releasaurus is using Cargo, Rust's package
-manager:
+## Alternative Methods
+
+### From Crates.io
+
+Install and compile from Rust's package registry:
 
 ```bash
 cargo install releasaurus
 ```
 
-This will download, compile, and install the latest stable version of
-Releasaurus. The binary will be available in your `$HOME/.cargo/bin`
-directory, which should be in your system's PATH.
+This compiles from source, which takes longer but ensures compatibility
+with your system.
 
-### Option 2: Download Pre-built Binaries
+### From Source
 
-Pre-built binaries can be installed directly from github releases page
-<https://github.com/robgonnella/releasaurus/releases>.
-
-Alternatively you can also install the pre-built binaries using
-[cargo-binstall].
+Build the latest development version:
 
 ```bash
-cargo binstall releasaurus
-# or
-cargo binstall releasaurus --version <target_version>
-```
-
-### Option 3: Build from Source
-
-If you prefer to build from source or need the latest development features:
-
-#### Prerequisites
-
-- [Rust](https://rustup.rs/) 1.80 or higher
-- Git
-
-#### Build Steps
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/releasaurus.git
+git clone https://github.com/robgonnella/releasaurus.git
 cd releasaurus
-
-# Build and install
 cargo install --path .
 ```
 
-This will build the project in release mode and install it to your Cargo bin
-directory.
+**Prerequisites**: Rust 1.80+ and Git
 
-### Option 4: Using Docker
+### Docker
 
-If you prefer to use Docker, you can pull and run the official Releasaurus
-Docker image:
-
-#### Pull the Docker Image
+Use the official Docker image:
 
 ```bash
+# Pull the image
 docker pull rgonnella/releasaurus:latest
-```
 
-#### Run Releasaurus with Docker
-
-You can run Releasaurus directly using Docker.
-
-```bash
-# Run from your project directory
+# Run commands
 docker run --rm rgonnella/releasaurus:latest --help
 ```
 
+### Manual Binary Download
+
+Download pre-built binaries directly from the [releases
+page](https://github.com/robgonnella/releasaurus/releases).
+
 ## Verify Installation
 
-After installation, verify that Releasaurus is working correctly:
-
-```bash
-releasaurus --help
-```
-
-You should see the help output with available commands and options.
-
-Check the installed version:
+Confirm Releasaurus is working:
 
 ```bash
 releasaurus --version
@@ -97,9 +66,9 @@ releasaurus --version
 
 ## Next Steps
 
-Now that you have Releasaurus installed, head over to the
-[Quick Start](./quick-start.md) guide to learn how to use it with your first
-project, or check out the [Configuration](./configuration.md) if
-you want to customize the default behavior.
+→ **Ready to go?** See the [Quick Start](./quick-start.md) guide to
+release your first project in under 2 minutes.
 
-[cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
+→ **Need configuration?** Check out
+[Configuration](./configuration.md) for version file updates and custom
+settings.

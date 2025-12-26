@@ -46,7 +46,7 @@ configuration only when you need version file updates or custom settings.
 
 ### 🌍 **Multi-Platform Support**
 
-Works with GitHub, GitLab, and Gitea—whether hosted or self-hosted
+Works with GitHub, GitLab, and Gitea, whether hosted or self-hosted
 instances. One tool for all your repositories, regardless of where
 they're hosted.
 
