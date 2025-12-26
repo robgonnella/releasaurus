@@ -2430,9 +2430,11 @@ dependencies = [
  "simplelog",
  "tempfile",
  "tera",
+ "thiserror 2.0.16",
  "tokio",
  "toml",
  "toml_edit",
+ "url",
 ]
 
 [[package]]

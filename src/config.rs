@@ -3,7 +3,6 @@
 //! Supports customizable changelog templates and multi-package repositories.
 use std::{borrow::Cow, collections::HashMap, path::Path};
 
-use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use regex::Regex;
 use schemars::JsonSchema;
@@ -14,6 +13,7 @@ use crate::{
     analyzer::config::AnalyzerConfig,
     cli::{GlobalOverrides, PackageOverrides},
     config::package::{DEFAULT_TAG_PREFIX, PackageConfig},
+    error::ReleasaurusError,
     forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
 };
 
@@ -224,7 +224,7 @@ impl Config {
     pub fn base_branch(&self) -> Result<String> {
         self.base_branch
             .clone()
-            .ok_or(eyre!("failed to resolve base_branch"))
+            .ok_or_else(|| ReleasaurusError::BaseBranchNotConfigured)
     }
 
     pub fn auto_start_next(&self, package: &PackageConfig) -> bool {

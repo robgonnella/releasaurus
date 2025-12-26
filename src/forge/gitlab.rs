@@ -2,7 +2,7 @@
 use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
-use color_eyre::eyre::{ContextCompat, eyre};
+use color_eyre::eyre::ContextCompat;
 use derive_builder::Builder;
 use gitlab::{
     AsyncGitlab,
@@ -43,6 +43,7 @@ use crate::{
     Result,
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
+    error::ReleasaurusError,
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
@@ -339,7 +340,7 @@ impl Forge for Gitlab {
                     String::from_utf8(data).unwrap()
                 );
                 error!("{msg}");
-                Err(eyre!(msg))
+                Err(ReleasaurusError::forge(msg))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == StatusCode::NOT_FOUND {
@@ -350,11 +351,13 @@ impl Forge for Gitlab {
                     msg
                 );
                 error!("{msg}");
-                Err(eyre!(msg))
+                Err(ReleasaurusError::forge(msg))
             }
             Err(err) => {
                 error!("failed to get file from repo: {err}");
-                Err(eyre!("failed to get file from repo: {err}"))
+                Err(ReleasaurusError::forge(format!(
+                    "failed to get file from repo: {err}"
+                )))
             }
         }
     }
@@ -373,22 +376,30 @@ impl Forge for Gitlab {
             gitlab::api::ApiError<gitlab::RestError>,
         > = tag_endpoint.query_async(&self.gl).await;
 
-        let tag = match result {
-            Ok(tag) => Ok(tag),
+        let tag: GitlabTag = match result {
+            Ok(tag) => tag,
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == StatusCode::NOT_FOUND {
-                    return Err(eyre!(format!("tag not found: {tag}")));
+                    return Err(ReleasaurusError::forge(format!(
+                        "tag not found: {tag}"
+                    )));
                 }
 
-                Err(eyre!(msg))
+                return Err(ReleasaurusError::forge(msg));
             }
-            Err(err) => Err(eyre!(err)),
-        }?;
+            Err(err) => return Err(ReleasaurusError::forge(err.to_string())),
+        };
 
         let endpoint = ProjectReleaseByTag::builder()
             .project(&self.project_id)
             .tag(tag.name.clone().into())
-            .build()?;
+            .build()
+            .map_err(|e| {
+                ReleasaurusError::Other(color_eyre::Report::msg(format!(
+                    "Builder error: {}",
+                    e
+                )))
+            })?;
 
         let result: std::result::Result<
             GitlabRelease,
@@ -403,15 +414,15 @@ impl Forge for Gitlab {
             }),
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
                 if status == StatusCode::NOT_FOUND {
-                    return Err(eyre!(format!(
+                    return Err(ReleasaurusError::forge(format!(
                         "no release found for tag: {}",
                         tag.name
                     )));
                 }
 
-                Err(eyre!(msg))
+                Err(ReleasaurusError::forge(msg))
             }
-            Err(err) => Err(eyre!(err)),
+            Err(err) => Err(ReleasaurusError::forge(err.to_string())),
         }
     }
 
@@ -705,12 +716,12 @@ impl Forge for Gitlab {
                         "request for pull request failed: status {status}, msg: {msg}"
                     );
                     error!("{msg}");
-                    Err(eyre!(msg))
+                    Err(ReleasaurusError::forge(msg))
                 }
             }
-            Err(err) => Err(eyre!(
+            Err(err) => Err(ReleasaurusError::forge(format!(
                 "encountered error querying gitlab for merge request: {err}"
-            )),
+            ))),
         }
     }
 
@@ -743,12 +754,12 @@ impl Forge for Gitlab {
         }
 
         if merge_requests.len() > 1 {
-            return Err(eyre!(
+            return Err(ReleasaurusError::forge(format!(
                 "Found more than one closed release PR with pending label for branch {}. \
                 This means either release PRs were closed manually or releasaurus failed to remove tags. \
                 You must remove the {PENDING_LABEL} label from all closed release PRs except for the most recent.",
                 req.head_branch
-            ));
+            )));
         }
 
         let merge_request = &merge_requests[0];
@@ -756,10 +767,10 @@ impl Forge for Gitlab {
 
         // Check if the MR is actually merged (has merged_at timestamp)
         if merge_request.merged_at.is_none() {
-            return Err(eyre!(
+            return Err(ReleasaurusError::forge(format!(
                 "found release PR {} but it hasn't been merged yet",
                 merge_request.iid
-            ));
+            )));
         }
 
         let sha = merge_request

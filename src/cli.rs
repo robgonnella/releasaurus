@@ -1,7 +1,7 @@
 //! CLI top-level definition for release automation workflow.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use color_eyre::eyre::{ContextCompat, eyre};
+use color_eyre::eyre::ContextCompat;
 use git_url_parse::GitUrl;
 use merge::Merge;
 use secrecy::SecretString;
@@ -10,12 +10,12 @@ use std::{collections::HashMap, env};
 
 pub mod command;
 pub mod common;
-pub mod errors;
 pub mod types;
 
 use crate::{
     Result,
     config::prerelease::PrereleaseStrategy,
+    error::ReleasaurusError,
     forge::config::{Remote, RemoteConfig},
 };
 
@@ -114,7 +114,7 @@ pub struct SharedCommandOverrides {
 fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
     let parts: Vec<&str> = s.splitn(2, '=').collect();
     if parts.len() != 2 {
-        return Err(eyre!(format!(
+        return Err(ReleasaurusError::invalid_config(format!(
             "Invalid format: '{}'. Expected package_name.path=value",
             s
         )));
@@ -125,7 +125,7 @@ fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
     let key_parts: Vec<&str> = key.split('.').collect();
 
     if key_parts.len() < 2 {
-        return Err(eyre!(format!(
+        return Err(ReleasaurusError::invalid_config(format!(
             "Invalid key: '{}'. Expected package_name.path",
             key
         )));
@@ -284,7 +284,7 @@ impl Cli {
 
         if !missing.is_empty() {
             let msg = format!("missing required options: {:#?}", missing);
-            return Err(eyre!(msg));
+            return Err(ReleasaurusError::invalid_config(msg));
         }
 
         let forge = self.forge.unwrap();
@@ -329,8 +329,9 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
     match scheme {
         git_url_parse::Scheme::Http => Ok(()),
         git_url_parse::Scheme::Https => Ok(()),
-        _ => Err(eyre!(
+        _ => Err(ReleasaurusError::InvalidRemoteUrl(
             "only http and https schemes are supported for repo urls"
+                .to_string(),
         )),
     }
 }
@@ -375,14 +376,22 @@ fn get_remote_config(
     }
 
     if token.is_empty() {
-        return Err(eyre!("must set token"));
+        return Err(ReleasaurusError::AuthenticationError(
+            "Token not provided".to_string(),
+        ));
     }
 
-    let host = parsed.host.ok_or(eyre!("unable to parse host from repo"))?;
+    let host = parsed.host.ok_or_else(|| -> ReleasaurusError {
+        ReleasaurusError::InvalidRemoteUrl(
+            "unable to parse host from repo".to_string(),
+        )
+    })?;
 
-    let owner = parsed
-        .owner
-        .ok_or(eyre!("unable to parse owner from repo"))?;
+    let owner = parsed.owner.ok_or_else(|| -> ReleasaurusError {
+        ReleasaurusError::InvalidRemoteUrl(
+            "unable to parse owner from repo".to_string(),
+        )
+    })?;
 
     let project_path = parsed
         .path

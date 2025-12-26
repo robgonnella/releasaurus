@@ -1,6 +1,6 @@
-//! Implements the Forge trait for Gitea
+//! Local forge implementation for offline development and testing.
 use async_trait::async_trait;
-use color_eyre::eyre::{Context, OptionExt, eyre};
+use color_eyre::eyre::{Context, OptionExt};
 use git2::{Commit as Git2Commit, Sort, TreeWalkMode};
 use log::*;
 use regex::Regex;
@@ -15,6 +15,7 @@ use crate::{
     Result,
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
+    error::ReleasaurusError,
     forge::{
         config::RemoteConfig,
         request::{
@@ -119,7 +120,7 @@ impl Forge for LocalRepo {
         &self,
         _tag: &str,
     ) -> Result<ReleaseByTagResponse> {
-        Err(eyre!("not implemented for local forge"))
+        Err(ReleasaurusError::forge("not implemented for local forge"))
     }
 
     async fn get_latest_tag_for_prefix(
