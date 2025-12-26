@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Handles yarn.lock file parsing and version updates for Node.js packages.
@@ -16,9 +16,11 @@ impl YarnLock {
     pub fn new() -> Self {
         Self {}
     }
+}
 
+impl PackageUpdater for YarnLock {
     /// Update version fields in yarn.lock files for all Node packages.
-    pub fn process_package(
+    fn update(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -134,7 +136,7 @@ mod tests {
         };
 
         let result = yarn_lock
-            .process_package(&package_a, slice::from_ref(&package_a))
+            .update(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -184,7 +186,7 @@ mod tests {
         };
 
         let result = yarn_lock
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -224,7 +226,7 @@ mod tests {
         };
 
         let result = yarn_lock
-            .process_package(&package_a, slice::from_ref(&package_a))
+            .update(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -260,7 +262,7 @@ package-a@^1.0.0:
         };
 
         let result = yarn_lock
-            .process_package(&package_a, slice::from_ref(&package_a))
+            .update(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -296,7 +298,7 @@ package-a@^1.0.0:
         };
 
         let result = yarn_lock
-            .process_package(&package_a, slice::from_ref(&package_a))
+            .update(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -333,7 +335,7 @@ package-a@^1.0.0:
         };
 
         let result = yarn_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         let changes = result.unwrap();
@@ -362,7 +364,7 @@ package-a@^1.0.0:
             release_type: ReleaseType::Node,
         };
 
-        let result = yarn_lock.process_package(&package, &[]).unwrap();
+        let result = yarn_lock.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -395,7 +397,7 @@ package-a@^1.0.0:
         };
 
         let result = yarn_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         assert!(result.is_none());
@@ -433,7 +435,7 @@ package-a@^1.0.0:
         };
 
         let result = yarn_lock
-            .process_package(&package_a, slice::from_ref(&package_a))
+            .update(&package_a, slice::from_ref(&package_a))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();

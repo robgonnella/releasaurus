@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Handles package.json file parsing and version updates for Node.js packages.
@@ -14,47 +14,6 @@ impl PackageJson {
     /// Create package.json handler for version updates.
     pub fn new() -> Self {
         Self {}
-    }
-
-    /// Update version fields in package.json files for all Node packages.
-    pub fn process_package(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "package.json" {
-                continue;
-            }
-
-            let mut doc = self.load_doc(&manifest.content)?;
-            doc["version"] = json!(package.next_version.semver.to_string());
-
-            let other_pkgs = workspace_packages
-                .iter()
-                .filter(|p| p.package_name != package.package_name)
-                .cloned()
-                .collect::<Vec<UpdaterPackage>>();
-
-            self.update_deps(&mut doc, "dependencies", &other_pkgs)?;
-            self.update_deps(&mut doc, "devDependencies", &other_pkgs)?;
-
-            let formatted_json = serde_json::to_string_pretty(&doc)?;
-
-            file_changes.push(FileChange {
-                path: manifest.path.clone(),
-                content: formatted_json,
-                update_type: FileUpdateType::Replace,
-            });
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
     }
 
     fn update_deps(
@@ -103,6 +62,49 @@ impl PackageJson {
     }
 }
 
+impl PackageUpdater for PackageJson {
+    /// Update version fields in package.json files for all Node packages.
+    fn update(
+        &self,
+        package: &UpdaterPackage,
+        workspace_packages: &[UpdaterPackage],
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut file_changes = vec![];
+
+        for manifest in package.manifest_files.iter() {
+            if manifest.basename != "package.json" {
+                continue;
+            }
+
+            let mut doc = self.load_doc(&manifest.content)?;
+            doc["version"] = json!(package.next_version.semver.to_string());
+
+            let other_pkgs = workspace_packages
+                .iter()
+                .filter(|p| p.package_name != package.package_name)
+                .cloned()
+                .collect::<Vec<UpdaterPackage>>();
+
+            self.update_deps(&mut doc, "dependencies", &other_pkgs)?;
+            self.update_deps(&mut doc, "devDependencies", &other_pkgs)?;
+
+            let formatted_json = serde_json::to_string_pretty(&doc)?;
+
+            file_changes.push(FileChange {
+                path: manifest.path.clone(),
+                content: formatted_json,
+                update_type: FileUpdateType::Replace,
+            });
+        }
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,7 +136,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).unwrap();
+        let result = package_json.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -180,7 +182,7 @@ mod tests {
         };
 
         let result = package_json
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -227,7 +229,7 @@ mod tests {
         };
 
         let result = package_json
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -274,7 +276,7 @@ mod tests {
         };
 
         let result = package_json
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -321,7 +323,7 @@ mod tests {
         };
 
         let result = package_json
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -369,7 +371,7 @@ mod tests {
         };
 
         let result = package_json
-            .process_package(&package_root, &[package_root.clone(), package_a])
+            .update(&package_root, &[package_root.clone(), package_a])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -404,7 +406,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).unwrap();
+        let result = package_json.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -432,7 +434,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).unwrap();
+        let result = package_json.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -467,7 +469,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_json.process_package(&package, &[]).unwrap();
+        let result = package_json.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));

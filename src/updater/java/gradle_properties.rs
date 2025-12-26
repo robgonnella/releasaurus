@@ -1,7 +1,10 @@
 use crate::{
     Result,
     forge::request::FileChange,
-    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
+    updater::{
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        traits::PackageUpdater,
+    },
 };
 
 /// Handles gradle.properties file parsing and version updates for Java packages.
@@ -12,11 +15,14 @@ impl GradleProperties {
     pub fn new() -> Self {
         Self {}
     }
+}
 
+impl PackageUpdater for GradleProperties {
     /// Update version fields in gradle.properties files for all Java packages.
-    pub fn process_package(
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -70,7 +76,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
@@ -99,7 +105,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
@@ -128,7 +134,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
@@ -158,7 +164,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);
@@ -191,7 +197,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -223,7 +229,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -251,7 +257,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -278,7 +284,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = properties.process_package(&package).unwrap();
+        let result = properties.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 1);

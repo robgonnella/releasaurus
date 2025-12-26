@@ -57,7 +57,7 @@ impl PackageUpdater for GenericUpdater {
     fn update(
         &self,
         _package: &UpdaterPackage,
-        _workspace_packages: Vec<UpdaterPackage>,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         Ok(None)
     }
@@ -221,7 +221,7 @@ mod tests {
             release_type: ReleaseType::Generic,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

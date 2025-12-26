@@ -3,7 +3,7 @@ use toml_edit::{DocumentMut, value};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Handles Cargo.lock file parsing and version synchronization for Rust
@@ -16,7 +16,14 @@ impl CargoLock {
         Self {}
     }
 
-    pub fn process_package(
+    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
+        let doc = content.parse::<DocumentMut>()?;
+        Ok(doc)
+    }
+}
+
+impl PackageUpdater for CargoLock {
+    fn update(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -72,11 +79,6 @@ impl CargoLock {
 
         Ok(Some(file_changes))
     }
-
-    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
-        let doc = content.parse::<DocumentMut>()?;
-        Ok(doc)
-    }
 }
 
 #[cfg(test)]
@@ -118,7 +120,7 @@ version = "1.0.0"
         };
 
         let result = cargo_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -168,7 +170,7 @@ version = "1.0.0"
         };
 
         let result = cargo_lock
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -208,7 +210,7 @@ version = "5.0.0"
         };
 
         let result = cargo_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -253,7 +255,7 @@ checksum = "abc123"
         };
 
         let result = cargo_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -289,7 +291,7 @@ checksum = "abc123"
         };
 
         let result = cargo_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         assert!(result.is_none());
@@ -323,7 +325,7 @@ checksum = "abc123"
         };
 
         let result = cargo_lock
-            .process_package(&package, slice::from_ref(&package))
+            .update(&package, slice::from_ref(&package))
             .unwrap();
 
         let changes = result.unwrap();
@@ -353,7 +355,7 @@ checksum = "abc123"
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_lock.process_package(&package, &[]).unwrap();
+        let result = cargo_lock.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -405,10 +407,7 @@ version = "5.0.0"
         };
 
         let result = cargo_lock
-            .process_package(
-                &main_package,
-                &[main_package.clone(), workspace_package],
-            )
+            .update(&main_package, &[main_package.clone(), workspace_package])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();

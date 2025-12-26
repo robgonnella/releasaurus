@@ -12,7 +12,7 @@ pub trait PackageUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>>;
 }
 

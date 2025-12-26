@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Handles composer.json file parsing and version updates for PHP packages.
@@ -16,10 +16,19 @@ impl ComposerJson {
         Self {}
     }
 
+    /// Load and parse composer.json file from repository into serde_json Value.
+    fn load_doc(&self, content: &str) -> Result<Option<Value>> {
+        let doc: Value = serde_json::from_str(content)?;
+        Ok(Some(doc))
+    }
+}
+
+impl PackageUpdater for ComposerJson {
     /// Process composer.json files for all PHP packages.
-    pub fn process_package(
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -65,12 +74,6 @@ impl ComposerJson {
 
         Ok(Some(file_changes))
     }
-
-    /// Load and parse composer.json file from repository into serde_json Value.
-    fn load_doc(&self, content: &str) -> Result<Option<Value>> {
-        let doc: Value = serde_json::from_str(content)?;
-        Ok(Some(doc))
-    }
 }
 
 #[cfg(test)]
@@ -104,7 +107,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -133,7 +136,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -170,7 +173,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -209,7 +212,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -231,7 +234,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -257,7 +260,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = composer_json.process_package(&package).unwrap();
+        let result = composer_json.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

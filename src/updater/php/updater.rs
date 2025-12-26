@@ -25,10 +25,9 @@ impl PackageUpdater for PhpUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        // workspaces not supported for php projects
-        _workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        self.composer_json.process_package(package)
+        self.composer_json.update(package, workspace_packages)
     }
 }
 
@@ -63,7 +62,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -89,7 +88,7 @@ mod tests {
             release_type: ReleaseType::Php,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

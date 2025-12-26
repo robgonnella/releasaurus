@@ -1,7 +1,10 @@
 use crate::{
     Result,
     forge::request::FileChange,
-    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
+    updater::{
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        traits::PackageUpdater,
+    },
 };
 
 /// Handles Gradle build.gradle and build.gradle.kts file parsing and version updates for Java packages.
@@ -12,11 +15,13 @@ impl Gradle {
     pub fn new() -> Self {
         Self {}
     }
+}
 
-    /// Update version fields in Gradle build files for all Java packages.
-    pub fn process_package(
+impl PackageUpdater for Gradle {
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -71,7 +76,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
@@ -100,7 +105,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
@@ -129,7 +134,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
@@ -158,7 +163,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let change = result.unwrap();
         assert_eq!(change.len(), 1);
@@ -187,13 +192,13 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
 
     #[test]
-    fn process_package_handles_multiple_manifests() {
+    fn update_handles_multiple_manifests() {
         let gradle = Gradle::new();
         let groovy_manifest = ManifestFile {
             is_workspace: false,
@@ -219,7 +224,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -227,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn process_package_returns_none_when_no_changes() {
+    fn update_returns_none_when_no_changes() {
         let gradle = Gradle::new();
         let manifest = ManifestFile {
             is_workspace: false,
@@ -247,7 +252,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -274,7 +279,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = gradle.process_package(&package).unwrap();
+        let result = gradle.update(&package, &[]).unwrap();
 
         let change = result.unwrap();
         assert_eq!(change.len(), 1);

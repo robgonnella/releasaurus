@@ -4,7 +4,7 @@ use toml_edit::{DocumentMut, value};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 /// Handles Cargo.toml file parsing and version updates for Rust packages.
@@ -16,8 +16,53 @@ impl CargoToml {
         Self {}
     }
 
+    fn process_dependencies(
+        &self,
+        doc: &mut DocumentMut,
+        package_name: &str,
+        next_version: &str,
+        kind: &str,
+    ) {
+        let dep_exists = doc
+            .get(kind)
+            .and_then(|deps| deps.as_table())
+            .and_then(|t| t.get(package_name))
+            .is_some();
+
+        let is_version_object = doc
+            .get(kind)
+            .and_then(|deps| deps.as_table())
+            .and_then(|t| t.get(package_name))
+            .map(|p| {
+                // Check if it's a table with version field or inline table with
+                //  version field
+                p.as_table()
+                    .map(|t| t.contains_key("version"))
+                    .unwrap_or(false)
+                    || p.as_inline_table()
+                        .map(|t| t.contains_key("version"))
+                        .unwrap_or(false)
+            })
+            .unwrap_or(false);
+
+        if dep_exists {
+            if is_version_object {
+                doc[kind][&package_name]["version"] = value(next_version);
+            } else {
+                doc[kind][&package_name] = value(next_version);
+            }
+        }
+    }
+
+    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
+        let doc = content.parse::<DocumentMut>()?;
+        Ok(doc)
+    }
+}
+
+impl PackageUpdater for CargoToml {
     /// Update version fields in Cargo.toml files for all Rust packages.
-    pub fn process_package(
+    fn update(
         &self,
         package: &UpdaterPackage,
         workspace_packages: &[UpdaterPackage],
@@ -90,49 +135,6 @@ impl CargoToml {
 
         Ok(Some(file_changes))
     }
-
-    fn process_dependencies(
-        &self,
-        doc: &mut DocumentMut,
-        package_name: &str,
-        next_version: &str,
-        kind: &str,
-    ) {
-        let dep_exists = doc
-            .get(kind)
-            .and_then(|deps| deps.as_table())
-            .and_then(|t| t.get(package_name))
-            .is_some();
-
-        let is_version_object = doc
-            .get(kind)
-            .and_then(|deps| deps.as_table())
-            .and_then(|t| t.get(package_name))
-            .map(|p| {
-                // Check if it's a table with version field or inline table with
-                //  version field
-                p.as_table()
-                    .map(|t| t.contains_key("version"))
-                    .unwrap_or(false)
-                    || p.as_inline_table()
-                        .map(|t| t.contains_key("version"))
-                        .unwrap_or(false)
-            })
-            .unwrap_or(false);
-
-        if dep_exists {
-            if is_version_object {
-                doc[kind][&package_name]["version"] = value(next_version);
-            } else {
-                doc[kind][&package_name] = value(next_version);
-            }
-        }
-    }
-
-    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
-        let doc = content.parse::<DocumentMut>()?;
-        Ok(doc)
-    }
 }
 
 #[cfg(test)]
@@ -169,7 +171,7 @@ version = "1.0.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).unwrap();
+        let result = cargo_toml.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -215,7 +217,7 @@ package-b = "1.0.0"
         };
 
         let result = cargo_toml
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -262,7 +264,7 @@ package-b = { version = "1.0.0", features = ["serde"] }
         };
 
         let result = cargo_toml
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -310,7 +312,7 @@ package-b = "1.0.0"
         };
 
         let result = cargo_toml
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -357,7 +359,7 @@ package-b = "1.0.0"
         };
 
         let result = cargo_toml
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -388,7 +390,7 @@ members = ["packages/*"]
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).unwrap();
+        let result = cargo_toml.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -423,7 +425,7 @@ serde = "1.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).unwrap();
+        let result = cargo_toml.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -461,7 +463,7 @@ serde = "1.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).unwrap();
+        let result = cargo_toml.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -489,7 +491,7 @@ serde = "1.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = cargo_toml.process_package(&package, &[]).unwrap();
+        let result = cargo_toml.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
