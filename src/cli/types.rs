@@ -1,13 +1,9 @@
-use color_eyre::Result as EyreResult;
 use serde::{Serialize, ser::SerializeStruct};
 
 use crate::{
     analyzer::release::Release, config::release_type::ReleaseType,
     updater::manager::ManifestFile,
 };
-
-/// Type alias for Result with color-eyre error reporting and diagnostics.
-pub type Result<T> = EyreResult<T>;
 
 /// Represents a release-able package in manifest
 #[derive(Debug, Default)]

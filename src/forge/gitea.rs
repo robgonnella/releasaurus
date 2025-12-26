@@ -2,7 +2,7 @@
 use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
-use color_eyre::eyre::{ContextCompat, eyre};
+use color_eyre::eyre::ContextCompat;
 use log::*;
 use regex::Regex;
 use reqwest::{
@@ -18,6 +18,7 @@ use crate::{
     Result,
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
+    error::ReleasaurusError,
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
@@ -364,7 +365,9 @@ impl Forge for Gitea {
         let request = self.client.get(tag_endpoint).build()?;
         let response = self.client.execute(request).await?;
         if response.status() == StatusCode::NOT_FOUND {
-            return Err(eyre!(format!("tag not found: {tag}")));
+            return Err(ReleasaurusError::forge(format!(
+                "tag not found: {tag}"
+            )));
         }
         let result = response.error_for_status()?;
         let tag: GiteaTag = result.json().await?;
@@ -374,7 +377,7 @@ impl Forge for Gitea {
         let request = self.client.get(release_endpoint).build()?;
         let response = self.client.execute(request).await?;
         if response.status() == StatusCode::NOT_FOUND {
-            return Err(eyre!(format!(
+            return Err(ReleasaurusError::forge(format!(
                 "no release found for tag: {}",
                 tag.name
             )));
@@ -766,7 +769,10 @@ impl Forge for Gitea {
             info!("found merged release pr: {}", pr.number);
 
             let sha = pr.merge_commit_sha.ok_or_else(|| {
-                eyre!("no merge_commit_sha found for pr {}", pr.number)
+                ReleasaurusError::forge(format!(
+                    "no merge_commit_sha found for pr {}",
+                    pr.number
+                ))
             })?;
 
             Ok(Some(PullRequest {

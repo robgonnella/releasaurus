@@ -7,10 +7,10 @@ use crate::{
     Result,
     cli::{
         common::{self, PRMetadata, PRMetadataFields},
-        errors::PendingReleaseError,
         types::ReleasablePackage,
     },
     config::Config,
+    error::ReleasaurusError,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL},
         manager::ForgeManager,
@@ -97,11 +97,10 @@ async fn create_branch_release_prs(
 
         if let Some(pr) = pending_release {
             error!("pending release: {:#?}", pr);
-            return Err(PendingReleaseError {
-                branch: release_branch.clone(),
-                pr_number: pr.number,
-            }
-            .into());
+            return Err(ReleasaurusError::pending_release(
+                release_branch.clone(),
+                pr.number,
+            ));
         }
 
         info!("creating / updating release branch: {release_branch}");

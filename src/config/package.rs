@@ -1,4 +1,3 @@
-use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +6,7 @@ use crate::{
     Result,
     analyzer::config::AnalyzerConfig,
     config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+    error::ReleasaurusError,
 };
 
 pub const DEFAULT_TAG_PREFIX: &str = "v";
@@ -73,9 +73,11 @@ impl Default for PackageConfig {
 
 impl PackageConfig {
     pub fn tag_prefix(&self) -> Result<String> {
-        self.tag_prefix.clone().ok_or(eyre!(format!(
-            "failed to resolve tag prefix for package: {}",
-            self.name
-        )))
+        self.tag_prefix.clone().ok_or_else(|| {
+            ReleasaurusError::invalid_config(format!(
+                "failed to resolve tag prefix for package: {}",
+                self.name
+            ))
+        })
     }
 }

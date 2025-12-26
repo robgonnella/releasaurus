@@ -1,9 +1,8 @@
 use clap::ValueEnum;
-use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::{Result, error::ReleasaurusError};
 
 /// Determines how prerelease identifiers should be appended to versions
 #[derive(
@@ -40,8 +39,10 @@ pub struct PrereleaseConfig {
 impl PrereleaseConfig {
     /// Returns the suffix for configs that have been resolved
     pub fn suffix(&self) -> Result<&str> {
-        self.suffix
-            .as_deref()
-            .ok_or(eyre!("resolved prerelease config must include suffix"))
+        self.suffix.as_deref().ok_or_else(|| {
+            ReleasaurusError::invalid_config(
+                "resolved prerelease config must include suffix",
+            )
+        })
     }
 }

@@ -1,7 +1,7 @@
 //! Implements the Forge trait for Github
 use async_trait::async_trait;
 use chrono::DateTime;
-use color_eyre::eyre::{OptionExt, eyre};
+use color_eyre::eyre::OptionExt;
 use log::*;
 use octocrab::{
     Octocrab, Page,
@@ -29,6 +29,7 @@ use crate::{
     Result,
     analyzer::release::Tag,
     config::{Config, DEFAULT_CONFIG_FILE},
+    error::ReleasaurusError,
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
@@ -297,7 +298,7 @@ impl Forge for Github {
                         req.path, source.status_code
                     );
                     error!("{msg}");
-                    Err(eyre!(msg))
+                    Err(ReleasaurusError::forge(msg))
                 }
             }
             Err(err) => {
@@ -306,7 +307,7 @@ impl Forge for Github {
                     req.path
                 );
                 error!("{msg}");
-                Err(eyre!(msg))
+                Err(ReleasaurusError::forge(msg))
             }
             Ok(mut data) => {
                 let items = data.take_items();
@@ -318,10 +319,10 @@ impl Forge for Github {
                 if let Some(content) = items[0].decoded_content() {
                     Ok(Some(content))
                 } else {
-                    Err(eyre!(
+                    Err(ReleasaurusError::forge(format!(
                         "failed to decode file content for path: {}",
                         req.path
-                    ))
+                    )))
                 }
             }
         }
@@ -532,13 +533,15 @@ impl Forge for Github {
             .get_ref(&params::repos::Reference::Branch(req.base_branch.clone()))
             .await?;
 
-        let starting_sha = match r#ref.object {
-            Object::Commit { sha, .. } => Ok(sha),
-            _ => Err(eyre!(format!(
-                "failed to find HEAD for base branch: {}",
-                req.base_branch
-            ))),
-        }?;
+        let starting_sha: String = match r#ref.object {
+            Object::Commit { sha, .. } => sha,
+            _ => {
+                return Err(ReleasaurusError::forge(format!(
+                    "failed to find HEAD for base branch: {}",
+                    req.base_branch
+                )));
+            }
+        };
 
         let entries = self
             .get_tree_entries(&req.base_branch, req.file_changes)
@@ -613,13 +616,15 @@ impl Forge for Github {
             ))
             .await?;
 
-        let starting_sha = match base_ref.object {
-            Object::Commit { sha, .. } => Ok(sha),
-            _ => Err(eyre!(format!(
-                "failed to find HEAD for base branch: {}",
-                req.target_branch
-            ))),
-        }?;
+        let starting_sha: String = match base_ref.object {
+            Object::Commit { sha, .. } => sha,
+            _ => {
+                return Err(ReleasaurusError::forge(format!(
+                    "failed to find HEAD for base branch: {}",
+                    req.target_branch
+                )));
+            }
+        };
 
         let entries = self
             .get_tree_entries(&req.target_branch, req.file_changes)
@@ -760,9 +765,9 @@ impl Forge for Github {
                     issue.number, req.head_branch
                 );
 
-                let sha = pr
-                    .merge_commit_sha
-                    .ok_or(eyre!("no merge_commit_sha found for pr"))?;
+                let sha = pr.merge_commit_sha.ok_or_else(|| {
+                    ReleasaurusError::forge("no merge_commit_sha found for pr")
+                })?;
 
                 return Ok(Some(PullRequest {
                     number: pr.number,
