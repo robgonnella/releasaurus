@@ -52,7 +52,9 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::Tag,
-        config::{Config, package::PackageConfig, release_type::ReleaseType},
+        config::{
+            Config, package::PackageConfigBuilder, release_type::ReleaseType,
+        },
         forge::{config::RemoteConfig, request::Commit, traits::MockForge},
     };
     use semver::Version as SemVer;
@@ -61,13 +63,15 @@ mod tests {
     async fn succeeds_when_package_has_tag() {
         let config = Config {
             base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "test-pkg".into(),
-                path: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
+            packages: vec![
+                PackageConfigBuilder::default()
+                    .name("test-pkg")
+                    .path(".")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ],
             ..Config::default()
         };
 
@@ -104,13 +108,15 @@ mod tests {
     async fn skips_packages_without_tags() {
         let config = Config {
             base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "untagged-pkg".into(),
-                path: ".".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
+            packages: vec![
+                PackageConfigBuilder::default()
+                    .name("untagged-pkg")
+                    .path(".")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ],
             ..Config::default()
         };
 
@@ -142,20 +148,20 @@ mod tests {
         let config = Config {
             base_branch: Some("main".into()),
             packages: vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    path: "./packages/a".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("pkg-a-v".to_string()),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    path: "./packages/b".into(),
-                    release_type: Some(ReleaseType::Rust),
-                    tag_prefix: Some("pkg-b-v".to_string()),
-                    ..PackageConfig::default()
-                },
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .path("./packages/a")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("pkg-a-v")
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg-b")
+                    .path("./packages/b")
+                    .release_type(ReleaseType::Rust)
+                    .tag_prefix("pkg-b-v")
+                    .build()
+                    .unwrap(),
             ],
             ..Config::default()
         };
@@ -243,20 +249,20 @@ mod tests {
         let config = Config {
             base_branch: Some("main".into()),
             packages: vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    path: "./packages/a".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("pkg-a-v".to_string()),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    path: "./packages/b".into(),
-                    release_type: Some(ReleaseType::Rust),
-                    tag_prefix: Some("pkg-b-v".to_string()),
-                    ..PackageConfig::default()
-                },
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .path("./packages/a")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("pkg-a-v")
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg-b")
+                    .path("./packages/b")
+                    .release_type(ReleaseType::Rust)
+                    .tag_prefix("pkg-b-v")
+                    .build()
+                    .unwrap(),
             ],
             ..Config::default()
         };

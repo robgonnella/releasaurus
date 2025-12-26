@@ -147,22 +147,27 @@ async fn create_package_release(
 mod tests {
     use super::*;
     use crate::{
-        config::{Config, release_type::ReleaseType},
+        config::{
+            Config, ConfigBuilder, package::PackageConfigBuilder,
+            release_type::ReleaseType,
+        },
         forge::{config::RemoteConfig, traits::MockForge},
     };
 
     #[tokio::test]
     async fn test_execute_creates_release_for_merged_pr() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -216,17 +221,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_handles_separate_pull_requests() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            separate_pull_requests: true,
-            packages: vec![PackageConfig {
-                name: "pkg-a".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .separate_pull_requests(true)
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("pkg-a-v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -267,16 +274,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_skips_packages_without_merged_pr() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -301,28 +310,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_processes_multiple_packages() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    path: "packages/a".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("pkg-a-v".to_string()),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    path: "packages/b".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Rust),
-                    tag_prefix: Some("pkg-b-v".to_string()),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .path("packages/a")
+                    .workspace_root(".")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("pkg-a-v")
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg-b")
+                    .path("packages/b")
+                    .workspace_root(".")
+                    .release_type(ReleaseType::Rust)
+                    .tag_prefix("pkg-b-v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -393,13 +402,13 @@ mod tests {
 
         let forge_manger = ForgeManager::new(Box::new(mock_forge));
 
-        let package = PackageConfig {
-            name: "pkg-b".into(),
-            path: "packages/b".into(),
-            release_type: Some(ReleaseType::Rust),
-            tag_prefix: Some("pkg-b-v".to_string()),
-            ..PackageConfig::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("pkg-b")
+            .path("packages/b")
+            .release_type(ReleaseType::Rust)
+            .tag_prefix("pkg-b-v")
+            .build()
+            .unwrap();
 
         let pr = PullRequest {
             number: 42,
@@ -429,12 +438,12 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let package = PackageConfig {
-            name: "my-package".into(),
-            release_type: Some(ReleaseType::Node),
-            tag_prefix: Some("v".to_string()),
-            ..PackageConfig::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("my-package")
+            .release_type(ReleaseType::Node)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
 
         let pr = PullRequest {
             number: 42,
@@ -457,12 +466,12 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let package = PackageConfig {
-            name: "my-package".into(),
-            release_type: Some(ReleaseType::Node),
-            tag_prefix: Some("v".to_string()),
-            ..PackageConfig::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("my-package")
+            .release_type(ReleaseType::Node)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
 
         let pr = PullRequest {
             number: 42,
@@ -489,12 +498,12 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let package = PackageConfig {
-            name: "my-package".into(),
-            release_type: Some(ReleaseType::Node),
-            tag_prefix: Some("v".to_string()),
-            ..PackageConfig::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("my-package")
+            .release_type(ReleaseType::Node)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
 
         let pr = PullRequest {
             number: 42,
@@ -516,12 +525,12 @@ mod tests {
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
-        let package = PackageConfig {
-            name: "my-package".into(),
-            release_type: Some(ReleaseType::Node),
-            tag_prefix: Some("v".to_string()),
-            ..PackageConfig::default()
-        };
+        let package = PackageConfigBuilder::default()
+            .name("my-package")
+            .release_type(ReleaseType::Node)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
 
         let pr = PullRequest {
             number: 42,
@@ -543,22 +552,22 @@ mod tests {
         let config = Config {
             base_branch: Some("main".into()),
             packages: vec![
-                PackageConfig {
-                    name: "api".into(),
-                    path: "packages/api".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("api-v".to_string()),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "web".into(),
-                    path: "packages/web".into(),
-                    workspace_root: ".".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("web-v".to_string()),
-                    ..PackageConfig::default()
-                },
+                PackageConfigBuilder::default()
+                    .name("api")
+                    .path("packages/api")
+                    .workspace_root(".")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("api-v")
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("web")
+                    .path("packages/web")
+                    .workspace_root(".")
+                    .release_type(ReleaseType::Rust)
+                    .tag_prefix("web-v")
+                    .build()
+                    .unwrap(),
             ],
             ..Config::default()
         };
@@ -620,14 +629,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_uses_config_base_branch_override() {
-        let config = Config {
-            base_branch: Some("develop".into()),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("develop")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -673,16 +684,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_uses_cli_base_branch_override() {
-        let config = Config {
-            base_branch: Some("develop".into()),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("develop")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -728,17 +741,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_auto_start_next_enabled_globally() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            auto_start_next: Some(true),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .auto_start_next(true)
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 
@@ -795,19 +810,19 @@ mod tests {
             base_branch: Some("main".into()),
             auto_start_next: Some(false),
             packages: vec![
-                PackageConfig {
-                    name: "pkg1".into(),
-                    release_type: Some(ReleaseType::Node),
-                    auto_start_next: Some(true),
-                    tag_prefix: Some("v".to_string()),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg2".into(),
-                    release_type: Some(ReleaseType::Node),
-                    tag_prefix: Some("v".to_string()),
-                    ..PackageConfig::default()
-                },
+                PackageConfigBuilder::default()
+                    .name("pkg1")
+                    .release_type(ReleaseType::Node)
+                    .auto_start_next(true)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg2")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
             ],
             ..Config::default()
         };
@@ -862,15 +877,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_auto_start_next_not_called_when_disabled() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "my-package".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("my-package")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock_forge = MockForge::new();
 

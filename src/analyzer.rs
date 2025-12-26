@@ -22,15 +22,15 @@ pub mod release;
 
 /// Analyzes commits using conventional commit patterns to determine version
 /// bumps and generate changelogs.
-pub struct Analyzer {
-    config: config::AnalyzerConfig,
+pub struct Analyzer<'a> {
+    config: &'a config::AnalyzerConfig,
     group_parser: group::GroupParser,
 }
 
-impl Analyzer {
+impl<'a> Analyzer<'a> {
     /// Create analyzer with changelog template configuration and tag prefix
     /// settings.
-    pub fn new(config: config::AnalyzerConfig) -> Result<Self> {
+    pub fn new(config: &'a config::AnalyzerConfig) -> Result<Self> {
         Ok(Self {
             config,
             group_parser: group::GroupParser::new(),
@@ -51,7 +51,7 @@ impl Analyzer {
         }
 
         // calculate next release
-        if let Some(current) = current_tag.clone() {
+        if let Some(current) = current_tag {
             self.process_release_from_current_tag(&mut release, &current)?;
         } else {
             self.process_first_release(&mut release)?;
@@ -74,7 +74,7 @@ impl Analyzer {
         }
 
         let mut tag_name = semver.to_string();
-        if let Some(prefix) = self.config.tag_prefix.clone() {
+        if let Some(prefix) = self.config.tag_prefix.as_ref() {
             tag_name = format!("{prefix}{tag_name}");
         }
         let next_tag = release::Tag {
@@ -87,7 +87,7 @@ impl Analyzer {
         release.link =
             format!("{}/{}", self.config.release_link_base_url, next_tag.name);
 
-        release.tag = Some(next_tag.clone());
+        release.tag = Some(next_tag);
 
         let context = tera::Context::from_serialize(&release)?;
 
@@ -117,14 +117,14 @@ impl Analyzer {
                 self.config.features_always_increment_minor,
             );
 
-        if let Some(value) = self.config.custom_major_increment_regex.clone() {
+        if let Some(value) = self.config.custom_major_increment_regex.as_ref() {
             version_updater =
-                version_updater.with_custom_major_increment_regex(&value)?;
+                version_updater.with_custom_major_increment_regex(value)?;
         }
 
-        if let Some(value) = self.config.custom_minor_increment_regex.clone() {
+        if let Some(value) = self.config.custom_minor_increment_regex.as_ref() {
             version_updater =
-                version_updater.with_custom_minor_increment_regex(&value)?;
+                version_updater.with_custom_minor_increment_regex(value)?;
         }
 
         // Handle prerelease transitions
@@ -162,12 +162,12 @@ impl Analyzer {
 
         let mut next_tag_name = next.to_string();
 
-        if let Some(prefix) = self.config.tag_prefix.clone() {
+        if let Some(prefix) = self.config.tag_prefix.as_ref() {
             next_tag_name = format!("{prefix}{}", next);
         }
 
         let next_tag = release::Tag {
-            name: next_tag_name.clone(),
+            name: next_tag_name,
             semver: next,
             // we won't know timestamp or sha until release-pr is created
             timestamp: None,
@@ -177,7 +177,7 @@ impl Analyzer {
         release.link =
             format!("{}/{}", self.config.release_link_base_url, next_tag.name);
 
-        release.tag = Some(next_tag.clone());
+        release.tag = Some(next_tag);
 
         let context = tera::Context::from_serialize(&release)?;
         let notes = tera::Tera::one_off(&self.config.body, &context, false)?;
@@ -280,7 +280,7 @@ impl Analyzer {
                 &self.group_parser,
                 &mut release,
                 forge_commit,
-                &self.config,
+                self.config,
             );
         }
 
@@ -310,14 +310,14 @@ mod tests {
     #[test]
     fn test_analyzer_new() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config.clone()).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
         assert_eq!(analyzer.config.tag_prefix, config.tag_prefix);
     }
 
     #[test]
     fn test_analyze_empty_commits() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
         let result = analyzer.analyze(vec![], None).unwrap();
         assert!(result.is_none());
     }
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn test_analyze_first_release_no_tag() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![
             ForgeCommit {
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn test_analyze_with_current_tag_patch_bump() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     fn test_analyze_with_current_tag_minor_bump() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn test_analyze_with_current_tag_major_bump() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -446,7 +446,7 @@ mod tests {
             tag_prefix: Some("v".to_string()),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![ForgeCommit {
             id: "abc123".to_string(),
@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_analyze_generates_release_link() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![ForgeCommit {
             id: "abc123".to_string(),
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn test_analyze_multiple_commits() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -529,7 +529,7 @@ mod tests {
             skip_ci: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -579,7 +579,7 @@ mod tests {
             skip_ci: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![
             ForgeCommit {
@@ -609,7 +609,7 @@ mod tests {
             skip_chore: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -664,7 +664,7 @@ mod tests {
             skip_chore: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![
             ForgeCommit {
@@ -694,7 +694,7 @@ mod tests {
             skip_miscellaneous: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -749,7 +749,7 @@ mod tests {
             skip_miscellaneous: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![
             ForgeCommit {
@@ -783,7 +783,7 @@ mod tests {
             skip_release_commits: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -857,7 +857,7 @@ mod tests {
             include_author: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![ForgeCommit {
             id: "abc123".to_string(),
@@ -876,7 +876,7 @@ mod tests {
     #[test]
     fn test_include_author_false_by_default() {
         let config = AnalyzerConfig::default();
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![ForgeCommit {
             id: "abc123".to_string(),
@@ -898,7 +898,7 @@ mod tests {
             skip_ci: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![
             ForgeCommit {
@@ -930,7 +930,7 @@ mod tests {
             skip_miscellaneous: true,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         // Only commits that would be filtered out
         let commits = vec![
@@ -969,7 +969,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1003,7 +1003,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1034,7 +1034,7 @@ mod tests {
             prerelease: None,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1068,7 +1068,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1103,7 +1103,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let commits = vec![ForgeCommit {
             id: "abc123".to_string(),
@@ -1130,7 +1130,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1165,7 +1165,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "abc123".to_string(),
@@ -1198,7 +1198,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "abc123".to_string(),
@@ -1232,7 +1232,7 @@ mod tests {
             )),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1263,7 +1263,7 @@ mod tests {
             ..AnalyzerConfig::default()
         };
 
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1297,7 +1297,7 @@ mod tests {
             ..AnalyzerConfig::default()
         };
 
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1331,7 +1331,7 @@ mod tests {
             ..AnalyzerConfig::default()
         };
 
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1363,7 +1363,7 @@ mod tests {
             features_always_increment_minor: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1396,7 +1396,7 @@ mod tests {
             custom_minor_increment_regex: Some("ci".to_string()),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1428,7 +1428,7 @@ mod tests {
             custom_minor_increment_regex: Some("ci".to_string()),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1461,7 +1461,7 @@ mod tests {
             breaking_always_increment_major: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1509,7 +1509,7 @@ mod tests {
             breaking_always_increment_major: false,
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),
@@ -1550,7 +1550,7 @@ mod tests {
             custom_major_increment_regex: Some("wow".to_string()),
             ..AnalyzerConfig::default()
         };
-        let analyzer = Analyzer::new(config).unwrap();
+        let analyzer = Analyzer::new(&config).unwrap();
 
         let current_tag = release::Tag {
             sha: "old123".to_string(),

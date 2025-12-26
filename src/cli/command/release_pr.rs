@@ -19,6 +19,7 @@ use crate::{
             FileUpdateType, GetPrRequest, PrLabelsRequest, UpdatePrRequest,
         },
     },
+    path_helpers::normalize_path,
     updater::{generic::updater::GenericUpdater, manager::UpdateManager},
 };
 
@@ -171,8 +172,8 @@ async fn gather_release_prs_by_branch(
             )?;
 
         if let Some(additional_manifests) =
-            pkg.additional_manifest_files.clone()
-            && let Some(tag) = pkg.release.tag.clone()
+            pkg.additional_manifest_files.as_ref()
+            && let Some(tag) = pkg.release.tag.as_ref()
         {
             for manifest in additional_manifests.iter() {
                 if let Some(change) =
@@ -200,7 +201,7 @@ async fn gather_release_prs_by_branch(
             start_details = "<details open>";
         }
 
-        let tag = pkg.release.tag.clone().ok_or(eyre!(
+        let tag = pkg.release.tag.as_ref().ok_or_else(|| eyre!(
             "Projected release should have a projected tag but failed to detect one. Please report this issue here: https://github.com/robgonnella/releasaurus/issues"
         ))?;
 
@@ -228,13 +229,14 @@ async fn gather_release_prs_by_branch(
             tag.name, pkg.release.notes
         );
 
-        let changelog_path = Path::new(&pkg.workspace_root)
-            .join(&pkg.path)
-            .join("CHANGELOG.md")
-            .display()
-            .to_string()
-            .replace("\\", "/")
-            .replace("./", "");
+        let changelog_path = normalize_path(
+            &Path::new(&pkg.workspace_root)
+                .join(&pkg.path)
+                .join("CHANGELOG.md")
+                .display()
+                .to_string(),
+        )
+        .into_owned();
 
         file_changes.push(FileChange {
             content: format!("{}\n\n", pkg.release.notes),
@@ -271,7 +273,8 @@ mod tests {
     use crate::{
         analyzer::release::{Release, Tag},
         config::{
-            package::PackageConfig,
+            ConfigBuilder,
+            package::PackageConfigBuilder,
             prerelease::{PrereleaseConfig, PrereleaseStrategy},
             release_type::ReleaseType,
         },
@@ -323,14 +326,16 @@ mod tests {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
 
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -349,21 +354,21 @@ mod tests {
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
 
-        let config = Config {
-            packages: vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg-b")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -380,22 +385,22 @@ mod tests {
             releasable_package("pkg-b", "2.0.0", ReleaseType::Node),
         ];
 
-        let config = Config {
-            separate_pull_requests: true,
-            packages: vec![
-                PackageConfig {
-                    name: "pkg-a".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                },
-                PackageConfig {
-                    name: "pkg-b".into(),
-                    release_type: Some(ReleaseType::Node),
-                    ..PackageConfig::default()
-                },
-            ],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .separate_pull_requests(true)
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg-a")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+                PackageConfigBuilder::default()
+                    .name("pkg-b")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -411,14 +416,16 @@ mod tests {
         let packages =
             vec![releasable_package("pkg", "1.0.0", ReleaseType::Node)];
 
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&packages, &config, "main")
             .await
@@ -442,14 +449,16 @@ mod tests {
             content: r#"version = "1.0.0""#.to_string(),
         }]);
 
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
@@ -473,14 +482,16 @@ mod tests {
             content: "# My Package\n\nNo version here".to_string(),
         }]);
 
-        let config = Config {
-            packages: vec![PackageConfig {
-                name: "pkg".into(),
-                release_type: Some(ReleaseType::Node),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("pkg")
+                    .release_type(ReleaseType::Node)
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = gather_release_prs_by_branch(&[pkg], &config, "main")
             .await
@@ -702,16 +713,18 @@ mod tests {
             }))
         });
 
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "repo".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("repo")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = common::get_releasable_packages(
             &config.packages,
@@ -740,16 +753,18 @@ mod tests {
             }))
         });
 
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "repo".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("repo")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = common::get_releasable_packages(
             &config.packages,
@@ -787,20 +802,22 @@ mod tests {
             }))
         });
 
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "repo".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                prerelease: Some(PrereleaseConfig {
-                    suffix: Some("beta".to_string()),
-                    strategy: PrereleaseStrategy::Versioned,
-                }),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("repo")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .prerelease(PrereleaseConfig {
+                        suffix: Some("beta".to_string()),
+                        strategy: PrereleaseStrategy::Versioned,
+                    })
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let result = common::get_releasable_packages(
             &config.packages,
@@ -820,16 +837,18 @@ mod tests {
 
     #[tokio::test]
     async fn succeeds_with_no_releasable_packages() {
-        let config = Config {
-            base_branch: Some("main".into()),
-            packages: vec![PackageConfig {
-                name: "repo".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("main")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("repo")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock = MockForge::new();
 
@@ -852,16 +871,18 @@ mod tests {
 
     #[tokio::test]
     async fn uses_cli_base_branch_override() {
-        let config = Config {
-            base_branch: Some("develop".into()),
-            packages: vec![PackageConfig {
-                name: "repo".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("v".to_string()),
-                ..PackageConfig::default()
-            }],
-            ..Config::default()
-        };
+        let config = ConfigBuilder::default()
+            .base_branch("develop")
+            .packages(vec![
+                PackageConfigBuilder::default()
+                    .name("repo")
+                    .release_type(ReleaseType::Node)
+                    .tag_prefix("v")
+                    .build()
+                    .unwrap(),
+            ])
+            .build()
+            .unwrap();
 
         let mut mock = MockForge::new();
 

@@ -87,7 +87,8 @@ impl Serialize for Release {
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_struct("Release", 7)?;
-        let tag = &self.tag.clone().unwrap_or_default();
+        let default_tag = Tag::default();
+        let tag = self.tag.as_ref().unwrap_or(&default_tag);
         s.serialize_field("link", &self.link)?;
         s.serialize_field("version", &tag.semver.to_string())?;
         s.serialize_field("sha", &self.sha)?;

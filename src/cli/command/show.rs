@@ -104,7 +104,11 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
-        config::{Config, package::PackageConfig, release_type::ReleaseType},
+        config::{
+            Config,
+            package::{PackageConfig, PackageConfigBuilder},
+            release_type::ReleaseType,
+        },
         forge::{
             config::RemoteConfig, request::ReleaseByTagResponse,
             traits::MockForge,
@@ -187,18 +191,18 @@ mod tests {
     #[tokio::test]
     async fn next_release_returns_all_packages_when_no_filter() {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                ..PackageConfig::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                release_type: Some(ReleaseType::Rust),
-                tag_prefix: Some("pkg-b-v".to_string()),
-                ..PackageConfig::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .release_type(ReleaseType::Node)
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .release_type(ReleaseType::Rust)
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
         ];
 
         let config = Config {
@@ -225,18 +229,18 @@ mod tests {
     #[tokio::test]
     async fn next_release_filters_to_specific_package() {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                ..PackageConfig::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                release_type: Some(ReleaseType::Rust),
-                tag_prefix: Some("pkg-b-v".to_string()),
-                ..PackageConfig::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .release_type(ReleaseType::Node)
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .release_type(ReleaseType::Rust)
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
         ];
 
         let config = Config {
@@ -324,18 +328,18 @@ mod tests {
     #[tokio::test]
     async fn next_release_combines_filter_and_file_output() {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                ..PackageConfig::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                release_type: Some(ReleaseType::Rust),
-                tag_prefix: Some("pkg-b-v".to_string()),
-                ..PackageConfig::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .release_type(ReleaseType::Node)
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .release_type(ReleaseType::Rust)
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
         ];
 
         let config = Config {
@@ -362,18 +366,18 @@ mod tests {
     #[tokio::test]
     async fn next_release_uses_branch_override() {
         let packages = vec![
-            PackageConfig {
-                name: "pkg-a".into(),
-                release_type: Some(ReleaseType::Node),
-                tag_prefix: Some("pkg-a-v".to_string()),
-                ..PackageConfig::default()
-            },
-            PackageConfig {
-                name: "pkg-b".into(),
-                release_type: Some(ReleaseType::Rust),
-                tag_prefix: Some("pkg-b-v".to_string()),
-                ..PackageConfig::default()
-            },
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .release_type(ReleaseType::Node)
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .release_type(ReleaseType::Rust)
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
         ];
 
         let config = Config {

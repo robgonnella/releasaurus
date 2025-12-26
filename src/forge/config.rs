@@ -1,4 +1,5 @@
 //! Configuration for Git forge platform connections.
+use derive_builder::Builder;
 use secrecy::SecretString;
 
 use crate::{
@@ -24,7 +25,8 @@ pub const PENDING_LABEL: &str = "releasaurus:pending";
 
 /// Remote repository connection configuration for authenticating and
 /// interacting with forge platforms.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Builder)]
+#[builder(setter(into, strip_option), default)]
 pub struct RemoteConfig {
     /// Remote forge host (e.g., "github.com").
     pub host: String,
