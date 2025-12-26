@@ -3,7 +3,10 @@ use serde_json::{Value, json};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::{ManifestFile, UpdaterPackage},
+    updater::{
+        manager::{ManifestFile, UpdaterPackage},
+        traits::PackageUpdater,
+    },
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -13,41 +16,6 @@ impl PackageLock {
     /// Create package-lock.json handler for version updates.
     pub fn new() -> Self {
         Self {}
-    }
-
-    /// Update version fields in package-lock.json files for all Node packages.
-    pub fn process_package(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "package-lock.json" {
-                continue;
-            }
-
-            if manifest.is_workspace
-                && let Some(change) = self.update_lock_file(
-                    manifest,
-                    package,
-                    workspace_packages,
-                )?
-            {
-                file_changes.push(change);
-            } else if let Some(change) =
-                self.update_lock_file(manifest, package, &[])?
-            {
-                file_changes.push(change);
-            }
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
     }
 
     /// Update a single package-lock.json file
@@ -136,6 +104,43 @@ impl PackageLock {
     }
 }
 
+impl PackageUpdater for PackageLock {
+    /// Update version fields in package-lock.json files for all Node packages.
+    fn update(
+        &self,
+        package: &UpdaterPackage,
+        workspace_packages: &[UpdaterPackage],
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut file_changes = vec![];
+
+        for manifest in package.manifest_files.iter() {
+            if manifest.basename != "package-lock.json" {
+                continue;
+            }
+
+            if manifest.is_workspace
+                && let Some(change) = self.update_lock_file(
+                    manifest,
+                    package,
+                    workspace_packages,
+                )?
+            {
+                file_changes.push(change);
+            } else if let Some(change) =
+                self.update_lock_file(manifest, package, &[])?
+            {
+                file_changes.push(change);
+            }
+        }
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,7 +172,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -204,7 +209,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -258,7 +263,7 @@ mod tests {
         };
 
         let result = package_lock
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -311,7 +316,7 @@ mod tests {
         };
 
         let result = package_lock
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -364,7 +369,7 @@ mod tests {
         };
 
         let result = package_lock
-            .process_package(&package_a, &[package_a.clone(), package_b])
+            .update(&package_a, &[package_a.clone(), package_b])
             .unwrap();
 
         let updated = result.unwrap()[0].content.clone();
@@ -406,7 +411,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
@@ -441,7 +446,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -469,7 +474,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -507,7 +512,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = package_lock.process_package(&package, &[]).unwrap();
+        let result = package_lock.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));

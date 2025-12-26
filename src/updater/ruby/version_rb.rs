@@ -1,7 +1,10 @@
 use crate::{
     Result,
     forge::request::FileChange,
-    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
+    updater::{
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        traits::PackageUpdater,
+    },
 };
 
 /// Handles version.rb file parsing and version updates for Ruby packages.
@@ -12,11 +15,14 @@ impl VersionRb {
     pub fn new() -> Self {
         Self {}
     }
+}
 
+impl PackageUpdater for VersionRb {
     /// Process version.rb files for all Ruby packages.
-    pub fn process_package(
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -75,7 +81,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("VERSION = \"2.0.0\""));
@@ -106,7 +112,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("VERSION = '2.0.0'"));
@@ -137,7 +143,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("VERSION   =   \"2.0.0\""));
@@ -168,7 +174,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -205,7 +211,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("VERSION = \"2.0.0\""));
@@ -242,7 +248,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -270,7 +276,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = version_rb.process_package(&package).unwrap();
+        let result = version_rb.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

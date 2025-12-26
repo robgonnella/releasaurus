@@ -4,6 +4,7 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
+        composite::CompositeUpdater,
         manager::UpdaterPackage,
         python::{pyproject::PyProject, setupcfg::SetupCfg, setuppy::SetupPy},
         traits::PackageUpdater,
@@ -13,18 +14,18 @@ use crate::{
 /// Updates Python package version files including pyproject.toml, setup.py,
 /// and setup.cfg for various build systems.
 pub struct PythonUpdater {
-    pyproject: PyProject,
-    setuppy: SetupPy,
-    setupcfg: SetupCfg,
+    composite: CompositeUpdater,
 }
 
 impl PythonUpdater {
     /// Create Python updater with handlers for multiple packaging formats.
     pub fn new() -> Self {
         Self {
-            pyproject: PyProject::new(),
-            setuppy: SetupPy::new(),
-            setupcfg: SetupCfg::new(),
+            composite: CompositeUpdater::new(vec![
+                Box::new(PyProject::new()),
+                Box::new(SetupPy::new()),
+                Box::new(SetupCfg::new()),
+            ]),
         }
     }
 }
@@ -33,24 +34,9 @@ impl PackageUpdater for PythonUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        // workspaces not supported for python projects
-        _workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        if let Some(changes) = self.pyproject.process_package(package)? {
-            file_changes.extend(changes);
-        } else if let Some(changes) = self.setupcfg.process_package(package)? {
-            file_changes.extend(changes);
-        } else if let Some(changes) = self.setuppy.process_package(package)? {
-            file_changes.extend(changes);
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        self.composite.update(package, workspace_packages)
     }
 }
 
@@ -88,7 +74,7 @@ version = "1.0.0"
             release_type: ReleaseType::Python,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -114,7 +100,7 @@ version = "1.0.0"
             release_type: ReleaseType::Python,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

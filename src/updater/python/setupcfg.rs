@@ -1,7 +1,10 @@
 use crate::{
     Result,
     forge::request::FileChange,
-    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
+    updater::{
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        traits::PackageUpdater,
+    },
 };
 
 pub struct SetupCfg {}
@@ -10,10 +13,13 @@ impl SetupCfg {
     pub fn new() -> Self {
         Self {}
     }
+}
 
-    pub fn process_package(
+impl PackageUpdater for SetupCfg {
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -69,7 +75,7 @@ mod tests {
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = 2.0.0"));
@@ -97,7 +103,7 @@ mod tests {
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -125,7 +131,7 @@ mod tests {
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = '2.0.0'"));
@@ -153,7 +159,7 @@ mod tests {
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version   =   2.0.0"));
@@ -191,7 +197,7 @@ install_requires =
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = 2.0.0"));
@@ -229,7 +235,7 @@ install_requires =
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -257,7 +263,7 @@ install_requires =
             release_type: ReleaseType::Python,
         };
 
-        let result = setupcfg.process_package(&package).unwrap();
+        let result = setupcfg.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

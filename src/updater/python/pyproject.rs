@@ -5,7 +5,7 @@ use toml_edit::{DocumentMut, value};
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
-    updater::manager::UpdaterPackage,
+    updater::{manager::UpdaterPackage, traits::PackageUpdater},
 };
 
 pub struct PyProject {}
@@ -15,9 +15,17 @@ impl PyProject {
         Self {}
     }
 
-    pub fn process_package(
+    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
+        let doc = content.parse::<DocumentMut>()?;
+        Ok(doc)
+    }
+}
+
+impl PackageUpdater for PyProject {
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes: Vec<FileChange> = vec![];
 
@@ -85,11 +93,6 @@ impl PyProject {
 
         Ok(Some(file_changes))
     }
-
-    fn load_doc(&self, content: &str) -> Result<DocumentMut> {
-        let doc = content.parse::<DocumentMut>()?;
-        Ok(doc)
-    }
 }
 
 #[cfg(test)]
@@ -126,7 +129,7 @@ version = "1.0.0"
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -157,7 +160,7 @@ version = "1.0.0"
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -189,7 +192,7 @@ dynamic = ["version"]
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -220,7 +223,7 @@ dynamic = ["version"]
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -255,7 +258,7 @@ requests = "^2.28.0"
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
@@ -288,7 +291,7 @@ requires = ["setuptools", "wheel"]
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
@@ -322,7 +325,7 @@ requires = ["setuptools", "wheel"]
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -350,7 +353,7 @@ requires = ["setuptools", "wheel"]
             release_type: ReleaseType::Python,
         };
 
-        let result = pyproject.process_package(&package).unwrap();
+        let result = pyproject.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

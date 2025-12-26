@@ -3,6 +3,7 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
+        composite::CompositeUpdater,
         manager::UpdaterPackage,
         rust::{cargo_lock::CargoLock, cargo_toml::CargoToml},
         traits::PackageUpdater,
@@ -12,16 +13,17 @@ use crate::{
 /// Updates Cargo.toml and Cargo.lock files for Rust packages, handling
 /// workspace dependencies and version synchronization.
 pub struct RustUpdater {
-    cargo_toml: CargoToml,
-    cargo_lock: CargoLock,
+    composite: CompositeUpdater,
 }
 
 impl RustUpdater {
     /// Create Rust updater with Cargo.toml and Cargo.lock handlers.
     pub fn new() -> Self {
         Self {
-            cargo_toml: CargoToml::new(),
-            cargo_lock: CargoLock::new(),
+            composite: CompositeUpdater::new(vec![
+                Box::new(CargoToml::new()),
+                Box::new(CargoLock::new()),
+            ]),
         }
     }
 }
@@ -30,29 +32,9 @@ impl PackageUpdater for RustUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        if let Some(changes) = self
-            .cargo_toml
-            .process_package(package, &workspace_packages)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if let Some(changes) = self
-            .cargo_lock
-            .process_package(package, &workspace_packages)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        self.composite.update(package, workspace_packages)
     }
 }
 
@@ -90,7 +72,7 @@ version = "1.0.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -116,7 +98,7 @@ version = "1.0.0"
             release_type: ReleaseType::Rust,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

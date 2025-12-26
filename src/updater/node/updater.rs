@@ -2,6 +2,7 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
+        composite::CompositeUpdater,
         manager::UpdaterPackage,
         node::{
             package_json::PackageJson, package_lock::PackageLock,
@@ -13,18 +14,18 @@ use crate::{
 
 /// Node.js package updater for npm, yarn, and pnpm projects.
 pub struct NodeUpdater {
-    package_json: PackageJson,
-    package_lock: PackageLock,
-    yarn_lock: YarnLock,
+    composite: CompositeUpdater,
 }
 
 impl NodeUpdater {
     /// Create Node.js updater for package.json and lock file management.
     pub fn new() -> Self {
         Self {
-            package_json: PackageJson::new(),
-            package_lock: PackageLock::new(),
-            yarn_lock: YarnLock::new(),
+            composite: CompositeUpdater::new(vec![
+                Box::new(PackageJson::new()),
+                Box::new(PackageLock::new()),
+                Box::new(YarnLock::new()),
+            ]),
         }
     }
 }
@@ -33,36 +34,9 @@ impl PackageUpdater for NodeUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        if let Some(changes) = self
-            .package_json
-            .process_package(package, &workspace_packages)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if let Some(changes) = self
-            .package_lock
-            .process_package(package, &workspace_packages)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if let Some(changes) = self
-            .yarn_lock
-            .process_package(package, &workspace_packages)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        self.composite.update(package, workspace_packages)
     }
 }
 
@@ -97,7 +71,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -123,7 +97,7 @@ mod tests {
             release_type: ReleaseType::Node,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

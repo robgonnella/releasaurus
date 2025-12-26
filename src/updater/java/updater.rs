@@ -2,6 +2,7 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
+        composite::CompositeUpdater,
         java::{
             gradle::Gradle, gradle_properties::GradleProperties, maven::Maven,
         },
@@ -12,18 +13,18 @@ use crate::{
 
 /// Java package updater supporting Maven and Gradle projects.
 pub struct JavaUpdater {
-    maven: Maven,
-    gradle: Gradle,
-    gradle_properties: GradleProperties,
+    composite: CompositeUpdater,
 }
 
 impl JavaUpdater {
     /// Create Java updater for Maven pom.xml and Gradle build files.
     pub fn new() -> Self {
         Self {
-            maven: Maven::new(),
-            gradle: Gradle::new(),
-            gradle_properties: GradleProperties::new(),
+            composite: CompositeUpdater::new(vec![
+                Box::new(Gradle::new()),
+                Box::new(GradleProperties::new()),
+                Box::new(Maven::new()),
+            ]),
         }
     }
 }
@@ -32,33 +33,9 @@ impl PackageUpdater for JavaUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        // workspaces not supported for java projects
-        _workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        // Try Maven first (pom.xml) - takes precedence
-        if let Some(changes) = self.maven.process_package(package)? {
-            file_changes.extend(changes);
-        }
-
-        // Try Gradle build files (build.gradle, build.gradle.kts)
-        if let Some(changes) = self.gradle.process_package(package)? {
-            file_changes.extend(changes);
-        }
-
-        // Try gradle.properties
-        if let Some(changes) =
-            self.gradle_properties.process_package(package)?
-        {
-            file_changes.extend(changes);
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        self.composite.update(package, workspace_packages)
     }
 }
 
@@ -96,7 +73,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -122,7 +99,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

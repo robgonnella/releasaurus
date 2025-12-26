@@ -4,7 +4,10 @@ use std::path::Path;
 use crate::{
     Result,
     forge::request::FileChange,
-    updater::{generic::updater::GenericUpdater, manager::UpdaterPackage},
+    updater::{
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        traits::PackageUpdater,
+    },
 };
 
 /// Handles .gemspec file parsing and version updates for Ruby packages.
@@ -15,11 +18,14 @@ impl Gemspec {
     pub fn new() -> Self {
         Self {}
     }
+}
 
+impl PackageUpdater for Gemspec {
     /// Process gemspec files for all Ruby packages.
-    pub fn process_packages(
+    fn update(
         &self,
         package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
         let mut file_changes = vec![];
 
@@ -85,7 +91,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
@@ -117,7 +123,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("s.version = \"2.0.0\""));
@@ -149,7 +155,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = '2.0.0'"));
@@ -180,7 +186,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version   =   \"2.0.0\""));
@@ -217,7 +223,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let updated = result.unwrap()[0].content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
@@ -254,7 +260,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -282,7 +288,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = gemspec.process_packages(&package).unwrap();
+        let result = gemspec.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

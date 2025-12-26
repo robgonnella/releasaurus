@@ -133,7 +133,7 @@ impl UpdateManager {
         let updater = UpdateManager::updater(package.release_type.clone());
 
         if let Some(changes) =
-            updater.update(&updater_package, workspace_updater_packages)?
+            updater.update(&updater_package, &workspace_updater_packages)?
         {
             file_changes.extend(changes);
         }

@@ -3,6 +3,7 @@ use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
 use crate::updater::manager::ManifestFile;
+use crate::updater::traits::PackageUpdater;
 use crate::{
     Result,
     forge::request::{FileChange, FileUpdateType},
@@ -16,28 +17,6 @@ impl Maven {
     /// Create Maven handler for pom.xml version updates.
     pub fn new() -> Self {
         Self {}
-    }
-
-    /// Update version fields in pom.xml files for all Java packages.
-    pub fn process_package(
-        &self,
-        package: &UpdaterPackage,
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename == "pom.xml"
-                && let Some(change) = self.update_pom_file(manifest, package)?
-            {
-                file_changes.push(change);
-            }
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
     }
 
     /// Update a single pom.xml file
@@ -106,6 +85,31 @@ impl Maven {
             content,
             update_type: FileUpdateType::Replace,
         }))
+    }
+}
+
+impl PackageUpdater for Maven {
+    /// Update version fields in pom.xml files for all Java packages.
+    fn update(
+        &self,
+        package: &UpdaterPackage,
+        _workspace_packages: &[UpdaterPackage],
+    ) -> Result<Option<Vec<FileChange>>> {
+        let mut file_changes: Vec<FileChange> = vec![];
+
+        for manifest in package.manifest_files.iter() {
+            if manifest.basename == "pom.xml"
+                && let Some(change) = self.update_pom_file(manifest, package)?
+            {
+                file_changes.push(change);
+            }
+        }
+
+        if file_changes.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(file_changes))
     }
 }
 
@@ -297,7 +301,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = maven.process_package(&package).unwrap();
+        let result = maven.update(&package, &[]).unwrap();
 
         let changes = result.unwrap();
         assert_eq!(changes.len(), 2);
@@ -325,7 +329,7 @@ mod tests {
             release_type: ReleaseType::Java,
         };
 
-        let result = maven.process_package(&package).unwrap();
+        let result = maven.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }

@@ -2,6 +2,7 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
+        composite::CompositeUpdater,
         manager::UpdaterPackage,
         ruby::{gemspec::Gemspec, version_rb::VersionRb},
         traits::PackageUpdater,
@@ -10,16 +11,17 @@ use crate::{
 
 /// Ruby package updater for Gem and Bundler projects.
 pub struct RubyUpdater {
-    gemspec: Gemspec,
-    version_rb: VersionRb,
+    composite: CompositeUpdater,
 }
 
 impl RubyUpdater {
     /// Create Ruby updater for Gem and Bundler projects.
     pub fn new() -> Self {
         Self {
-            gemspec: Gemspec::new(),
-            version_rb: VersionRb::new(),
+            composite: CompositeUpdater::new(vec![
+                Box::new(Gemspec::new()),
+                Box::new(VersionRb::new()),
+            ]),
         }
     }
 }
@@ -28,26 +30,9 @@ impl PackageUpdater for RubyUpdater {
     fn update(
         &self,
         package: &UpdaterPackage,
-        // workspaces not supported for ruby projects
-        _workspace_packages: Vec<UpdaterPackage>,
+        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        // Try to update gemspec files
-        if let Some(changes) = self.gemspec.process_packages(package)? {
-            file_changes.extend(changes);
-        }
-
-        // Try to update version.rb files
-        if let Some(changes) = self.version_rb.process_package(package)? {
-            file_changes.extend(changes);
-        }
-
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        self.composite.update(package, workspace_packages)
     }
 }
 
@@ -86,7 +71,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.unwrap()[0].content.contains("2.0.0"));
     }
@@ -112,7 +97,7 @@ end
             release_type: ReleaseType::Ruby,
         };
 
-        let result = updater.update(&package, vec![]).unwrap();
+        let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
     }
