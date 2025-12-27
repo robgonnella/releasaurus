@@ -15,9 +15,9 @@ runs:
   steps:
     - name: check commit
       id: check_commit
-      shell: base
+      shell: bash
       run: |
-        if [[ ${{ gitea.event.head_commit.message }} =~ ^chore.*: release.+ ]]; then
+        if [[ "${{ gitea.event.head_commit.message }}" =~ "^chore.*: release.+" ]]; then
             echo "is_release_commit=true" >> $GITEA_OUTPUT
         else
           echo "is_release_commit=false" >> $GITEA_OUTPUT
