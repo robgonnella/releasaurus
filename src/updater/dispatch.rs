@@ -37,11 +37,6 @@ pub enum Updater {
 
 impl Updater {
     /// Create a new updater instance for the given release type.
-    ///
-    /// # Example
-    /// ```
-    /// let updater = Updater::new(ReleaseType::Node);
-    /// ```
     pub fn new(release_type: ReleaseType) -> Self {
         match release_type {
             ReleaseType::Generic => Updater::Generic(GenericUpdater::new()),
