@@ -11,3 +11,4 @@ pub use cli::{
     command::show, command::start_next,
 };
 pub use error::{ReleasaurusError, Result};
+pub use forge::factory::ForgeFactory;

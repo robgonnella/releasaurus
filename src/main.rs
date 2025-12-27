@@ -17,7 +17,8 @@
 use clap::Parser;
 
 use releasaurus::{
-    Cli, Command, Result, ShowCommand, release, release_pr, show, start_next,
+    Cli, Command, ForgeFactory, Result, ShowCommand, release, release_pr, show,
+    start_next,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -88,7 +89,7 @@ async fn main() -> Result<()> {
     initialize_logger(cli.debug, silence_logs)?;
 
     let remote = cli.get_remote()?;
-    let forge_manager = remote.get_forge_manager().await?;
+    let forge_manager = ForgeFactory::create(&remote).await?;
 
     let global_overrides = cli.get_global_overrides();
     let package_overrides = cli.get_package_overrides()?;

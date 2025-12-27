@@ -5,6 +5,7 @@
 
 /// Configuration and authentication for forge platforms.
 pub mod config;
+pub mod factory;
 pub mod gitea;
 pub mod github;
 pub mod gitlab;
