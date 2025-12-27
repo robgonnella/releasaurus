@@ -266,7 +266,6 @@ impl Forge for Github {
 
             Ok(config)
         } else {
-            info!("no configuration found: using default");
             Ok(Config::default())
         }
     }
@@ -301,7 +300,6 @@ impl Forge for Github {
                         "error getting contents for path: {}, status: {}, backtrace: {backtrace}",
                         req.path, source.status_code
                     );
-                    error!("{msg}");
                     Err(ReleasaurusError::forge(msg))
                 }
             }
@@ -310,7 +308,6 @@ impl Forge for Github {
                     "encountered error getting file contents for path: {}: {err}",
                     req.path
                 );
-                error!("{msg}");
                 Err(ReleasaurusError::forge(msg))
             }
             Ok(mut data) => {
@@ -562,8 +559,6 @@ impl Forge for Github {
             .create_tree_commit(&req.message, &starting_sha, &tree.sha)
             .await?;
 
-        info!("created commit for branch: sha: {}", commit.sha);
-
         let target_ref = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
@@ -573,10 +568,6 @@ impl Forge for Github {
             .await;
 
         if target_ref.is_ok() {
-            info!(
-                "release branch {} already exists: updating",
-                req.release_branch
-            );
             let endpoint = format!(
                 "{}/repos/{}/{}/git/refs/heads/{}",
                 self.base_uri,
@@ -597,8 +588,6 @@ impl Forge for Github {
 
             return Ok(commit);
         }
-
-        info!("creating release branch {}", req.release_branch);
 
         self.instance
             .repos(&self.config.owner, &self.config.repo)
@@ -652,10 +641,6 @@ impl Forge for Github {
         let commit = self
             .create_tree_commit(&req.message, &starting_sha, &tree.sha)
             .await?;
-
-        info!("created commit for branch: sha: {}", commit.sha);
-
-        info!("updating branch: {}", req.target_branch);
 
         let endpoint = format!(
             "{}/repos/{}/{}/git/refs/heads/{}",
@@ -723,11 +708,6 @@ impl Forge for Github {
         let issues_handler =
             self.instance.issues(&self.config.owner, &self.config.repo);
 
-        info!(
-            "looking for closed release prs with pending label for branch: {}",
-            req.head_branch
-        );
-
         let issues = issues_handler
             .list()
             .direction(params::Direction::Descending)
@@ -737,10 +717,6 @@ impl Forge for Github {
             .await?;
 
         if issues.items.is_empty() {
-            warn!(
-                r"No merged release PRs with the label {PENDING_LABEL} found for branch {}",
-                req.head_branch
-            );
             return Ok(None);
         }
 
@@ -763,11 +739,6 @@ impl Forge for Github {
                     );
                     continue;
                 }
-
-                info!(
-                    "found release pr: {} for branch {}",
-                    issue.number, req.head_branch
-                );
 
                 let sha = pr.merge_commit_sha.ok_or_else(|| {
                     ReleasaurusError::forge("no merge_commit_sha found for pr")

@@ -307,7 +307,6 @@ impl Forge for Gitlab {
 
             Ok(config)
         } else {
-            info!("repository configuration not found: using default");
             Ok(Config::default())
         }
     }
@@ -343,7 +342,6 @@ impl Forge for Gitlab {
                     "failed to file content from repo: status: {status}, data: {}",
                     String::from_utf8(data).unwrap()
                 );
-                error!("{msg}");
                 Err(ReleasaurusError::forge(msg))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
@@ -354,15 +352,11 @@ impl Forge for Gitlab {
                     "failed to file content from repo: status: {status}, msg: {}",
                     msg
                 );
-                error!("{msg}");
                 Err(ReleasaurusError::forge(msg))
             }
-            Err(err) => {
-                error!("failed to get file from repo: {err}");
-                Err(ReleasaurusError::forge(format!(
-                    "failed to get file from repo: {err}"
-                )))
-            }
+            Err(err) => Err(ReleasaurusError::forge(format!(
+                "failed to get file from repo: {err}"
+            ))),
         }
     }
 
@@ -719,7 +713,6 @@ impl Forge for Gitlab {
                     let msg = format!(
                         "request for pull request failed: status {status}, msg: {msg}"
                     );
-                    error!("{msg}");
                     Err(ReleasaurusError::forge(msg))
                 }
             }
@@ -733,11 +726,6 @@ impl Forge for Gitlab {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!(
-            "looking for closed release prs with pending label for branch: {}",
-            req.head_branch
-        );
-
         // Search for closed merge requests with the pending label
         let endpoint = MergeRequests::builder()
             .project(&self.project_id)
@@ -750,10 +738,6 @@ impl Forge for Gitlab {
             endpoint.query_async(&self.gl).await?;
 
         if merge_requests.is_empty() {
-            warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
-                req.head_branch
-            );
             return Ok(None);
         }
 
@@ -767,7 +751,6 @@ impl Forge for Gitlab {
         }
 
         let merge_request = &merge_requests[0];
-        info!("found release pr: {}", merge_request.iid);
 
         // Check if the MR is actually merged (has merged_at timestamp)
         if merge_request.merged_at.is_none() {
