@@ -100,14 +100,14 @@ async fn main() -> Result<()> {
         .load_config(global_overrides.base_branch.clone())
         .await?;
 
-    let remote_config = forge_manager.remote_config();
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch();
+    let release_link_base_url = forge_manager.release_link_base_url();
 
     let config = config.resolve(
-        &repo_name,
-        &default_branch,
-        &remote_config.release_link_base_url,
+        repo_name,
+        default_branch,
+        release_link_base_url,
         package_overrides,
         global_overrides,
     );

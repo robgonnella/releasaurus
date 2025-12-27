@@ -152,7 +152,7 @@ mod tests {
             Config, ConfigBuilder, package::PackageConfigBuilder,
             release_type::ReleaseType,
         },
-        forge::{config::RemoteConfig, traits::MockForge},
+        forge::traits::MockForge,
     };
 
     #[tokio::test]
@@ -175,6 +175,8 @@ mod tests {
         mock_forge
             .expect_repo_name()
             .returning(|| "test-repo".to_string());
+
+        mock_forge.expect_dry_run().returning(|| false);
 
         mock_forge
             .expect_get_merged_release_pr()
@@ -210,10 +212,6 @@ mod tests {
                 req.pr_number == 42 && req.labels == vec!["releasaurus:tagged"]
             })
             .returning(|_| Ok(()));
-
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -264,9 +262,7 @@ mod tests {
 
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -298,9 +294,7 @@ mod tests {
             .expect_get_merged_release_pr()
             .returning(|_| Ok(None));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -370,9 +364,7 @@ mod tests {
             .times(2)
             .returning(|_| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -397,9 +389,7 @@ mod tests {
             })
             .returning(|_, _, _| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let forge_manger = ForgeManager::new(Box::new(mock_forge));
 
@@ -433,9 +423,7 @@ mod tests {
             .withf(|_, _, notes| notes == "Trimmed notes")
             .returning(|_, _, _| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -461,9 +449,7 @@ mod tests {
     async fn test_create_package_release_fails_when_metadata_missing() {
         let mut mock_forge = MockForge::new();
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -493,9 +479,7 @@ mod tests {
     async fn test_create_package_release_fails_when_metadata_malformed() {
         let mut mock_forge = MockForge::new();
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -520,9 +504,7 @@ mod tests {
     async fn test_create_package_release_fails_when_package_name_not_found() {
         let mut mock_forge = MockForge::new();
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -619,9 +601,7 @@ mod tests {
             .times(2)
             .returning(|_| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -674,9 +654,7 @@ mod tests {
 
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -731,9 +709,7 @@ mod tests {
 
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
 
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -777,9 +753,7 @@ mod tests {
             .expect_create_release()
             .returning(|_, _, _| Ok(()));
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         // Expect start_next to be called
         mock_forge
@@ -849,9 +823,7 @@ mod tests {
             .expect_create_release()
             .returning(|_, _, _| Ok(()));
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         mock_forge
             .expect_get_latest_tag_for_prefix()
@@ -911,9 +883,7 @@ mod tests {
             .expect_create_release()
             .returning(|_, _, _| Ok(()));
         mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
+        mock_forge.expect_dry_run().returning(|| false);
 
         // Should NOT call start_next functions
         mock_forge.expect_get_latest_tag_for_prefix().times(0);

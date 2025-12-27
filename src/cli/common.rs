@@ -340,7 +340,7 @@ mod tests {
     use super::*;
     use crate::{
         config::package::PackageConfigBuilder,
-        forge::{config::RemoteConfig, request::Commit, traits::MockForge},
+        forge::{request::Commit, traits::MockForge},
     };
     use semver::Version as SemVer;
 
@@ -534,7 +534,7 @@ mod tests {
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
             if prefix.contains("pkg-a") {
@@ -601,7 +601,7 @@ mod tests {
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
             if prefix.contains("pkg-a") {
@@ -650,7 +650,7 @@ mod tests {
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_latest_tag_for_prefix()
             .returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
@@ -677,7 +677,7 @@ mod tests {
 
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "test-repo".into());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
                 name: "api-v1.0.0".into(),

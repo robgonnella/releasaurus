@@ -54,7 +54,7 @@ mod tests {
         config::{
             Config, package::PackageConfigBuilder, release_type::ReleaseType,
         },
-        forge::{config::RemoteConfig, request::Commit, traits::MockForge},
+        forge::{request::Commit, traits::MockForge},
     };
     use semver::Version as SemVer;
 
@@ -79,7 +79,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
@@ -124,7 +124,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         mock.expect_get_latest_tag_for_prefix()
             .returning(|_| Ok(None));
@@ -170,7 +170,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         mock.expect_get_latest_tag_for_prefix().returning(|prefix| {
             if prefix.contains("pkg-a") {
@@ -216,7 +216,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
@@ -236,7 +236,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         let forge_manager = ForgeManager::new(Box::new(mock));
 
@@ -271,7 +271,7 @@ mod tests {
         mock.expect_repo_name()
             .returning(|| "test-repo".to_string());
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         // Only expect calls for pkg-a (not pkg-b since we filtered)
         mock.expect_get_latest_tag_for_prefix()

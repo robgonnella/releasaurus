@@ -7,7 +7,6 @@ use crate::{
     analyzer::release::Tag,
     config::Config,
     forge::{
-        config::RemoteConfig,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
@@ -21,21 +20,20 @@ use crate::{
 
 pub struct ForgeManager {
     forge: Box<dyn Forge>,
-    remote_config: RemoteConfig,
     repo_name: OnceCell<String>,
     default_branch: OnceCell<String>,
+    release_link_base_url: OnceCell<String>,
 }
 
 impl ForgeManager {
     /// Create Gitea client with token authentication and API base URL
     /// configuration for self-hosted instances.
     pub fn new(forge: Box<dyn Forge>) -> Self {
-        let remote_config = forge.remote_config();
         Self {
             forge,
-            remote_config,
             repo_name: OnceCell::new(),
             default_branch: OnceCell::new(),
+            release_link_base_url: OnceCell::new(),
         }
     }
 
@@ -43,8 +41,9 @@ impl ForgeManager {
         self.repo_name.get_or_init(|| self.forge.repo_name())
     }
 
-    pub fn remote_config(&self) -> &RemoteConfig {
-        &self.remote_config
+    pub fn release_link_base_url(&self) -> &str {
+        self.release_link_base_url
+            .get_or_init(|| self.forge.release_link_base_url())
     }
 
     pub fn default_branch(&self) -> &str {
@@ -146,7 +145,7 @@ impl ForgeManager {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!("dry_run: would create release branch: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
@@ -157,7 +156,7 @@ impl ForgeManager {
         &self,
         req: CreateCommitRequest,
     ) -> Result<Commit> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!("dry_run: would create commit: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
@@ -165,7 +164,7 @@ impl ForgeManager {
     }
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!(
                 "dry_run: would tag commit: tag_name: {tag_name}, sha: {sha}"
             );
@@ -176,7 +175,7 @@ impl ForgeManager {
     }
 
     pub async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!("dry_run: would create PR: req: {:#?}", req);
             return Ok(PullRequest {
                 number: 0,
@@ -189,7 +188,7 @@ impl ForgeManager {
     }
 
     pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!("dry_run: would update PR: req: {:#?}", req);
             return Ok(());
         }
@@ -197,7 +196,7 @@ impl ForgeManager {
     }
 
     pub async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!("dry_run: would replace PR labels: req: {:#?}", req);
             return Ok(());
         }
@@ -210,7 +209,7 @@ impl ForgeManager {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        if self.remote_config.dry_run {
+        if self.forge.dry_run() {
             warn!(
                 "dry_run: would create release: tag: {tag}, sha: {sha}, notes {notes}"
             );
@@ -228,11 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn load_manifest_targets_returns_none_for_empty_targets() {
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
-
+        let mock_forge = MockForge::new();
         let manager = ForgeManager::new(Box::new(mock_forge));
         let result = manager.load_manifest_targets(None, vec![]).await.unwrap();
 
@@ -242,9 +237,6 @@ mod tests {
     #[tokio::test]
     async fn load_manifest_targets_returns_none_when_no_files_exist() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
@@ -262,9 +254,6 @@ mod tests {
     #[tokio::test]
     async fn load_manifest_targets_returns_manifests_when_files_exist() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(RemoteConfig::default);
         mock_forge
             .expect_get_file_content()
             .with(mockall::predicate::eq(GetFileContentRequest {
@@ -305,12 +294,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_create_release_branch() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
 
@@ -328,12 +312,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_tag_commit() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         manager.tag_commit("v1.0.0", "abc123").await.unwrap();
@@ -342,12 +321,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_create_pr() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let req = CreatePrRequest {
@@ -365,12 +339,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_update_pr() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let req = UpdatePrRequest {
@@ -384,12 +353,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_replace_pr_labels() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         let req = PrLabelsRequest {
@@ -402,12 +366,7 @@ mod tests {
     #[tokio::test]
     async fn dry_run_prevents_create_release() {
         let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_remote_config()
-            .returning(|| RemoteConfig {
-                dry_run: true,
-                ..Default::default()
-            });
+        mock_forge.expect_dry_run().returning(|| true);
 
         let manager = ForgeManager::new(Box::new(mock_forge));
         manager

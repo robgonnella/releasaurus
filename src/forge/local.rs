@@ -17,7 +17,6 @@ use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     error::ReleasaurusError,
     forge::{
-        config::RemoteConfig,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
@@ -76,6 +75,10 @@ impl LocalRepo {}
 
 #[async_trait]
 impl Forge for LocalRepo {
+    fn dry_run(&self) -> bool {
+        true
+    }
+
     fn repo_name(&self) -> String {
         self.repo_name.clone()
     }
@@ -84,8 +87,8 @@ impl Forge for LocalRepo {
         self.default_branch.clone()
     }
 
-    fn remote_config(&self) -> RemoteConfig {
-        RemoteConfig::default()
+    fn release_link_base_url(&self) -> String {
+        "".into()
     }
 
     async fn get_file_content(

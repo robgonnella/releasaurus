@@ -109,10 +109,7 @@ mod tests {
             package::{PackageConfig, PackageConfigBuilder},
             release_type::ReleaseType,
         },
-        forge::{
-            config::RemoteConfig, request::ReleaseByTagResponse,
-            traits::MockForge,
-        },
+        forge::{request::ReleaseByTagResponse, traits::MockForge},
     };
     use semver::Version as SemVer;
 
@@ -160,7 +157,7 @@ mod tests {
 
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         ForgeManager::new(Box::new(mock))
     }
@@ -181,7 +178,7 @@ mod tests {
             })
         });
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         ForgeManager::new(Box::new(mock))
     }
@@ -396,7 +393,7 @@ mod tests {
 
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         let manager = ForgeManager::new(Box::new(mock));
 
