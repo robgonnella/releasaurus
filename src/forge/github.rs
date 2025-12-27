@@ -416,7 +416,7 @@ impl Forge for Github {
         branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
-        let branch = branch.clone().unwrap_or(self.default_branch());
+        let branch = branch.unwrap_or_else(|| self.default_branch());
         let search_depth = self.commit_search_depth.lock().await;
 
         let mut commits = vec![];

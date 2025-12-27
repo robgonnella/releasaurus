@@ -1,5 +1,6 @@
 //! Manager that wraps forge implementations
 use log::*;
+use std::cell::OnceCell;
 
 use crate::{
     Result,
@@ -21,6 +22,8 @@ use crate::{
 pub struct ForgeManager {
     forge: Box<dyn Forge>,
     remote_config: RemoteConfig,
+    repo_name: OnceCell<String>,
+    default_branch: OnceCell<String>,
 }
 
 impl ForgeManager {
@@ -31,19 +34,22 @@ impl ForgeManager {
         Self {
             forge,
             remote_config,
+            repo_name: OnceCell::new(),
+            default_branch: OnceCell::new(),
         }
     }
 
-    pub fn repo_name(&self) -> String {
-        self.forge.repo_name()
+    pub fn repo_name(&self) -> &str {
+        self.repo_name.get_or_init(|| self.forge.repo_name())
     }
 
     pub fn remote_config(&self) -> &RemoteConfig {
         &self.remote_config
     }
 
-    pub fn default_branch(&self) -> String {
-        self.forge.default_branch()
+    pub fn default_branch(&self) -> &str {
+        self.default_branch
+            .get_or_init(|| self.forge.default_branch())
     }
 
     pub async fn get_file_content(
