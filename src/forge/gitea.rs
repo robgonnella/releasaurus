@@ -499,13 +499,7 @@ impl Forge for Gitea {
                     author_email: result.commit.author.email.clone(),
                     author_name: result.commit.author.name.clone(),
                     id: result.sha.clone(),
-                    short_id: result
-                        .sha
-                        .clone()
-                        .split("")
-                        .take(8)
-                        .collect::<Vec<&str>>()
-                        .join(""),
+                    short_id: result.sha.chars().take(8).collect::<String>(),
                     link: result.html_url.clone(),
                     merge_commit: result.parents.len() > 1,
                     message: result.commit.message.trim().to_string(),
