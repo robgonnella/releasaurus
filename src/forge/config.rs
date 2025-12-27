@@ -2,14 +2,6 @@
 use derive_builder::Builder;
 use secrecy::SecretString;
 
-use crate::{
-    Result,
-    forge::{
-        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
-        manager::ForgeManager, traits::Forge,
-    },
-};
-
 /// Default number of commits to search when finding releases.
 pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
 /// Default page size for paginated commit queries
@@ -71,28 +63,6 @@ pub enum Remote {
     Gitlab(RemoteConfig),
     Gitea(RemoteConfig),
     Local(String),
-}
-
-impl Remote {
-    /// Create forge client instance for the configured platform.
-    pub async fn get_forge_manager(&self) -> Result<ForgeManager> {
-        let forge: Box<dyn Forge> = match self {
-            Remote::Github(config) => {
-                Box::new(Github::new(config.clone()).await?)
-            }
-            Remote::Gitlab(config) => {
-                Box::new(Gitlab::new(config.clone()).await?)
-            }
-            Remote::Gitea(config) => {
-                Box::new(Gitea::new(config.clone()).await?)
-            }
-            Remote::Local(repo_path) => {
-                Box::new(LocalRepo::new(repo_path.to_string())?)
-            }
-        };
-
-        Ok(ForgeManager::new(forge))
-    }
 }
 
 #[cfg(test)]
