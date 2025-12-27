@@ -4,7 +4,15 @@ use std::fmt::Display;
 
 /// Supported release types for updating package manifest files
 #[derive(
-    Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ReleaseType {

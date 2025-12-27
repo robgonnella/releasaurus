@@ -122,7 +122,7 @@ pub async fn get_releasable_packages_for_commits(
             info!("package: {}, release: {:#?}", package.name, release);
 
             let release_type =
-                package.release_type.clone().unwrap_or(ReleaseType::Generic);
+                package.release_type.unwrap_or(ReleaseType::Generic);
 
             let release_manifest_targets =
                 UpdateManager::release_type_manifest_targets(package);

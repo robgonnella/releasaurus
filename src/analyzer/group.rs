@@ -7,7 +7,7 @@ use crate::analyzer::commit::Commit;
 
 /// Commit categories based on conventional commit types, used for grouping
 /// changes in the changelog.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Group {
     Breaking,
     Feat,
@@ -142,7 +142,7 @@ fn create_message_group_parser(
     pattern: &'static Regex,
     target_group: Group,
 ) -> MessageGroupParser {
-    let f: MessageGroupParser = Box::new(|c: &Commit| -> Option<Group> {
+    let f: MessageGroupParser = Box::new(move |c: &Commit| -> Option<Group> {
         if pattern.is_match(c.raw_message.trim()) {
             return Some(target_group);
         }
@@ -256,13 +256,6 @@ mod tests {
         assert!(Group::Breaking < Group::Feat);
         assert!(Group::Feat < Group::Fix);
         assert!(Group::Miscellaneous > Group::Ci); // Other should be last
-    }
-
-    #[test]
-    fn test_group_clone() {
-        let group1 = Group::Feat;
-        let group2 = group1.clone();
-        assert_eq!(group1, group2);
     }
 
     #[test]

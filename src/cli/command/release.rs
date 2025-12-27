@@ -25,11 +25,9 @@ pub async fn execute(
     forge_manager: &ForgeManager,
     config: Config,
 ) -> Result<()> {
-    let mut config = config.clone();
-
     let base_branch = config.base_branch()?;
 
-    let mut auto_start_packages = vec![];
+    let mut auto_start_packages: Vec<String> = vec![];
 
     for package in config.packages.iter() {
         let mut release_branch =
@@ -68,12 +66,15 @@ pub async fn execute(
     }
 
     if !auto_start_packages.is_empty() {
-        config
+        let filtered_packages: Vec<PackageConfig> = config
             .packages
-            .retain(|p| auto_start_packages.contains(&p.name));
+            .iter()
+            .filter(|p| auto_start_packages.contains(&p.name))
+            .cloned()
+            .collect();
 
         common::start_next_release(
-            &config.packages,
+            &filtered_packages,
             forge_manager,
             &base_branch,
         )

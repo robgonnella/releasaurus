@@ -38,8 +38,8 @@ impl ForgeManager {
         self.forge.repo_name()
     }
 
-    pub fn remote_config(&self) -> RemoteConfig {
-        self.remote_config.clone()
+    pub fn remote_config(&self) -> &RemoteConfig {
+        &self.remote_config
     }
 
     pub fn default_branch(&self) -> String {

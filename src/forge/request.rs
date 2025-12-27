@@ -88,7 +88,7 @@ impl Hash for ForgeCommit {
 
 /// How to apply file content changes during branch creation.
 #[allow(unused)]
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, PartialEq)]
 pub enum FileUpdateType {
     Replace,
     Prepend,

@@ -54,14 +54,14 @@ impl std::fmt::Debug for ManifestFile {
 
 /// Programming language and package manager detection for determining which
 /// version files to update.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct UpdateManager {}
 
 impl UpdateManager {
     pub fn release_type_manifest_targets(
         pkg: &PackageConfig,
     ) -> Vec<ManifestTarget> {
-        match pkg.release_type.clone() {
+        match pkg.release_type {
             Some(ReleaseType::Generic) => vec![],
             Some(ReleaseType::Java) => JavaManifests::manifest_targets(pkg),
             Some(ReleaseType::Node) => NodeManifests::manifest_targets(pkg),
@@ -130,7 +130,7 @@ impl UpdateManager {
             updater_package.release_type
         );
 
-        let updater = UpdateManager::updater(package.release_type.clone());
+        let updater = UpdateManager::updater(package.release_type);
 
         if let Some(changes) =
             updater.update(&updater_package, &workspace_updater_packages)?
@@ -189,7 +189,7 @@ impl UpdaterPackage {
         UpdaterPackage {
             package_name: pkg.name.clone(),
             // workspace_root: pkg.workspace_root.clone(),
-            release_type: pkg.release_type.clone(),
+            release_type: pkg.release_type,
             manifest_files: pkg
                 .manifest_files
                 .as_ref()
@@ -240,7 +240,7 @@ mod tests {
         ];
 
         for (release_type, expected_count) in test_cases {
-            let pkg = create_test_package(Some(release_type.clone()));
+            let pkg = create_test_package(Some(release_type));
             let targets = UpdateManager::release_type_manifest_targets(&pkg);
             assert_eq!(
                 targets.len(),
