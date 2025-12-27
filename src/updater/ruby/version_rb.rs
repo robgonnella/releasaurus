@@ -49,11 +49,16 @@ impl PackageUpdater for VersionRb {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -78,7 +83,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -109,7 +114,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -140,7 +145,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -171,7 +176,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -208,7 +213,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -245,7 +250,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();
@@ -273,7 +278,7 @@ end
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Ruby,
+            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
         };
 
         let result = version_rb.update(&package, &[]).unwrap();

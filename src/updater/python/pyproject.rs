@@ -1,5 +1,4 @@
 use log::*;
-
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -97,11 +96,16 @@ impl PackageUpdater for PyProject {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -126,7 +130,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -157,7 +161,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -189,7 +193,7 @@ dynamic = ["version"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -220,7 +224,7 @@ dynamic = ["version"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -255,7 +259,7 @@ requests = "^2.28.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -288,7 +292,7 @@ requires = ["setuptools", "wheel"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -322,7 +326,7 @@ requires = ["setuptools", "wheel"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();
@@ -350,7 +354,7 @@ requires = ["setuptools", "wheel"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = pyproject.update(&package, &[]).unwrap();

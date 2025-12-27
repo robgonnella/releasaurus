@@ -40,11 +40,16 @@ impl PackageUpdater for RustUpdater {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -69,7 +74,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = updater.update(&package, &[]).unwrap();
@@ -95,7 +100,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = updater.update(&package, &[]).unwrap();

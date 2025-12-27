@@ -83,13 +83,16 @@ impl PackageUpdater for CargoLock {
 
 #[cfg(test)]
 mod tests {
-    use std::slice;
+    use std::{rc::Rc, slice};
 
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -116,7 +119,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -155,7 +158,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -166,7 +169,7 @@ version = "1.0.0"
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -206,7 +209,7 @@ version = "5.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -251,7 +254,7 @@ checksum = "abc123"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -287,7 +290,7 @@ checksum = "abc123"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -321,7 +324,7 @@ checksum = "abc123"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock
@@ -352,7 +355,7 @@ checksum = "abc123"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock.update(&package, &[]).unwrap();
@@ -392,7 +395,7 @@ version = "5.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let workspace_package = UpdaterPackage {
             package_name: "workspace-package".to_string(),
@@ -403,7 +406,7 @@ version = "5.0.0"
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_lock

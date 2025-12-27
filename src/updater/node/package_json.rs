@@ -107,11 +107,16 @@ impl PackageUpdater for PackageJson {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -133,7 +138,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json.update(&package, &[]).unwrap();
@@ -167,7 +172,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -178,7 +183,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json
@@ -214,7 +219,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -225,7 +230,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json
@@ -261,7 +266,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -272,7 +277,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json
@@ -308,7 +313,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -319,7 +324,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json
@@ -356,7 +361,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_a = UpdaterPackage {
             package_name: "package-a".to_string(),
@@ -367,7 +372,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json
@@ -403,7 +408,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json.update(&package, &[]).unwrap();
@@ -431,7 +436,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json.update(&package, &[]).unwrap();
@@ -466,7 +471,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_json.update(&package, &[]).unwrap();

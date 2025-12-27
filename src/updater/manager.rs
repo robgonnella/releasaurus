@@ -1,6 +1,8 @@
 //! Framework and package management for multi-language support.
 use log::*;
+use std::borrow::Cow;
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::Result;
 use crate::analyzer::release::Tag;
@@ -10,14 +12,11 @@ use crate::config::release_type::ReleaseType;
 use crate::forge::request::FileChange;
 use crate::path_helpers::package_path;
 use crate::updater::{
-    generic::updater::GenericUpdater,
-    java::{manifests::JavaManifests, updater::JavaUpdater},
-    node::{manifests::NodeManifests, updater::NodeUpdater},
-    php::{manifests::PhpManifests, updater::PhpUpdater},
-    python::{manifests::PythonManifests, updater::PythonUpdater},
-    ruby::{manifests::RubyManifests, updater::RubyUpdater},
-    rust::{manifests::RustManifests, updater::RustUpdater},
-    traits::{ManifestTargets, PackageUpdater},
+    dispatch::Updater, generic::updater::GenericUpdater,
+    java::manifests::JavaManifests, node::manifests::NodeManifests,
+    php::manifests::PhpManifests, python::manifests::PythonManifests,
+    ruby::manifests::RubyManifests, rust::manifests::RustManifests,
+    traits::ManifestTargets,
 };
 
 #[derive(Debug)]
@@ -76,19 +75,19 @@ impl UpdateManager {
     pub fn additional_manifest_targets(
         pkg: &PackageConfig,
     ) -> Vec<ManifestTarget> {
-        if let Some(additional) = pkg.additional_manifest_files.clone() {
+        if let Some(additional) = pkg.additional_manifest_files.as_ref() {
             let mut targets = vec![];
 
             for manifest_path in additional {
-                let basename = Path::new(&manifest_path)
+                let basename = Path::new(manifest_path)
                     .file_name()
-                    .map(|f| f.to_string_lossy().into_owned())
-                    .unwrap_or(manifest_path.clone());
+                    .map(|f| f.to_string_lossy())
+                    .unwrap_or(Cow::Borrowed(manifest_path));
 
                 targets.push(ManifestTarget {
                     is_workspace: false,
-                    path: package_path(pkg, Some(&manifest_path)),
-                    basename,
+                    path: package_path(pkg, Some(manifest_path)),
+                    basename: basename.into(),
                 })
             }
 
@@ -123,17 +122,15 @@ impl UpdateManager {
             .collect::<Vec<UpdaterPackage>>();
 
         info!(
-            "Package: {}: Found {} other packages for workspace root: {}, release_type: {}",
+            "Package: {}: Found {} other packages for workspace root: {}",
             updater_package.package_name,
             workspace_updater_packages.len(),
-            package.workspace_root,
-            updater_package.release_type
+            package.workspace_root
         );
 
-        let updater = UpdateManager::updater(package.release_type);
-
-        if let Some(changes) =
-            updater.update(&updater_package, &workspace_updater_packages)?
+        if let Some(changes) = updater_package
+            .updater
+            .update(&updater_package, &workspace_updater_packages)?
         {
             file_changes.extend(changes);
         }
@@ -151,19 +148,6 @@ impl UpdateManager {
 
         Ok(file_changes)
     }
-
-    /// Get language-specific updater implementation for this framework.
-    fn updater(release_type: ReleaseType) -> Box<dyn PackageUpdater> {
-        match release_type {
-            ReleaseType::Generic => Box::new(GenericUpdater::new()),
-            ReleaseType::Java => Box::new(JavaUpdater::new()),
-            ReleaseType::Node => Box::new(NodeUpdater::new()),
-            ReleaseType::Php => Box::new(PhpUpdater::new()),
-            ReleaseType::Python => Box::new(PythonUpdater::new()),
-            ReleaseType::Ruby => Box::new(RubyUpdater::new()),
-            ReleaseType::Rust => Box::new(RustUpdater::new()),
-        }
-    }
 }
 
 /// Package information with next version and framework details for version
@@ -178,24 +162,27 @@ pub struct UpdaterPackage {
     pub manifest_files: Vec<ManifestFile>,
     /// Next version to update to based on commit analysis.
     pub next_version: Tag,
-    /// [`ReleaseType`] for selecting appropriate updater.
-    pub release_type: ReleaseType,
+    /// Pre-built updater instance for this package type, created once and
+    /// reused. Wrapped in Rc for cheap cloning across workspace packages.
+    pub updater: Rc<Updater>,
 }
 
 impl UpdaterPackage {
     fn from_releasable_package(pkg: &ReleasablePackage) -> Self {
         let tag = pkg.release.tag.as_ref().cloned().unwrap_or_default();
+        let release_type = pkg.release_type;
+        let updater = Rc::new(Updater::new(release_type));
 
         UpdaterPackage {
             package_name: pkg.name.clone(),
             // workspace_root: pkg.workspace_root.clone(),
-            release_type: pkg.release_type,
             manifest_files: pkg
                 .manifest_files
                 .as_ref()
                 .cloned()
                 .unwrap_or_default(),
             next_version: tag,
+            updater,
         }
     }
 }

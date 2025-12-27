@@ -47,11 +47,16 @@ impl PackageUpdater for Gradle {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -73,7 +78,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -102,7 +107,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -131,7 +136,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -160,7 +165,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -189,7 +194,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -221,7 +226,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -249,7 +254,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
@@ -276,7 +281,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Java,
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
         };
 
         let result = gradle.update(&package, &[]).unwrap();
