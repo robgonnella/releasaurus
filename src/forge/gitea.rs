@@ -64,12 +64,12 @@ struct GiteaPullRequest {
     body: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct GiteaIssuePr {
     merged: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct GiteaIssue {
     number: u64,
     pull_request: GiteaIssuePr,

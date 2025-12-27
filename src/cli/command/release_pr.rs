@@ -23,7 +23,7 @@ use crate::{
     updater::{generic::updater::GenericUpdater, manager::UpdateManager},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct ReleasePr {
     pub title: String,
     pub body: String,

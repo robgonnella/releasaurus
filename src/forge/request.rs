@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Release pull request information with PR number, sha, and body
 #[allow(unused)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PullRequest {
     pub number: u64,
     pub sha: String,
@@ -13,21 +13,21 @@ pub struct PullRequest {
 }
 
 /// Request to get content for a file path in the remote repo
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct GetFileContentRequest {
     pub branch: Option<String>,
     pub path: String,
 }
 
 /// Request to find a pull request by comparing head and base branch names.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GetPrRequest {
     pub head_branch: String,
     pub base_branch: String,
 }
 
 /// Request to create a new pull request with title and description.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CreatePrRequest {
     pub head_branch: String,
     pub base_branch: String,
@@ -36,7 +36,7 @@ pub struct CreatePrRequest {
 }
 
 /// Request to update an existing pull request's title and body.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct UpdatePrRequest {
     pub pr_number: u64,
     pub title: String,
@@ -44,7 +44,7 @@ pub struct UpdatePrRequest {
 }
 
 /// Response data for retrieving release by tag.
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct ReleaseByTagResponse {
     pub tag: String,
     pub sha: String,
@@ -52,7 +52,7 @@ pub struct ReleaseByTagResponse {
 }
 
 /// Request to replace all labels on a pull request.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PrLabelsRequest {
     pub pr_number: u64,
     pub labels: Vec<String>,
@@ -103,7 +103,7 @@ pub struct FileChange {
 }
 
 /// Request to create a branch using base_branch as starting point
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CreateReleaseBranchRequest {
     pub base_branch: String,
     pub release_branch: String,
@@ -112,7 +112,7 @@ pub struct CreateReleaseBranchRequest {
 }
 
 /// Request to create a new commit on a branch with file changes
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CreateCommitRequest {
     pub target_branch: String,
     pub message: String,

@@ -172,7 +172,7 @@ pub struct CreatedCommit {
 }
 
 /// Query a specific project release by tag name.
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Builder)]
 #[builder(setter(strip_option))]
 pub struct ProjectReleaseByTag<'a> {
     /// The project to query for release.
