@@ -8,11 +8,40 @@ jobs:
   releasaurus:
     if: ${{ github.repository == 'robgonnella/releasaurus' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
     steps:
-      - uses: robgonnella/releasaurus/action/github@v0.7.1
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
         with:
-          token: ${{ secrets.GH_TEST_TOKEN }}
+          cache_name: release
+      - name: check commit
+        id: check_commit
+        shell: bash
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ "^chore.*: release.+" ]]; then
+              echo "is_release_commit=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release_commit=false" >> $GITHUB_OUTPUT
+          fi
+      - name: show next-release
+        run: |
+          cargo run --bin releasaurus -- \
+          show next-release \
+          --forge github \
+          --repo https://github.com/robgonnella/releasaurus \
+          --token ${{ secrets.GH_TEST_TOKEN }}
+      - name: release-pr
+        if: ${{ steps.check_commit.outputs.is_release_commit == 'false' }}
+        run: |
+          cargo run --bin releasaurus -- \
+          release-pr \
+          --forge github \
+          --repo https://github.com/robgonnella/releasaurus \
+          --token ${{ secrets.GH_TEST_TOKEN }}
+      - name: release
+        if: ${{ steps.check_commit.outputs.is_release_commit == 'true' }}
+        run: |
+          cargo run --bin releasaurus -- \
+          release \
+          --forge github \
+          --repo https://github.com/robgonnella/releasaurus \
+          --token ${{ secrets.GH_TEST_TOKEN }}
