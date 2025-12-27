@@ -300,12 +300,16 @@ impl Gitea {
 
 #[async_trait]
 impl Forge for Gitea {
+    fn dry_run(&self) -> bool {
+        self.config.dry_run
+    }
+
     fn repo_name(&self) -> String {
         self.config.repo.clone()
     }
 
-    fn remote_config(&self) -> RemoteConfig {
-        self.config.clone()
+    fn release_link_base_url(&self) -> String {
+        self.config.release_link_base_url.clone()
     }
 
     fn default_branch(&self) -> String {

@@ -9,14 +9,11 @@ use crate::{
     Result,
     analyzer::release::Tag,
     config::Config,
-    forge::{
-        config::RemoteConfig,
-        request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
-            UpdatePrRequest,
-        },
+    forge::request::{
+        Commit, CreateCommitRequest, CreatePrRequest,
+        CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
+        GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+        UpdatePrRequest,
     },
 };
 
@@ -25,10 +22,12 @@ use crate::{
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait Forge: Any {
+    /// whether or not the forge is in dry_run mode
+    fn dry_run(&self) -> bool;
     /// Get repository name from configuration.
     fn repo_name(&self) -> String;
-    /// Get remote configuration details including host, owner, and auth.
-    fn remote_config(&self) -> RemoteConfig;
+    /// Get the base URL for release links (e.g., GitHub web URL for commits).
+    fn release_link_base_url(&self) -> String;
     /// Fetch the default branch name (e.g., "main" or "master").
     fn default_branch(&self) -> String;
     /// Load releasaurus.toml configuration from repository root.

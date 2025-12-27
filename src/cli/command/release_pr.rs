@@ -278,7 +278,6 @@ mod tests {
             release_type::ReleaseType,
         },
         forge::{
-            config::RemoteConfig,
             request::{ForgeCommit, PullRequest},
             traits::MockForge,
         },
@@ -537,7 +536,7 @@ mod tests {
             })
         });
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
 
         create_branch_release_prs(
             prs,
@@ -581,8 +580,7 @@ mod tests {
         });
         mock.expect_update_pr().returning(|_| Ok(()));
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config().returning(RemoteConfig::default);
-
+        mock.expect_dry_run().returning(|| false);
         create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
@@ -617,8 +615,7 @@ mod tests {
                 body: "".into(),
             }))
         });
-        mock.expect_remote_config().returning(RemoteConfig::default);
-
+        mock.expect_dry_run().returning(|| false);
         let result = create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
@@ -674,8 +671,7 @@ mod tests {
                 })
             });
         mock.expect_replace_pr_labels().returning(|_| Ok(()));
-        mock.expect_remote_config().returning(RemoteConfig::default);
-
+        mock.expect_dry_run().returning(|| false);
         create_branch_release_prs(
             prs,
             &ForgeManager::new(Box::new(mock)),
@@ -690,8 +686,8 @@ mod tests {
     #[tokio::test]
     async fn identifies_releasable_package() {
         let mut mock = MockForge::new();
-        mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_repo_name().return_const("repo");
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
@@ -741,7 +737,7 @@ mod tests {
     async fn returns_empty_when_no_changes() {
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
@@ -780,7 +776,7 @@ mod tests {
     async fn applies_prerelease_suffix() {
         let mut mock = MockForge::new();
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_file_content().returning(|_| Ok(None));
         mock.expect_get_commits().returning(|_, _| {
             let commit = ForgeCommit {
@@ -852,7 +848,7 @@ mod tests {
         let mut mock = MockForge::new();
 
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
@@ -886,7 +882,7 @@ mod tests {
         let mut mock = MockForge::new();
 
         mock.expect_repo_name().returning(|| "repo".to_string());
-        mock.expect_remote_config().returning(RemoteConfig::default);
+        mock.expect_dry_run().returning(|| false);
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
         mock.expect_get_latest_tag_for_prefix().returning(|_| {
             Ok(Some(Tag {
