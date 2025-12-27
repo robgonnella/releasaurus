@@ -1,11 +1,13 @@
 //! Manager that wraps forge implementations
+use async_trait::async_trait;
 use log::*;
-use std::cell::OnceCell;
+use std::sync::OnceLock;
 
 use crate::{
     Result,
     analyzer::release::Tag,
     config::Config,
+    file_loader::FileLoader,
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -15,14 +17,13 @@ use crate::{
         },
         traits::Forge,
     },
-    updater::manager::{ManifestFile, ManifestTarget},
 };
 
 pub struct ForgeManager {
     forge: Box<dyn Forge>,
-    repo_name: OnceCell<String>,
-    default_branch: OnceCell<String>,
-    release_link_base_url: OnceCell<String>,
+    repo_name: OnceLock<String>,
+    default_branch: OnceLock<String>,
+    release_link_base_url: OnceLock<String>,
 }
 
 impl ForgeManager {
@@ -31,9 +32,9 @@ impl ForgeManager {
     pub fn new(forge: Box<dyn Forge>) -> Self {
         Self {
             forge,
-            repo_name: OnceCell::new(),
-            default_branch: OnceCell::new(),
-            release_link_base_url: OnceCell::new(),
+            repo_name: OnceLock::new(),
+            default_branch: OnceLock::new(),
+            release_link_base_url: OnceLock::new(),
         }
     }
 
@@ -83,45 +84,6 @@ impl ForgeManager {
         tag: &str,
     ) -> Result<ReleaseByTagResponse> {
         self.forge.get_release_by_tag(tag).await
-    }
-
-    pub async fn load_manifest_targets(
-        &self,
-        branch: Option<String>,
-        targets: Vec<ManifestTarget>,
-    ) -> Result<Option<Vec<ManifestFile>>> {
-        if targets.is_empty() {
-            return Ok(None);
-        }
-
-        let mut manifests = vec![];
-
-        for target in targets.iter() {
-            debug!("looking for manifest target: {}", target.path);
-            if let Some(content) = self
-                .get_file_content(GetFileContentRequest {
-                    branch: branch.clone(),
-                    path: target.path.to_string(),
-                })
-                .await?
-            {
-                info!("found manifest target: {}", target.path);
-                manifests.push(ManifestFile {
-                    is_workspace: target.is_workspace,
-                    path: target.path.clone(),
-                    basename: target.basename.clone(),
-                    content,
-                });
-            } else {
-                debug!("no file found for path: {}", target.path);
-            }
-        }
-
-        if manifests.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(manifests))
     }
 
     pub async fn get_latest_tag_for_prefix(
@@ -346,75 +308,59 @@ impl ForgeManager {
     }
 }
 
+#[async_trait]
+impl FileLoader for ForgeManager {
+    async fn load_file(
+        &self,
+        branch: Option<String>,
+        path: String,
+    ) -> Result<Option<String>> {
+        self.get_file_content(GetFileContentRequest { branch, path })
+            .await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forge::{request::GetFileContentRequest, traits::MockForge};
+    use crate::{
+        file_loader::FileLoader,
+        forge::{request::GetFileContentRequest, traits::MockForge},
+    };
 
     #[tokio::test]
-    async fn load_manifest_targets_returns_none_for_empty_targets() {
-        let mock_forge = MockForge::new();
-        let manager = ForgeManager::new(Box::new(mock_forge));
-        let result = manager.load_manifest_targets(None, vec![]).await.unwrap();
+    async fn file_loader_returns_file_content() {
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_get_file_content()
+            .with(mockall::predicate::eq(GetFileContentRequest {
+                branch: Some("main".to_string()),
+                path: "package.json".to_string(),
+            }))
+            .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
 
-        assert!(result.is_none());
+        let manager = ForgeManager::new(Box::new(mock_forge));
+        let result = manager
+            .load_file(Some("main".to_string()), "package.json".to_string())
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("1.0.0"));
     }
 
     #[tokio::test]
-    async fn load_manifest_targets_returns_none_when_no_files_exist() {
+    async fn file_loader_returns_none_when_file_not_found() {
         let mut mock_forge = MockForge::new();
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
-        let targets = vec![ManifestTarget {
-            is_workspace: false,
-            path: "package.json".to_string(),
-            basename: "package.json".to_string(),
-        }];
-        let result =
-            manager.load_manifest_targets(None, targets).await.unwrap();
+        let result = manager
+            .load_file(None, "missing.txt".to_string())
+            .await
+            .unwrap();
 
         assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn load_manifest_targets_returns_manifests_when_files_exist() {
-        let mut mock_forge = MockForge::new();
-        mock_forge
-            .expect_get_file_content()
-            .with(mockall::predicate::eq(GetFileContentRequest {
-                branch: None,
-                path: "package.json".to_string(),
-            }))
-            .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
-        mock_forge
-            .expect_get_file_content()
-            .with(mockall::predicate::eq(GetFileContentRequest {
-                branch: None,
-                path: "Cargo.toml".to_string(),
-            }))
-            .returning(|_| Ok(None));
-
-        let manager = ForgeManager::new(Box::new(mock_forge));
-        let targets = vec![
-            ManifestTarget {
-                is_workspace: false,
-                path: "package.json".to_string(),
-                basename: "package.json".to_string(),
-            },
-            ManifestTarget {
-                is_workspace: false,
-                path: "Cargo.toml".to_string(),
-                basename: "Cargo.toml".to_string(),
-            },
-        ];
-        let result =
-            manager.load_manifest_targets(None, targets).await.unwrap();
-
-        let manifests = result.unwrap();
-        assert_eq!(manifests.len(), 1);
-        assert_eq!(manifests[0].basename, "package.json");
-        assert!(manifests[0].content.contains("1.0.0"));
     }
 
     #[tokio::test]

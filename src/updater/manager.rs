@@ -9,6 +9,7 @@ use crate::analyzer::release::Tag;
 use crate::cli::types::ReleasablePackage;
 use crate::config::package::PackageConfig;
 use crate::config::release_type::ReleaseType;
+use crate::file_loader::FileLoader;
 use crate::forge::request::FileChange;
 use crate::path_helpers::package_path;
 use crate::updater::{
@@ -57,43 +58,88 @@ impl std::fmt::Debug for ManifestFile {
 pub struct UpdateManager {}
 
 impl UpdateManager {
-    pub fn release_type_manifest_targets(
+    /// Load manifest files for a package using a FileLoader.
+    ///
+    /// This method orchestrates the loading of all manifest files needed for
+    /// a package by determining which files are needed (via manifest_targets)
+    /// and then loading their content using the provided FileLoader.
+    pub async fn load_manifests_for_package<F: FileLoader>(
         pkg: &PackageConfig,
-    ) -> Vec<ManifestTarget> {
-        match pkg.release_type {
-            Some(ReleaseType::Generic) => vec![],
-            Some(ReleaseType::Java) => JavaManifests::manifest_targets(pkg),
-            Some(ReleaseType::Node) => NodeManifests::manifest_targets(pkg),
-            Some(ReleaseType::Php) => PhpManifests::manifest_targets(pkg),
-            Some(ReleaseType::Python) => PythonManifests::manifest_targets(pkg),
-            Some(ReleaseType::Ruby) => RubyManifests::manifest_targets(pkg),
-            Some(ReleaseType::Rust) => RustManifests::manifest_targets(pkg),
-            None => vec![],
+        file_loader: &F,
+        branch: Option<String>,
+    ) -> Result<Option<Vec<ManifestFile>>> {
+        let targets = Self::release_type_manifest_targets(pkg);
+
+        if targets.is_empty() {
+            return Ok(None);
+        }
+
+        let mut manifests = vec![];
+
+        for target in targets {
+            debug!("Loading manifest target: {}", target.path);
+            if let Some(content) = file_loader
+                .load_file(branch.clone(), target.path.clone())
+                .await?
+            {
+                info!("Loaded manifest: {}", target.path);
+                manifests.push(ManifestFile {
+                    is_workspace: target.is_workspace,
+                    path: target.path,
+                    basename: target.basename,
+                    content,
+                });
+            } else {
+                debug!("Manifest not found: {}", target.path);
+            }
+        }
+
+        if manifests.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(manifests))
         }
     }
 
-    pub fn additional_manifest_targets(
+    /// Load additional manifest files for a package using a FileLoader.
+    ///
+    /// Loads user-configured additional manifest files that are not part of
+    /// the standard release type manifests.
+    pub async fn load_additional_manifests_for_package<F: FileLoader>(
         pkg: &PackageConfig,
-    ) -> Vec<ManifestTarget> {
-        if let Some(additional) = pkg.additional_manifest_files.as_ref() {
-            let mut targets = vec![];
+        file_loader: &F,
+        branch: Option<String>,
+    ) -> Result<Option<Vec<ManifestFile>>> {
+        let targets = Self::additional_manifest_targets(pkg);
 
-            for manifest_path in additional {
-                let basename = Path::new(manifest_path)
-                    .file_name()
-                    .map(|f| f.to_string_lossy())
-                    .unwrap_or(Cow::Borrowed(manifest_path));
+        if targets.is_empty() {
+            return Ok(None);
+        }
 
-                targets.push(ManifestTarget {
-                    is_workspace: false,
-                    path: package_path(pkg, Some(manifest_path)),
-                    basename: basename.into(),
-                })
+        let mut manifests = vec![];
+
+        for target in targets {
+            debug!("Loading additional manifest: {}", target.path);
+            if let Some(content) = file_loader
+                .load_file(branch.clone(), target.path.clone())
+                .await?
+            {
+                info!("Loaded additional manifest: {}", target.path);
+                manifests.push(ManifestFile {
+                    is_workspace: target.is_workspace,
+                    path: target.path,
+                    basename: target.basename,
+                    content,
+                });
+            } else {
+                debug!("Additional manifest not found: {}", target.path);
             }
+        }
 
-            targets
+        if manifests.is_empty() {
+            Ok(None)
         } else {
-            vec![]
+            Ok(Some(manifests))
         }
     }
 
@@ -147,6 +193,44 @@ impl UpdateManager {
         }
 
         Ok(file_changes)
+    }
+
+    fn release_type_manifest_targets(
+        pkg: &PackageConfig,
+    ) -> Vec<ManifestTarget> {
+        match pkg.release_type {
+            Some(ReleaseType::Generic) => vec![],
+            Some(ReleaseType::Java) => JavaManifests::manifest_targets(pkg),
+            Some(ReleaseType::Node) => NodeManifests::manifest_targets(pkg),
+            Some(ReleaseType::Php) => PhpManifests::manifest_targets(pkg),
+            Some(ReleaseType::Python) => PythonManifests::manifest_targets(pkg),
+            Some(ReleaseType::Ruby) => RubyManifests::manifest_targets(pkg),
+            Some(ReleaseType::Rust) => RustManifests::manifest_targets(pkg),
+            None => vec![],
+        }
+    }
+
+    fn additional_manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
+        if let Some(additional) = pkg.additional_manifest_files.as_ref() {
+            let mut targets = vec![];
+
+            for manifest_path in additional {
+                let basename = Path::new(manifest_path)
+                    .file_name()
+                    .map(|f| f.to_string_lossy())
+                    .unwrap_or(Cow::Borrowed(manifest_path));
+
+                targets.push(ManifestTarget {
+                    is_workspace: false,
+                    path: package_path(pkg, Some(manifest_path)),
+                    basename: basename.into(),
+                })
+            }
+
+            targets
+        } else {
+            vec![]
+        }
     }
 }
 

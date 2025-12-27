@@ -2,6 +2,7 @@ mod analyzer;
 mod cli;
 pub mod config;
 mod error;
+mod file_loader;
 mod forge;
 mod path_helpers;
 mod updater;

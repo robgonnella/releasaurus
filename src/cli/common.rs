@@ -124,23 +124,18 @@ pub async fn get_releasable_packages_for_commits(
             let release_type =
                 package.release_type.unwrap_or(ReleaseType::Generic);
 
-            let release_manifest_targets =
-                UpdateManager::release_type_manifest_targets(package);
+            let manifest_files = UpdateManager::load_manifests_for_package(
+                package,
+                forge_manager,
+                Some(base_branch.into()),
+            )
+            .await?;
 
-            let additional_manifest_targets =
-                UpdateManager::additional_manifest_targets(package);
-
-            let manifest_files = forge_manager
-                .load_manifest_targets(
+            let additional_manifest_files =
+                UpdateManager::load_additional_manifests_for_package(
+                    package,
+                    forge_manager,
                     Some(base_branch.into()),
-                    release_manifest_targets,
-                )
-                .await?;
-
-            let additional_manifest_files = forge_manager
-                .load_manifest_targets(
-                    Some(base_branch.into()),
-                    additional_manifest_targets,
                 )
                 .await?;
 
