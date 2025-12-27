@@ -65,7 +65,11 @@ impl PackageUpdater for GenericUpdater {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::release_type::ReleaseType;
+    use std::rc::Rc;
+
+    use crate::{
+        config::release_type::ReleaseType, updater::dispatch::Updater,
+    };
 
     use super::*;
     use semver::Version;
@@ -218,7 +222,7 @@ mod tests {
                 semver: Version::parse("1.0.0").unwrap(),
                 timestamp: None,
             },
-            release_type: ReleaseType::Generic,
+            updater: Rc::new(Updater::new(ReleaseType::Generic)),
         };
 
         let result = updater.update(&package, &[]).unwrap();

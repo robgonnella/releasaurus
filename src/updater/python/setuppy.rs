@@ -46,11 +46,16 @@ impl PackageUpdater for SetupPy {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -73,7 +78,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();
@@ -102,7 +107,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();
@@ -131,7 +136,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();
@@ -171,7 +176,7 @@ setup(
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();
@@ -211,7 +216,7 @@ setup(
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();
@@ -239,7 +244,7 @@ setup(
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Python,
+            updater: Rc::new(Updater::new(ReleaseType::Python)),
         };
 
         let result = setuppy.update(&package, &[]).unwrap();

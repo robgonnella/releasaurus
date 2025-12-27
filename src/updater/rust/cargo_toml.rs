@@ -139,11 +139,16 @@ impl PackageUpdater for CargoToml {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -168,7 +173,7 @@ version = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml.update(&package, &[]).unwrap();
@@ -202,7 +207,7 @@ package-b = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -213,7 +218,7 @@ package-b = "1.0.0"
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml
@@ -249,7 +254,7 @@ package-b = { version = "1.0.0", features = ["serde"] }
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -260,7 +265,7 @@ package-b = { version = "1.0.0", features = ["serde"] }
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml
@@ -297,7 +302,7 @@ package-b = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -308,7 +313,7 @@ package-b = "1.0.0"
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml
@@ -344,7 +349,7 @@ package-b = "1.0.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -355,7 +360,7 @@ package-b = "1.0.0"
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml
@@ -387,7 +392,7 @@ members = ["packages/*"]
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml.update(&package, &[]).unwrap();
@@ -422,7 +427,7 @@ serde = "1.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml.update(&package, &[]).unwrap();
@@ -460,7 +465,7 @@ serde = "1.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml.update(&package, &[]).unwrap();
@@ -488,7 +493,7 @@ serde = "1.0"
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Rust,
+            updater: Rc::new(Updater::new(ReleaseType::Rust)),
         };
 
         let result = cargo_toml.update(&package, &[]).unwrap();

@@ -143,10 +143,13 @@ impl PackageUpdater for PackageLock {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::{
-        analyzer::release::Tag, config::release_type::ReleaseType,
-        updater::manager::UpdaterPackage,
+        analyzer::release::Tag,
+        config::release_type::ReleaseType,
+        updater::{dispatch::Updater, manager::UpdaterPackage},
     };
 
     #[test]
@@ -169,7 +172,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();
@@ -206,7 +209,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();
@@ -248,7 +251,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -259,7 +262,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock
@@ -301,7 +304,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -312,7 +315,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock
@@ -354,7 +357,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -365,7 +368,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock
@@ -408,7 +411,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();
@@ -443,7 +446,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();
@@ -471,7 +474,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();
@@ -509,7 +512,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = package_lock.update(&package, &[]).unwrap();

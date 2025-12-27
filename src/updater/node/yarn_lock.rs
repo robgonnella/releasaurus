@@ -1,6 +1,5 @@
 use log::*;
 use regex::Regex;
-// use std::collections::HashSet;
 
 use crate::{
     Result,
@@ -99,13 +98,16 @@ impl PackageUpdater for YarnLock {
 
 #[cfg(test)]
 mod tests {
-    use std::slice;
+    use std::{rc::Rc, slice};
 
     use super::*;
     use crate::{
         analyzer::release::Tag,
         config::release_type::ReleaseType,
-        updater::manager::{ManifestFile, UpdaterPackage},
+        updater::{
+            dispatch::Updater,
+            manager::{ManifestFile, UpdaterPackage},
+        },
     };
 
     #[test]
@@ -132,7 +134,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -171,7 +173,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
         let package_b = UpdaterPackage {
             package_name: "package-b".to_string(),
@@ -182,7 +184,7 @@ mod tests {
                 sha: "def".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -222,7 +224,7 @@ mod tests {
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -258,7 +260,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -294,7 +296,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -331,7 +333,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -361,7 +363,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock.update(&package, &[]).unwrap();
@@ -393,7 +395,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
@@ -431,7 +433,7 @@ package-a@^1.0.0:
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            release_type: ReleaseType::Node,
+            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
         let result = yarn_lock
