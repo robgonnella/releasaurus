@@ -55,11 +55,27 @@ impl ForgeManager {
         &self,
         req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        self.forge.get_file_content(req).await
+        debug!("Loading file: {} (branch: {:?})", req.path, req.branch);
+
+        let result = self.forge.get_file_content(req).await;
+
+        if let Err(e) = &result {
+            error!("Failed to load file: {}", e);
+        }
+
+        result
     }
 
     pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        self.forge.load_config(branch).await
+        info!("Loading configuration from forge (branch: {:?})", branch);
+
+        let result = self.forge.load_config(branch).await;
+
+        if let Err(e) = &result {
+            error!("Failed to load configuration: {}", e);
+        }
+
+        result
     }
 
     pub async fn get_release_by_tag(
@@ -131,14 +147,40 @@ impl ForgeManager {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        self.forge.get_open_release_pr(req).await
+        info!(
+            "Looking for open release PR: base={}, head={}",
+            req.base_branch, req.head_branch
+        );
+
+        let result = self.forge.get_open_release_pr(req).await;
+
+        match &result {
+            Ok(Some(pr)) => info!("Found open PR #{}", pr.number),
+            Ok(None) => debug!("No open PR found"),
+            Err(e) => error!("Error searching for open PR: {}", e),
+        }
+
+        result
     }
 
     pub async fn get_merged_release_pr(
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        self.forge.get_merged_release_pr(req).await
+        info!(
+            "Looking for merged release PR: base={}, head={}",
+            req.base_branch, req.head_branch
+        );
+
+        let result = self.forge.get_merged_release_pr(req).await;
+
+        match &result {
+            Ok(Some(pr)) => info!("Found merged PR #{}", pr.number),
+            Ok(None) => warn!("No merged PR found"),
+            Err(e) => error!("Error searching for merged PR: {}", e),
+        }
+
+        result
     }
 
     pub async fn create_release_branch(
@@ -149,7 +191,22 @@ impl ForgeManager {
             warn!("dry_run: would create release branch: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
-        self.forge.create_release_branch(req).await
+
+        info!(
+            "Creating release branch: {} from {}",
+            req.release_branch, req.base_branch
+        );
+
+        let result = self.forge.create_release_branch(req).await;
+
+        match &result {
+            Ok(commit) => {
+                info!("Created release branch with commit: {}", commit.sha)
+            }
+            Err(e) => error!("Failed to create release branch: {}", e),
+        }
+
+        result
     }
 
     pub async fn create_commit(
@@ -160,23 +217,47 @@ impl ForgeManager {
             warn!("dry_run: would create commit: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
-        self.forge.create_commit(req).await
+
+        info!(
+            "Creating commit on branch: {} ({} file changes)",
+            req.target_branch,
+            req.file_changes.len()
+        );
+
+        let result = self.forge.create_commit(req).await;
+
+        match &result {
+            Ok(commit) => info!("Created commit: {}", commit.sha),
+            Err(e) => error!("Failed to create commit: {}", e),
+        }
+
+        result
     }
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
         if self.forge.dry_run() {
-            warn!(
-                "dry_run: would tag commit: tag_name: {tag_name}, sha: {sha}"
-            );
+            warn!("dry_run: would tag commit: tag={}, sha={}", tag_name, sha);
             return Ok(());
         }
 
-        self.forge.tag_commit(tag_name, sha).await
+        info!("Tagging commit: tag={}, sha={}", tag_name, sha);
+
+        let result = self.forge.tag_commit(tag_name, sha).await;
+
+        match &result {
+            Ok(_) => info!("Successfully created tag: {}", tag_name),
+            Err(e) => error!("Failed to create tag {}: {}", tag_name, e),
+        }
+
+        result
     }
 
     pub async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
         if self.forge.dry_run() {
-            warn!("dry_run: would create PR: req: {:#?}", req);
+            warn!(
+                "dry_run: would create PR: {} -> {}",
+                req.head_branch, req.base_branch
+            );
             return Ok(PullRequest {
                 number: 0,
                 sha: "fff".into(),
@@ -184,7 +265,19 @@ impl ForgeManager {
             });
         }
 
-        self.forge.create_pr(req).await
+        info!(
+            "Creating pull request: {} -> {}",
+            req.head_branch, req.base_branch
+        );
+
+        let result = self.forge.create_pr(req).await;
+
+        match &result {
+            Ok(pr) => info!("Created pull request #{}", pr.number),
+            Err(e) => error!("Failed to create pull request: {}", e),
+        }
+
+        result
     }
 
     pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
@@ -192,15 +285,39 @@ impl ForgeManager {
             warn!("dry_run: would update PR: req: {:#?}", req);
             return Ok(());
         }
-        self.forge.update_pr(req).await
+
+        info!("Updating pull request #{}", req.pr_number);
+
+        let result = self.forge.update_pr(req).await;
+
+        if let Err(e) = &result {
+            error!("Failed to update PR: {}", e);
+        }
+
+        result
     }
 
     pub async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         if self.forge.dry_run() {
-            warn!("dry_run: would replace PR labels: req: {:#?}", req);
+            warn!(
+                "dry_run: would replace PR #{} labels with: {:?}",
+                req.pr_number, req.labels
+            );
             return Ok(());
         }
-        self.forge.replace_pr_labels(req).await
+
+        info!(
+            "Replacing labels on PR #{} with: {:?}",
+            req.pr_number, req.labels
+        );
+
+        let result = self.forge.replace_pr_labels(req).await;
+
+        if let Err(e) = &result {
+            error!("Failed to update labels on PR: {}", e);
+        }
+
+        result
     }
 
     pub async fn create_release(
@@ -216,7 +333,16 @@ impl ForgeManager {
             return Ok(());
         }
 
-        self.forge.create_release(tag, sha, notes).await
+        info!("Creating release: tag={}, sha={}", tag, sha);
+
+        let result = self.forge.create_release(tag, sha, notes).await;
+
+        match &result {
+            Ok(_) => info!("Successfully created release: {}", tag),
+            Err(e) => error!("Failed to create release {}: {}", tag, e),
+        }
+
+        result
     }
 }
 

@@ -356,7 +356,6 @@ impl Forge for Gitea {
 
             Ok(config)
         } else {
-            info!("configuration not found in repo: using default");
             Ok(Config::default())
         }
     }
@@ -662,8 +661,6 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!("looking for open release prs with pending label");
-
         // Search for open issues with the pending label
         let issues_url = self.base_url.join(&format!(
             "issues?state=open&type=pulls&labels={}",
@@ -695,11 +692,6 @@ impl Forge for Gitea {
         }
 
         if let Some(pr) = pr {
-            info!(
-                "found open release pr: {} for branch {}",
-                pr.number, req.head_branch
-            );
-
             let sha = pr.head.sha;
 
             Ok(Some(PullRequest {
@@ -708,7 +700,6 @@ impl Forge for Gitea {
                 body: pr.body,
             }))
         } else {
-            warn!("No open release PRs found for branch {}", req.head_branch);
             Ok(None)
         }
     }
@@ -717,11 +708,6 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!(
-            "looking for closed release prs with pending label for branch: {}",
-            req.head_branch
-        );
-
         // Search for closed issues with the pending label
         let issues_url = self
             .base_url
@@ -733,10 +719,6 @@ impl Forge for Gitea {
         let issues: Vec<GiteaIssue> = result.json().await?;
 
         if issues.is_empty() {
-            warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
-                req.head_branch,
-            );
             return Ok(None);
         }
 
@@ -764,8 +746,6 @@ impl Forge for Gitea {
         }
 
         if let Some(pr) = pr {
-            info!("found merged release pr: {}", pr.number);
-
             let sha = pr.merge_commit_sha.ok_or_else(|| {
                 ReleasaurusError::forge(format!(
                     "no merge_commit_sha found for pr {}",
@@ -779,10 +759,6 @@ impl Forge for Gitea {
                 body: pr.body,
             }))
         } else {
-            warn!(
-                "No merged release PRs with the label {PENDING_LABEL} found for branch {}",
-                req.head_branch,
-            );
             Ok(None)
         }
     }
