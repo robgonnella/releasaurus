@@ -21,7 +21,7 @@ use crate::{
 /// access, PR management, tagging, and release publishing.
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait Forge: Any {
+pub trait Forge: Any + Send + Sync {
     /// whether or not the forge is in dry_run mode
     fn dry_run(&self) -> bool;
     /// Get repository name from configuration.
