@@ -18,12 +18,11 @@ pub async fn execute(
     let target_packages = if let Some(targets) = targets {
         config
             .packages
-            .iter()
+            .into_iter()
             .filter(|p| targets.contains(&p.name))
-            .cloned()
             .collect()
     } else {
-        config.packages.clone()
+        config.packages
     };
 
     let mut tagged_packages = vec![];
@@ -43,7 +42,7 @@ pub async fn execute(
         tagged_packages.push(p.clone());
     }
 
-    common::start_next_release(&config.packages, forge_manager, &base_branch)
+    common::start_next_release(&tagged_packages, forge_manager, &base_branch)
         .await
 }
 
@@ -274,31 +273,23 @@ mod tests {
 
         mock.expect_remote_config().returning(RemoteConfig::default);
 
-        // Only expect calls for pkg-a
+        // Only expect calls for pkg-a (not pkg-b since we filtered)
         mock.expect_get_latest_tag_for_prefix()
-            .times(3)
-            .returning(|req| {
-                if req.contains("pkg-a") {
-                    Ok(Some(Tag {
-                        name: "pkg-a-v1.0.0".into(),
-                        semver: SemVer::parse("1.0.0").unwrap(),
-                        sha: "abc123".into(),
-                        ..Tag::default()
-                    }))
-                } else {
-                    Ok(Some(Tag {
-                        name: "pkg-b-v1.0.0".into(),
-                        semver: SemVer::parse("1.0.0").unwrap(),
-                        sha: "def456".into(),
-                        ..Tag::default()
-                    }))
-                }
+            .times(2)
+            .withf(|req| req.contains("pkg-a"))
+            .returning(|_| {
+                Ok(Some(Tag {
+                    name: "pkg-a-v1.0.0".into(),
+                    semver: SemVer::parse("1.0.0").unwrap(),
+                    sha: "abc123".into(),
+                    ..Tag::default()
+                }))
             });
 
         mock.expect_get_file_content().returning(|_| Ok(None));
 
         mock.expect_create_commit()
-            .times(2)
+            .times(1)
             .withf(|req| req.message.contains("chore(main): bump"))
             .returning(|_| {
                 Ok(Commit {
