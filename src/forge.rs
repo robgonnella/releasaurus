@@ -13,3 +13,7 @@ pub mod local;
 pub mod manager;
 pub mod request;
 pub mod traits;
+
+#[cfg(test)]
+#[cfg(feature = "_integration_tests")]
+mod tests;

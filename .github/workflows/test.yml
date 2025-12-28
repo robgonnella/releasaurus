@@ -75,6 +75,7 @@ jobs:
 
   test-unit:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
@@ -82,12 +83,30 @@ jobs:
           cache_name: test-unit
           include_llvm_cov: "true"
       - name: test
-        env:
-          GH_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
-          GL_TEST_TOKEN: ${{ secrets.GL_TEST_TOKEN }}
-          GT_TEST_TOKEN: ${{ secrets.GT_TEST_TOKEN }}
         run: |
-          git config --global user.name "github-ci"
-          git config --global user.email "github-ci@ci.com"
-          git config --global init.defaultBranch main
           cargo llvm-cov --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
+
+  test_all:
+    runs-on: ubuntu-latest
+    if: github.repository == 'robgonnella/releasaurus' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+        with:
+          cache_name: test-integration
+          include_llvm_cov: "true"
+      - name: test
+        env:
+          GITHUB_TEST_REPO: https://github.com/robgonnella/test-repo
+          GITHUB_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
+          GITHUB_RESET_SHA: 54d2a06b1c60f63001dc20d5977dbb1e288572df
+          GITLAB_TEST_REPO: https://gitlab.com/rgon/test-repo
+          GITLAB_TEST_TOKEN: ${{ secrets.GL_TEST_TOKEN }}
+          GITLAB_RESET_SHA: dad21fa1cdfb5a3ac2624de4ae8c055668139dc1
+          GITEA_TEST_REPO: https://gitea.com/rgon/test-repo
+          GITEA_TEST_TOKEN: ${{ secrets.GT_TEST_TOKEN }}
+          GITEA_RESET_SHA: b353e2f4128a9436540e4f2ddefd9989a9633372
+        run: |
+          cargo llvm-cov \
+            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
+            --features _integration_tests

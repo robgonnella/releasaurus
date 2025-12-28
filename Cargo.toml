@@ -18,6 +18,7 @@ disabled-strategies = ["quick-install"]
 [features]
 default = []
 dev-scripts = []
+_integration_tests = []
 
 [lib]
 path = "src/lib.rs"
@@ -68,3 +69,4 @@ merge = "0.2.0"
 mockall = "0.13.1"
 nanoid = "0.4.0"
 tempfile = "3.23.0"
+test-log = "0.2.19"
