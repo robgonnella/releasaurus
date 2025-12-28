@@ -25,7 +25,7 @@ use crate::{
 pub struct Cli {
     /// Targets a specific forge: github, gitlab, gitea, or local
     #[arg(short, long, value_enum, global = true)]
-    forge: Option<ForgeType>,
+    pub forge: Option<ForgeType>,
 
     /// Repository URL
     #[arg(short, long, global = true)]
