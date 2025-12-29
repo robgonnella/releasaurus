@@ -7,7 +7,7 @@ use crate::config::prerelease::PrereleaseConfig;
 
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
-{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
