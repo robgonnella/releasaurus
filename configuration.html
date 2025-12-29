@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
+            window.path_to_searchindex_js = "searchindex-3f25e484.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d4dbbafb.js"></script>
+        <script src="toc-f5e2ee4c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,50 +178,34 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Releasaurus works great out-of-the-box with zero configuration, but provides
-extensive customization options through an optional <code>releasaurus.toml</code>
-configuration file. This file allows you to customize changelog generation,
-define multiple packages within a repository, and fine-tune the release process
-to match your project’s specific needs.</p>
+<p>Releasaurus works out-of-the-box with zero configuration, but provides
+extensive customization through an optional <code>releasaurus.toml</code> file.</p>
 <h2 id="do-you-need-configuration"><a class="header" href="#do-you-need-configuration">Do You Need Configuration?</a></h2>
 <h3 id="you-dont-need-configuration-if"><a class="header" href="#you-dont-need-configuration-if">You DON’T need configuration if:</a></h3>
 <ul>
-<li>You only need changelog generation and tagging (no version file updates)</li>
+<li>You only need changelog generation and tagging (no version file
+updates)</li>
 <li>You’re happy with the default changelog format</li>
-<li>You’re happy with the default tag prefix “v” (e.g., <code>v1.0.0</code>, <code>v2.1.0</code>)</li>
+<li>You’re happy with the default tag prefix “v” (e.g., <code>v1.0.0</code>)</li>
 </ul>
 <h3 id="you-do-need-configuration-if"><a class="header" href="#you-do-need-configuration-if">You DO need configuration if:</a></h3>
 <ul>
 <li>You want version file updates (requires specifying <code>release_type</code>)</li>
 <li>You want custom changelog templates or formatting</li>
 <li>You have multiple packages in one repository (monorepo)</li>
-<li>You want custom prefixed tags (e.g., <code>cli-v1.0.0</code> or <code>api-v1.0.0</code>)</li>
+<li>You want custom prefixed tags (e.g., <code>cli-v1.0.0</code>)</li>
 </ul>
-<h2 id="configuration-file-location"><a class="header" href="#configuration-file-location">Configuration File Location</a></h2>
-<p>Releasaurus looks for a <code>releasaurus.toml</code> file in your project’s root
-directory. If no configuration file is found, sensible defaults are used that
-work for most single-package repositories.</p>
-<pre><code>my-project/
-├── releasaurus.toml    # ← Configuration file (optional)
-├── src/
-├── README.md
-└── ...
-</code></pre>
-<h2 id="creating-your-first-configuration"><a class="header" href="#creating-your-first-configuration">Creating Your First Configuration</a></h2>
-<p>If you need configuration, create a file called <code>releasaurus.toml</code> in your
-project’s root directory and start with one of the basic examples below.</p>
-<h2 id="basic-configuration-examples"><a class="header" href="#basic-configuration-examples">Basic Configuration Examples</a></h2>
+<h2 id="quick-start-examples"><a class="header" href="#quick-start-examples">Quick Start Examples</a></h2>
 <h3 id="single-package-with-version-updates"><a class="header" href="#single-package-with-version-updates">Single Package with Version Updates</a></h3>
-<p>The most common setup specifies the release type for version file updates:</p>
+<p>The most common setup:</p>
 <pre><code class="language-toml"># releasaurus.toml
 [[package]]
 path = "."
-release_type = "node"
+release_type = "node"  # or rust, python, java, php, ruby
 </code></pre>
-<h3 id="simple-multi-package-setup"><a class="header" href="#simple-multi-package-setup">Simple Multi-Package Setup</a></h3>
-<p>For a repository with multiple independently-versioned components:</p>
-<pre><code class="language-toml"># releasaurus.toml
-[[package]]
+<h3 id="multi-package-monorepo"><a class="header" href="#multi-package-monorepo">Multi-Package (Monorepo)</a></h3>
+<p>Multiple independently-versioned packages:</p>
+<pre><code class="language-toml">[[package]]
 path = "./frontend"
 release_type = "node"
 tag_prefix = "frontend-v"
@@ -231,10 +215,23 @@ path = "./backend"
 release_type = "rust"
 tag_prefix = "backend-v"
 </code></pre>
-<p>This allows you to release the frontend and backend independently, with tags
-like <code>frontend-v1.0.0</code> and <code>backend-v1.0.0</code>.</p>
-<h3 id="clean-changelog-filtered-commits"><a class="header" href="#clean-changelog-filtered-commits">Clean Changelog (Filtered Commits)</a></h3>
-<p>Focus on user-facing changes only:</p>
+<p>See <a href="./configuration-monorepo.html">Monorepo Configuration</a> for complete
+details.</p>
+<h3 id="prerelease-versions"><a class="header" href="#prerelease-versions">Prerelease Versions</a></h3>
+<p>Create alpha/beta releases:</p>
+<pre><code class="language-toml">[prerelease]
+suffix = "alpha"
+strategy = "versioned"  # or "static"
+
+[[package]]
+path = "."
+release_type = "node"
+</code></pre>
+<p>This creates versions like <code>v1.0.0-alpha.1</code>, <code>v1.0.0-alpha.2</code>, etc.</p>
+<p>See <a href="./configuration-prerelease.html">Prerelease Configuration</a> for
+complete details.</p>
+<h3 id="custom-changelog"><a class="header" href="#custom-changelog">Custom Changelog</a></h3>
+<p>Filter commits and customize formatting:</p>
 <pre><code class="language-toml">[changelog]
 skip_ci = true
 skip_chore = true
@@ -244,862 +241,65 @@ skip_miscellaneous = true
 path = "."
 release_type = "rust"
 </code></pre>
-<h3 id="prerelease-versions-alphabetarc"><a class="header" href="#prerelease-versions-alphabetarc">Prerelease Versions (Alpha/Beta/RC)</a></h3>
-<p>Create alpha prerelease versions:</p>
-<pre><code class="language-toml">prerelease = "alpha"
-
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>This creates versions like <code>v1.0.0-alpha.1</code>, <code>v1.0.0-alpha.2</code>, etc.</p>
-<h2 id="configuration-structure"><a class="header" href="#configuration-structure">Configuration Structure</a></h2>
-<p>The configuration file uses TOML format with these main sections:</p>
+<p>See <a href="./configuration-changelog.html">Changelog Configuration</a> for template
+customization and complete options.</p>
+<h2 id="configuration-topics"><a class="header" href="#configuration-topics">Configuration Topics</a></h2>
+<h3 id="core-settings"><a class="header" href="#core-settings">Core Settings</a></h3>
 <ul>
-<li><strong><code>first_release_search_depth</code></strong> - (optional, default: 400) Controls commit
-history depth for initial release analysis</li>
-<li><strong><code>separate_pull_requests</code></strong> - (optional, default: false) Create separate PRs
-for each package in monorepos</li>
-<li><strong><code>prerelease</code></strong> - (optional, default: “”) Sets prerelease identifier for all
-defined packages</li>
-<li><strong><code>[changelog]</code></strong> - Customizes changelog generation and formatting
+<li><strong><a href="./configuration-prerelease.html">Prerelease Versions</a></strong> - Alpha,
+beta, RC releases with versioned or static strategies</li>
+<li><strong><a href="./configuration-changelog.html">Changelog Customization</a></strong> - Filter
+commits, customize templates, format output</li>
+<li><strong><a href="./configuration-monorepo.html">Monorepo Setup</a></strong> - Multiple packages,
+separate PRs, independent versioning</li>
+</ul>
+<h3 id="reference"><a class="header" href="#reference">Reference</a></h3>
 <ul>
-<li><code>body</code> - (optional) Tera template for changelog content</li>
-<li><code>skip_ci</code> - (optional, default: false) Exclude CI commits from changelog (optional, default: false)</li>
-<li><code>skip_chore</code> - (optional, default: false) Exclude chore commits from
-changelog (optional, default: false)</li>
-<li><code>skip_miscellaneous</code> - (optional, default: false) Exclude non-conventional
-commits from changelog (optional, default: false)</li>
-<li><code>skip_merge_commits</code> - (optional, default: true) Exclude merge commits from
-changelog</li>
-<li><code>skip_release_commits</code> - (optional, default: true) Exclude release commits
-from changelog</li>
-<li><code>include_author</code> - (optional, default: false) Include commit author names in
-changelog</li>
+<li><strong><a href="./configuration-reference.html">Configuration Reference</a></strong> - Complete
+list of all configuration options with descriptions</li>
 </ul>
-</li>
-<li><strong><code>[[package]]</code></strong> - Defines packages within the repository with their
-release type (can have multiple)
-<ul>
-<li><code>name</code> - (optional) The name for this package. This will be derived from
-the package path if not provided</li>
-<li><code>path</code> - (required) The path to the directory for this package relative to the
-repository root</li>
-<li><code>release_type</code>: (required) The release type for this package, see below for
-options</li>
-<li><code>tag_prefix</code>: (optional) The tag prefix to use for this package</li>
-<li><code>prerelease</code>: (optional) The prerelease suffix to use for this package</li>
-</ul>
-</li>
-</ul>
-<h2 id="default-configuration"><a class="header" href="#default-configuration">Default Configuration</a></h2>
-<p>This is the default configuration that is used if there is no specific user
-defined configuration provided.</p>
-<pre><code class="language-toml"># releasaurus.toml using default configuration
-
-# Maximum commits to analyze for first release (default: 400)
-first_release_search_depth = 400
-
-# Create separate pull requests for each package (default: false)
-separate_pull_requests = false
-
-# Global prerelease identifier (default: none)
-# prerelease = ""
-
-# Version increment behavior (defaults shown)
-breaking_always_increment_major = true
-features_always_increment_minor = true
-# custom_major_increment_regex = ""
-# custom_minor_increment_regex = ""
-
-[changelog]
-# Commit filtering options (defaults shown)
-skip_ci = false
-skip_chore = false
-skip_miscellaneous = false
-skip_merge_commits = true
-skip_release_commits = true
-include_author = false
-
-# Changelog body template (default template shown)
-body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
-{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") %}
-### {{ group | striptags | trim }}
-{% for commit in commits %}
-{% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }})
-{% if commit.body -%}
-&gt; {{ commit.body }}
-{% endif -%}
-{% if commit.breaking_description -%}
-&gt; {{ commit.breaking_description }}
-{% endif -%}
-{% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.message }} [_({{ commit.id | truncate(length=8, end="") }})_]({{ commit.link }})
-{% endif -%}
-{% endfor %}
-{% endfor %}"""
-
-[[package]]
-# Package name (default: derived from &lt;workspace_root&gt;/&lt;path&gt;)
-name = ""
-# Path to package directory (default: ".")
-path = "."
-# Workspace root directory (default: ".")
-workspace_root = "."
-# Release type (default: none - must be specified for version file updates)
-# release_type = ""
-# Tag prefix (default: derived based on conditions described below)
-# - if name is set or workspace_root or path are set to a directory
-#   - "&lt;name&gt;-v"
-# - if name is not set and workspace_root and path are both "."
-#   - "v"
-# tag_prefix = ""
-# Package-specific prerelease identifier (default: none)
-# prerelease = ""
-# Additional paths to include commits from (default: none)
-# additional_paths = []
-# Additional manifest files to apply generic version updates to (default: none)
-# additional_manifest_files = ["VERSION"]
-# Package-specific version increment behavior (default: uses global settings)
-# breaking_always_increment_major = true
-# features_always_increment_minor = true
-# custom_major_increment_regex = ""
-# custom_minor_increment_regex = ""
+<h2 id="configuration-file-location"><a class="header" href="#configuration-file-location">Configuration File Location</a></h2>
+<p>Place <code>releasaurus.toml</code> in your project’s root directory:</p>
+<pre><code>my-project/
+├── releasaurus.toml    # ← Configuration file
+├── src/
+└── README.md
 </code></pre>
-<h2 id="first-release-search-depth"><a class="header" href="#first-release-search-depth">First Release Search Depth</a></h2>
-<p>The <code>first_release_search_depth</code> setting controls how many commits Releasaurus
-will analyze when determining the version for the first release (when no
-previous tags exist).</p>
-<pre><code class="language-toml"># Optional: defaults to 400 if not specified
-first_release_search_depth = 400
-</code></pre>
-<p><strong>When to adjust this value:</strong></p>
-<ul>
-<li><strong>Large repositories</strong>: Decrease to <code>100</code> or <code>200</code> for faster analysis</li>
-<li><strong>Need comprehensive history</strong>: Increase to <code>1000</code> or higher to analyze more commits</li>
-<li><strong>CI/CD environments</strong>: Use smaller values like <code>100</code> for faster builds</li>
-</ul>
-<p><strong>Note</strong>: This setting only affects the first release. Once a tag exists,
-subsequent releases automatically find all commits since the last tag, making
-this setting unnecessary for ongoing releases.</p>
-<h2 id="separate-pull-requests"><a class="header" href="#separate-pull-requests">Separate Pull Requests</a></h2>
-<p>The <code>separate_pull_requests</code> setting controls whether Releasaurus creates a
-single combined pull request for all packages or separate pull requests for
-each package in a monorepo.</p>
-<pre><code class="language-toml"># Optional: defaults to false if not specified
-separate_pull_requests = true
-</code></pre>
-<h3 id="single-pr-mode-default"><a class="header" href="#single-pr-mode-default">Single PR Mode (Default)</a></h3>
-<p>When <code>separate_pull_requests</code> is <code>false</code> or not specified, Releasaurus creates
-one pull request containing all package updates:</p>
-<pre><code class="language-toml">separate_pull_requests = false  # or omit this line
-
-[[package]]
-path = "./apps/frontend"
-release_type = "node"
-
-[[package]]
-path = "./apps/backend"
-release_type = "rust"
-</code></pre>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>Single review process for all changes</li>
-<li>All packages released together atomically</li>
-<li>Simpler workflow for tightly coupled packages</li>
-</ul>
-<p><strong>Best for:</strong></p>
-<ul>
-<li>Packages that are always released together</li>
-<li>Small monorepos with few packages</li>
-<li>Teams that prefer coordinated releases</li>
-</ul>
-<h3 id="separate-pr-mode"><a class="header" href="#separate-pr-mode">Separate PR Mode</a></h3>
-<p>When <code>separate_pull_requests</code> is <code>true</code>, Releasaurus creates individual pull
-requests for each package that has changes:</p>
-<pre><code class="language-toml">separate_pull_requests = true
-
-[[package]]
-path = "./apps/frontend"
-release_type = "node"
-tag_prefix = "frontend-v"
-
-[[package]]
-path = "./apps/backend"
-release_type = "rust"
-tag_prefix = "backend-v"
-</code></pre>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>Independent release cycles for each package</li>
-<li>Parallel review and merging of changes</li>
-<li>Teams can release packages at different cadences</li>
-<li>Easier to track changes per package</li>
-</ul>
-<p><strong>Best for:</strong></p>
-<ul>
-<li>Large monorepos with many packages</li>
-<li>Independently versioned packages</li>
-<li>Packages maintained by different teams</li>
-<li>When packages have different release schedules</li>
-</ul>
-<h3 id="branch-naming"><a class="header" href="#branch-naming">Branch Naming</a></h3>
-<p>The branch names created differ based on this setting:</p>
-<p><strong>Single PR mode:</strong></p>
-<pre><code>releasaurus-release-main
-</code></pre>
-<p><strong>Separate PR mode:</strong></p>
-<pre><code>releasaurus-release-main-frontend
-releasaurus-release-main-backend
-releasaurus-release-main-shared
-</code></pre>
-<h3 id="example-independent-package-releases"><a class="header" href="#example-independent-package-releases">Example: Independent Package Releases</a></h3>
-<p>This example shows a monorepo where packages can be released independently:</p>
-<pre><code class="language-toml"># Allow independent releases
-separate_pull_requests = true
-
-# Frontend app - released frequently
-[[package]]
-path = "./apps/web"
-release_type = "node"
-tag_prefix = "web-v"
-
-# Mobile app - released independently
-[[package]]
-path = "./apps/mobile"
-release_type = "node"
-tag_prefix = "mobile-v"
-
-# Core library - released less frequently
-[[package]]
-path = "./packages/core"
-release_type = "rust"
-tag_prefix = "core-v"
-
-# CLI tool - released on demand
-[[package]]
-path = "./packages/cli"
-release_type = "rust"
-tag_prefix = "cli-v"
-</code></pre>
-<p>With this configuration:</p>
-<ul>
-<li>Each package gets its own pull request when it has changes</li>
-<li>Teams can merge and release packages independently</li>
-<li>No need to coordinate releases across all packages</li>
-<li>Each package maintains its own version history</li>
-</ul>
-<h2 id="changelog-configuration"><a class="header" href="#changelog-configuration">Changelog Configuration</a></h2>
-<p>The <code>[changelog]</code> section allows you to customize how changelogs are generated
-using <a href="https://keats.github.io/tera/">Tera</a> templating engine.</p>
-<h3 id="commit-filtering-options"><a class="header" href="#commit-filtering-options">Commit Filtering Options</a></h3>
-<p>Control which commit types are included in your changelog:</p>
-<h4 id="skip_ci-optional"><a class="header" href="#skip_ci-optional"><code>skip_ci</code> (Optional)</a></h4>
-<p>Excludes CI/CD related commits from the changelog. When set to <code>true</code>, commits
-with the <code>ci:</code> type will not appear in generated changelogs.</p>
-<pre><code class="language-toml">[changelog]
-skip_ci = true  # Exclude commits like "ci: update workflow"
-</code></pre>
-<p><strong>Default</strong>: <code>false</code></p>
-<h4 id="skip_chore-optional"><a class="header" href="#skip_chore-optional"><code>skip_chore</code> (Optional)</a></h4>
-<p>Excludes chore commits from the changelog. When set to <code>true</code>, commits with
-the <code>chore:</code> type will not appear in generated changelogs.</p>
-<pre><code class="language-toml">[changelog]
-skip_chore = true  # Exclude commits like "chore: update dependencies"
-</code></pre>
-<p><strong>Default</strong>: <code>false</code></p>
-<h4 id="skip_miscellaneous-optional"><a class="header" href="#skip_miscellaneous-optional"><code>skip_miscellaneous</code> (Optional)</a></h4>
-<p>Excludes non-conventional commits from the changelog. When set to <code>true</code>,
-commits that don’t follow the conventional commit format will not appear in
-generated changelogs.</p>
-<pre><code class="language-toml">[changelog]
-skip_miscellaneous = true  # Exclude commits without a type prefix
-</code></pre>
-<p><strong>Default</strong>: <code>false</code></p>
-<p><strong>Example use case</strong>: Use this option to keep your changelog focused on
-conventional commits only, filtering out commits that don’t follow the
-<code>type: description</code> format.</p>
-<h4 id="skip_merge_commits-optional"><a class="header" href="#skip_merge_commits-optional"><code>skip_merge_commits</code> (Optional)</a></h4>
-<p>Excludes merge commits from the changelog. When set to <code>true</code>, commits that are
-identified as merge commits will not appear in generated changelogs.</p>
-<pre><code class="language-toml">[changelog]
-skip_merge_commits = true  # Exclude merge commits like "Merge pull request #123"
-</code></pre>
-<p><strong>Default</strong>: <code>true</code></p>
-<p><strong>Example use case</strong>: Merge commits often don’t provide meaningful information
-in changelogs since the individual commits being merged are typically more
-relevant. However, you may want to set this to <code>false</code> if your workflow relies
-on merge commits for tracking feature integration.</p>
-<h4 id="skip_release_commits-optional"><a class="header" href="#skip_release_commits-optional"><code>skip_release_commits</code> (Optional)</a></h4>
-<p>Excludes release commits from the changelog. When set to <code>true</code>, commits that
-match the release commit pattern (e.g., <code>chore(&lt;default_branch&gt;): release &lt;package-name&gt;</code>)
-will not appear in generated changelogs.</p>
-<pre><code class="language-toml">[changelog]
-skip_release_commits = true  # Exclude commits like "chore(main): release my-package v1.2.0"
-</code></pre>
-<p><strong>Default</strong>: <code>true</code></p>
-<p><strong>Example use case</strong>: Release commits are typically automated commits created by
-Releasaurus itself and don’t represent actual changes to your codebase. Keeping
-them out of the changelog reduces noise and focuses on meaningful changes.</p>
-<h4 id="include_author-optional"><a class="header" href="#include_author-optional"><code>include_author</code> (Optional)</a></h4>
-<p>Includes the commit author’s name in the changelog entries. When set to <code>true</code>,
-the <code>author_name</code> field will be used in the default <code>body</code> template that
-generates the changelog. If you wish to use this field in your own custom
-template, you can access it as part of the commit object <code>commit.author_name</code>
-or <code>commit.author_email</code>.</p>
-<pre><code class="language-toml">[changelog]
-include_author = true  # Show author names like "feat: add feature &lt;John Doe&gt;"
-</code></pre>
-<p><strong>Default</strong>: <code>false</code></p>
-<h3 id="available-template"><a class="header" href="#available-template">Available Template</a></h3>
-<h4 id="body-optional"><a class="header" href="#body-optional"><code>body</code> (Optional)</a></h4>
-<p>The main changelog content template. This defines how each release section is
-formatted.</p>
-<p><strong>Default</strong>: The default template creates entries starting with
-<code># [version](link) - date</code></p>
-<h2 id="package-configuration"><a class="header" href="#package-configuration">Package Configuration</a></h2>
-<p>Each <code>[[package]]</code> section defines a package in your repository and requires
-specifying the <code>release_type</code> for version file management.</p>
-<h3 id="path"><a class="header" href="#path"><code>path</code></a></h3>
-<p>The directory path to the package, relative to the <code>workspace_root</code> path
-(or relative to the repository root if <code>workspace_root</code> is not specified).</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-</code></pre>
-<pre><code class="language-toml">[[package]]
-workspace_root = "rust-workspace"
-path = "packages/api"  # Relative to rust-workspace directory
-</code></pre>
-<h3 id="workspace_root-optional"><a class="header" href="#workspace_root-optional"><code>workspace_root</code> (Optional)</a></h3>
-<p>The directory path to the workspace root for this package, relative to the
-repository root. This allows you to define workspace packages that are in
-subdirectories of the repository.</p>
-<pre><code class="language-toml">[[package]]
-workspace_root = "."  # Default: repository root
-path = "packages/api"
-release_type = "rust"
-</code></pre>
-<p><strong>When to use:</strong></p>
-<ul>
-<li><strong>Multi-workspace repositories</strong>: When you have multiple independent
-workspaces in one repository i.e. A rust workspace in a subdirectory</li>
-</ul>
-<p><strong>Default</strong>: If not specified, defaults to <code>"."</code> (the repository root).</p>
-<p><strong>How it works:</strong></p>
-<p>The <code>workspace_root</code> and <code>path</code> are combined to locate package files:</p>
-<ul>
-<li>Version files are located at: <code>workspace_root + path + &lt;version-file&gt;</code></li>
-<li>Workspace-level files are located at: <code>workspace_root + &lt;workspace-file&gt;</code></li>
-</ul>
-<p><strong>Example: Rust workspace in subdirectory</strong></p>
-<pre><code class="language-toml">[[package]]
-name = "api-server-1"
-workspace_root = "backend"  # Workspace is in backend/ directory
-path = "packages/api1"      # Package is in backend/packages/api1/
-release_type = "rust"
-tag_prefix = "api1-v"
-
-name = "api-server-2"
-workspace_root = "backend"  # Workspace is in backend/ directory
-path = "packages/api2"      # Package is in backend/packages/api2/
-release_type = "rust"
-tag_prefix = "api2-v"
-</code></pre>
-<p>This configuration will:</p>
-<ul>
-<li>Update <code>backend/packages/api1/Cargo.toml</code></li>
-<li>Update <code>backend/packages/api2/Cargo.toml</code></li>
-<li>Update <code>backend/Cargo.lock</code> (workspace-level lock file)</li>
-<li>Update <code>backend/packages/api1/Cargo.lock</code> (if it exists)</li>
-<li>Update <code>backend/packages/api2/Cargo.lock</code> (if it exists)</li>
-</ul>
-<p><strong>Example: Multiple workspaces in one repository</strong></p>
-<pre><code class="language-toml"># Rust workspace
-[[package]]
-name = "rust-core"
-workspace_root = "rust-workspace"
-path = "."
-release_type = "rust"
-tag_prefix = "rust-v"
-
-# Node workspace
-[[package]]
-name = "web-app"
-workspace_root = "node-workspace"
-path = "packages/web"
-release_type = "node"
-tag_prefix = "web-v"
-</code></pre>
-<h3 id="name-optional"><a class="header" href="#name-optional"><code>name</code> (Optional)</a></h3>
-<p>An explicit name for the package. If not specified, Releasaurus automatically
-derives the package name from the <code>&lt;workspace_root&gt;/&lt;path&gt;</code>:</p>
-<ul>
-<li>For root packages (<code>workspace_root="." path = "."</code>), uses the repository name</li>
-<li>For nested packages, uses the directory name (e.g., <code>"packages/api"</code> becomes <code>"api"</code>)</li>
-</ul>
-<pre><code class="language-toml">[[package]]
-name = "my-custom-name"  # Optional: override derived name
-path = "packages/backend"
-release_type = "rust"
-</code></pre>
-<p><strong>When to use:</strong></p>
-<ul>
-<li>Override the automatically derived package name</li>
-<li>Provide a more descriptive name for releases and tags</li>
-<li>Maintain consistent naming when package directories change</li>
-</ul>
-<p><strong>Note</strong>: The package name is used in PR titles, branch names, and when
-generating tag prefixes in monorepos.</p>
-<p><strong>Example: Custom naming for clearer releases</strong></p>
-<pre><code class="language-toml"># Without explicit names, these would derive as "api" and "web"
-[[package]]
-name = "backend-api"      # Clearer than just "api"
-path = "services/api"
-release_type = "rust"
-tag_prefix = "backend-api-v"
-
-[[package]]
-name = "frontend-web"     # Clearer than just "web"
-path = "apps/web"
-release_type = "node"
-tag_prefix = "frontend-web-v"
-</code></pre>
-<h3 id="release_type"><a class="header" href="#release_type"><code>release_type</code></a></h3>
-<p>Specifies which language/framework updater to use for version files. This is
-<strong>required</strong> for version file updates.</p>
-<p><strong>Available options:</strong></p>
-<ul>
-<li><strong><code>"Rust"</code></strong> - Updates <code>Cargo.toml</code> and <code>Cargo.lock</code></li>
-<li><strong><code>"Node"</code></strong> - Updates <code>package.json</code>, <code>package-lock.json</code>, <code>yarn.lock</code></li>
-<li><strong><code>"Python"</code></strong> - Updates <code>pyproject.toml</code>, <code>setup.py</code>, <code>setup.cfg</code></li>
-<li><strong><code>"Java"</code></strong> - Updates <code>pom.xml</code> or <code>build.gradle</code></li>
-<li><strong><code>"Php"</code></strong> - Updates <code>composer.json</code></li>
-<li><strong><code>"Ruby"</code></strong> - Updates gemspec files and version files</li>
-<li><strong><code>"Generic"</code></strong> - Changelog and tagging only
-(see <a href="#`additional_manifest_files`"><code>additional_manifest_files</code></a> for version
-updates)</li>
-</ul>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<h3 id="tag_prefix"><a class="header" href="#tag_prefix"><code>tag_prefix</code></a></h3>
-<p>Optional prefix for Git tags. If not specified, the default is derived based
-on the following conditions.</p>
-<ul>
-<li>if name is set or workspace_root or path are set to a directory
-<ul>
-<li><code>&lt;name&gt;-v</code></li>
-</ul>
-</li>
-<li>if name is not set and workspace_root and path are both “.”
-<ul>
-<li><code>v</code></li>
-</ul>
-</li>
-</ul>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "rust"
-tag_prefix = "v"  # Creates tags like v1.0.0, v1.1.0
-</code></pre>
-<h3 id="additional_paths"><a class="header" href="#additional_paths"><code>additional_paths</code></a></h3>
-<p>Optional list of additional directory paths whose commits should be included
-when determining if a release is needed for this package. This is useful when a
-package depends on shared code or resources outside its main directory.</p>
-<p><strong>When to use:</strong></p>
-<ul>
-<li><strong>Shared utilities</strong>: Package depends on a shared utilities directory</li>
-<li><strong>Shared types</strong>: Multiple packages depend on common type definitions</li>
-<li><strong>Documentation</strong>: Package should release when its documentation changes</li>
-<li><strong>Configuration</strong>: Package should release when shared configuration changes</li>
-</ul>
-<pre><code class="language-toml">[[package]]
-path = "packages/api"
-release_type = "node"
-additional_paths = ["shared/utils", "shared/types", "docs/api"]
-</code></pre>
-<p><strong>How it works:</strong></p>
-<p>When Releasaurus checks for changes since the last release, it will include
-commits that modify files in:</p>
-<ol>
-<li>The package’s main <code>path</code> (always included)</li>
-<li>Any paths listed in <code>additional_paths</code> (if specified)</li>
-</ol>
-<p>If any releasable commit touches files in these paths, the package will be
-included in the release.</p>
-<h3 id="additional_manifest_files"><a class="header" href="#additional_manifest_files"><code>additional_manifest_files</code></a></h3>
-<p>Optional list of additional files that should receive generic version updates
-during a release. This allows you to update version strings in files that aren’t
-automatically handled by your package’s <code>release_type</code>.</p>
-<p><strong>When to use:</strong></p>
-<ul>
-<li><strong>Custom version files</strong>: Projects with non-standard version tracking files</li>
-<li><strong>Documentation</strong>: Version references in README, documentation, or other markdown files</li>
-<li><strong>Build metadata</strong>: Version strings in custom build scripts or metadata files</li>
-<li><strong>Multi-language projects</strong>: Version files for languages not specified in <code>release_type</code></li>
-</ul>
-<p>Files are specified as string paths relative to the package path (not the
-workspace root).</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "rust"
-additional_manifest_files = [
-  "VERSION",
-  "docs/version.txt",
-  "scripts/build-metadata.json"
-]
-</code></pre>
-<p><strong>Version Pattern Matching:</strong></p>
-<p>Files are updated using a generic regex pattern that matches common version
-formats. The pattern matches lines containing:</p>
-<ul>
-<li><code>version = "1.0.0"</code> (with single or double quotes)</li>
-<li><code>version: "1.0.0"</code> (JSON-style with colon)</li>
-<li><code>VERSION = "1.0.0"</code> (case-insensitive)</li>
-<li>Variations with different whitespace: <code>version="1.0.0"</code>, <code>version   =   "1.0.0"</code></li>
-</ul>
-<p><strong>Example file formats that work:</strong></p>
-<pre><code class="language-txt"># Simple VERSION file
-version = "1.0.0"
-</code></pre>
-<pre><code class="language-json">{
-  "version": "1.0.0",
-  "name": "my-app"
-}
-</code></pre>
-<pre><code class="language-yaml">metadata:
-  version: "1.0.0"
-  description: "My application"
-</code></pre>
-<p><strong>Important Notes:</strong></p>
-<ul>
-<li>Files are only updated if they contain a matching version pattern</li>
-<li>Files without version patterns are silently skipped (no error)</li>
-<li>Original formatting and whitespace are preserved</li>
-<li>This feature works with all <code>release_type</code> values, including <code>"generic"</code></li>
-<li>These updates are applied in addition to framework-specific updates</li>
-</ul>
-<p><strong>Example: Rust Project with Custom Version Files</strong></p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "rust"
-# Update VERSION file alongside Cargo.toml and version reference in README
-additional_manifest_files = [
-  "VERSION",
-  "README.md"
-]
-</code></pre>
-<p>For projects using <code>release_type = "generic"</code>, this feature provides the only
-mechanism for automatic version file updates. See the
-<a href="./supported-languages.html#generic-projects">Generic Projects</a> section for more
-details on generic release types.</p>
-<h3 id="prerelease"><a class="header" href="#prerelease"><code>prerelease</code></a></h3>
-<p>Optional prerelease identifier for creating pre-release versions
-(e.g., alpha, beta, rc). Can be configured globally or per-package.</p>
-<p><strong>Configuration Priority:</strong> Package config &gt; Global config</p>
-<h4 id="global-prerelease-configuration"><a class="header" href="#global-prerelease-configuration">Global Prerelease Configuration</a></h4>
-<p>Set a prerelease identifier for all packages:</p>
-<pre><code class="language-toml"># All packages will use alpha prereleases
-prerelease = "alpha"
-
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>With this configuration, version <code>1.0.0</code> would become <code>1.1.0-alpha.1</code> for a
-feature commit.</p>
-<h4 id="per-package-prerelease-configuration"><a class="header" href="#per-package-prerelease-configuration">Per-Package Prerelease Configuration</a></h4>
-<p>Override the global setting for specific packages:</p>
-<pre><code class="language-toml"># Global default is beta
-prerelease = "beta"
-
-[[package]]
-path = "./apps/web"
-release_type = "node"
-# Uses global beta prerelease
-
-[[package]]
-path = "./apps/api"
-release_type = "rust"
-prerelease = "rc"  # Override: this package uses rc instead
-</code></pre>
-<h4 id="prerelease-version-behavior"><a class="header" href="#prerelease-version-behavior">Prerelease Version Behavior</a></h4>
-<p><strong>Starting a Prerelease:</strong></p>
-<ul>
-<li>Current: <code>v1.0.0</code></li>
-<li>With <code>feat:</code> commit and <code>prerelease = "alpha"</code></li>
-<li>Result: <code>v1.1.0-alpha.1</code></li>
-</ul>
-<p><strong>Continuing a Prerelease:</strong></p>
-<ul>
-<li>Current: <code>v1.1.0-alpha.1</code></li>
-<li>With <code>fix:</code> commit and <code>prerelease = "alpha"</code></li>
-<li>Result: <code>v1.1.0-alpha.2</code></li>
-</ul>
-<p><strong>Switching Prerelease Identifier:</strong></p>
-<ul>
-<li>Current: <code>v1.0.0-alpha.3</code></li>
-<li>With <code>feat:</code> commit and <code>prerelease = "beta"</code></li>
-<li>Result: <code>v1.1.0-beta.1</code> (calculates next version and switches identifier)</li>
-</ul>
-<p><strong>Graduating to Stable:</strong></p>
-<ul>
-<li>Current: <code>v1.0.0-alpha.5</code></li>
-<li>With <code>fix:</code> commit and no prerelease configured</li>
-<li>Result: <code>v1.0.0</code> (removes prerelease suffix)</li>
-</ul>
-<h4 id="common-prerelease-identifiers"><a class="header" href="#common-prerelease-identifiers">Common Prerelease Identifiers</a></h4>
-<ul>
-<li><strong><code>alpha</code></strong> - Early testing phase, expect significant changes</li>
-<li><strong><code>beta</code></strong> - Feature complete, testing and bug fixes</li>
-<li><strong><code>rc</code></strong> - Release candidate, final testing before stable release</li>
-<li><strong><code>preview</code></strong> - Preview release for gathering feedback</li>
-<li><strong><code>dev</code></strong> - Development/nightly builds</li>
-</ul>
-<h4 id="example-monorepo-with-mixed-prerelease-states"><a class="header" href="#example-monorepo-with-mixed-prerelease-states">Example: Monorepo with Mixed Prerelease States</a></h4>
-<pre><code class="language-toml"># Most packages are stable
-separate_pull_requests = true
-
-[[package]]
-path = "./packages/core"
-release_type = "rust"
-tag_prefix = "core-v"
-# No prerelease - stable releases only
-
-[[package]]
-path = "./packages/experimental"
-release_type = "rust"
-tag_prefix = "experimental-v"
-prerelease = "alpha"  # Experimental features in alpha
-
-[[package]]
-path = "./apps/web"
-release_type = "node"
-tag_prefix = "web-v"
-prerelease = "beta"  # Web app in beta testing
-</code></pre>
-<h3 id="version-increment-configuration"><a class="header" href="#version-increment-configuration">Version Increment Configuration</a></h3>
-<p>Control how commits trigger version bumps. Can be configured globally or
-per-package.</p>
-<p><strong>Configuration Priority:</strong> Package config &gt; Global config</p>
-<h4 id="breaking_always_increment_major"><a class="header" href="#breaking_always_increment_major"><code>breaking_always_increment_major</code></a></h4>
-<p>When <code>true</code> (default), breaking changes (<code>feat!:</code> or <code>BREAKING CHANGE:</code> footer)
-increment the major version. When <code>false</code>, they’re treated as regular commits.</p>
-<pre><code class="language-toml"># Disable automatic major bumps for breaking changes
-breaking_always_increment_major = false
-
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<h4 id="features_always_increment_minor"><a class="header" href="#features_always_increment_minor"><code>features_always_increment_minor</code></a></h4>
-<p>When <code>true</code> (default), feature commits (<code>feat:</code>) increment the minor version.
-When <code>false</code>, they’re treated as patch-level changes.</p>
-<pre><code class="language-toml"># Treat features as patch bumps
-features_always_increment_minor = false
-
-[[package]]
-path = "."
-release_type = "rust"
-</code></pre>
-<h4 id="custom_major_increment_regex"><a class="header" href="#custom_major_increment_regex"><code>custom_major_increment_regex</code></a></h4>
-<p>Define a custom regex pattern to trigger major version bumps. Works
-<strong>additively</strong> with conventional commit syntax when
-<code>breaking_always_increment_major</code> is enabled.</p>
-<pre><code class="language-toml"># Major bump for commits containing "MAJOR" anywhere in message
-custom_major_increment_regex = "MAJOR"
-
-[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p>Example commit messages that trigger major bumps:</p>
-<ul>
-<li><code>MAJOR: Complete rewrite</code> (custom regex)</li>
-<li><code>feat!: breaking change</code> (conventional syntax, if enabled)</li>
-</ul>
-<h4 id="custom_minor_increment_regex"><a class="header" href="#custom_minor_increment_regex"><code>custom_minor_increment_regex</code></a></h4>
-<p>Define a custom regex pattern to trigger minor version bumps. Works
-<strong>additively</strong> with <code>feat:</code> syntax when <code>features_always_increment_minor</code>
-is enabled.</p>
-<pre><code class="language-toml"># Minor bump for commits containing "FEATURE" anywhere in message
-custom_minor_increment_regex = "FEATURE"
-
-[[package]]
-path = "."
-release_type = "rust"
-</code></pre>
-<h4 id="per-package-override-example"><a class="header" href="#per-package-override-example">Per-Package Override Example</a></h4>
-<pre><code class="language-toml"># Global: strict conventional commits
-breaking_always_increment_major = true
-features_always_increment_minor = true
-
-[[package]]
-path = "./packages/stable"
-release_type = "rust"
-tag_prefix = "stable-v"
-# Uses global settings
-
-[[package]]
-path = "./packages/experimental"
-release_type = "node"
-tag_prefix = "exp-v"
-# Override: custom patterns for this package
-breaking_always_increment_major = false
-custom_major_increment_regex = "\\[BREAKING\\]"
-custom_minor_increment_regex = "\\[FEATURE\\]"
-</code></pre>
-<h2 id="changelog-body-template-variables"><a class="header" href="#changelog-body-template-variables">Changelog Body Template Variables</a></h2>
-<p>The variables / fields available in the tera template to construct the
-changelog for a release are as follows:</p>
-<ul>
-<li><strong>version</strong> - The semantic version string (e.g., “1.2.3”)</li>
-<li><strong>link</strong> - URL link to the release</li>
-<li><strong>sha</strong> - Git commit SHA for the release</li>
-<li><strong>timestamp</strong> - Unix timestamp of the release</li>
-<li><strong>include_author</strong> - Boolean flag indicating if author names should be included</li>
-<li><strong>commits</strong>: <code>List&lt;Commit&gt;</code> - Array of commit objects with the following fields:
-<ul>
-<li><strong>id</strong> - Commit SHA</li>
-<li><strong>short_id</strong> - Short version of commit SHA</li>
-<li><strong>group</strong> - Commit category (e.g., “Features”, “Bug Fixes”, “Chore”, “CI/CD”)</li>
-<li><strong>scope</strong> - Optional scope from conventional commit (e.g., “api”, “ui”)</li>
-<li><strong>title</strong> - Commit message title without conventional commit type or scope</li>
-<li><strong>body</strong> - Optional extended commit body</li>
-<li><strong>link</strong> - URL link to the commit</li>
-<li><strong>breaking</strong> - Boolean indicating if this is a breaking change</li>
-<li><strong>breaking_description</strong> - Optional description of breaking changes</li>
-<li><strong>merge_commit</strong> - Boolean indicating if this is a merge commit</li>
-<li><strong>timestamp</strong> - Unix timestamp of the commit</li>
-<li><strong>author_name</strong> - Name of the commit author</li>
-<li><strong>author_email</strong> - Email of the commit author</li>
-<li><strong>raw_title</strong> - Original unprocessed commit title</li>
-<li><strong>raw_message</strong> - Original unprocessed full commit message</li>
-</ul>
-</li>
-</ul>
-<h3 id="custom-body-templates"><a class="header" href="#custom-body-templates">Custom Body Templates</a></h3>
-<p>You can customize the <code>body</code> template to format your changelog entries however
-you prefer. The template uses Tera syntax with access to version information,
-commit data, and various filters.</p>
-<p><strong>Example:</strong> If you want releases to start with <code>## Release v1.0.0</code>:</p>
-<pre><code class="language-toml">[changelog]
-body = """## Release v{{ version }}
-...your custom template..."""
-</code></pre>
-<p>Always test your custom template to ensure it generates the changelog format
-you expect.</p>
-<h3 id="using-the-include_author-flag-in-templates"><a class="header" href="#using-the-include_author-flag-in-templates">Using the <code>include_author</code> Flag in Templates</a></h3>
-<p>The <code>include_author</code> flag can be used in conditional statements within your
-template to show or hide author information:</p>
-<pre><code>{% if include_author %} &lt;{{ commit.author_name }}&gt;{% endif %}
-</code></pre>
-<p>This allows you to control whether author names appear in the changelog without
-modifying the template when you toggle the <code>include_author</code> configuration option.</p>
-<h3 id="monorepo-with-multiple-packages"><a class="header" href="#monorepo-with-multiple-packages">Monorepo with Multiple Packages</a></h3>
-<p>For monorepos, you can choose between coordinated releases (single PR) or
-independent releases (separate PRs):</p>
-<h4 id="coordinated-releases-single-pr"><a class="header" href="#coordinated-releases-single-pr">Coordinated Releases (Single PR)</a></h4>
-<pre><code class="language-toml"># All packages released together in one PR (default)
-separate_pull_requests = false
-
-[[package]]
-path = "./apps/frontend"
-release_type = "node"
-tag_prefix = "frontend-v"
-
-[[package]]
-path = "./apps/api"
-release_type = "rust"
-tag_prefix = "api-v"
-
-[[package]]
-path = "./packages/shared"
-release_type = "python"
-tag_prefix = "shared-v"
-</code></pre>
-<h4 id="independent-releases-separate-prs"><a class="header" href="#independent-releases-separate-prs">Independent Releases (Separate PRs)</a></h4>
-<pre><code class="language-toml"># Each package gets its own PR for independent releases
-separate_pull_requests = true
-
-[[package]]
-path = "./apps/frontend"
-release_type = "node"
-tag_prefix = "frontend-v"
-
-[[package]]
-path = "./apps/api"
-release_type = "rust"
-tag_prefix = "api-v"
-
-[[package]]
-path = "./packages/shared"
-release_type = "python"
-tag_prefix = "shared-v"
-
-[[package]]
-path = "./packages/cli"
-release_type = "rust"
-tag_prefix = "cli-v"
-</code></pre>
+<h2 id="command-line-overrides"><a class="header" href="#command-line-overrides">Command-Line Overrides</a></h2>
+<p>Many configuration options can be overridden from the command line
+without modifying your config file. This is useful for testing different
+settings or using different values in CI/CD pipelines.</p>
+<p>See <a href="./commands.html#configuration-overrides">Configuration Overrides</a> in
+the Commands guide for details.</p>
 <h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
-<p>After creating or modifying your configuration file, test it locally before
-pushing changes to your remote forge.</p>
-<h3 id="local-repository-testing-recommended"><a class="header" href="#local-repository-testing-recommended">Local Repository Testing (Recommended)</a></h3>
-<p>Test your configuration against your local repository without requiring
-authentication or making remote changes:</p>
-<pre><code class="language-bash"># Test from current directory
-releasaurus release-pr --local-repo "."
+<p>Test your configuration locally without making remote changes:</p>
+<pre><code class="language-bash"># Test against your local repository
+releasaurus release-pr --forge local --repo "."
 
-# Review the output to verify:
-# - Configuration loads correctly
-# - Version detection works as expected
-# - Changelog format looks good
-# - Tag prefixes match your setup
+# Review the output to verify settings
+# Then run against your remote forge when ready
 </code></pre>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>No authentication required</li>
-<li>No remote changes made</li>
-<li>Instant feedback on configuration</li>
-<li>Perfect for iterating on config changes</li>
-</ul>
-<p>See the <a href="./commands.html#local-repository-mode">Commands</a> guide for complete
-details on local repository mode.</p>
-<h3 id="remote-testing-with-debug-mode"><a class="header" href="#remote-testing-with-debug-mode">Remote Testing with Debug Mode</a></h3>
-<p>Alternatively, validate configuration against your remote forge with debug
-logging enabled:</p>
-<pre><code class="language-bash"># Via command line flag
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --debug
-
-# Or via environment variable
-export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-</code></pre>
-<p>If there are configuration errors, you’ll see clear error messages explaining
-what needs to be fixed.</p>
+<p>See <a href="./commands.html#local-repository-mode">Local Repository Mode</a> for
+complete details.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
-<li>Check <a href="./environment-variables.html">Environment Variables</a> for runtime
-configuration options</li>
-<li>Review <a href="./troubleshooting.html">Troubleshooting</a> for common configuration
-issues</li>
-<li>See <a href="./commands.html">Commands</a> for detailed command usage</li>
+<li><strong>Getting started?</strong> See <a href="./quick-start.html">Quick Start</a> for a 2-minute
+tutorial</li>
+<li><strong>Need help?</strong> Check <a href="./troubleshooting.html">Troubleshooting</a> for
+common issues</li>
+<li><strong>CI/CD?</strong> See <a href="./ci-cd-integration.html">CI/CD Integration</a> for
+automation</li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="forge-platforms.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="supported-languages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="environment-variables.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="configuration-prerelease.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -1109,11 +309,11 @@ issues</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="forge-platforms.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="supported-languages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="environment-variables.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="configuration-prerelease.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

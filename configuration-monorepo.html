@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Contributing - Releasaurus</title>
+        <title>Monorepo Setup - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -177,241 +177,273 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
-<p>We appreciate your interest in contributing to Releasaurus! This guide will
-help you get started with contributing to the project, whether you’re fixing
-bugs, adding features, improving documentation, or helping with community
-support.</p>
-<h2 id="ways-to-contribute"><a class="header" href="#ways-to-contribute">Ways to Contribute</a></h2>
-<h3 id="-bug-reports"><a class="header" href="#-bug-reports">🐛 Bug Reports</a></h3>
+                        <h1 id="monorepo-configuration"><a class="header" href="#monorepo-configuration">Monorepo Configuration</a></h1>
+<p>Manage multiple independently-versioned packages within a single
+repository.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>Releasaurus supports monorepos with:</p>
 <ul>
-<li>Report bugs and issues you encounter</li>
-<li>Provide detailed reproduction steps</li>
-<li>Share your environment details</li>
+<li>Multiple packages with independent versions</li>
+<li>Separate or combined pull requests</li>
+<li>Custom tag prefixes per package</li>
+<li>Per-package configuration overrides</li>
 </ul>
-<h3 id="-feature-requests"><a class="header" href="#-feature-requests">💡 Feature Requests</a></h3>
+<h2 id="quick-configuration"><a class="header" href="#quick-configuration">Quick Configuration</a></h2>
+<h3 id="basic-monorepo-combined-releases"><a class="header" href="#basic-monorepo-combined-releases">Basic Monorepo (Combined Releases)</a></h3>
+<p>All packages released together in one PR:</p>
+<pre><code class="language-toml">[[package]]
+path = "./frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+</code></pre>
+<p>Tags: <code>frontend-v1.0.0</code>, <code>backend-v2.3.0</code></p>
+<h3 id="independent-releases-separate-prs"><a class="header" href="#independent-releases-separate-prs">Independent Releases (Separate PRs)</a></h3>
+<p>Each package gets its own PR:</p>
+<pre><code class="language-toml">separate_pull_requests = true
+
+[[package]]
+path = "./frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+</code></pre>
+<p>Creates separate PRs like:</p>
 <ul>
-<li>Suggest new language/framework support</li>
-<li>Propose workflow improvements</li>
-<li>Request platform integrations</li>
+<li><code>releasaurus-release-main-frontend</code></li>
+<li><code>releasaurus-release-main-backend</code></li>
 </ul>
-<h3 id="-code-contributions"><a class="header" href="#-code-contributions">🔧 Code Contributions</a></h3>
+<h2 id="configuration-options"><a class="header" href="#configuration-options">Configuration Options</a></h2>
+<h3 id="separate_pull_requests-default-false"><a class="header" href="#separate_pull_requests-default-false"><code>separate_pull_requests</code> (default: false)</a></h3>
+<p>Control PR creation strategy:</p>
+<pre><code class="language-toml">separate_pull_requests = true  # or false
+</code></pre>
+<p><strong>false (default)</strong> - Single PR for all packages
+<strong>true</strong> - Separate PR for each package with changes</p>
+<h3 id="package-configuration"><a class="header" href="#package-configuration">Package Configuration</a></h3>
+<p>Each package needs:</p>
 <ul>
-<li>Fix bugs and implement features</li>
-<li>Add support for new languages</li>
-<li>Improve performance and reliability</li>
+<li><code>path</code> - Directory relative to repository root</li>
+<li><code>release_type</code> - Language/framework (rust, node, python, etc.)</li>
+<li><code>tag_prefix</code> (optional) - Custom tag prefix</li>
 </ul>
-<h3 id="-documentation"><a class="header" href="#-documentation">📚 Documentation</a></h3>
+<p><strong>Tag prefix defaults:</strong></p>
 <ul>
-<li>Improve existing documentation</li>
-<li>Add examples and tutorials</li>
-<li>Translate documentation</li>
+<li>Root packages (<code>path = "."</code>) → <code>"v"</code></li>
+<li>Nested packages → <code>"&lt;package-name&gt;-v"</code></li>
 </ul>
-<h3 id="-testing"><a class="header" href="#-testing">🎯 Testing</a></h3>
+<h2 id="when-to-use-each-strategy"><a class="header" href="#when-to-use-each-strategy">When to Use Each Strategy</a></h2>
+<h3 id="single-pr-mode-default"><a class="header" href="#single-pr-mode-default">Single PR Mode (Default)</a></h3>
+<p><strong>Best for:</strong></p>
 <ul>
-<li>Write and improve tests</li>
-<li>Test on different platforms</li>
-<li>Validate new features</li>
+<li>Tightly coupled packages that always release together</li>
+<li>Small monorepos (2-5 packages)</li>
+<li>Teams that prefer coordinated releases</li>
+<li>Simple review workflow</li>
 </ul>
-<h3 id="-community-support"><a class="header" href="#-community-support">💬 Community Support</a></h3>
+<p><strong>Benefits:</strong></p>
 <ul>
-<li>Help other users in discussions</li>
-<li>Answer questions in issues</li>
-<li>Share your experience and best practices</li>
+<li>One review process</li>
+<li>Atomic releases</li>
+<li>Simpler workflow</li>
 </ul>
-<h2 id="development-environment-setup"><a class="header" href="#development-environment-setup">Development Environment Setup</a></h2>
-<h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
+<h3 id="separate-pr-mode"><a class="header" href="#separate-pr-mode">Separate PR Mode</a></h3>
+<p><strong>Best for:</strong></p>
 <ul>
-<li><strong>Rust</strong>: 1.70 or higher (<a href="https://rustup.rs/">Install Rust</a>)</li>
-<li><strong>Git</strong>: For version control</li>
-<li><strong>A supported platform</strong>: GitHub, GitLab, or Gitea account for testing</li>
+<li>Large monorepos (5+ packages)</li>
+<li>Independently versioned packages</li>
+<li>Different teams owning different packages</li>
+<li>Different release cadences per package</li>
 </ul>
-<h3 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h3>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Independent release cycles</li>
+<li>Parallel reviews</li>
+<li>Flexible scheduling</li>
+</ul>
+<h2 id="practical-examples"><a class="header" href="#practical-examples">Practical Examples</a></h2>
+<h3 id="frontend--backend--shared-library"><a class="header" href="#frontend--backend--shared-library">Frontend + Backend + Shared Library</a></h3>
+<pre><code class="language-toml">separate_pull_requests = true
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+
+[[package]]
+path = "./apps/api"
+release_type = "rust"
+tag_prefix = "api-v"
+
+[[package]]
+path = "./packages/shared"
+release_type = "python"
+tag_prefix = "shared-v"
+</code></pre>
+<h3 id="microservices-repository"><a class="header" href="#microservices-repository">Microservices Repository</a></h3>
+<pre><code class="language-toml">separate_pull_requests = true
+
+[[package]]
+path = "./services/auth"
+release_type = "node"
+tag_prefix = "auth-v"
+
+[[package]]
+path = "./services/payments"
+release_type = "node"
+tag_prefix = "payments-v"
+
+[[package]]
+path = "./services/notifications"
+release_type = "python"
+tag_prefix = "notifications-v"
+
+[[package]]
+path = "./services/analytics"
+release_type = "rust"
+tag_prefix = "analytics-v"
+</code></pre>
+<h3 id="workspace-in-subdirectory"><a class="header" href="#workspace-in-subdirectory">Workspace in Subdirectory</a></h3>
+<p>For workspaces not at repository root:</p>
+<pre><code class="language-toml">[[package]]
+name = "api-server"
+workspace_root = "backend"
+path = "services/api"
+release_type = "rust"
+tag_prefix = "api-v"
+
+[[package]]
+name = "worker"
+workspace_root = "backend"
+path = "services/worker"
+release_type = "rust"
+tag_prefix = "worker-v"
+</code></pre>
+<p>This updates:</p>
+<ul>
+<li><code>backend/services/api/Cargo.toml</code></li>
+<li><code>backend/services/worker/Cargo.toml</code></li>
+<li><code>backend/Cargo.lock</code> (workspace lock file)</li>
+</ul>
+<h3 id="mixed-prerelease-states"><a class="header" href="#mixed-prerelease-states">Mixed Prerelease States</a></h3>
+<p>Some packages stable, others in beta:</p>
+<pre><code class="language-toml">separate_pull_requests = true
+
+[[package]]
+path = "./stable-api"
+release_type = "rust"
+tag_prefix = "api-v"
+# No prerelease - stable only
+
+[[package]]
+path = "./experimental-features"
+release_type = "rust"
+tag_prefix = "exp-v"
+prerelease = { suffix = "beta", strategy = "versioned" }
+</code></pre>
+<h2 id="shared-code-patterns"><a class="header" href="#shared-code-patterns">Shared Code Patterns</a></h2>
+<h3 id="packages-with-shared-dependencies"><a class="header" href="#packages-with-shared-dependencies">Packages with Shared Dependencies</a></h3>
+<p>Use <code>additional_paths</code> to track shared code:</p>
+<pre><code class="language-toml">[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+additional_paths = ["shared/types", "shared/utils"]
+
+[[package]]
+path = "./apps/mobile"
+release_type = "node"
+tag_prefix = "mobile-v"
+additional_paths = ["shared/types", "shared/utils"]
+</code></pre>
+<p>Both packages release when changes occur in <code>shared/*</code>.</p>
+<h3 id="dedicated-shared-package"><a class="header" href="#dedicated-shared-package">Dedicated Shared Package</a></h3>
+<pre><code class="language-toml">[[package]]
+path = "./shared"
+release_type = "node"
+tag_prefix = "shared-v"
+
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+
+[[package]]
+path = "./apps/mobile"
+release_type = "node"
+tag_prefix = "mobile-v"
+</code></pre>
+<p>The shared package releases independently.</p>
+<h2 id="workflow-differences"><a class="header" href="#workflow-differences">Workflow Differences</a></h2>
+<h3 id="single-pr-workflow"><a class="header" href="#single-pr-workflow">Single PR Workflow</a></h3>
 <ol>
-<li>
-<p><strong>Fork and Clone</strong></p>
-<pre><code class="language-bash"># Fork the repository on GitHub
-git clone https://github.com/your-username/releasaurus.git
-cd releasaurus
-</code></pre>
-</li>
-<li>
-<p><strong>Install Dependencies</strong></p>
-<pre><code class="language-bash"># Install Rust dependencies
-cargo build
-
-# Install development tools
-cargo install cargo-watch
-cargo install cargo-nextest  # Optional: faster test runner
-</code></pre>
-</li>
-<li>
-<p><strong>Set Up Testing Environment</strong></p>
-<pre><code class="language-bash"># Create test tokens (with minimal permissions)
-export GITHUB_TOKEN="ghp_test_token_here"
-export GITLAB_TOKEN="glpat_test_token_here"
-export GITEA_TOKEN="test_token_here"
-
-# Run tests
-cargo test
-</code></pre>
-</li>
-<li>
-<p><strong>Verify Installation</strong></p>
-<pre><code class="language-bash"># Build and test the binary
-cargo build --release
-./target/release/releasaurus --help
-</code></pre>
-</li>
+<li>Run <code>releasaurus release-pr</code></li>
+<li>One PR created with all package updates</li>
+<li>Review and merge</li>
+<li>Run <code>releasaurus release</code></li>
+<li>All packages tagged and released</li>
 </ol>
-<h2 id="code-contribution-guidelines"><a class="header" href="#code-contribution-guidelines">Code Contribution Guidelines</a></h2>
-<h3 id="coding-standards"><a class="header" href="#coding-standards">Coding Standards</a></h3>
-<h4 id="rust-style"><a class="header" href="#rust-style">Rust Style</a></h4>
-<ul>
-<li>Use <code>cargo fmt</code> for consistent formatting</li>
-<li>Use <code>cargo clippy</code> for linting</li>
-<li>Write comprehensive documentation comments</li>
-</ul>
-<h3 id="adding-new-languageframework-updaters"><a class="header" href="#adding-new-languageframework-updaters">Adding New Language/Framework Updaters</a></h3>
-<p>Releasaurus supports multiple programming languages through its updater system.
-Adding support for a new language requires updating several files across the
-codebase.</p>
-<h4 id="overview"><a class="header" href="#overview">Overview</a></h4>
-<p>Each language updater consists of:</p>
+<h3 id="separate-pr-workflow"><a class="header" href="#separate-pr-workflow">Separate PR Workflow</a></h3>
 <ol>
-<li><strong>ReleaseType enum variant</strong> - Configuration option in
-<code>src/config/release_type.rs</code></li>
-<li><strong>Manifests module</strong> - Defines manifest file targets in
-<code>src/updater/yourlanguage/manifests.rs</code></li>
-<li><strong>Updater module</strong> - Language-specific implementation in
-<code>src/updater/yourlanguage/updater.rs</code></li>
-<li><strong>File parsers</strong> - Version file format handlers (e.g.,
-<code>src/updater/yourlanguage/your_file_type.rs</code>)</li>
-<li><strong>Tests</strong> - Comprehensive test coverage for all modules</li>
-<li><strong>Documentation</strong> - User-facing documentation updates</li>
+<li>Run <code>releasaurus release-pr</code></li>
+<li>Multiple PRs created (one per package with changes)</li>
+<li>Review and merge each PR independently</li>
+<li>Run <code>releasaurus release</code> after each merge</li>
+<li>Each package tagged and released separately</li>
 </ol>
-<h4 id="files-to-update"><a class="header" href="#files-to-update">Files to Update</a></h4>
-<p><strong>1. Add ReleaseType Variant</strong></p>
-<ul>
-<li><code>src/config/release_type.rs</code> - Add your language to the <code>ReleaseType</code> enum</li>
-</ul>
-<p><strong>2. Create Manifests Module</strong></p>
-<ul>
-<li><code>src/updater/yourlanguage/manifests.rs</code> - Implement <code>ManifestTargets</code> trait</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>release_type_manifest_targets()</code>
-function</li>
-</ul>
-<p><strong>3. Create Updater Implementation</strong></p>
-<ul>
-<li><code>src/updater/yourlanguage.rs</code> - Module declaration file</li>
-<li><code>src/updater/yourlanguage/updater.rs</code> - Implement <code>PackageUpdater</code> trait</li>
-<li><code>src/updater/yourlanguage/your_file_type.rs</code> - File format parser(s)</li>
-<li><code>src/updater.rs</code> - Add module declaration</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>updater()</code> function</li>
-</ul>
-<p><strong>4. Add Tests</strong></p>
-<ul>
-<li>Tests in <code>manifests.rs</code> - Test manifest target generation</li>
-<li>Tests in <code>updater.rs</code> - Test updater integration</li>
-<li>Tests in file parser modules - Test version updates</li>
-</ul>
-<p><strong>5. Update Documentation</strong></p>
-<ul>
-<li><code>book/src/supported-languages.md</code> - Add language section</li>
-<li><code>book/src/configuration.md</code> - Update ReleaseType options</li>
-</ul>
-<h4 id="reference-implementations"><a class="header" href="#reference-implementations">Reference Implementations</a></h4>
-<p>Use existing language implementations as templates:</p>
-<p><strong>Simple Languages (Good starting points):</strong></p>
-<ul>
-<li><strong>PHP</strong>: <code>src/updater/php/</code> - Single manifest file, straightforward JSON
-parsing</li>
-<li><strong>Python</strong>: <code>src/updater/python/</code> - Multiple manifest formats (TOML, cfg, py)</li>
-</ul>
-<p><strong>Complex Languages (Advanced features):</strong></p>
-<ul>
-<li><strong>Node</strong>: <code>src/updater/node/</code> - Workspace support, multiple lock files</li>
-<li><strong>Rust</strong>: <code>src/updater/rust/</code> - Workspace detection, dependency updates</li>
-<li><strong>Java</strong>: <code>src/updater/java/</code> - Multiple build tools (Maven, Gradle),
-properties files</li>
-</ul>
-<p><strong>Key Traits to Implement:</strong></p>
-<ul>
-<li><code>ManifestTargets</code> in <code>manifests.rs</code> - Defines which files to load</li>
-<li><code>PackageUpdater</code> in <code>updater.rs</code> - Coordinates version updates</li>
-</ul>
-<h4 id="testing-guidelines"><a class="header" href="#testing-guidelines">Testing Guidelines</a></h4>
-<p>Follow the established testing patterns:</p>
-<ul>
-<li><strong>Test outcomes, not implementation</strong> - Verify behavior, not how it’s achieved</li>
-<li><strong>Minimal and concise</strong> - Only test what provides value</li>
-<li><strong>Use helper functions</strong> - Reduce duplication (see <code>test_helpers.rs</code>)</li>
-<li><strong>Descriptive names</strong> - e.g., <code>returns_all_manifest_targets</code> not <code>test_1</code></li>
-</ul>
-<p><strong>Example test files to reference:</strong></p>
-<ul>
-<li><code>src/updater/php/manifests.rs</code> - Simple manifest tests</li>
-<li><code>src/updater/node/manifests.rs</code> - Workspace-aware manifest tests</li>
-<li><code>src/updater/php/updater.rs</code> - Basic updater tests</li>
-</ul>
-<h4 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h4>
-<pre><code class="language-bash"># Run all tests for your language
-cargo test yourlanguage
+<h2 id="auto-start-next"><a class="header" href="#auto-start-next">Auto Start Next</a></h2>
+<p>Automatically bump versions after release:</p>
+<pre><code class="language-toml">auto_start_next = true
 
-# Run specific module tests
-cargo test updater::yourlanguage::manifests
-cargo test updater::yourlanguage::updater
+[[package]]
+path = "./api"
+release_type = "rust"
+auto_start_next = false  # Override for this package
 
-# Test with real repository
-releasaurus release-pr \
-  --forge local \
-  --repo "/path/to/test/project" \
-  --debug
+[[package]]
+path = "./web"
+release_type = "node"
+# Uses global setting (true)
 </code></pre>
-<h4 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h4>
+<p>See <a href="./commands.html#start-next"><code>start-next</code> command</a> for details.</p>
+<h2 id="testing-monorepo-configuration"><a class="header" href="#testing-monorepo-configuration">Testing Monorepo Configuration</a></h2>
+<p>Test locally to verify package detection and tagging:</p>
+<pre><code class="language-bash"># See what packages would be released
+releasaurus release-pr --forge local --repo "."
+
+# Check:
+# - All packages detected correctly
+# - Tag prefixes match expectations
+# - Separate/combined PR strategy works
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
-<li><strong>Parse robustly</strong> - Handle various file formats and edge cases</li>
-<li><strong>Preserve formatting</strong> - Maintain original file structure when possible</li>
-<li><strong>Log clearly</strong> - Use <code>info!</code>, <code>warn!</code>, <code>error!</code> macros appropriately</li>
-<li><strong>Follow patterns</strong> - Study existing implementations before starting</li>
-<li><strong>Write tests first</strong> - Define expected behavior through tests</li>
+<li><a href="./configuration.html">Configuration Overview</a> - Main configuration
+guide</li>
+<li><a href="./configuration-prerelease.html">Prerelease Configuration</a> - Per-
+package prereleases</li>
+<li><a href="./commands.html">Commands</a> - All command options</li>
 </ul>
-<h4 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h4>
-<ul>
-<li>Review existing implementations in <code>src/updater/</code></li>
-<li>Check test files for usage patterns</li>
-<li>Ask questions in GitHub Discussions</li>
-<li>Reference the <code>PackageUpdater</code> and <code>ManifestTargets</code> trait documentation</li>
-</ul>
-<h2 id="code-of-conduct"><a class="header" href="#code-of-conduct">Code of Conduct</a></h2>
-<p>This repository adheres the <a href="https://www.rust-lang.org/policies/code-of-conduct">Rust Code of Conduct</a></p>
-<h3 id="reporting"><a class="header" href="#reporting">Reporting</a></h3>
-<p>Report any unacceptable behavior to the project maintainers.</p>
-<h2 id="community-and-communication"><a class="header" href="#community-and-communication">Community and Communication</a></h2>
-<h3 id="channels"><a class="header" href="#channels">Channels</a></h3>
-<ul>
-<li><strong>GitHub Issues</strong>: Bug reports and feature requests</li>
-<li><strong>GitHub Discussions</strong>: General questions and community support</li>
-<li><strong>Pull Requests</strong>: Code review and collaboration</li>
-</ul>
-<h3 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h3>
-<ul>
-<li><strong>Documentation</strong>: Start with this book</li>
-<li><strong>Search Issues</strong>: Check if your question has been asked</li>
-<li><strong>Ask Questions</strong>: Create a discussion or issue</li>
-<li><strong>Debug Mode</strong>: Use <code>--debug</code> flag or <code>RELEASAURUS_DEBUG</code> environment
-variable for troubleshooting</li>
-</ul>
-<p>Thank you for contributing to Releasaurus!</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="environment-variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration-changelog.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
+                            <a rel="next prefetch" href="configuration-reference.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -419,10 +451,13 @@ variable for troubleshooting</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="environment-variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration-changelog.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
+                    <a rel="next prefetch" href="configuration-reference.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
             </nav>
 
         </div>

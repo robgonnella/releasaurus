@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
+            window.path_to_searchindex_js = "searchindex-3f25e484.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d4dbbafb.js"></script>
+        <script src="toc-f5e2ee4c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,227 +178,45 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="supported-languages--frameworks"><a class="header" href="#supported-languages--frameworks">Supported Languages &amp; Frameworks</a></h1>
-<p>Releasaurus provides native support for a wide range of programming languages
-and frameworks. You configure your project’s <code>release_type</code> in
-<code>releasaurus.toml</code>, and Releasaurus handles version updates across all relevant
-files for that language.</p>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>Each package in your repository requires a <code>release_type</code> configuration to
-enable version file updates:</p>
+<p>Releasaurus provides native support for multiple programming languages.
+Configure your project’s <code>release_type</code> in <code>releasaurus.toml</code>, and
+Releasaurus automatically updates all relevant version files.</p>
+<h2 id="quick-configuration"><a class="header" href="#quick-configuration">Quick Configuration</a></h2>
 <pre><code class="language-toml">[[package]]
 path = "."
-release_type = "node"  # Specify your language/framework
+release_type = "node"  # or rust, python, java, php, ruby, generic
 </code></pre>
-<p>Available release types: <code>"Rust"</code>, <code>"Node"</code>, <code>"Python"</code>, <code>"Java"</code>, <code>"Php"</code>,
-<code>"Ruby"</code>, <code>"Generic"</code></p>
-<h2 id="supported-languages"><a class="header" href="#supported-languages">Supported Languages</a></h2>
-<h3 id="rust"><a class="header" href="#rust">Rust</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "rust"</code></p>
-<p><strong>Updated Files</strong>: <code>Cargo.toml</code>, <code>Cargo.lock</code> (if present)</p>
-<p>Rust projects using Cargo for dependency management and packaging. Supports
-both library and binary crates, workspace configurations, and dependency
-version updates.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "rust"
-</code></pre>
-<p><strong>Example Project Structure</strong>:</p>
-<pre><code>my-rust-project/
-├── Cargo.toml          # ← Version updated here
-├── Cargo.lock          # ← Automatically updated
-├── src/
-│   └── lib.rs
-└── README.md
-</code></pre>
-<h3 id="nodejs"><a class="header" href="#nodejs">Node.js</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "node"</code></p>
-<p><strong>Updated Files</strong>: <code>package.json</code>, <code>package-lock.json</code>, <code>yarn.lock</code>,
-<code>pnpm-lock.yaml</code></p>
-<p>JavaScript and TypeScript projects using npm, Yarn, or pnpm package managers.
-Supports monorepos, workspaces, and dependency updates.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "node"
-</code></pre>
-<p><strong>Example Project Structure</strong>:</p>
-<pre><code>my-node-project/
-├── package.json        # ← Version updated here
-├── package-lock.json   # ← Automatically updated
-├── src/
-│   └── index.js
-└── README.md
-</code></pre>
-<h3 id="python"><a class="header" href="#python">Python</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "python"</code></p>
-<p><strong>Updated Files</strong>: <code>pyproject.toml</code>, <code>setup.py</code>, <code>setup.cfg</code>, <code>__init__.py</code>,
-<code>requirements*.txt</code></p>
-<p>Python projects using modern packaging standards (PEP 518/517) or legacy
-setuptools. Supports Poetry, setuptools, and custom version patterns.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "python"
-</code></pre>
-<p><strong>Example Project Structure</strong>:</p>
-<pre><code>my-python-project/
-├── pyproject.toml      # ← Primary version location
-├── requirements.txt    # ← Version references updated
-├── src/
-│   └── my_package/
-│       └── __init__.py # ← Version string updated
-└── README.md
-</code></pre>
-<h3 id="java"><a class="header" href="#java">Java</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "java"</code></p>
-<p><strong>Updated Files</strong>: Maven POMs, Gradle build files, version properties</p>
-<p>Java projects using Maven or Gradle build systems. Supports multi-module
-projects, parent POMs, and version property management.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "java"
-</code></pre>
-<p><strong>Example Maven Project</strong>:</p>
-<pre><code>my-java-project/
-├── pom.xml             # ← Version updated here
-├── src/
-│   └── main/java/
-└── README.md
-</code></pre>
-<p><strong>Example Gradle Project</strong>:</p>
-<pre><code>my-gradle-project/
-├── build.gradle        # ← Version updated here
-├── gradle.properties   # ← Version properties updated
-├── src/
-│   └── main/java/
-└── README.md
-</code></pre>
-<h3 id="php"><a class="header" href="#php">PHP</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "php"</code></p>
-<p><strong>Updated Files</strong>: <code>composer.json</code>, <code>composer.lock</code> (regenerated)</p>
-<p>PHP projects using Composer for dependency management. Supports packages,
-applications, and dependency constraint updates.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "php"
-</code></pre>
-<p><strong>Example Project Structure</strong>:</p>
-<pre><code>my-php-project/
-├── composer.json       # ← Version updated here
-├── composer.lock       # ← Automatically updated
-├── src/
-│   └── MyClass.php
-└── README.md
-</code></pre>
-<h3 id="ruby"><a class="header" href="#ruby">Ruby</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "ruby"</code></p>
-<p><strong>Updated Files</strong>: Gemspec files, version files, Gemfile dependencies</p>
-<p>Ruby projects using Bundler and RubyGems. Supports gems, applications, and
-version constant management.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "ruby"
-</code></pre>
-<p><strong>Example Gem Project</strong>:</p>
-<pre><code>my-ruby-gem/
-├── my_gem.gemspec      # ← Version updated here
-├── Gemfile
-├── lib/
-│   └── my_gem/
-│       └── version.rb  # ← Version constant updated
-└── README.md
-</code></pre>
-<h3 id="generic-projects"><a class="header" href="#generic-projects">Generic Projects</a></h3>
-<p><strong>Configuration</strong>: <code>release_type = "generic"</code></p>
-<p>Generic projects receive changelog generation and tagging only. By default,
-version files are not modified automatically. However, you can enable version
-file updates by using the <code>additional_manifest_files</code> configuration option,
-which applies generic version pattern matching to specified files.</p>
-<p>This is useful for documentation repositories, configuration projects, or
-languages not yet supported by framework-specific updaters.</p>
-<p><strong>Example Configuration</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "generic"
-</code></pre>
-<p><strong>Example with Version File Updates</strong>:</p>
-<pre><code class="language-toml">[[package]]
-path = "."
-release_type = "generic"
-additional_manifest_files = [
-  "VERSION",
-  "README.md"
-]
-</code></pre>
-<p>For details on configuring additional manifest files, see the
-<a href="./configuration.html#additional_manifest_files"><code>additional_manifest_files</code></a>
-section in the Configuration documentation.</p>
-<h2 id="framework-specific-features"><a class="header" href="#framework-specific-features">Framework-Specific Features</a></h2>
-<h3 id="version-file-detection"><a class="header" href="#version-file-detection">Version File Detection</a></h3>
-<p>Each language ecosystem has different conventions for where version information
-is stored:</p>
+<h2 id="language-support-reference"><a class="header" href="#language-support-reference">Language Support Reference</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Language</th><th>release_type</th><th>Files Updated</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Rust</strong></td><td><code>"rust"</code></td><td>Cargo.toml, Cargo.lock</td></tr>
+<tr><td><strong>Node.js</strong></td><td><code>"node"</code></td><td>package.json, package-lock.json, yarn.lock</td></tr>
+<tr><td><strong>Python</strong></td><td><code>"python"</code></td><td>pyproject.toml, setup.py, setup.cfg</td></tr>
+<tr><td><strong>Java</strong></td><td><code>"java"</code></td><td>pom.xml, build.gradle, build.gradle.kts</td></tr>
+<tr><td><strong>PHP</strong></td><td><code>"php"</code></td><td>composer.json, composer.lock</td></tr>
+<tr><td><strong>Ruby</strong></td><td><code>"ruby"</code></td><td>*.gemspec, Gemfile, Gemfile.lock</td></tr>
+<tr><td><strong>Generic</strong></td><td><code>"generic"</code></td><td>Custom files via <code>additional_manifest_files</code></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="notes"><a class="header" href="#notes">Notes</a></h2>
 <ul>
-<li><strong>Rust</strong>: Single source of truth in <code>Cargo.toml</code></li>
-<li><strong>Node.js</strong>: Primary in <code>package.json</code>, locks updated automatically</li>
-<li><strong>Python</strong>: Multiple possible locations (pyproject.toml, setup.py,
-<strong>init</strong>.py)</li>
-<li><strong>Java</strong>: Maven coordinates or Gradle version properties</li>
-<li><strong>PHP</strong>: Composer metadata with semantic versioning</li>
-<li><strong>Ruby</strong>: Gemspec version specifications</li>
+<li><strong>Workspaces/Monorepos</strong>: All languages support workspace
+configurations with multiple packages</li>
+<li><strong>Lock files</strong>: Automatically updated when present</li>
+<li><strong>Generic projects</strong>: Use <code>additional_manifest_files</code> to specify
+custom version file patterns. See
+<a href="./configuration.html#additional_manifest_files">Configuration</a> for
+details.</li>
 </ul>
-<h3 id="dependency-updates"><a class="header" href="#dependency-updates">Dependency Updates</a></h3>
-<p>Some frameworks support updating dependency versions during releases:</p>
-<ul>
-<li><strong>Node.js</strong>: Updates lock files and can bump dependencies</li>
-<li><strong>Rust</strong>: Updates Cargo.lock automatically</li>
-<li><strong>PHP</strong>: Regenerates composer.lock with new constraints</li>
-<li><strong>Python</strong>: Can update version pins in requirements files</li>
-</ul>
-<h3 id="build-system-integration"><a class="header" href="#build-system-integration">Build System Integration</a></h3>
-<p>Releasaurus integrates with various build systems:</p>
-<ul>
-<li><strong>Cargo</strong> (Rust): Workspace and crate management</li>
-<li><strong>npm/yarn/pnpm</strong> (Node.js): Workspace and package management</li>
-<li><strong>Poetry/setuptools</strong> (Python): Build backend integration</li>
-<li><strong>Maven/Gradle</strong> (Java): Multi-module project support</li>
-<li><strong>Bundler</strong> (Ruby): Gem dependency management</li>
-</ul>
-<h2 id="multi-language-projects"><a class="header" href="#multi-language-projects">Multi-Language Projects</a></h2>
-<p>For projects that use multiple languages, configure separate packages with
-their respective <code>release_type</code>:</p>
-<pre><code class="language-toml"># releasaurus.toml
-[[package]]
-path = "./backend"
-release_type = "rust"
-tag_prefix = "api-v"
-
-[[package]]
-path = "./frontend"
-release_type = "node"
-tag_prefix = "ui-v"
-
-[[package]]
-path = "./scripts"
-release_type = "python"
-tag_prefix = "scripts-v"
-</code></pre>
-<p>Each package is processed independently with its own version calculation,
-changelog, and release cycle.</p>
-<h2 id="adding-new-languages"><a class="header" href="#adding-new-languages">Adding New Languages</a></h2>
-<p>Releasaurus is designed to be extensible. Each language implementation
-includes an updater that handles version file modifications and
-language-specific patterns. See the <a href="./contributing.html">Contributing</a> guide
-for information about adding support for new languages and frameworks.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<ul>
-<li>Refer to the language-specific sections above for detailed information about
-supported features</li>
-<li>Explore <a href="./configuration.html">Configuration</a> for customization options</li>
-</ul>
+<p>For complete configuration options including monorepo setup, changelog
+customization, and prerelease versions, see the
+<a href="./configuration.html">Configuration</a> guide.</p>
 
                     </main>
 
@@ -408,7 +226,7 @@ supported features</li>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="forge-platforms.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -422,7 +240,7 @@ supported features</li>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="forge-platforms.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

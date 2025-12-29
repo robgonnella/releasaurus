@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
+            window.path_to_searchindex_js = "searchindex-3f25e484.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d4dbbafb.js"></script>
+        <script src="toc-f5e2ee4c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,67 +178,61 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
-<p>This guide helps you diagnose and resolve common issues when using Releasaurus.
-If you encounter problems not covered here, please check the
-<a href="https://github.com/robgonnella/releasaurus/issues">GitHub issues</a> or create a
-new one.</p>
+<p>This guide helps you diagnose and resolve common issues when using
+Releasaurus. If you encounter problems not covered here, please check the
+<a href="https://github.com/robgonnella/releasaurus/issues">GitHub issues</a> or create
+a new one.</p>
 <h2 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h2>
-<h3 id="first-release-history-configuration"><a class="header" href="#first-release-history-configuration">First Release History Configuration</a></h3>
-<h4 id="issue-not-enough-commit-history-found-for-first-release"><a class="header" href="#issue-not-enough-commit-history-found-for-first-release">Issue: “Not enough commit history found” for first release</a></h4>
-<p><strong>Symptoms</strong>:</p>
-<ul>
-<li>Releasaurus can’t determine the next version for first release</li>
-<li>Error messages about insufficient commit history</li>
-<li>Empty or incomplete changelog generation on initial release</li>
-</ul>
-<p><strong>Cause</strong>: The default <code>first_release_search_depth</code> (400 commits) doesn’t
-include enough history for your repository’s first release analysis.</p>
-<p><strong>Solution</strong>: Increase the search depth in your <code>releasaurus.toml</code>:</p>
-<pre><code class="language-toml"># Increase commit search depth for first release
+<h3 id="configuring-first-release-search-depth"><a class="header" href="#configuring-first-release-search-depth">Configuring First Release Search Depth</a></h3>
+<p>The <code>first_release_search_depth</code> setting controls how many commits to analyze
+when <strong>no matching tags are found</strong> for a package’s configured prefix. The
+default is 400 commits.</p>
+<p><strong>When this setting applies:</strong></p>
+<p>This setting <strong>only</strong> affects the first release when Releasaurus cannot find
+any existing tags matching your package’s <code>tag_prefix</code>. Once a matching tag
+exists, Releasaurus will analyze all commits back to that tag, regardless of
+this setting.</p>
+<p><strong>What this setting does:</strong></p>
+<ol>
+<li><strong>Limits first release analysis</strong> - Prevents analyzing thousands of
+commits when creating your very first release</li>
+<li><strong>Performance optimization</strong> - Improves speed for repositories with
+extensive commit history but no existing tags</li>
+</ol>
+<p><strong>When to adjust this setting:</strong></p>
+<h4 id="increase-search-depth"><a class="header" href="#increase-search-depth">Increase search depth</a></h4>
+<p>If you want more comprehensive changelogs for your first release:</p>
+<pre><code class="language-toml"># Analyze more commits for first release
 first_release_search_depth = 1000
 
 [[package]]
 path = "."
 </code></pre>
-<p><strong>Note</strong>: This setting only affects the first release when no tags exist. Once
-you have a release tag, subsequent releases automatically find all commits
-since the last tag.</p>
-<h4 id="issue-slow-first-release-analysis"><a class="header" href="#issue-slow-first-release-analysis">Issue: Slow first release analysis</a></h4>
-<p><strong>Symptoms</strong>:</p>
-<ul>
-<li>Long wait times during first release PR creation</li>
-<li>Timeouts in CI/CD environments on initial release</li>
-<li>High API usage during analysis</li>
-</ul>
-<p><strong>Cause</strong>: Searching through extensive commit history for the first release.</p>
-<p><strong>Solution</strong>: Reduce the search depth in your <code>releasaurus.toml</code>:</p>
-<pre><code class="language-toml"># Reduce commit search depth for faster first release analysis
+<p><strong>Use case</strong>: You want your first release changelog to include more commit
+history.</p>
+<h4 id="decrease-search-depth"><a class="header" href="#decrease-search-depth">Decrease search depth</a></h4>
+<p>For faster first release creation:</p>
+<pre><code class="language-toml"># Search fewer commits for better performance
 first_release_search_depth = 100
 
 [[package]]
 path = "."
 </code></pre>
-<p>For CI/CD environments with large repositories:</p>
-<pre><code class="language-toml"># Minimal search depth for CI/CD
-first_release_search_depth = 50
-
-[[package]]
-path = "."
-</code></pre>
-<h4 id="issue-could-not-find-any-releases-despite-having-tags"><a class="header" href="#issue-could-not-find-any-releases-despite-having-tags">Issue: “Could not find any releases” despite having tags</a></h4>
-<p><strong>Symptoms</strong>:</p>
-<ul>
-<li>Repository has existing tags/releases</li>
-<li>Releasaurus acts like it’s the first release</li>
-<li>Version numbers don’t follow expected sequence</li>
-</ul>
-<p><strong>Causes</strong>:</p>
-<ul>
-<li>Configured tag prefixes in <code>releasaurus.toml</code> don’t match existing tags</li>
-<li>Tags exist but don’t follow semantic versioning format</li>
-</ul>
-<p><strong>Solution</strong>: Ensure configured tag prefixes match existing tag patterns in
-your <code>releasaurus.toml</code>:</p>
+<p><strong>Use case</strong>: You want faster first release creation and don’t need extensive
+commit history in the initial changelog.</p>
+<p><strong>Note</strong>: This setting does NOT affect tag discovery. Releasaurus searches
+all tags regardless of this setting. This only limits how many commits are
+analyzed when no matching tags exist.</p>
+<h4 id="issue-releasaurus-doesnt-find-existing-tags"><a class="header" href="#issue-releasaurus-doesnt-find-existing-tags">Issue: Releasaurus doesn’t find existing tags</a></h4>
+<p><strong>Possible causes:</strong></p>
+<ol>
+<li><strong>Tag prefix mismatch</strong> - Your configured <code>tag_prefix</code> doesn’t match
+existing tags</li>
+<li><strong>Tags don’t follow semver</strong> - Existing tags don’t use semantic versioning
+format</li>
+</ol>
+<p><strong>Solutions:</strong></p>
+<p><strong>Match your tag prefix:</strong></p>
 <pre><code class="language-toml">[[package]]
 path = "."
 tag_prefix = "v"  # Must match your existing tags like "v1.0.0"
@@ -258,9 +252,29 @@ tag_prefix = "v"  # Must match your existing tags like "v1.0.0"
 <li>Permission denied messages</li>
 </ul>
 <p><strong>Solutions</strong>:</p>
-<ul>
-<li><strong>Check token scopes</strong> - Ensure your token has required permissions</li>
-</ul>
+<ol>
+<li>
+<p><strong>Verify token is set</strong>:</p>
+<pre><code class="language-bash"># Check environment variable
+echo $GITHUB_TOKEN
+echo $GITLAB_TOKEN
+echo $GITEA_TOKEN
+
+# Or provide via command line
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --token "your_token"
+</code></pre>
+</li>
+<li>
+<p><strong>Check token scopes</strong> - Ensure your token has required permissions (see
+<a href="./environment-variables.html">Environment Variables</a>)</p>
+</li>
+<li>
+<p><strong>Token expiration</strong> - Generate a new token if the current one has expired</p>
+</li>
+</ol>
 <h4 id="issue-repository-not-found-with-valid-repository"><a class="header" href="#issue-repository-not-found-with-valid-repository">Issue: “Repository not found” with valid repository</a></h4>
 <p><strong>Cause</strong>: Token doesn’t have access to the repository or repository URL is
 incorrect.</p>
@@ -269,68 +283,113 @@ incorrect.</p>
 <li>
 <p><strong>Verify repository URL</strong>:</p>
 <pre><code class="language-bash"># Correct format examples
---github-repo "https://github.com/owner/repository"
---gitlab-repo "https://gitlab.com/group/project"
---gitea-repo "https://gitea.example.com/owner/repo"
+--forge github --repo "https://github.com/owner/repository"
+--forge gitlab --repo "https://gitlab.com/group/project"
+--forge gitea --repo "https://gitea.example.com/owner/repo"
 </code></pre>
 </li>
 <li>
 <p><strong>Check repository access</strong> - Ensure your token’s associated account has
 appropriate permissions.</p>
 </li>
+<li>
+<p><strong>Test with local mode first</strong>:</p>
+<pre><code class="language-bash"># Clone the repository and test locally
+git clone https://github.com/owner/repo
+cd repo
+releasaurus show next-release --forge local --repo "."
+</code></pre>
+</li>
 </ol>
 <h2 id="inspecting-projected-releases"><a class="header" href="#inspecting-projected-releases">Inspecting Projected Releases</a></h2>
-<p>Use the <code>projected-release</code> command to inspect what Releasaurus will do before
-creating a PR or making any changes:</p>
+<p>Use the <code>show next-release</code> command to inspect what Releasaurus will do
+before creating a PR or making any changes:</p>
 <pre><code class="language-bash"># See all projected releases
-releasaurus projected-release --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus projected-release --package my-pkg --github-repo "https://github.com/owner/repo"
+releasaurus show next-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Save output to file for detailed inspection
+releasaurus show next-release \
+  --out-file releases.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus projected-release --local-repo "."
+releasaurus show next-release --forge local --repo "."
 </code></pre>
 <p><strong>Use this command to:</strong></p>
 <ul>
 <li><strong>Verify version calculation</strong> - Check if the next version matches your
 expectations</li>
-<li><strong>Inspect commit analysis</strong> - See which commits are included and how they’re
-categorized</li>
+<li><strong>Inspect commit analysis</strong> - See which commits are included and how
+they’re categorized</li>
 <li><strong>Validate configuration</strong> - Ensure <code>releasaurus.toml</code> settings produce
 desired results</li>
 <li><strong>Preview release notes</strong> - Review changelog content before creating a PR</li>
 <li><strong>Debug tag matching</strong> - Verify tag prefix configuration matches repository
 tags</li>
-<li><strong>Test monorepo setup</strong> - Confirm package detection and independent versioning</li>
+<li><strong>Test monorepo setup</strong> - Confirm package detection and independent
+versioning</li>
 </ul>
 <p>The JSON output includes all information that would be used in a release PR,
 making it ideal for diagnosing issues without modifying your repository.</p>
 <h2 id="debug-mode"><a class="header" href="#debug-mode">Debug Mode</a></h2>
 <p>When troubleshooting any issue, enable debug mode for detailed information:</p>
 <pre><code class="language-bash"># Via command line flag
-releasaurus release-pr --debug \
-  --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --debug \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 
 # Or via environment variable
 export RELEASAURUS_DEBUG=true
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 </code></pre>
+<p>Debug output includes:</p>
+<ul>
+<li>Commit analysis and categorization</li>
+<li>Version calculation logic</li>
+<li>File detection and modification details</li>
+<li>API requests and responses</li>
+<li>Tag matching and selection</li>
+</ul>
 <p>See the <a href="./environment-variables.html#releasaurus_debug">Environment Variables</a>
 guide for more details on <code>RELEASAURUS_DEBUG</code>.</p>
 <h2 id="dry-run-mode"><a class="header" href="#dry-run-mode">Dry Run Mode</a></h2>
 <p>Before making changes to your repository, use dry-run mode to safely test and
-diagnose issues. <strong>Note:</strong> Dry-run mode automatically enables debug logging for
-maximum visibility.</p>
+diagnose issues:</p>
+<pre><code class="language-bash"># Via command line flag
+releasaurus release-pr \
+  --dry-run \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Via environment variable
+export RELEASAURUS_DRY_RUN=true
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Note:</strong> Dry-run mode automatically enables debug logging for maximum
+visibility.</p>
 <p>See the <a href="./commands.html#dry-run-mode">Commands</a> guide for complete details.</p>
 <h2 id="local-repository-mode"><a class="header" href="#local-repository-mode">Local Repository Mode</a></h2>
 <p>Test your configuration and diagnose issues against your local repository
 without requiring authentication or making remote changes:</p>
 <pre><code class="language-bash"># Test from current directory
-releasaurus release-pr --local-repo "."
+releasaurus release-pr --forge local --repo "."
 
 # Test from specific path
-releasaurus release-pr --local-repo "/path/to/your/repo"
+releasaurus release-pr --forge local --repo "/path/to/your/repo"
 </code></pre>
 <p><strong>Use local repository mode for:</strong></p>
 <ul>
@@ -360,6 +419,7 @@ details.</p>
 <ul>
 <li>Operating system</li>
 <li>Releasaurus version (<code>releasaurus --version</code>)</li>
+<li>Forge platform and hosting type (e.g., GitHub.com, self-hosted GitLab)</li>
 </ul>
 </li>
 </ol>

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Git Forge Platforms - Releasaurus</title>
+        <title>Changelog Customization - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3d098ed9.js";
+            window.path_to_searchindex_js = "searchindex-3f25e484.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d4dbbafb.js"></script>
+        <script src="toc-f5e2ee4c.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,113 +177,204 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="git-forge-platforms"><a class="header" href="#git-forge-platforms">Git Forge Platforms</a></h1>
-<p>Releasaurus provides unified support for multiple Git forge platforms,
-allowing you to use the same workflow regardless of where your repositories are
-hosted. Whether you’re using GitHub, GitLab, Gitea, or self-hosted instances,
-Releasaurus adapts seamlessly to your platform’s API and conventions.</p>
-<h2 id="supported-platforms"><a class="header" href="#supported-platforms">Supported Platforms</a></h2>
-<h3 id="github"><a class="header" href="#github">GitHub</a></h3>
-<p><strong>Authentication</strong>:</p>
+                        <h1 id="changelog-configuration"><a class="header" href="#changelog-configuration">Changelog Configuration</a></h1>
+<p>Customize changelog generation, filter commits, and format output with
+Tera templates.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>Releasaurus automatically generates changelogs from commit history using
+conventional commits. Customize what’s included and how it’s formatted
+through the <code>[changelog]</code> section.</p>
+<h2 id="quick-configuration"><a class="header" href="#quick-configuration">Quick Configuration</a></h2>
+<h3 id="filter-out-noise"><a class="header" href="#filter-out-noise">Filter Out Noise</a></h3>
+<p>Exclude CI, chore, and non-conventional commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = true
+
+[[package]]
+path = "."
+release_type = "node"
+</code></pre>
+<h3 id="include-author-names"><a class="header" href="#include-author-names">Include Author Names</a></h3>
+<p>Show who made each commit:</p>
+<pre><code class="language-toml">[changelog]
+include_author = true
+
+[[package]]
+path = "."
+release_type = "rust"
+</code></pre>
+<h2 id="commit-filtering-options"><a class="header" href="#commit-filtering-options">Commit Filtering Options</a></h2>
+<h3 id="skip_ci-default-false"><a class="header" href="#skip_ci-default-false"><code>skip_ci</code> (default: false)</a></h3>
+<p>Exclude CI/CD related commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_ci = true  # Excludes "ci: update workflow"
+</code></pre>
+<h3 id="skip_chore-default-false"><a class="header" href="#skip_chore-default-false"><code>skip_chore</code> (default: false)</a></h3>
+<p>Exclude chore commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_chore = true  # Excludes "chore: update deps"
+</code></pre>
+<h3 id="skip_miscellaneous-default-false"><a class="header" href="#skip_miscellaneous-default-false"><code>skip_miscellaneous</code> (default: false)</a></h3>
+<p>Exclude non-conventional commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_miscellaneous = true  # Excludes commits without type prefix
+</code></pre>
+<h3 id="skip_merge_commits-default-true"><a class="header" href="#skip_merge_commits-default-true"><code>skip_merge_commits</code> (default: true)</a></h3>
+<p>Exclude merge commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_merge_commits = false  # Include "Merge pull request #123"
+</code></pre>
+<h3 id="skip_release_commits-default-true"><a class="header" href="#skip_release_commits-default-true"><code>skip_release_commits</code> (default: true)</a></h3>
+<p>Exclude release commits created by Releasaurus:</p>
+<pre><code class="language-toml">[changelog]
+skip_release_commits = false  # Include "chore(main): release v1.0.0"
+</code></pre>
+<h3 id="include_author-default-false"><a class="header" href="#include_author-default-false"><code>include_author</code> (default: false)</a></h3>
+<p>Include commit author names in changelog entries:</p>
+<pre><code class="language-toml">[changelog]
+include_author = true
+</code></pre>
+<h2 id="template-customization"><a class="header" href="#template-customization">Template Customization</a></h2>
+<h3 id="body-template"><a class="header" href="#body-template"><code>body</code> Template</a></h3>
+<p>The main changelog content template using Tera syntax.</p>
+<p><strong>Default template</strong> creates entries starting with <code># [version](link) - date</code>.</p>
+<p><strong>Custom template example:</strong></p>
+<pre><code class="language-toml">[changelog]
+body = """## Release v{{ version }}
+
+Released on {{ timestamp | date(format="%Y-%m-%d") }}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.message }} ({{ commit.short_id }})
+{% endfor %}
+{% endfor %}"""
+</code></pre>
+<h2 id="template-variables"><a class="header" href="#template-variables">Template Variables</a></h2>
+<p>Available in the <code>body</code> template:</p>
+<h3 id="release-variables"><a class="header" href="#release-variables">Release Variables</a></h3>
 <ul>
-<li>Personal Access Tokens (classic)</li>
-<li>Fine-grained Personal Access Tokens</li>
-<li>Environment variable: <code>GITHUB_TOKEN</code></li>
+<li><code>version</code> - Semantic version string (e.g., “1.2.3”)</li>
+<li><code>link</code> - URL to the release</li>
+<li><code>sha</code> - Git commit SHA</li>
+<li><code>timestamp</code> - Unix timestamp</li>
+<li><code>include_author</code> - Boolean flag for author names</li>
 </ul>
-<p><strong>Example Usage</strong>:</p>
-<pre><code class="language-bash">releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release --github-repo "https://github.com/owner/repo"
-</code></pre>
-<h3 id="gitlab"><a class="header" href="#gitlab">GitLab</a></h3>
-<p><strong>Authentication</strong>:</p>
+<h3 id="commit-variables"><a class="header" href="#commit-variables">Commit Variables</a></h3>
+<p>The <code>commits</code> array contains objects with:</p>
 <ul>
-<li>Personal Access Tokens</li>
-<li>Environment variable: <code>GITLAB_TOKEN</code></li>
+<li><code>id</code> - Full commit SHA</li>
+<li><code>short_id</code> - Abbreviated SHA</li>
+<li><code>group</code> - Category (Features, Bug Fixes, etc.)</li>
+<li><code>scope</code> - Optional scope from conventional commit</li>
+<li><code>title</code> - Commit message without type/scope</li>
+<li><code>body</code> - Optional extended description</li>
+<li><code>link</code> - URL to the commit</li>
+<li><code>breaking</code> - Boolean for breaking changes</li>
+<li><code>breaking_description</code> - Breaking change details</li>
+<li><code>merge_commit</code> - Boolean for merge commits</li>
+<li><code>timestamp</code> - Commit timestamp</li>
+<li><code>author_name</code> - Commit author name</li>
+<li><code>author_email</code> - Author email</li>
+<li><code>raw_title</code> - Original unprocessed title</li>
+<li><code>raw_message</code> - Original full message</li>
 </ul>
-<p><strong>Example Usage</strong>:</p>
-<pre><code class="language-bash"># GitLab.com
-releasaurus release-pr --gitlab-repo "https://gitlab.com/group/project"
+<h2 id="practical-examples"><a class="header" href="#practical-examples">Practical Examples</a></h2>
+<h3 id="clean-user-facing-changelog"><a class="header" href="#clean-user-facing-changelog">Clean User-Facing Changelog</a></h3>
+<p>Focus only on features and fixes:</p>
+<pre><code class="language-toml">[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = true
+skip_merge_commits = true
+skip_release_commits = true
 
-# Self-hosted GitLab
-releasaurus release-pr --gitlab-repo "https://gitlab.company.com/team/repo"
+[[package]]
+path = "."
+release_type = "node"
 </code></pre>
-<p><strong>CI/CD Integration</strong>:</p>
-<p>For automated releases with GitLab CI/CD pipelines, see the dedicated
-<a href="./ci-cd-integration.html#gitlab-cicd">CI/CD Integration</a> guide.</p>
-<h3 id="gitea"><a class="header" href="#gitea">Gitea</a></h3>
-<p><strong>Authentication</strong>:</p>
-<ul>
-<li>Access Tokens</li>
-<li>Environment variable: <code>GITEA_TOKEN</code></li>
-</ul>
-<p><strong>Example Usage</strong>:</p>
-<pre><code class="language-bash">releasaurus release-pr --gitea-repo "https://git.company.com/team/project"
-releasaurus release --gitea-repo "https://git.company.com/team/project"
-</code></pre>
-<p><strong>Actions Integration</strong>:</p>
-<p>For automated releases with Gitea Actions workflows, see the dedicated
-<a href="./ci-cd-integration.html#gitea-actions">CI/CD Integration</a> guide.</p>
-<h2 id="authentication-methods"><a class="header" href="#authentication-methods">Authentication Methods</a></h2>
-<p>All platforms use token-based authentication for security and API access.</p>
-<h3 id="command-line-tokens"><a class="header" href="#command-line-tokens">Command-Line Tokens</a></h3>
-<p>Pass tokens directly as command-line arguments:</p>
-<pre><code class="language-bash"># GitHub
-releasaurus release-pr \
-  --github-repo "https://github.com/owner/repo" \
-  --github-token "ghp_xxxxxxxxxxxxxxxxxxxx"
+<h3 id="comprehensive-changelog"><a class="header" href="#comprehensive-changelog">Comprehensive Changelog</a></h3>
+<p>Include everything except merges:</p>
+<pre><code class="language-toml">[changelog]
+skip_ci = false
+skip_chore = false
+skip_miscellaneous = false
+skip_merge_commits = true
+include_author = true
 
-# GitLab
-releasaurus release-pr \
-  --gitlab-repo "https://gitlab.com/owner/repo" \
-  --gitlab-token "glpat_xxxxxxxxxxxxxxxxxxxx"
-
-# Gitea
-releasaurus release-pr \
-  --gitea-repo "https://git.example.com/owner/repo" \
-  --gitea-token "xxxxxxxxxxxxxxxxxx"
+[[package]]
+path = "."
+release_type = "rust"
 </code></pre>
-<h3 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h3>
-<p>Store tokens in environment variables for security and convenience:</p>
-<pre><code class="language-bash"># Set tokens
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
-export GITLAB_TOKEN="glpat_xxxxxxxxxxxxxxxxxxxx"
-export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
+<h3 id="custom-template-with-authors"><a class="header" href="#custom-template-with-authors">Custom Template with Authors</a></h3>
+<pre><code class="language-toml">[changelog]
+include_author = true
+body = """# {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
 
-# Use without --*-token flags
-releasaurus release-pr --github-repo "https://github.com/owner/repo"
-releasaurus release-pr --gitlab-repo "https://gitlab.com/owner/repo"
-releasaurus release-pr --gitea-repo "https://git.example.com/owner/repo"
-</code></pre>
-<h3 id="url-formats"><a class="header" href="#url-formats">URL Formats</a></h3>
-<p>Always use complete HTTP/HTTPS URLs for repository specification:</p>
-<pre><code class="language-bash"># Correct formats
---github-repo "https://github.com/owner/repo"
---gitlab-repo "https://gitlab.com/group/subgroup/project"
---gitea-repo "https://git.example.com/organization/repository"
+{% for group, commits in commits | group_by(attribute="group") %}
+## {{ group }}
+{% for commit in commits %}
+- {{ commit.title }}{% if include_author %} by {{
+commit.author_name }}{% endif %}
+{% endfor %}
+{% endfor %}"""
 
-# Incorrect formats (won't work)
---github-repo "github.com/owner/repo"          # Missing protocol
---github-repo "git@github.com:owner/repo.git"  # SSH not supported
+[[package]]
+path = "."
+release_type = "python"
 </code></pre>
+<h2 id="template-tips"><a class="header" href="#template-tips">Template Tips</a></h2>
+<h3 id="conditional-author-display"><a class="header" href="#conditional-author-display">Conditional Author Display</a></h3>
+<pre><code>{% if include_author %} &lt;{{ commit.author_name }}&gt;{% endif %}
+</code></pre>
+<h3 id="filter-merge-commits"><a class="header" href="#filter-merge-commits">Filter Merge Commits</a></h3>
+<pre><code>{% for commit in commits | filter(attribute="merge_commit",
+value=false) %}
+</code></pre>
+<h3 id="group-by-category"><a class="header" href="#group-by-category">Group by Category</a></h3>
+<pre><code>{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% endfor %}
+</code></pre>
+<h3 id="highlight-breaking-changes"><a class="header" href="#highlight-breaking-changes">Highlight Breaking Changes</a></h3>
+<pre><code>{% if commit.breaking %}
+**BREAKING**: {{ commit.message }}
+{% if commit.breaking_description %}
+&gt; {{ commit.breaking_description }}
+{% endif %}
+{% endif %}
+</code></pre>
+<h2 id="testing-templates"><a class="header" href="#testing-templates">Testing Templates</a></h2>
+<p>Test your template locally before committing changes:</p>
+<pre><code class="language-bash"># See generated changelog with your template
+releasaurus release-pr --forge local --repo "."
+</code></pre>
+<p>Review the output to verify formatting looks correct.</p>
+<h2 id="tera-template-resources"><a class="header" href="#tera-template-resources">Tera Template Resources</a></h2>
+<p>Releasaurus uses the <a href="https://keats.github.io/tera/">Tera</a> templating
+engine. See the Tera documentation for advanced filtering and
+formatting options.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
-<li>Refer to the platform-specific sections above for detailed information
-about supported features</li>
-<li>Check <a href="./troubleshooting.html">Troubleshooting</a> for common issues</li>
+<li><a href="./configuration.html">Configuration Overview</a> - Main configuration
+guide</li>
+<li><a href="./configuration-prerelease.html">Prerelease Configuration</a> -
+Alpha/beta releases</li>
+<li><a href="./configuration-reference.html">Configuration Reference</a> - All options</li>
 </ul>
-<p>The unified forge platform support in Releasaurus means you can focus on your
-release process rather than platform-specific differences, enabling consistent
-workflows across your entire organization’s repositories.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="supported-languages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration-prerelease.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="configuration-monorepo.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -293,11 +384,11 @@ workflows across your entire organization’s repositories.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="supported-languages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration-prerelease.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="configuration-monorepo.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

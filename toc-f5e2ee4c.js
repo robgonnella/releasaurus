@@ -8,7 +8,7 @@ class MDBookSidebarScrollbox extends HTMLElement {
         super();
     }
     connectedCallback() {
-        this.innerHTML = '<ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="introduction.html">Introduction</a></span></li><li class="chapter-item expanded "><li class="part-title">Getting Started</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="quick-start.html"><strong aria-hidden="true">2.</strong> Quick Start</a></span></li><li class="chapter-item expanded "><li class="part-title">User Guide</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="commands.html"><strong aria-hidden="true">3.</strong> Commands</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="ci-cd-integration.html"><strong aria-hidden="true">4.</strong> CI/CD Integration</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="supported-languages.html"><strong aria-hidden="true">6.</strong> Supported Languages &amp; Frameworks</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="forge-platforms.html"><strong aria-hidden="true">7.</strong> Git Forge Platforms</a></span></li><li class="chapter-item expanded "><li class="part-title">Configuration</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration.html"><strong aria-hidden="true">8.</strong> Configuration File</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="environment-variables.html"><strong aria-hidden="true">9.</strong> Environment Variables</a></span></li><li class="chapter-item expanded "><li class="part-title">About</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="why-releasaurus.html"><strong aria-hidden="true">10.</strong> Why Releasaurus?</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="contributing.html"><strong aria-hidden="true">11.</strong> Contributing</a></span></li></ol>';
+        this.innerHTML = '<ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="introduction.html">Introduction</a></span></li><li class="chapter-item expanded "><li class="part-title">Getting Started</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="quick-start.html"><strong aria-hidden="true">2.</strong> Quick Start</a></span></li><li class="chapter-item expanded "><li class="part-title">User Guide</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="commands.html"><strong aria-hidden="true">3.</strong> Commands</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="ci-cd-integration.html"><strong aria-hidden="true">4.</strong> CI/CD Integration</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="supported-languages.html"><strong aria-hidden="true">6.</strong> Supported Languages &amp; Frameworks</a></span></li><li class="chapter-item expanded "><li class="part-title">Configuration</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration.html"><strong aria-hidden="true">7.</strong> Configuration File</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration-prerelease.html"><strong aria-hidden="true">7.1.</strong> Prerelease Versions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration-changelog.html"><strong aria-hidden="true">7.2.</strong> Changelog Customization</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration-monorepo.html"><strong aria-hidden="true">7.3.</strong> Monorepo Setup</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="configuration-reference.html"><strong aria-hidden="true">7.4.</strong> Configuration Reference</a></span></li></ol><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="environment-variables.html"><strong aria-hidden="true">8.</strong> Environment Variables</a></span></li><li class="chapter-item expanded "><li class="part-title">About</li></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="contributing.html"><strong aria-hidden="true">9.</strong> Contributing</a></span></li></ol>';
         // Set the current, active page, and reveal it if it's hidden
         let current_page = document.location.href.toString().split('#')[0].split('?')[0];
         if (current_page.endsWith('/')) {
@@ -40,14 +40,22 @@ class MDBookSidebarScrollbox extends HTMLElement {
         // Track and set sidebar scroll position
         this.addEventListener('click', e => {
             if (e.target.tagName === 'A') {
-                sessionStorage.setItem('sidebar-scroll', this.scrollTop);
+                const clientRect = e.target.getBoundingClientRect();
+                const sidebarRect = this.getBoundingClientRect();
+                sessionStorage.setItem('sidebar-scroll-offset', clientRect.top - sidebarRect.top);
             }
         }, { passive: true });
-        const sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-        sessionStorage.removeItem('sidebar-scroll');
-        if (sidebarScrollTop) {
+        const sidebarScrollOffset = sessionStorage.getItem('sidebar-scroll-offset');
+        sessionStorage.removeItem('sidebar-scroll-offset');
+        if (sidebarScrollOffset !== null) {
             // preserve sidebar scroll position when navigating via links within sidebar
-            this.scrollTop = sidebarScrollTop;
+            const activeSection = this.querySelector('.active');
+            if (activeSection) {
+                const clientRect = activeSection.getBoundingClientRect();
+                const sidebarRect = this.getBoundingClientRect();
+                const currentOffset = clientRect.top - sidebarRect.top;
+                this.scrollTop += currentOffset - parseFloat(sidebarScrollOffset);
+            }
         } else {
             // scroll sidebar to current active section when navigating via
             // 'next/previous chapter' buttons
