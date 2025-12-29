@@ -1,3 +1,63 @@
+# [0.8.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.8.0) - 2025-12-20
+
+### 🚀 Features
+
+- implements prerelease cli overrides [_(7864e23)_](https://github.com/robgonnella/releasaurus/commit/7864e235127daf72b030ceb047219eca8c6269ab) (Rob Gonnella)
+
+- implements start-next feature [_(b451611)_](https://github.com/robgonnella/releasaurus/commit/b451611f9eb2854728b446e806068c6f4758bbd6) (Rob Gonnella)
+
+- implements "show release" command [_(ecb945a)_](https://github.com/robgonnella/releasaurus/commit/ecb945a221e3389a2e862ee69280919b3bc592cb) (Rob Gonnella)
+
+- implements base_branch feature [_(8876a9c)_](https://github.com/robgonnella/releasaurus/commit/8876a9cdc2e60b435fd3c8b926c1b3e645a5be88) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- fixes issues with ci actions [_(b441fbb)_](https://github.com/robgonnella/releasaurus/commit/b441fbbf19cee52ae10ec638e1968dd170b75107) (Rob Gonnella)
+
+- fixes default group sorting in generated changelog [_(68f8ec7)_](https://github.com/robgonnella/releasaurus/commit/68f8ec77e20ca35ace1a8ce735082b4f52ae912e) (Rob Gonnella)
+
+- fixes bug in start-next command [_(b4a38d7)_](https://github.com/robgonnella/releasaurus/commit/b4a38d7e70c68af8a12a31d93aff9c71eb0f15fa) (Rob Gonnella)
+
+- ensures correct base_branch is used in forge.create_release_branch [_(8974d3f)_](https://github.com/robgonnella/releasaurus/commit/8974d3f3c1c32e1743537fd854a1951bf004be58) (Rob Gonnella)
+
+- fixes issues in base_branch implementation [_(dd950c0)_](https://github.com/robgonnella/releasaurus/commit/dd950c0508a6751abf957dd33e056b6e1ab7f194) (Rob Gonnella)
+
+- addresses issue in gitlab forge `get_merged_release_pr` [_(baa75bd)_](https://github.com/robgonnella/releasaurus/commit/baa75bd5eb68746bbc679659b94c805465702576) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- introduces FileLoader trait [_(434af51)_](https://github.com/robgonnella/releasaurus/commit/434af51ea859e9ad94c7f75838444dbb856f65ba) (Rob Gonnella)
+
+- removes duplication of logs across forges [_(7a45e6e)_](https://github.com/robgonnella/releasaurus/commit/7a45e6eed040c7762d273e5168086875336df890) (Rob Gonnella)
+
+- implements factory pattern for creating forges [_(9d488cd)_](https://github.com/robgonnella/releasaurus/commit/9d488cda2958847b4e2131d4a080f5d655494c6d) (Rob Gonnella)
+
+- uses strategies architecture for next version [_(0be5f51)_](https://github.com/robgonnella/releasaurus/commit/0be5f51b01ba50f0cf32c51e1a8b4a4cf17d27d5) (Rob Gonnella)
+
+- removes unnecessary derives of Clone trait [_(8adcda7)_](https://github.com/robgonnella/releasaurus/commit/8adcda76df1425ebc764e43b60e15aa2b41501e9) (Rob Gonnella)
+
+- improves error handling with dedicated types [_(5005e0e)_](https://github.com/robgonnella/releasaurus/commit/5005e0e0653e9b3bb1b9e6e10b36e9d5f497a652) (Rob Gonnella)
+
+- reduces code duplication in updaters [_(976b2b2)_](https://github.com/robgonnella/releasaurus/commit/976b2b2abf8784f773d3c0a2ac04d8fa8963bcb1) (Rob Gonnella)
+
+### ⚡ Performance
+
+- improves handling of updaters [_(bf531ef)_](https://github.com/robgonnella/releasaurus/commit/bf531ef0b9f957524034554dd00d8f2779446c5a) (Rob Gonnella)
+
+- improves handling of RemoteConfig in forges [_(96b5b34)_](https://github.com/robgonnella/releasaurus/commit/96b5b34d37a3e8fdf46dfba9e2a3f7b5bf1bd0d5) (Rob Gonnella)
+
+- improves string handling in forges [_(3f83aff)_](https://github.com/robgonnella/releasaurus/commit/3f83aff26fd761e8ce056129f4d208b2195244b4) (Rob Gonnella)
+
+- improves performance by reducing cloning [_(b7fc8b9)_](https://github.com/robgonnella/releasaurus/commit/b7fc8b97dd523675d1367b110ec0e7a9520aa757) (Rob Gonnella)
+
+### 📚 Documentation
+
+- improves documentation [_(082a564)_](https://github.com/robgonnella/releasaurus/commit/082a564a81447b1a45d98ae54c21ad68172d0e65) (Rob Gonnella)
+
+### 🧪 Testing
+
+- adds integration tests for forges [_(5bc9812)_](https://github.com/robgonnella/releasaurus/commit/5bc98128f600682d2d7a1d635c066d938820832d) (Rob Gonnella)
+
 # [0.7.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.7.1) - 2025-12-07
 
 ### 🐛 Bug Fixes
