@@ -362,6 +362,10 @@ CI/CD pipelines.
   suffix. This is applied to all packages
 - `--prerelease-strategy <strategy>` - Set global prerelease strategy
   (`versioned` or `static`). This is applied to all packages
+- `--skip-sha <sha>` - Skip specific commits by SHA prefix (7+ characters).
+  Can be used multiple times to skip multiple commits
+- `--reword <sha>=<message>` - Rewrite a commit message. Use format
+  `sha=new message`. Can be used multiple times for multiple commits
 - `--set-package <package_name>.<property>=<value>` - Override
   package-specific properties. The takes precedence over all global overrides
   and config. Not all properties are overridable. If you try to set an
@@ -411,6 +415,13 @@ releasaurus release-pr \
   --base-branch staging \
   --prerelease-suffix alpha \ # applies to all packages
   --set-package frontend.prerelease.suffix=beta \ # applies only to frontend
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Skip specific commits and reword others
+releasaurus release-pr \
+  --skip-sha abc123d \
+  --reword "def456e=feat: improved authentication" \
   --forge github \
   --repo "https://github.com/owner/repo"
 ```

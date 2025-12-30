@@ -93,9 +93,11 @@ async fn main() -> Result<()> {
 
     let global_overrides = cli.get_global_overrides();
     let package_overrides = cli.get_package_overrides()?;
+    let commit_modifiers = cli.get_commit_modifiers();
 
     log::debug!("global overrides: {:#?}", global_overrides);
     log::debug!("package overrides: {:#?}", package_overrides);
+    log::debug!("commit modifiers: {:#?}", commit_modifiers);
 
     let mut config = forge_manager
         .load_config(global_overrides.base_branch.clone())
@@ -111,7 +113,8 @@ async fn main() -> Result<()> {
         release_link_base_url,
         package_overrides,
         global_overrides,
-    );
+        commit_modifiers,
+    )?;
 
     match cli.command {
         Command::ReleasePR { .. } => {

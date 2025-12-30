@@ -76,6 +76,8 @@
         "skip_miscellaneous": false,
         "skip_merge_commits": true,
         "skip_release_commits": true,
+        "skip_shas": null,
+        "reword": null,
         "include_author": false
       }
     },
@@ -173,12 +175,52 @@
           "type": "boolean",
           "default": true
         },
+        "skip_shas": {
+          "description": "Skips targeted commit shas (or prefixes) when generating next version\nand changelog. Each value matches any commit whose SHA starts with the\nprovided value",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "reword": {
+          "description": "Rewords commit messages for targeted shas when generated changelog.\nEach SHA can be a prefix - matches any commit whose SHA starts with the\nprovided value",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/RewordedCommit"
+          },
+          "default": null
+        },
         "include_author": {
           "description": "Includes commit author name in default body template",
           "type": "boolean",
           "default": false
         }
       }
+    },
+    "RewordedCommit": {
+      "description": "Rewords messages in changelog for targeted commit shas",
+      "type": "object",
+      "properties": {
+        "sha": {
+          "description": "Sha (or prefix) of the commit to reword. Matches any commit whose SHA\nstarts with this value",
+          "type": "string"
+        },
+        "message": {
+          "description": "The new message to display in changelog",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha",
+        "message"
+      ]
     },
     "PackageConfig": {
       "description": "Package configuration for multi-package repositories and monorepos",

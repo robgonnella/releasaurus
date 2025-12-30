@@ -132,6 +132,35 @@ impl<'a> Analyzer<'a> {
 
         // loop commits in reverse oldest -> newest
         for forge_commit in commits.iter() {
+            if self
+                .config
+                .commit_modifiers
+                .skip_shas
+                .iter()
+                .any(|sha| forge_commit.id.starts_with(sha))
+            {
+                log::debug!(
+                    "skip_shas contains commit it: skipping {}",
+                    forge_commit.id
+                );
+                continue;
+            }
+            let forge_commit = if let Some(reworded) = self
+                .config
+                .commit_modifiers
+                .reword
+                .iter()
+                .find(|r| forge_commit.id.starts_with(&r.sha))
+            {
+                log::debug!("rewording commit: {}", forge_commit.id);
+                &ForgeCommit {
+                    message: reworded.message.clone(),
+                    ..forge_commit.clone()
+                }
+            } else {
+                forge_commit
+            };
+
             // add commit details to release
             helpers::update_release_with_commit(
                 &self.group_parser,

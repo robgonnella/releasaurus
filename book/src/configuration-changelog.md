@@ -95,6 +95,57 @@ Include commit author names in changelog entries:
 include_author = true
 ```
 
+### `skip_shas` (default: none)
+
+Skip specific commits by SHA prefix:
+
+```toml
+[changelog]
+skip_shas = ["abc123d", "def456e"]
+
+[[package]]
+path = "."
+release_type = "rust"
+```
+
+Use short SHA prefixes (7+ characters). Useful for excluding commits that
+shouldn't affect versioning or appear in changelogs.
+
+**CLI override:**
+
+```bash
+releasaurus release-pr --skip-sha "abc123d"
+```
+
+### `reword`
+
+Rewrite commit messages in the changelog:
+
+```toml
+[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected security vulnerability"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: added user authentication"
+
+[[package]]
+path = "."
+release_type = "node"
+```
+
+Use SHA prefixes to match commits. The reworded message affects both
+changelog content and version calculation (e.g., changing `fix:` to `feat:`
+bumps minor instead of patch).
+
+**CLI override:**
+
+```bash
+releasaurus release-pr --skip-sha "abc123d" \
+  --reword "def456e=feat: improved feature"
+```
+
 ## Template Customization
 
 ### `body` Template

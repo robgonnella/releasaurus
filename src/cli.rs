@@ -14,7 +14,7 @@ pub mod types;
 
 use crate::{
     Result,
-    config::prerelease::PrereleaseStrategy,
+    config::{changelog::RewordedCommit, prerelease::PrereleaseStrategy},
     error::ReleasaurusError,
     forge::config::{Remote, RemoteConfig},
 };
@@ -111,6 +111,51 @@ pub struct SharedCommandOverrides {
     prerelease_strategy: Option<PrereleaseStrategy>,
 }
 
+#[derive(Debug, Clone, Default, Args)]
+pub struct CommitModifiers {
+    /// Commit sha (or prefix) to skip when calculating next version and
+    /// generating changelog. Matches any commit whose SHA starts with the
+    /// provided value. Can be provided more than once to skip multiple commits
+    #[arg(long = "skip-sha", value_parser = validate_sha, value_name = "SKIP_SHA")]
+    pub skip_shas: Vec<String>,
+
+    /// Rewords a commit message when generating changelog. Must be in the
+    /// form "sha=message". The SHA can be a prefix - matches any commit whose
+    /// SHA starts with the provided value. Can be provided more than once to
+    /// reword multiple commits
+    /// Example: --reword "abc123de=fix: a new message\n\nMore content"
+    #[arg(long, value_parser = parse_reworded_commit, value_name = "KEY=VALUE")]
+    pub reword: Vec<RewordedCommit>,
+}
+
+/// Validates that a string is a valid git commit SHA (7-40 hex characters)
+pub fn validate_sha(sha: &str) -> Result<String> {
+    let trimmed = sha.trim();
+
+    if trimmed.len() < 7 {
+        return Err(ReleasaurusError::invalid_config(format!(
+            "Invalid commit SHA: '{}'. Must be at least 7 characters",
+            sha
+        )));
+    }
+
+    if trimmed.len() > 40 {
+        return Err(ReleasaurusError::invalid_config(format!(
+            "Invalid commit SHA: '{}'. Must not exceed 40 characters",
+            sha
+        )));
+    }
+
+    if !trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(ReleasaurusError::invalid_config(format!(
+            "Invalid commit SHA: '{}'. Must contain only hexadecimal characters (0-9, a-f)",
+            sha
+        )));
+    }
+
+    Ok(trimmed.to_string())
+}
+
 fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
     let parts: Vec<&str> = s.splitn(2, '=').collect();
     if parts.len() != 2 {
@@ -139,6 +184,27 @@ fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
     })
 }
 
+fn parse_reworded_commit(s: &str) -> Result<RewordedCommit> {
+    let parts: Vec<&str> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        return Err(ReleasaurusError::invalid_config(format!(
+            "Invalid --reword format: '{}'. Expected 'commit_sha=new_message'. Example: --reword 'abc123de=fix: corrected message'",
+            s
+        )));
+    }
+
+    let sha = parts[0];
+    let message = parts[1];
+
+    // Validate the commit SHA format and get the trimmed version
+    let validated_sha = validate_sha(sha)?;
+
+    Ok(RewordedCommit {
+        sha: validated_sha,
+        message: message.into(),
+    })
+}
+
 #[derive(Subcommand, Debug, Clone)]
 pub enum ShowCommand {
     /// Outputs the projected next release in json
@@ -149,6 +215,9 @@ pub enum ShowCommand {
         /// Optionally restrict output to just 1 specific package
         #[arg(short, long)]
         package: Option<String>,
+
+        #[command(flatten)]
+        commit_modifiers: CommitModifiers,
 
         #[command(flatten)]
         overrides: SharedCommandOverrides,
@@ -170,6 +239,9 @@ pub enum ShowCommand {
 pub enum Command {
     /// Analyze commits and create a release pull request
     ReleasePR {
+        #[command(flatten)]
+        commit_modifiers: CommitModifiers,
+
         #[command(flatten)]
         overrides: SharedCommandOverrides,
     },
@@ -198,6 +270,21 @@ pub enum Command {
 }
 
 impl Cli {
+    pub fn get_commit_modifiers(&self) -> CommitModifiers {
+        match &self.command {
+            Command::ReleasePR {
+                commit_modifiers, ..
+            } => commit_modifiers.to_owned(),
+            Command::Show {
+                command:
+                    ShowCommand::NextRelease {
+                        commit_modifiers, ..
+                    },
+            } => commit_modifiers.to_owned(),
+            _ => CommitModifiers::default(),
+        }
+    }
+
     /// Gathers the list of provided path override options, like
     /// --releasaurus.prerelease.suffix=beta, and collects them into a single
     /// struct of all allowed overrides properties for each package name.
@@ -445,6 +532,7 @@ mod tests {
             token: Some(token),
             base_branch: None,
             command: Command::ReleasePR {
+                commit_modifiers: CommitModifiers::default(),
                 overrides: SharedCommandOverrides {
                     package_overrides: vec![],
                     prerelease_strategy: None,
@@ -494,6 +582,7 @@ mod tests {
                 command: ShowCommand::NextRelease {
                     out_file: None,
                     package: None,
+                    commit_modifiers: CommitModifiers::default(),
                     overrides: SharedCommandOverrides {
                         package_overrides: vec![],
                         prerelease_strategy: None,
@@ -520,6 +609,7 @@ mod tests {
             token: None,
             base_branch: None,
             command: Command::ReleasePR {
+                commit_modifiers: CommitModifiers::default(),
                 overrides: SharedCommandOverrides {
                     package_overrides: vec![],
                     prerelease_suffix: None,
@@ -555,5 +645,98 @@ mod tests {
 
         let result = cli_config.get_remote();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_sha_accepts_valid_short_sha() {
+        validate_sha("abc123d").unwrap();
+    }
+
+    #[test]
+    fn validate_sha_accepts_valid_full_sha() {
+        validate_sha("abc123def456789012345678901234567890abcd").unwrap();
+    }
+
+    #[test]
+    fn validate_sha_rejects_too_short() {
+        let result = validate_sha("abc123");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ReleasaurusError::InvalidConfig(_)
+        ));
+    }
+
+    #[test]
+    fn validate_sha_rejects_too_long() {
+        let result = validate_sha("abc123def456789012345678901234567890abcdef");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ReleasaurusError::InvalidConfig(_)
+        ));
+    }
+
+    #[test]
+    fn validate_sha_rejects_non_hex_characters() {
+        let result = validate_sha("abc123g");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ReleasaurusError::InvalidConfig(_)
+        ));
+    }
+
+    #[test]
+    fn validate_sha_accepts_uppercase_hex() {
+        validate_sha("ABC123D").unwrap();
+    }
+
+    #[test]
+    fn validate_sha_trims_whitespace() {
+        validate_sha("  abc123d  ").unwrap();
+    }
+
+    #[test]
+    fn parse_reworded_commit_succeeds_with_valid_sha() {
+        let reworded =
+            parse_reworded_commit("abc123d=fix: new message").unwrap();
+        assert_eq!(reworded.sha, "abc123d");
+        assert_eq!(reworded.message, "fix: new message");
+    }
+
+    #[test]
+    fn parse_reworded_commit_fails_with_invalid_sha() {
+        let result = parse_reworded_commit("abc=fix: new message");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ReleasaurusError::InvalidConfig(_)
+        ));
+    }
+
+    #[test]
+    fn parse_reworded_commit_fails_with_missing_equals() {
+        let result = parse_reworded_commit("abc123dfix: new message");
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ReleasaurusError::InvalidConfig(_)
+        ));
+    }
+
+    #[test]
+    fn parse_reworded_commit_handles_multiline_message() {
+        let reworded =
+            parse_reworded_commit("abc123d=fix: new message\n\nMore content")
+                .unwrap();
+        assert_eq!(reworded.message, "fix: new message\n\nMore content");
+    }
+
+    #[test]
+    fn parse_reworded_commit_trims_sha_whitespace() {
+        let reworded =
+            parse_reworded_commit("  abc123d  =fix: new message").unwrap();
+        assert_eq!(reworded.sha, "abc123d");
     }
 }

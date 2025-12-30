@@ -32,6 +32,7 @@ first_release_search_depth = 400
 ```
 
 **When to adjust:**
+
 - Large repos: decrease to 100-200 for faster analysis
 - Need more history: increase to 1000+
 - CI/CD: use smaller values for speed
@@ -145,6 +146,7 @@ suffix = "alpha"
 **Default**: "versioned"
 
 Prerelease versioning strategy:
+
 - `"versioned"` - Adds incremental counter (`.1`, `.2`)
 - `"static"` - Uses suffix as-is
 
@@ -243,6 +245,38 @@ Include commit author names in changelog.
 include_author = true
 ```
 
+#### `skip_shas`
+
+**Type**: Array of strings (optional)
+
+**Default**: None
+
+Skip specific commits by SHA prefix. Use 7+ character prefixes.
+
+```toml
+[changelog]
+skip_shas = ["abc123d", "def456e"]
+```
+
+#### `reword`
+
+**Type**: Array of objects (optional)
+
+**Default**: None
+
+Rewrite commit messages for specific commits. Affects both changelog and
+version calculation.
+
+```toml
+[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected description"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: improved feature"
+```
+
 #### `body`
 
 **Type**: String (optional)
@@ -312,6 +346,7 @@ path = "packages/backend"
 **Default**: None
 
 Language/framework for version file updates:
+
 - `"rust"` - Cargo.toml, Cargo.lock
 - `"node"` - package.json, lock files
 - `"python"` - pyproject.toml, setup.py, setup.cfg
@@ -333,6 +368,7 @@ release_type = "node"
 **Default**: Derived from package name
 
 Git tag prefix. Defaults:
+
 - Root packages: `"v"`
 - Nested packages: `"<name>-v"`
 

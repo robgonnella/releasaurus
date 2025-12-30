@@ -13,12 +13,12 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - uses: robgonnella/releasaurus/action/gitea/release@v0.8.0
+    - uses: robgonnella/releasaurus/action/gitea/release@v0.9.0
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
         debug: ${{ inputs.debug }}
-    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.8.0
+    - uses: robgonnella/releasaurus/action/gitea/release-pr@v0.9.0
       with:
         repo: ${{ inputs.repo }}
         token: ${{ inputs.token }}
