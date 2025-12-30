@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robgonnella/releasaurus)
+
 # Releasaurus
 
 A comprehensive release automation tool that streamlines the software release
