@@ -104,6 +104,7 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
+        cli::CommitModifiers,
         config::{
             Config,
             package::{PackageConfig, PackageConfigBuilder},
@@ -213,6 +214,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: None,
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,
@@ -251,6 +253,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: Some("pkg-a".to_string()),
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,
@@ -274,6 +277,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: None,
             package: None,
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,
@@ -301,6 +305,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: Some(out_file_str),
             package: None,
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,
@@ -350,6 +355,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: Some("/tmp/filtered.json".to_string()),
             package: Some("pkg-a".to_string()),
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,
@@ -400,6 +406,7 @@ mod tests {
         let cmd = ShowCommand::NextRelease {
             out_file: Some("/tmp/filtered.json".to_string()),
             package: Some("pkg-a".to_string()),
+            commit_modifiers: CommitModifiers::default(),
             overrides: crate::cli::SharedCommandOverrides {
                 package_overrides: vec![],
                 prerelease_suffix: None,

@@ -3,7 +3,7 @@
 use derive_builder::Builder;
 use regex::Regex;
 
-use crate::config::prerelease::PrereleaseConfig;
+use crate::{cli::CommitModifiers, config::prerelease::PrereleaseConfig};
 
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -59,6 +59,9 @@ pub struct AnalyzerConfig {
     pub custom_major_increment_regex: Option<String>,
     /// Custom commit type regex matcher to increment minor version
     pub custom_minor_increment_regex: Option<String>,
+    /// Custom commit modifiers to skip commit shas or reword commit messages
+    /// when generating changelog content
+    pub commit_modifiers: CommitModifiers,
 }
 
 impl Default for AnalyzerConfig {
@@ -79,6 +82,7 @@ impl Default for AnalyzerConfig {
             features_always_increment_minor: true,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
+            commit_modifiers: CommitModifiers::default(),
         }
     }
 }

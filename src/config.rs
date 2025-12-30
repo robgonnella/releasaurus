@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Result,
     analyzer::config::AnalyzerConfig,
-    cli::{GlobalOverrides, PackageOverrides},
+    cli::{CommitModifiers, GlobalOverrides, PackageOverrides, validate_sha},
     config::package::{DEFAULT_TAG_PREFIX, PackageConfig},
     error::ReleasaurusError,
     forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
@@ -89,7 +89,8 @@ impl Config {
         release_link_base_url: &str,
         package_overrides: HashMap<String, PackageOverrides>,
         global_overrides: GlobalOverrides,
-    ) -> Config {
+        commit_modifiers: CommitModifiers,
+    ) -> Result<Config> {
         let base_branch = global_overrides
             .base_branch
             .or_else(|| self.base_branch.take())
@@ -198,6 +199,42 @@ impl Config {
                 .take()
                 .or_else(|| self.custom_minor_increment_regex.clone());
 
+            let mut skip_shas = commit_modifiers.skip_shas.to_owned();
+
+            if skip_shas.is_empty()
+                && let Some(list) = self.changelog.skip_shas.take()
+            {
+                // Validate SHAs from config file
+                for sha in &list {
+                    validate_sha(sha).map_err(|e| {
+                        ReleasaurusError::invalid_config(format!(
+                            "Invalid SHA in changelog.skip_shas: {}",
+                            e
+                        ))
+                    })?;
+                }
+                skip_shas = list;
+            }
+
+            let mut reword = commit_modifiers.reword.to_owned();
+
+            if reword.is_empty()
+                && let Some(list) = self.changelog.reword.take()
+            {
+                // Validate SHAs from config file
+                for entry in &list {
+                    validate_sha(&entry.sha).map_err(|e| {
+                        ReleasaurusError::invalid_config(format!(
+                            "Invalid SHA in changelog.reword: {}",
+                            e
+                        ))
+                    })?;
+                }
+                reword = list;
+            }
+
+            let commit_modifiers = CommitModifiers { skip_shas, reword };
+
             package.analyzer_config = AnalyzerConfig {
                 body: self.changelog.body.clone(),
                 breaking_always_increment_major,
@@ -214,11 +251,12 @@ impl Config {
                 skip_miscellaneous: self.changelog.skip_miscellaneous,
                 skip_release_commits: self.changelog.skip_release_commits,
                 tag_prefix: package.tag_prefix.clone(),
+                commit_modifiers,
             }
         }
 
         // drop mutability
-        self.clone()
+        Ok(self.clone())
     }
 
     pub fn base_branch(&self) -> Result<String> {
@@ -238,7 +276,10 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use crate::{
-        config::prerelease::PrereleaseStrategy,
+        config::{
+            changelog::{ChangelogConfig, RewordedCommit},
+            prerelease::PrereleaseStrategy,
+        },
         forge::config::DEFAULT_COMMIT_SEARCH_DEPTH,
     };
 
@@ -315,13 +356,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            global_overrides,
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                global_overrides,
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.base_branch, Some("develop".into()));
     }
@@ -333,13 +377,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "test-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.base_branch, Some("staging".into()));
     }
@@ -348,13 +395,16 @@ mod tests {
     fn resolve_uses_repo_default_branch_as_fallback() {
         let mut config = Config::default();
 
-        let resolved = config.resolve(
-            "test-repo",
-            "trunk",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "trunk",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.base_branch, Some("trunk".into()));
     }
@@ -370,14 +420,18 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "my-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
+        assert_eq!(resolved.base_branch, Some("main".into()));
         assert_eq!(resolved.packages[0].name, "my-repo");
     }
 
@@ -392,13 +446,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.packages[0].name, "api");
     }
@@ -414,13 +471,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.packages[0].name, "custom-name");
     }
@@ -436,13 +496,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.packages[0].tag_prefix, Some("v".into()));
     }
@@ -458,13 +521,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.packages[0].tag_prefix, Some("api-v".into()));
     }
@@ -481,13 +547,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert_eq!(resolved.packages[0].tag_prefix, Some("my-prefix-v".into()));
     }
@@ -510,13 +579,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let prerelease = resolved.packages[0].prerelease.as_ref().unwrap();
         assert_eq!(prerelease.suffix, Some("beta".into()));
@@ -543,13 +615,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            global_overrides,
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                global_overrides,
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let prerelease = resolved.packages[0].prerelease.as_ref().unwrap();
         assert_eq!(prerelease.suffix, Some("rc".into()));
@@ -588,13 +663,16 @@ mod tests {
             },
         );
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            package_overrides,
-            global_overrides,
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                package_overrides,
+                global_overrides,
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let prerelease = resolved.packages[0].prerelease.as_ref().unwrap();
         assert_eq!(prerelease.suffix, Some("gamma".into()));
@@ -615,13 +693,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         assert!(resolved.packages[0].prerelease.is_none());
     }
@@ -640,13 +721,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let prerelease = resolved.packages[0].prerelease.as_ref().unwrap();
         assert_eq!(prerelease.suffix, Some("beta".into()));
@@ -664,13 +748,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let analyzer_config = &resolved.packages[0].analyzer_config;
         assert_eq!(
@@ -695,13 +782,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let analyzer_config = &resolved.packages[0].analyzer_config;
         assert_eq!(
@@ -722,13 +812,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "test-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         let analyzer_config = &resolved.packages[0].analyzer_config;
         assert!(!analyzer_config.breaking_always_increment_major);
@@ -760,13 +853,16 @@ mod tests {
             ..Default::default()
         };
 
-        let resolved = config.resolve(
-            "test-repo",
-            "main",
-            "https://example.com",
-            HashMap::new(),
-            GlobalOverrides::default(),
-        );
+        let resolved = config
+            .resolve(
+                "my-repo",
+                "main",
+                "https://example.com",
+                HashMap::new(),
+                GlobalOverrides::default(),
+                CommitModifiers::default(),
+            )
+            .unwrap();
 
         // All packages should get the global regex config
         for package in resolved.packages.iter() {
@@ -783,5 +879,133 @@ mod tests {
                 package.name
             );
         }
+    }
+
+    #[test]
+    fn resolve_rejects_invalid_skip_sha() {
+        let mut config = Config {
+            changelog: ChangelogConfig {
+                skip_shas: Some(vec!["abc".into()]), // Too short
+                ..Default::default()
+            },
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let result = config.resolve(
+            "test-repo",
+            "main",
+            "https://example.com",
+            HashMap::new(),
+            GlobalOverrides::default(),
+            CommitModifiers::default(),
+        );
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid SHA in changelog.skip_shas")
+        );
+    }
+
+    #[test]
+    fn resolve_rejects_invalid_reword_sha() {
+        let mut config = Config {
+            changelog: ChangelogConfig {
+                reword: Some(vec![RewordedCommit {
+                    sha: "xyz".into(), // Too short
+                    message: "new message".into(),
+                }]),
+                ..Default::default()
+            },
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let result = config.resolve(
+            "test-repo",
+            "main",
+            "https://example.com",
+            HashMap::new(),
+            GlobalOverrides::default(),
+            CommitModifiers::default(),
+        );
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid SHA in changelog.reword")
+        );
+    }
+
+    #[test]
+    fn resolve_accepts_valid_skip_shas() {
+        let mut config = Config {
+            changelog: ChangelogConfig {
+                skip_shas: Some(vec!["abc123d".into(), "def456e".into()]),
+                ..Default::default()
+            },
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let result = config.resolve(
+            "test-repo",
+            "main",
+            "https://example.com",
+            HashMap::new(),
+            GlobalOverrides::default(),
+            CommitModifiers::default(),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn resolve_accepts_valid_reword_shas() {
+        let mut config = Config {
+            changelog: ChangelogConfig {
+                reword: Some(vec![
+                    RewordedCommit {
+                        sha: "abc123d".into(),
+                        message: "fix: corrected message".into(),
+                    },
+                    RewordedCommit {
+                        sha: "def456e".into(),
+                        message: "feat: new feature".into(),
+                    },
+                ]),
+                ..Default::default()
+            },
+            packages: vec![PackageConfig {
+                name: "pkg".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let result = config.resolve(
+            "test-repo",
+            "main",
+            "https://example.com",
+            HashMap::new(),
+            GlobalOverrides::default(),
+            CommitModifiers::default(),
+        );
+
+        assert!(result.is_ok());
     }
 }
