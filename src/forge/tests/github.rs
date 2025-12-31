@@ -30,5 +30,5 @@ async fn test_github_forge() {
     let gitea_forge = ForgeFactory::create(&remote).await.unwrap();
     let helper = GithubForgeTestHelper::new(&repo, &token, &reset_sha).await;
 
-    run_forge_test(&gitea_forge, &helper, Duration::from_millis(5000)).await;
+    run_forge_test(&gitea_forge, &helper, Duration::from_millis(10000)).await;
 }
