@@ -175,9 +175,11 @@ async fn gather_release_prs_by_branch(
             && let Some(tag) = pkg.release.tag.as_ref()
         {
             for manifest in additional_manifests.iter() {
-                if let Some(change) =
-                    GenericUpdater::update_manifest(manifest, &tag.semver)
-                {
+                if let Some(change) = GenericUpdater::update_manifest(
+                    &manifest.into(),
+                    &tag.semver,
+                    &manifest.version_regex,
+                ) {
                     file_changes.push(change);
                 }
             }
@@ -281,7 +283,10 @@ mod tests {
             request::{ForgeCommit, PullRequest},
             traits::MockForge,
         },
-        updater::manager::ManifestFile,
+        updater::{
+            generic::updater::GENERIC_VERSION_REGEX,
+            manager::AdditionalManifestFile,
+        },
     };
     use semver::Version as SemVer;
 
@@ -440,11 +445,11 @@ mod tests {
     #[tokio::test]
     async fn updates_additional_manifest_files() {
         let mut pkg = releasable_package("pkg", "2.0.0", ReleaseType::Node);
-        pkg.additional_manifest_files = Some(vec![ManifestFile {
-            is_workspace: false,
+        pkg.additional_manifest_files = Some(vec![AdditionalManifestFile {
             path: "VERSION".to_string(),
             basename: "VERSION".to_string(),
             content: r#"version = "1.0.0""#.to_string(),
+            version_regex: GENERIC_VERSION_REGEX.clone(),
         }]);
 
         let config = ConfigBuilder::default()
@@ -473,11 +478,11 @@ mod tests {
     #[tokio::test]
     async fn skips_manifests_without_version_pattern() {
         let mut pkg = releasable_package("pkg", "2.0.0", ReleaseType::Node);
-        pkg.additional_manifest_files = Some(vec![ManifestFile {
-            is_workspace: false,
+        pkg.additional_manifest_files = Some(vec![AdditionalManifestFile {
             path: "README.md".to_string(),
             basename: "README.md".to_string(),
             content: "# My Package\n\nNo version here".to_string(),
+            version_regex: GENERIC_VERSION_REGEX.clone(),
         }]);
 
         let config = ConfigBuilder::default()

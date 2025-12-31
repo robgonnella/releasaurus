@@ -1,8 +1,9 @@
 use serde::{Serialize, ser::SerializeStruct};
 
 use crate::{
-    analyzer::release::Release, config::release_type::ReleaseType,
-    updater::manager::ManifestFile,
+    analyzer::release::Release,
+    config::release_type::ReleaseType,
+    updater::manager::{AdditionalManifestFile, ManifestFile},
 };
 
 /// Represents a release-able package in manifest
@@ -22,7 +23,7 @@ pub struct ReleasablePackage {
     /// Manifest version files specific to this package's release-type
     pub manifest_files: Option<Vec<ManifestFile>>,
     /// Additional generic version manifest files to update
-    pub additional_manifest_files: Option<Vec<ManifestFile>>,
+    pub additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
 }
 
 impl Serialize for ReleasablePackage {

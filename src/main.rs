@@ -17,7 +17,8 @@
 use clap::Parser;
 
 use releasaurus::{
-    Cli, Command, ForgeFactory, Result, ShowCommand, release, release_pr, show,
+    Cli, Command, ForgeFactory, ReleasaurusError, Result, ShowCommand,
+    config::resolver::ConfigResolverBuilder, release, release_pr, show,
     start_next,
 };
 
@@ -99,7 +100,7 @@ async fn main() -> Result<()> {
     log::debug!("package overrides: {:#?}", package_overrides);
     log::debug!("commit modifiers: {:#?}", commit_modifiers);
 
-    let mut config = forge_manager
+    let config = forge_manager
         .load_config(global_overrides.base_branch.clone())
         .await?;
 
@@ -107,14 +108,22 @@ async fn main() -> Result<()> {
     let default_branch = forge_manager.default_branch();
     let release_link_base_url = forge_manager.release_link_base_url();
 
-    let config = config.resolve(
-        repo_name,
-        default_branch,
-        release_link_base_url,
-        package_overrides,
-        global_overrides,
-        commit_modifiers,
-    )?;
+    let config = ConfigResolverBuilder::default()
+        .config(config)
+        .repo_name(repo_name)
+        .repo_default_branch(default_branch)
+        .release_link_base_url(release_link_base_url)
+        .package_overrides(package_overrides)
+        .global_overrides(global_overrides)
+        .commit_modifiers(commit_modifiers)
+        .build()
+        .map_err(|e| {
+            ReleasaurusError::invalid_config(format!(
+                "Failed to build config resolver: {}",
+                e
+            ))
+        })?
+        .resolve()?;
 
     match cli.command {
         Command::ReleasePR { .. } => {

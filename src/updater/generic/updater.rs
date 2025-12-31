@@ -11,10 +11,12 @@ use crate::{
     },
 };
 
-/// Default generic version matcher regex
-static GENERIC_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?mi)(?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d\.\d\.\d-?.*?)(?<end>['",].*)?$"#).unwrap()
-});
+/// Default generic version matcher regex pattern
+pub const GENERIC_VERSION_REGEX_PATTERN: &str = r#"(?mi)(?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d\.\d\.\d-?.*?)(?<end>['",].*)?$"#;
+
+/// Compiled version of GENERIC_VERSION_REGEX_PATTERN
+pub static GENERIC_VERSION_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(GENERIC_VERSION_REGEX_PATTERN).unwrap());
 
 /// Generic package updater for projects without specific language support.
 pub struct GenericUpdater {}
@@ -29,16 +31,20 @@ impl GenericUpdater {
     pub fn update_manifest(
         manifest: &ManifestFile,
         next_version: &Version,
+        version_regex: &Regex,
     ) -> Option<FileChange> {
-        if !GENERIC_VERSION_REGEX.is_match(&manifest.content) {
+        if !version_regex.is_match(&manifest.content) {
             return None;
         }
 
-        let content = GENERIC_VERSION_REGEX
-            .replace_all(
-                &manifest.content,
-                format!("${{start}}{}${{end}}", next_version,),
-            )
+        let content = version_regex
+            .replace_all(&manifest.content, |caps: &regex::Captures| {
+                // Replace only the version capture group, preserving
+                // surrounding context
+                let full_match = &caps[0];
+                let version_match = &caps["version"];
+                full_match.replacen(version_match, &next_version.to_string(), 1)
+            })
             .to_string();
 
         if content != manifest.content {
@@ -88,7 +94,11 @@ mod tests {
         let manifest = create_manifest(r#"version = "1.0.0""#);
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         let change = result.unwrap();
         assert_eq!(change.content, r#"version = "2.0.0""#);
@@ -100,7 +110,11 @@ mod tests {
         let manifest = create_manifest("version = '1.0.0'");
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert!(result.unwrap().content.contains("'2.0.0'"));
     }
@@ -110,7 +124,11 @@ mod tests {
         let manifest = create_manifest(r#""version": "1.0.0""#);
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert_eq!(result.unwrap().content, r#""version": "2.0.0""#);
     }
@@ -120,7 +138,11 @@ mod tests {
         let manifest = create_manifest("version   =   \"1.0.0\"");
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert_eq!(result.unwrap().content, "version   =   \"2.0.0\"");
     }
@@ -130,7 +152,11 @@ mod tests {
         let manifest = create_manifest(r#"version = "1.0.0-alpha.1""#);
         let next_version = Version::parse("2.0.0-beta.2").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert!(result.unwrap().content.contains("2.0.0-beta.2"));
     }
@@ -142,7 +168,11 @@ mod tests {
         );
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         let content = result.unwrap().content;
         assert!(content.contains("version = \"2.0.0\""));
@@ -155,7 +185,11 @@ mod tests {
         let manifest = create_manifest("name = \"my-package\"");
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert!(result.is_none());
     }
@@ -165,7 +199,11 @@ mod tests {
         let manifest = create_manifest(r#"version = "2.0.0""#);
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert!(result.is_none());
     }
@@ -175,7 +213,11 @@ mod tests {
         let manifest = create_manifest(r#"VERSION = "1.0.0""#);
         let next_version = Version::parse("2.0.0").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         assert!(result.unwrap().content.contains("2.0.0"));
     }
@@ -187,7 +229,11 @@ mod tests {
         );
         let next_version = Version::parse("2.5.3").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         let content = result.unwrap().content;
         assert!(content.contains("version: \"2.5.3\""));
@@ -202,7 +248,11 @@ mod tests {
         );
         let next_version = Version::parse("3.2.1").unwrap();
 
-        let result = GenericUpdater::update_manifest(&manifest, &next_version);
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        );
 
         let content = result.unwrap().content;
         assert!(content.contains("const Version = \"3.2.1\""));
