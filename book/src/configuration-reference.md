@@ -428,20 +428,77 @@ additional_paths = ["shared/utils", "shared/types"]
 
 #### `additional_manifest_files`
 
-**Type**: Array of strings (optional)
+**Type**: Array of strings or objects (optional)
 
 **Default**: None
 
-Additional files to receive generic version updates.
+Specifies additional files that should have their version strings updated during
+a release. This is useful for:
+
+- Custom version files (e.g., `VERSION`, `version.txt`)
+- Documentation files with embedded version numbers
+- Configuration files that reference the package version
+- Any file with version strings that need to stay in sync
+
+Accepts either simple string paths (recommended) or full configuration objects
+with custom regex patterns for advanced use cases.
+
+**Simple format** (recommended for most cases):
 
 ```toml
 [[package]]
 path = "."
 release_type = "rust"
-additional_manifest_files = ["VERSION", "README.md"]
+additional_manifest_files = ["VERSION", "README.md", "docs/installation.md"]
 ```
 
-Files updated with regex pattern matching `version = "x.y.z"`.
+All paths are relative to the package path. The default regex pattern
+automatically matches common version formats:
+
+- `version = "1.0.0"`
+- `version: "1.0.0"`
+- `VERSION='1.0.0'`
+- `"version": "1.0.0"`
+
+**Full format** (for custom version patterns):
+
+Use this when your files have non-standard version formats:
+
+```toml
+[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?<version>\\d+\\.\\d+\\.\\d+)\"?" },
+    { path = "docker-compose.yml", version_regex = "image:.*:(?<version>\\d+\\.\\d+\\.\\d+)" }
+]
+```
+
+**Important:** The regex must include a **named capture group** called
+`version` to identify which part of the match should be replaced
+(e.g., `(?<version>\d+\.\d+\.\d+)`). The surrounding text is automatically
+preserved.
+
+**Mixed format** (combine simple and custom):
+
+```toml
+[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    "VERSION",                    # Uses default regex
+    "README.md",                  # Uses default regex
+    { path = "config.yml", version_regex = "app_version:\\s*(?<version>\\d+\\.\\d+\\.\\d+)" }
+]
+```
+
+**Important notes:**
+
+- Custom regex patterns **must** include a named capture group `(?<version>...)`
+- Files that don't contain a version pattern are skipped automatically
+- Invalid regex patterns will cause an error during configuration resolution
+- Only the content within the `version` capture group is replaced
+- Paths must be relative to the package path, not the repository root
 
 #### `breaking_always_increment_major`
 

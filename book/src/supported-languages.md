@@ -31,7 +31,7 @@ release_type = "node"  # or rust, python, java, php, ruby, generic
 - **Lock files**: Automatically updated when present
 - **Generic projects**: Use `additional_manifest_files` to specify
   custom version file patterns. See
-  [Configuration](./configuration.md#additional_manifest_files) for
+  [Configuration Reference](./configuration-reference.md#additional_manifest_files) for
   details.
 
 ## Next Steps

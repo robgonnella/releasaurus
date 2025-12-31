@@ -2,7 +2,8 @@ use crate::{
     Result,
     forge::request::FileChange,
     updater::{
-        generic::updater::GenericUpdater, manager::UpdaterPackage,
+        generic::updater::{GENERIC_VERSION_REGEX, GenericUpdater},
+        manager::UpdaterPackage,
         traits::PackageUpdater,
     },
 };
@@ -34,6 +35,7 @@ impl PackageUpdater for VersionRb {
             if let Some(change) = GenericUpdater::update_manifest(
                 manifest,
                 &package.next_version.semver,
+                &GENERIC_VERSION_REGEX,
             ) {
                 file_changes.push(change);
             }
