@@ -30,19 +30,6 @@ jobs:
             echo "✅ Schema is up-to-date"
           fi
 
-  # check-action-versions:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v5
-  #       with:
-  #         fetch-depth: 0
-  #     - uses: ./.github/actions/rust-setup
-  #       with:
-  #         cache_name: action-versions
-  #     - name: check
-  #       shell: bash
-  #       run: ./scripts/action_versions.sh check
-
   lint:
     runs-on: ubuntu-latest
     steps:
