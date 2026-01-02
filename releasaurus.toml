@@ -8,11 +8,3 @@ include_author = true
 
 [[package]]
 release_type = "rust"
-additional_manifest_files = [
-  { path = "action/gitea/action.yml", version_regex = "v(?<version>\\d\\.\\d\\.\\d)" },
-  { path = "action/gitea/release/action.yml", version_regex   = "v(?<version>\\d\\.\\d\\.\\d)" },
-  { path = "action/gitea/release-pr/action.yml", version_regex   = "v(?<version>\\d\\.\\d\\.\\d)" },
-  { path = "action/github/action.yml", version_regex   = "v(?<version>\\d\\.\\d\\.\\d)" },
-  { path = "action/github/release/action.yml", version_regex   = "v(?<version>\\d\\.\\d\\.\\d)" },
-  { path = "action/github/release-pr/action.yml", version_regex   = "v(?<version>\\d\\.\\d\\.\\d)" }
-]
