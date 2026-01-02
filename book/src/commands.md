@@ -135,6 +135,35 @@ releasaurus show next-release --forge local --repo "."
 **Output:** JSON array of releasable packages with version, commits, and
 notes.
 
+#### `show current-release`
+
+Returns information about the most recent release for each package:
+
+```bash
+# Get all current releases
+releasaurus show current-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Filter to specific package
+releasaurus show current-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Write to file
+releasaurus show current-release \
+  --out-file current.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+**Output:** JSON array of release objects. Packages without releases are
+omitted.
+
+**Use case:** Check what versions are currently deployed or compare
+current releases across packages in a monorepo.
+
 #### `show release`
 
 Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:

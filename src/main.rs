@@ -79,6 +79,11 @@ async fn main() -> Result<()> {
                     silence_logs = true;
                 }
             }
+            ShowCommand::CurrentRelease { out_file, .. } => {
+                if out_file.is_none() {
+                    silence_logs = true;
+                }
+            }
             ShowCommand::Release { out_file, .. } => {
                 if out_file.is_none() {
                     silence_logs = true;
