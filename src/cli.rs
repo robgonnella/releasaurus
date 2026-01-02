@@ -222,9 +222,21 @@ pub enum ShowCommand {
         #[command(flatten)]
         overrides: SharedCommandOverrides,
     },
+
+    /// Outputs most recent releases
+    CurrentRelease {
+        /// Output release json data directly to file
+        #[arg(short, long)]
+        out_file: Option<String>,
+
+        /// Optionally restrict output to just 1 specific package
+        #[arg(short, long)]
+        package: Option<String>,
+    },
+
     /// Outputs the release data associated with a given tag
     Release {
-        /// Output release notes directly to file
+        /// Output release json data directly to file
         #[arg(short, long)]
         out_file: Option<String>,
 
