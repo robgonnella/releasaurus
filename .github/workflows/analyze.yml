@@ -1,0 +1,66 @@
+name: analyze
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+        with:
+          cache_name: schema
+      - name: generate
+        run: cargo run --features dev-scripts --bin generate-schema
+      - name: check
+        run: |
+          if ! git diff --exit-code; then
+            git status
+            echo "❌ Error: Uncommitted changes detected after running generate-schema script."
+            echo "❌ Please run \"cargo run --features dev-scripts --bin generate-schema\" and commit changes"
+            exit 1
+          else
+            echo "✅ Schema is up-to-date"
+          fi
+
+  # check-action-versions:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #       with:
+  #         fetch-depth: 0
+  #     - uses: ./.github/actions/rust-setup
+  #       with:
+  #         cache_name: action-versions
+  #     - name: check
+  #       shell: bash
+  #       run: ./scripts/action_versions.sh check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+        with:
+          cache_name: lint
+          components: clippy
+      - name: lint
+        run: cargo clippy --all-targets --all-features
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+        with:
+          cache_name: fmt
+          components: rustfmt
+      - name: fmt
+        run: cargo fmt --all --check

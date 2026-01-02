@@ -1,0 +1,16 @@
+name: 🦕 releasaurus
+description: Runs releasaurus commands to automate repository release flows
+inputs:
+  command:
+    description: Command to pass to releasaurus executable
+    required: true
+  command_args:
+    description: Args to pass to releasaurus command
+outputs: {}
+runs:
+  using: docker
+  image: docker://rgonnella/releasaurus:v0.8.0
+  entrypoint: sh
+  args:
+    - -c
+    - releasaurus ${{ inputs.command }} ${{ inputs.command_args }}
