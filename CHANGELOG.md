@@ -1,3 +1,15 @@
+# [0.9.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.9.0) - 2025-12-30
+
+### 🚀 Features
+
+- adds "show current-release" command [_(596cdbe)_](https://github.com/robgonnella/releasaurus/commit/596cdbe5c4229dd42ce3086ced1373a87adb571a) (Rob Gonnella)
+
+- simplifies CI actions and components [_(b5efea2)_](https://github.com/robgonnella/releasaurus/commit/b5efea2e2de3feb2e74059b8a77b55ee65b23c99) (Rob Gonnella)
+
+- support custom regex for additional manifests [_(06cd89d)_](https://github.com/robgonnella/releasaurus/commit/06cd89d706f4fd8038069c6d4cb19bd81b7eb217) (Rob Gonnella)
+
+- adds skip_shas and reword features [_(e945142)_](https://github.com/robgonnella/releasaurus/commit/e945142646780d60090c1f6d01482e6bcf5e72af) (Rob Gonnella)
+
 # [0.8.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.8.0) - 2025-12-20
 
 ### 🚀 Features
