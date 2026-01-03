@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f25e484.js";
+            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -292,6 +292,29 @@ releasaurus show next-release --forge local --repo "."
 </code></pre>
 <p><strong>Output:</strong> JSON array of releasable packages with version, commits, and
 notes.</p>
+<h4 id="show-current-release"><a class="header" href="#show-current-release"><code>show current-release</code></a></h4>
+<p>Returns information about the most recent release for each package:</p>
+<pre><code class="language-bash"># Get all current releases
+releasaurus show current-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Filter to specific package
+releasaurus show current-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Write to file
+releasaurus show current-release \
+  --out-file current.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Output:</strong> JSON array of release objects. Packages without releases are
+omitted.</p>
+<p><strong>Use case:</strong> Check what versions are currently deployed or compare
+current releases across packages in a monorepo.</p>
 <h4 id="show-release"><a class="header" href="#show-release"><code>show release</code></a></h4>
 <p>Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:</p>
 <pre><code class="language-bash"># Display release notes
@@ -483,6 +506,10 @@ CI/CD pipelines.</p>
 suffix. This is applied to all packages</li>
 <li><code>--prerelease-strategy &lt;strategy&gt;</code> - Set global prerelease strategy
 (<code>versioned</code> or <code>static</code>). This is applied to all packages</li>
+<li><code>--skip-sha &lt;sha&gt;</code> - Skip specific commits by SHA prefix (7+ characters).
+Can be used multiple times to skip multiple commits</li>
+<li><code>--reword &lt;sha&gt;=&lt;message&gt;</code> - Rewrite a commit message. Use format
+<code>sha=new message</code>. Can be used multiple times for multiple commits</li>
 <li><code>--set-package &lt;package_name&gt;.&lt;property&gt;=&lt;value&gt;</code> - Override
 package-specific properties. The takes precedence over all global overrides
 and config. Not all properties are overridable. If you try to set an
@@ -530,6 +557,13 @@ releasaurus release-pr \
   --base-branch staging \
   --prerelease-suffix alpha \ # applies to all packages
   --set-package frontend.prerelease.suffix=beta \ # applies only to frontend
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Skip specific commits and reword others
+releasaurus release-pr \
+  --skip-sha abc123d \
+  --reword "def456e=feat: improved authentication" \
   --forge github \
   --repo "https://github.com/owner/repo"
 </code></pre>

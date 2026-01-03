@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f25e484.js";
+            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -207,7 +207,7 @@ Cargo.toml, pom.xml, etc.</li>
 <li><strong>Custom changelog templates</strong> - Tailor formatting to your needs</li>
 <li><strong>Custom tag prefixes</strong> - Use tags like <code>api-v1.0.0</code> or <code>cli-v2.1.0</code></li>
 </ul>
-<p>See the <a href="#configuration-1">Configuration</a> guide for details.</p>
+<p>See the <a href="#configuration">Configuration</a> guide for details.</p>
 <h2 id="key-features"><a class="header" href="#key-features">Key Features</a></h2>
 <h3 id="-zero-configuration-by-default"><a class="header" href="#-zero-configuration-by-default">🚀 <strong>Zero Configuration by Default</strong></a></h3>
 <p>Works immediately for changelog generation and git tagging. Add
@@ -330,7 +330,7 @@ frameworks, and platforms.</p>
 Releasaurus in action</li>
 <li><strong>Installation</strong>: See <a href="#installation">Installation</a> for setup
 instructions</li>
-<li><strong>Configuration</strong>: Check <a href="#configuration-1">Configuration</a> when you
+<li><strong>Configuration</strong>: Check <a href="#configuration">Configuration</a> when you
 need version file updates or custom settings</li>
 </ul>
 <p>Whether you’re maintaining a single-language project or a complex
@@ -379,7 +379,7 @@ page</a>.</p>
 <p>→ <strong>Ready to go?</strong> See the <a href="#quick-start">Quick Start</a> guide to
 release your first project in under 2 minutes.</p>
 <p>→ <strong>Need configuration?</strong> Check out
-<a href="#configuration-1">Configuration</a> for version file updates and custom
+<a href="#configuration">Configuration</a> for version file updates and custom
 settings.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
@@ -433,14 +433,14 @@ version files (package.json, Cargo.toml, etc.), add a
 path = "."
 release_type = "node"  # or rust, python, java, php, ruby
 </code></pre>
-<p>See <a href="#configuration-1">Configuration</a> for all options.</p>
+<p>See <a href="#configuration">Configuration</a> for all options.</p>
 <h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
 <ul>
 <li><strong><a href="#commands">Commands</a></strong> - All commands and options including
 dry-run mode, CLI overrides, and the <code>start-next</code> command</li>
 <li><strong><a href="#cicd-integration">CI/CD Integration</a></strong> - Automate with GitHub
 Actions, GitLab CI, or Gitea Actions</li>
-<li><strong><a href="#configuration-1">Configuration</a></strong> - Monorepo support, custom
+<li><strong><a href="#configuration">Configuration</a></strong> - Monorepo support, custom
 changelogs, prerelease versions, and more</li>
 <li><strong><a href="#troubleshooting">Troubleshooting</a></strong> - Common issues and
 solutions</li>
@@ -561,6 +561,29 @@ releasaurus show next-release --forge local --repo "."
 </code></pre>
 <p><strong>Output:</strong> JSON array of releasable packages with version, commits, and
 notes.</p>
+<h4 id="show-current-release"><a class="header" href="#show-current-release"><code>show current-release</code></a></h4>
+<p>Returns information about the most recent release for each package:</p>
+<pre><code class="language-bash"># Get all current releases
+releasaurus show current-release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Filter to specific package
+releasaurus show current-release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Write to file
+releasaurus show current-release \
+  --out-file current.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Output:</strong> JSON array of release objects. Packages without releases are
+omitted.</p>
+<p><strong>Use case:</strong> Check what versions are currently deployed or compare
+current releases across packages in a monorepo.</p>
 <h4 id="show-release"><a class="header" href="#show-release"><code>show release</code></a></h4>
 <p>Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:</p>
 <pre><code class="language-bash"># Display release notes
@@ -752,6 +775,10 @@ CI/CD pipelines.</p>
 suffix. This is applied to all packages</li>
 <li><code>--prerelease-strategy &lt;strategy&gt;</code> - Set global prerelease strategy
 (<code>versioned</code> or <code>static</code>). This is applied to all packages</li>
+<li><code>--skip-sha &lt;sha&gt;</code> - Skip specific commits by SHA prefix (7+ characters).
+Can be used multiple times to skip multiple commits</li>
+<li><code>--reword &lt;sha&gt;=&lt;message&gt;</code> - Rewrite a commit message. Use format
+<code>sha=new message</code>. Can be used multiple times for multiple commits</li>
 <li><code>--set-package &lt;package_name&gt;.&lt;property&gt;=&lt;value&gt;</code> - Override
 package-specific properties. The takes precedence over all global overrides
 and config. Not all properties are overridable. If you try to set an
@@ -801,6 +828,13 @@ releasaurus release-pr \
   --set-package frontend.prerelease.suffix=beta \ # applies only to frontend
   --forge github \
   --repo "https://github.com/owner/repo"
+
+# Skip specific commits and reword others
+releasaurus release-pr \
+  --skip-sha abc123d \
+  --reword "def456e=feat: improved authentication" \
+  --forge github \
+  --repo "https://github.com/owner/repo"
 </code></pre>
 <p><strong>Use cases:</strong></p>
 <ul>
@@ -809,7 +843,7 @@ releasaurus release-pr \
 <li>Use different settings across environments / branches (dev/staging/prod)</li>
 <li>Override per-package settings for specific releases</li>
 </ul>
-<p>See the <a href="#configuration-1">Configuration</a> guide for details on
+<p>See the <a href="#configuration">Configuration</a> guide for details on
 prerelease configuration.</p>
 <h3 id="authentication"><a class="header" href="#authentication">Authentication</a></h3>
 <p>Provide access tokens for API authentication:</p>
@@ -887,7 +921,7 @@ config)</li>
 </ul>
 <p>To change prerelease identifiers or graduate to stable, update your
 configuration file and create a new release PR.</p>
-<p>See the <a href="#configuration-1">Configuration</a> guide for complete prerelease
+<p>See the <a href="#configuration">Configuration</a> guide for complete prerelease
 configuration details.</p>
 <h2 id="platform-specific-examples"><a class="header" href="#platform-specific-examples">Platform-Specific Examples</a></h2>
 <h3 id="github"><a class="header" href="#github">GitHub</a></h3>
@@ -954,29 +988,16 @@ releasaurus --version
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
-<p>Releasaurus provides seamless integration with popular CI/CD platforms through official actions and components that automate your release workflow, eliminating the need to run Releasaurus commands manually.</p>
-<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
-<p>All Releasaurus CI/CD integrations follow the same workflow:</p>
-<ol>
-<li><strong>Automatic Release PRs</strong>: When you push to your main branch, a release PR is automatically created (or updated) with version bumps and changelog</li>
-<li><strong>Review and Merge</strong>: Review the generated release PR and merge when ready</li>
-<li><strong>Automatic Publishing</strong>: After merge, the release is automatically tagged and published</li>
-</ol>
-<p>This hands-off approach means you focus on writing code with conventional commits, and Releasaurus handles the rest.</p>
-<h2 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h2>
-<p>Releasaurus provides official GitHub Actions that integrate directly with your GitHub repository workflows.</p>
-<h3 id="available-actions"><a class="header" href="#available-actions">Available Actions</a></h3>
-<p>Three GitHub Actions are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release">Release Action</a></strong> - Publishes releases after PR merge</li>
-</ul>
-<h3 id="quick-setup"><a class="header" href="#quick-setup">Quick Setup</a></h3>
-<p>Create <code>.github/workflows/release.yml</code> in your repository:</p>
+<p>Releasaurus provides official integrations for GitHub Actions and Gitea
+Actions. For GitLab CI, use the Docker image directly.</p>
+<h2 id="github-actions--gitea-actions"><a class="header" href="#github-actions--gitea-actions">GitHub Actions &amp; Gitea Actions</a></h2>
+<p>A single action works for both GitHub Actions and Gitea Actions
+workflows, exposing the <code>releasaurus</code> executable for maximum
+flexibility.</p>
+<p><strong>Documentation</strong>: <a href="https://github.com/robgonnella/releasaurus/tree/main/action">action/README.md</a></p>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
 <pre><code class="language-yaml">name: Release
 on:
-  workflow_dispatch:
   push:
     branches: [main]
 
@@ -986,79 +1007,54 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: write
     steps:
-      - name: Release
-        uses: robgonnella/releasaurus/action/github@vX.X.X
+      # Run release before release-pr to ensure pending releases are
+      # published first
+      - name: Publish Release
+        uses: robgonnella/releasaurus/action@vX.X.X
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-</code></pre>
-<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action documentation</a> for all available inputs and configuration options.</p>
-<h2 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h2>
-<p>Releasaurus provides official GitLab CI components that integrate seamlessly with GitLab pipelines.</p>
-<h3 id="available-components"><a class="header" href="#available-components">Available Components</a></h3>
-<p>Three GitLab CI components are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component</a></strong> - Composite component that includes both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release-pr">Release PR Component</a></strong> - Creates and manages release merge requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release">Release Component</a></strong> - Publishes releases after MR merge</li>
-</ul>
-<h3 id="quick-setup-1"><a class="header" href="#quick-setup-1">Quick Setup</a></h3>
-<p>Create <code>.gitlab-ci.yml</code> in your repository:</p>
-<pre><code class="language-yaml">include:
-  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
-    inputs:
-      token: $RELEASE_TOKEN
-</code></pre>
-<p>For detailed configuration options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component documentation</a>.</p>
-<h2 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h2>
-<p>Releasaurus provides official Gitea Actions that integrate with Gitea Actions workflows.</p>
-<h3 id="available-actions-1"><a class="header" href="#available-actions-1">Available Actions</a></h3>
-<p>Three Gitea Actions are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release">Release Action</a></strong> - Publishes releases after PR merge</li>
-</ul>
-<h3 id="quick-setup-2"><a class="header" href="#quick-setup-2">Quick Setup</a></h3>
-<p>Create <code>.gitea/workflows/release.yml</code> in your repository:</p>
-<pre><code class="language-yaml">name: Release
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+          command: release
+          command_args: &gt;-
+            --forge github
+            --repo ${{ github.server_url }}/${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Run Releasaurus
-        uses: rgon/releasaurus/action/gitea@vX.X.X
+      - name: Create Release PR
+        uses: robgonnella/releasaurus/action@vX.X.X
         with:
-          token: ${{ secrets.GITEA_TOKEN }}
+          command: release-pr
+          command_args: &gt;-
+            --forge github
+            --repo ${{ github.server_url }}/${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </code></pre>
-<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action documentation</a>.</p>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>All CI/CD integrations work with your existing <code>releasaurus.toml</code> configuration file. No additional CI/CD-specific configuration is required.</p>
-<p>If you need to customize the release workflow (e.g., skip certain commit types, use prerelease versions, handle monorepos), simply update your <code>releasaurus.toml</code> file. See the <a href="#configuration-1">Configuration</a> guide for all available options.</p>
-<h2 id="benefits-of-cicd-integration"><a class="header" href="#benefits-of-cicd-integration">Benefits of CI/CD Integration</a></h2>
-<ul>
-<li><strong>Fully Automated</strong>: Push commits and releases happen automatically</li>
-<li><strong>Consistent Process</strong>: Same release workflow across all your projects</li>
-<li><strong>Safe Reviews</strong>: Release PRs/MRs provide review opportunities before publishing</li>
-<li><strong>Zero Maintenance</strong>: No need to remember release commands or procedures</li>
-<li><strong>Team Friendly</strong>: Anyone can trigger releases by merging the release PR/MR</li>
-</ul>
-<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
-<ul>
-<li>Review <a href="#configuration-1">Configuration</a> to customize your release process</li>
-<li>Check <a href="#commands">Commands</a> for manual release options</li>
-<li>See <a href="#troubleshooting">Troubleshooting</a> if you encounter issues</li>
-</ul>
+<h2 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h2>
+<p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>:</p>
+<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<pre><code class="language-yaml">publish-release:
+  image:
+    name: rgonnella/releasaurus:vX.X.X
+    entrypoint: [""]
+  script:
+    - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GITLAB_TOKEN: $GITLAB_TOKEN
+
+release-pr:
+  image:
+    name: rgonnella/releasaurus:vX.X.X
+    entrypoint: [""]
+  script:
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GITLAB_TOKEN: $GITLAB_TOKEN
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
 <p>This guide helps you diagnose and resolve common issues when using
@@ -1340,15 +1336,15 @@ configurations with multiple packages</li>
 <li><strong>Lock files</strong>: Automatically updated when present</li>
 <li><strong>Generic projects</strong>: Use <code>additional_manifest_files</code> to specify
 custom version file patterns. See
-<a href="#additional_manifest_files">Configuration</a> for
+<a href="#additional_manifest_files">Configuration Reference</a> for
 details.</li>
 </ul>
-<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
+<h2 id="next-steps-3"><a class="header" href="#next-steps-3">Next Steps</a></h2>
 <p>For complete configuration options including monorepo setup, changelog
 customization, and prerelease versions, see the
-<a href="#configuration-1">Configuration</a> guide.</p>
+<a href="#configuration">Configuration</a> guide.</p>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
+<h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
 <p>Releasaurus works out-of-the-box with zero configuration, but provides
 extensive customization through an optional <code>releasaurus.toml</code> file.</p>
 <h2 id="do-you-need-configuration"><a class="header" href="#do-you-need-configuration">Do You Need Configuration?</a></h2>
@@ -1452,7 +1448,7 @@ releasaurus release-pr --forge local --repo "."
 </code></pre>
 <p>See <a href="#local-repository-mode">Local Repository Mode</a> for
 complete details.</p>
-<h2 id="next-steps-5"><a class="header" href="#next-steps-5">Next Steps</a></h2>
+<h2 id="next-steps-4"><a class="header" href="#next-steps-4">Next Steps</a></h2>
 <ul>
 <li><strong>Getting started?</strong> See <a href="#quick-start">Quick Start</a> for a 2-minute
 tutorial</li>
@@ -1465,7 +1461,7 @@ automation</li>
 <h1 id="prerelease-configuration"><a class="header" href="#prerelease-configuration">Prerelease Configuration</a></h1>
 <p>Create alpha, beta, RC, or snapshot releases with automatic version
 management.</p>
-<h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
 <p>Prerelease versions allow you to publish test releases before final
 stable versions. Releasaurus supports two strategies:</p>
 <ul>
@@ -1660,9 +1656,9 @@ releasaurus release-pr \
   --forge local \
   --repo "."
 </code></pre>
-<h2 id="next-steps-6"><a class="header" href="#next-steps-6">Next Steps</a></h2>
+<h2 id="next-steps-5"><a class="header" href="#next-steps-5">Next Steps</a></h2>
 <ul>
-<li><a href="#configuration-1">Configuration Overview</a> - Main configuration
+<li><a href="#configuration">Configuration Overview</a> - Main configuration
 guide</li>
 <li><a href="#configuration-overrides">Configuration Overrides</a> -
 CLI override details</li>
@@ -1672,7 +1668,7 @@ CLI override details</li>
 <h1 id="changelog-configuration"><a class="header" href="#changelog-configuration">Changelog Configuration</a></h1>
 <p>Customize changelog generation, filter commits, and format output with
 Tera templates.</p>
-<h2 id="overview-2"><a class="header" href="#overview-2">Overview</a></h2>
+<h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
 <p>Releasaurus automatically generates changelogs from commit history using
 conventional commits. Customize what’s included and how it’s formatted
 through the <code>[changelog]</code> section.</p>
@@ -1727,6 +1723,41 @@ skip_release_commits = false  # Include "chore(main): release v1.0.0"
 <p>Include commit author names in changelog entries:</p>
 <pre><code class="language-toml">[changelog]
 include_author = true
+</code></pre>
+<h3 id="skip_shas-default-none"><a class="header" href="#skip_shas-default-none"><code>skip_shas</code> (default: none)</a></h3>
+<p>Skip specific commits by SHA prefix:</p>
+<pre><code class="language-toml">[changelog]
+skip_shas = ["abc123d", "def456e"]
+
+[[package]]
+path = "."
+release_type = "rust"
+</code></pre>
+<p>Use short SHA prefixes (7+ characters). Useful for excluding commits that
+shouldn’t affect versioning or appear in changelogs.</p>
+<p><strong>CLI override:</strong></p>
+<pre><code class="language-bash">releasaurus release-pr --skip-sha "abc123d"
+</code></pre>
+<h3 id="reword"><a class="header" href="#reword"><code>reword</code></a></h3>
+<p>Rewrite commit messages in the changelog:</p>
+<pre><code class="language-toml">[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected security vulnerability"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: added user authentication"
+
+[[package]]
+path = "."
+release_type = "node"
+</code></pre>
+<p>Use SHA prefixes to match commits. The reworded message affects both
+changelog content and version calculation (e.g., changing <code>fix:</code> to <code>feat:</code>
+bumps minor instead of patch).</p>
+<p><strong>CLI override:</strong></p>
+<pre><code class="language-bash">releasaurus release-pr --skip-sha "abc123d" \
+  --reword "def456e=feat: improved feature"
 </code></pre>
 <h2 id="template-customization"><a class="header" href="#template-customization">Template Customization</a></h2>
 <h3 id="body-template"><a class="header" href="#body-template"><code>body</code> Template</a></h3>
@@ -1849,9 +1880,9 @@ releasaurus release-pr --forge local --repo "."
 <p>Releasaurus uses the <a href="https://keats.github.io/tera/">Tera</a> templating
 engine. See the Tera documentation for advanced filtering and
 formatting options.</p>
-<h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
+<h2 id="next-steps-6"><a class="header" href="#next-steps-6">Next Steps</a></h2>
 <ul>
-<li><a href="#configuration-1">Configuration Overview</a> - Main configuration
+<li><a href="#configuration">Configuration Overview</a> - Main configuration
 guide</li>
 <li><a href="#prerelease-configuration">Prerelease Configuration</a> -
 Alpha/beta releases</li>
@@ -1861,7 +1892,7 @@ Alpha/beta releases</li>
 <h1 id="monorepo-configuration"><a class="header" href="#monorepo-configuration">Monorepo Configuration</a></h1>
 <p>Manage multiple independently-versioned packages within a single
 repository.</p>
-<h2 id="overview-3"><a class="header" href="#overview-3">Overview</a></h2>
+<h2 id="overview-2"><a class="header" href="#overview-2">Overview</a></h2>
 <p>Releasaurus supports monorepos with:</p>
 <ul>
 <li>Multiple packages with independent versions</li>
@@ -2105,9 +2136,9 @@ releasaurus release-pr --forge local --repo "."
 # - Tag prefixes match expectations
 # - Separate/combined PR strategy works
 </code></pre>
-<h2 id="next-steps-8"><a class="header" href="#next-steps-8">Next Steps</a></h2>
+<h2 id="next-steps-7"><a class="header" href="#next-steps-7">Next Steps</a></h2>
 <ul>
-<li><a href="#configuration-1">Configuration Overview</a> - Main configuration
+<li><a href="#configuration">Configuration Overview</a> - Main configuration
 guide</li>
 <li><a href="#prerelease-configuration">Prerelease Configuration</a> - Per-
 package prereleases</li>
@@ -2251,6 +2282,26 @@ skip_release_commits = false
 <pre><code class="language-toml">[changelog]
 include_author = true
 </code></pre>
+<h4 id="skip_shas"><a class="header" href="#skip_shas"><code>skip_shas</code></a></h4>
+<p><strong>Type</strong>: Array of strings (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Skip specific commits by SHA prefix. Use 7+ character prefixes.</p>
+<pre><code class="language-toml">[changelog]
+skip_shas = ["abc123d", "def456e"]
+</code></pre>
+<h4 id="reword-1"><a class="header" href="#reword-1"><code>reword</code></a></h4>
+<p><strong>Type</strong>: Array of objects (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Rewrite commit messages for specific commits. Affects both changelog and
+version calculation.</p>
+<pre><code class="language-toml">[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected description"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: improved feature"
+</code></pre>
 <h4 id="body"><a class="header" href="#body"><code>body</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Standard template</p>
@@ -2345,15 +2396,64 @@ release_type = "node"
 additional_paths = ["shared/utils", "shared/types"]
 </code></pre>
 <h4 id="additional_manifest_files"><a class="header" href="#additional_manifest_files"><code>additional_manifest_files</code></a></h4>
-<p><strong>Type</strong>: Array of strings (optional)</p>
+<p><strong>Type</strong>: Array of strings or objects (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Additional files to receive generic version updates.</p>
+<p>Specifies additional files that should have their version strings updated during
+a release. This is useful for:</p>
+<ul>
+<li>Custom version files (e.g., <code>VERSION</code>, <code>version.txt</code>)</li>
+<li>Documentation files with embedded version numbers</li>
+<li>Configuration files that reference the package version</li>
+<li>Any file with version strings that need to stay in sync</li>
+</ul>
+<p>Accepts either simple string paths (recommended) or full configuration objects
+with custom regex patterns for advanced use cases.</p>
+<p><strong>Simple format</strong> (recommended for most cases):</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "rust"
-additional_manifest_files = ["VERSION", "README.md"]
+additional_manifest_files = ["VERSION", "README.md", "docs/installation.md"]
 </code></pre>
-<p>Files updated with regex pattern matching <code>version = "x.y.z"</code>.</p>
+<p>All paths are relative to the package path. The default regex pattern
+automatically matches common version formats:</p>
+<ul>
+<li><code>version = "1.0.0"</code></li>
+<li><code>version: "1.0.0"</code></li>
+<li><code>VERSION='1.0.0'</code></li>
+<li><code>"version": "1.0.0"</code></li>
+</ul>
+<p><strong>Full format</strong> (for custom version patterns):</p>
+<p>Use this when your files have non-standard version formats:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)\"?" },
+    { path = "docker-compose.yml", version_regex = "image:.*:(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)" }
+]
+</code></pre>
+<p><strong>Important:</strong> The regex must include a <strong>named capture group</strong> called
+<code>version</code> to identify which part of the match should be replaced
+(e.g., <code>(?&lt;version&gt;\d+\.\d+\.\d+)</code>). The surrounding text is automatically
+preserved.</p>
+<p><strong>Mixed format</strong> (combine simple and custom):</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    "VERSION",                    # Uses default regex
+    "README.md",                  # Uses default regex
+    { path = "config.yml", version_regex = "app_version:\\s*(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)" }
+]
+</code></pre>
+<p><strong>Important notes:</strong></p>
+<ul>
+<li>Custom regex patterns <strong>must</strong> include a named capture group <code>(?&lt;version&gt;...)</code></li>
+<li>Files that don’t contain a version pattern are skipped automatically</li>
+<li>Invalid regex patterns will cause an error during configuration resolution</li>
+<li>Only the content within the <code>version</code> capture group is replaced</li>
+<li>Paths must be relative to the package path, not the repository root</li>
+</ul>
 <h4 id="breaking_always_increment_major-1"><a class="header" href="#breaking_always_increment_major-1"><code>breaking_always_increment_major</code></a></h4>
 <p><strong>Type</strong>: Boolean (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>
@@ -2425,9 +2525,9 @@ release_type = "rust"
 tag_prefix = "api-v"
 prerelease = { suffix = "alpha", strategy = "versioned" }
 </code></pre>
-<h2 id="next-steps-9"><a class="header" href="#next-steps-9">Next Steps</a></h2>
+<h2 id="next-steps-8"><a class="header" href="#next-steps-8">Next Steps</a></h2>
 <ul>
-<li><a href="#configuration-1">Configuration Overview</a> - Getting started guide</li>
+<li><a href="#configuration">Configuration Overview</a> - Getting started guide</li>
 <li><a href="#prerelease-configuration">Prerelease Configuration</a> - Detailed
 prerelease guide</li>
 <li><a href="#changelog-configuration">Changelog Configuration</a> - Template
@@ -2609,10 +2709,10 @@ numbers, file changes, and release notes.</p>
 <p><strong>Note</strong>: Dry-run mode automatically enables debug logging regardless of the
 <code>RELEASAURUS_DEBUG</code> setting. This ensures you have maximum visibility into
 what would happen during the release process.</p>
-<h2 id="next-steps-10"><a class="header" href="#next-steps-10">Next Steps</a></h2>
+<h2 id="next-steps-9"><a class="header" href="#next-steps-9">Next Steps</a></h2>
 <ul>
 <li><strong><a href="#commands">Commands</a></strong> - Command-line options and usage patterns</li>
-<li><strong><a href="#configuration-1">Configuration</a></strong> - Configuration file setup</li>
+<li><strong><a href="#configuration">Configuration</a></strong> - Configuration file setup</li>
 <li><strong><a href="#authentication-issues">Troubleshooting</a></strong> -
 Resolving environment issues</li>
 </ul>
@@ -2716,7 +2816,7 @@ cargo build --release
 <p>Releasaurus supports multiple programming languages through its updater system.
 Adding support for a new language requires updating several files across the
 codebase.</p>
-<h4 id="overview-4"><a class="header" href="#overview-4">Overview</a></h4>
+<h4 id="overview-3"><a class="header" href="#overview-3">Overview</a></h4>
 <p>Each language updater consists of:</p>
 <ol>
 <li><strong>ReleaseType enum variant</strong> - Configuration option in

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f25e484.js";
+            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -314,6 +314,26 @@ skip_release_commits = false
 <pre><code class="language-toml">[changelog]
 include_author = true
 </code></pre>
+<h4 id="skip_shas"><a class="header" href="#skip_shas"><code>skip_shas</code></a></h4>
+<p><strong>Type</strong>: Array of strings (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Skip specific commits by SHA prefix. Use 7+ character prefixes.</p>
+<pre><code class="language-toml">[changelog]
+skip_shas = ["abc123d", "def456e"]
+</code></pre>
+<h4 id="reword"><a class="header" href="#reword"><code>reword</code></a></h4>
+<p><strong>Type</strong>: Array of objects (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Rewrite commit messages for specific commits. Affects both changelog and
+version calculation.</p>
+<pre><code class="language-toml">[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected description"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: improved feature"
+</code></pre>
 <h4 id="body"><a class="header" href="#body"><code>body</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Standard template</p>
@@ -408,15 +428,64 @@ release_type = "node"
 additional_paths = ["shared/utils", "shared/types"]
 </code></pre>
 <h4 id="additional_manifest_files"><a class="header" href="#additional_manifest_files"><code>additional_manifest_files</code></a></h4>
-<p><strong>Type</strong>: Array of strings (optional)</p>
+<p><strong>Type</strong>: Array of strings or objects (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Additional files to receive generic version updates.</p>
+<p>Specifies additional files that should have their version strings updated during
+a release. This is useful for:</p>
+<ul>
+<li>Custom version files (e.g., <code>VERSION</code>, <code>version.txt</code>)</li>
+<li>Documentation files with embedded version numbers</li>
+<li>Configuration files that reference the package version</li>
+<li>Any file with version strings that need to stay in sync</li>
+</ul>
+<p>Accepts either simple string paths (recommended) or full configuration objects
+with custom regex patterns for advanced use cases.</p>
+<p><strong>Simple format</strong> (recommended for most cases):</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "rust"
-additional_manifest_files = ["VERSION", "README.md"]
+additional_manifest_files = ["VERSION", "README.md", "docs/installation.md"]
 </code></pre>
-<p>Files updated with regex pattern matching <code>version = "x.y.z"</code>.</p>
+<p>All paths are relative to the package path. The default regex pattern
+automatically matches common version formats:</p>
+<ul>
+<li><code>version = "1.0.0"</code></li>
+<li><code>version: "1.0.0"</code></li>
+<li><code>VERSION='1.0.0'</code></li>
+<li><code>"version": "1.0.0"</code></li>
+</ul>
+<p><strong>Full format</strong> (for custom version patterns):</p>
+<p>Use this when your files have non-standard version formats:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)\"?" },
+    { path = "docker-compose.yml", version_regex = "image:.*:(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)" }
+]
+</code></pre>
+<p><strong>Important:</strong> The regex must include a <strong>named capture group</strong> called
+<code>version</code> to identify which part of the match should be replaced
+(e.g., <code>(?&lt;version&gt;\d+\.\d+\.\d+)</code>). The surrounding text is automatically
+preserved.</p>
+<p><strong>Mixed format</strong> (combine simple and custom):</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+additional_manifest_files = [
+    "VERSION",                    # Uses default regex
+    "README.md",                  # Uses default regex
+    { path = "config.yml", version_regex = "app_version:\\s*(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)" }
+]
+</code></pre>
+<p><strong>Important notes:</strong></p>
+<ul>
+<li>Custom regex patterns <strong>must</strong> include a named capture group <code>(?&lt;version&gt;...)</code></li>
+<li>Files that don’t contain a version pattern are skipped automatically</li>
+<li>Invalid regex patterns will cause an error during configuration resolution</li>
+<li>Only the content within the <code>version</code> capture group is replaced</li>
+<li>Paths must be relative to the package path, not the repository root</li>
+</ul>
 <h4 id="breaking_always_increment_major-1"><a class="header" href="#breaking_always_increment_major-1"><code>breaking_always_increment_major</code></a></h4>
 <p><strong>Type</strong>: Boolean (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>

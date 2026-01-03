@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f25e484.js";
+            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -178,29 +178,16 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
-<p>Releasaurus provides seamless integration with popular CI/CD platforms through official actions and components that automate your release workflow, eliminating the need to run Releasaurus commands manually.</p>
-<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
-<p>All Releasaurus CI/CD integrations follow the same workflow:</p>
-<ol>
-<li><strong>Automatic Release PRs</strong>: When you push to your main branch, a release PR is automatically created (or updated) with version bumps and changelog</li>
-<li><strong>Review and Merge</strong>: Review the generated release PR and merge when ready</li>
-<li><strong>Automatic Publishing</strong>: After merge, the release is automatically tagged and published</li>
-</ol>
-<p>This hands-off approach means you focus on writing code with conventional commits, and Releasaurus handles the rest.</p>
-<h2 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h2>
-<p>Releasaurus provides official GitHub Actions that integrate directly with your GitHub repository workflows.</p>
-<h3 id="available-actions"><a class="header" href="#available-actions">Available Actions</a></h3>
-<p>Three GitHub Actions are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/github/release">Release Action</a></strong> - Publishes releases after PR merge</li>
-</ul>
-<h3 id="quick-setup"><a class="header" href="#quick-setup">Quick Setup</a></h3>
-<p>Create <code>.github/workflows/release.yml</code> in your repository:</p>
+<p>Releasaurus provides official integrations for GitHub Actions and Gitea
+Actions. For GitLab CI, use the Docker image directly.</p>
+<h2 id="github-actions--gitea-actions"><a class="header" href="#github-actions--gitea-actions">GitHub Actions &amp; Gitea Actions</a></h2>
+<p>A single action works for both GitHub Actions and Gitea Actions
+workflows, exposing the <code>releasaurus</code> executable for maximum
+flexibility.</p>
+<p><strong>Documentation</strong>: <a href="https://github.com/robgonnella/releasaurus/tree/main/action">action/README.md</a></p>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
 <pre><code class="language-yaml">name: Release
 on:
-  workflow_dispatch:
   push:
     branches: [main]
 
@@ -210,79 +197,54 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: write
     steps:
-      - name: Release
-        uses: robgonnella/releasaurus/action/github@vX.X.X
+      # Run release before release-pr to ensure pending releases are
+      # published first
+      - name: Publish Release
+        uses: robgonnella/releasaurus/action@vX.X.X
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-</code></pre>
-<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/github">Workflow Action documentation</a> for all available inputs and configuration options.</p>
-<h2 id="gitlab-cicd"><a class="header" href="#gitlab-cicd">GitLab CI/CD</a></h2>
-<p>Releasaurus provides official GitLab CI components that integrate seamlessly with GitLab pipelines.</p>
-<h3 id="available-components"><a class="header" href="#available-components">Available Components</a></h3>
-<p>Three GitLab CI components are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component</a></strong> - Composite component that includes both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release-pr">Release PR Component</a></strong> - Creates and manages release merge requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/templates/release">Release Component</a></strong> - Publishes releases after MR merge</li>
-</ul>
-<h3 id="quick-setup-1"><a class="header" href="#quick-setup-1">Quick Setup</a></h3>
-<p>Create <code>.gitlab-ci.yml</code> in your repository:</p>
-<pre><code class="language-yaml">include:
-  - component: gitlab.com/rgon/releasaurus/workflow@vX.X.X
-    inputs:
-      token: $RELEASE_TOKEN
-</code></pre>
-<p>For detailed configuration options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/templates/workflow">Workflow Component documentation</a>.</p>
-<h2 id="gitea-actions"><a class="header" href="#gitea-actions">Gitea Actions</a></h2>
-<p>Releasaurus provides official Gitea Actions that integrate with Gitea Actions workflows.</p>
-<h3 id="available-actions-1"><a class="header" href="#available-actions-1">Available Actions</a></h3>
-<p>Three Gitea Actions are available:</p>
-<ul>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action</a></strong> - Composite action that runs both <code>release-pr</code> and <code>release</code> (recommended for most users)</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release-pr">Release PR Action</a></strong> - Creates and manages release pull requests</li>
-<li><strong><a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea/release">Release Action</a></strong> - Publishes releases after PR merge</li>
-</ul>
-<h3 id="quick-setup-2"><a class="header" href="#quick-setup-2">Quick Setup</a></h3>
-<p>Create <code>.gitea/workflows/release.yml</code> in your repository:</p>
-<pre><code class="language-yaml">name: Release
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+          command: release
+          command_args: &gt;-
+            --forge github
+            --repo ${{ github.server_url }}/${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Run Releasaurus
-        uses: rgon/releasaurus/action/gitea@vX.X.X
+      - name: Create Release PR
+        uses: robgonnella/releasaurus/action@vX.X.X
         with:
-          token: ${{ secrets.GITEA_TOKEN }}
+          command: release-pr
+          command_args: &gt;-
+            --forge github
+            --repo ${{ github.server_url }}/${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </code></pre>
-<p>For detailed input options and advanced usage, see the <a href="https://github.com/robgonnella/releasaurus/tree/main/action/gitea">Workflow Action documentation</a>.</p>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>All CI/CD integrations work with your existing <code>releasaurus.toml</code> configuration file. No additional CI/CD-specific configuration is required.</p>
-<p>If you need to customize the release workflow (e.g., skip certain commit types, use prerelease versions, handle monorepos), simply update your <code>releasaurus.toml</code> file. See the <a href="./configuration.html">Configuration</a> guide for all available options.</p>
-<h2 id="benefits-of-cicd-integration"><a class="header" href="#benefits-of-cicd-integration">Benefits of CI/CD Integration</a></h2>
-<ul>
-<li><strong>Fully Automated</strong>: Push commits and releases happen automatically</li>
-<li><strong>Consistent Process</strong>: Same release workflow across all your projects</li>
-<li><strong>Safe Reviews</strong>: Release PRs/MRs provide review opportunities before publishing</li>
-<li><strong>Zero Maintenance</strong>: No need to remember release commands or procedures</li>
-<li><strong>Team Friendly</strong>: Anyone can trigger releases by merging the release PR/MR</li>
-</ul>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<ul>
-<li>Review <a href="./configuration.html">Configuration</a> to customize your release process</li>
-<li>Check <a href="./commands.html">Commands</a> for manual release options</li>
-<li>See <a href="./troubleshooting.html">Troubleshooting</a> if you encounter issues</li>
-</ul>
+<h2 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h2>
+<p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>:</p>
+<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<pre><code class="language-yaml">publish-release:
+  image:
+    name: rgonnella/releasaurus:vX.X.X
+    entrypoint: [""]
+  script:
+    - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GITLAB_TOKEN: $GITLAB_TOKEN
+
+release-pr:
+  image:
+    name: rgonnella/releasaurus:vX.X.X
+    entrypoint: [""]
+  script:
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GITLAB_TOKEN: $GITLAB_TOKEN
+</code></pre>
 
                     </main>
 

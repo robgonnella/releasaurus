@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f25e484.js";
+            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -235,6 +235,41 @@ skip_release_commits = false  # Include "chore(main): release v1.0.0"
 <p>Include commit author names in changelog entries:</p>
 <pre><code class="language-toml">[changelog]
 include_author = true
+</code></pre>
+<h3 id="skip_shas-default-none"><a class="header" href="#skip_shas-default-none"><code>skip_shas</code> (default: none)</a></h3>
+<p>Skip specific commits by SHA prefix:</p>
+<pre><code class="language-toml">[changelog]
+skip_shas = ["abc123d", "def456e"]
+
+[[package]]
+path = "."
+release_type = "rust"
+</code></pre>
+<p>Use short SHA prefixes (7+ characters). Useful for excluding commits that
+shouldn’t affect versioning or appear in changelogs.</p>
+<p><strong>CLI override:</strong></p>
+<pre><code class="language-bash">releasaurus release-pr --skip-sha "abc123d"
+</code></pre>
+<h3 id="reword"><a class="header" href="#reword"><code>reword</code></a></h3>
+<p>Rewrite commit messages in the changelog:</p>
+<pre><code class="language-toml">[[changelog.reword]]
+sha = "abc123d"
+message = "fix: corrected security vulnerability"
+
+[[changelog.reword]]
+sha = "def456e"
+message = "feat: added user authentication"
+
+[[package]]
+path = "."
+release_type = "node"
+</code></pre>
+<p>Use SHA prefixes to match commits. The reworded message affects both
+changelog content and version calculation (e.g., changing <code>fix:</code> to <code>feat:</code>
+bumps minor instead of patch).</p>
+<p><strong>CLI override:</strong></p>
+<pre><code class="language-bash">releasaurus release-pr --skip-sha "abc123d" \
+  --reword "def456e=feat: improved feature"
 </code></pre>
 <h2 id="template-customization"><a class="header" href="#template-customization">Template Customization</a></h2>
 <h3 id="body-template"><a class="header" href="#body-template"><code>body</code> Template</a></h3>
