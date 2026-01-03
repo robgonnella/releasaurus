@@ -29,6 +29,15 @@ jobs:
           else
             echo "✅ Schema is up-to-date"
           fi
+  machete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: cargo-machete
+      - name: cargo machete
+        run: cargo machete
 
   lint:
     runs-on: ubuntu-latest
