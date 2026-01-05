@@ -109,7 +109,7 @@ impl<'a> Analyzer<'a> {
         release.link =
             format!("{}/{}", self.config.release_link_base_url, next_tag.name);
 
-        release.tag = Some(next_tag);
+        release.tag = next_tag;
 
         let context = tera::Context::from_serialize(&release)?;
         let notes = tera::Tera::one_off(&self.config.body, &context, false)?;
@@ -145,6 +145,7 @@ impl<'a> Analyzer<'a> {
                 );
                 continue;
             }
+
             let forge_commit = if let Some(reworded) = self
                 .config
                 .commit_modifiers

@@ -294,7 +294,6 @@ pub struct UpdaterPackage {
 
 impl UpdaterPackage {
     fn from_releasable_package(pkg: &ReleasablePackage) -> Self {
-        let tag = pkg.release.tag.as_ref().cloned().unwrap_or_default();
         let release_type = pkg.release_type;
         let updater = Rc::new(Updater::new(release_type));
 
@@ -306,7 +305,7 @@ impl UpdaterPackage {
                 .as_ref()
                 .cloned()
                 .unwrap_or_default(),
-            next_version: tag,
+            next_version: pkg.release.tag.clone(),
             updater,
         }
     }

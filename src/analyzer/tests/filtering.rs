@@ -729,7 +729,7 @@ fn test_reword_changes_version_calculation() {
         .unwrap();
 
     // Should be minor bump (1.1.0) because reworded to feat, not patch (1.0.1)
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("1.1.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
 }
 
 #[test]

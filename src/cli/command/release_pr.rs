@@ -1,5 +1,4 @@
 //! Release pull request creation command implementation.
-use color_eyre::eyre::eyre;
 use log::*;
 use std::{collections::HashMap, path::Path};
 
@@ -172,12 +171,11 @@ async fn gather_release_prs_by_branch(
 
         if let Some(additional_manifests) =
             pkg.additional_manifest_files.as_ref()
-            && let Some(tag) = pkg.release.tag.as_ref()
         {
             for manifest in additional_manifests.iter() {
                 if let Some(change) = GenericUpdater::update_manifest(
                     &manifest.into(),
-                    &tag.semver,
+                    &pkg.release.tag.semver,
                     &manifest.version_regex,
                 ) {
                     file_changes.push(change);
@@ -202,16 +200,12 @@ async fn gather_release_prs_by_branch(
             start_details = "<details open>";
         }
 
-        let tag = pkg.release.tag.as_ref().ok_or_else(|| eyre!(
-            "Projected release should have a projected tag but failed to detect one. Please report this issue here: https://github.com/robgonnella/releasaurus/issues"
-        ))?;
-
-        title = format!("{title} {}", tag.name);
+        title = format!("{title} {}", pkg.release.tag.name);
 
         let metadata = PRMetadata {
             metadata: PRMetadataFields {
                 name: pkg.name.clone(),
-                tag: tag.name.clone(),
+                tag: pkg.release.tag.name.clone(),
                 notes: pkg.release.notes.clone(),
             },
         };
@@ -227,7 +221,7 @@ async fn gather_release_prs_by_branch(
         // create the drop down
         let body = format!(
             "{metadata_str}{start_details}<summary>{}</summary>\n\n{}</details>",
-            tag.name, pkg.release.notes
+            pkg.release.tag.name, pkg.release.notes
         );
 
         let changelog_path = normalize_path(
@@ -273,11 +267,13 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::release::{Release, Tag},
+        cli::{CommitModifiers, GlobalOverrides},
         config::{
             ConfigBuilder,
             package::PackageConfigBuilder,
             prerelease::{PrereleaseConfig, PrereleaseStrategy},
             release_type::ReleaseType,
+            resolver::ConfigResolverBuilder,
         },
         forge::{
             request::{ForgeCommit, PullRequest},
@@ -306,12 +302,12 @@ mod tests {
             additional_manifest_files: None,
             release_type,
             release: Release {
-                tag: Some(Tag {
+                tag: Tag {
                     sha: "test-sha".to_string(),
                     name: format!("v{}", version),
                     semver: SemVer::parse(version).unwrap(),
                     timestamp: None,
-                }),
+                },
                 link: String::new(),
                 sha: "test-sha".to_string(),
                 commits: vec![],
@@ -735,7 +731,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.len(), 1);
-        assert!(result[0].release.tag.is_some());
+        assert_eq!(result[0].release.tag.semver, semver::Version::new(1, 1, 0));
     }
 
     #[tokio::test]
@@ -787,7 +783,7 @@ mod tests {
             let commit = ForgeCommit {
                 id: "abc".into(),
                 message: "feat: new".into(),
-                timestamp: 1000,
+                timestamp: 2000,
                 files: vec!["main.rs".to_string()],
                 ..ForgeCommit::default()
             };
@@ -798,7 +794,7 @@ mod tests {
                 name: "v1.0.0".into(),
                 semver: semver::Version::parse("1.0.0").unwrap(),
                 sha: "old".into(),
-                ..Tag::default()
+                timestamp: Some(1000),
             }))
         });
 
@@ -819,6 +815,19 @@ mod tests {
             .build()
             .unwrap();
 
+        let config = ConfigResolverBuilder::default()
+            .config(config)
+            .repo_name("test-repo")
+            .repo_default_branch("main")
+            .release_link_base_url("")
+            .global_overrides(GlobalOverrides::default())
+            .package_overrides(HashMap::new())
+            .commit_modifiers(CommitModifiers::default())
+            .build()
+            .unwrap()
+            .resolve()
+            .unwrap();
+
         let result = common::get_releasable_packages(
             &config.packages,
             &ForgeManager::new(Box::new(mock)),
@@ -827,10 +836,8 @@ mod tests {
         .await
         .unwrap();
 
-        // TODO: Prerelease logic may have changed during refactor - needs investigation
-        // The test should verify that beta prerelease suffix is applied
         assert!(!result.is_empty());
-        assert!(result[0].release.tag.is_some());
+        assert_eq!(result[0].release.tag.name, "v1.1.0-beta.1");
     }
 
     // ===== execute Tests =====

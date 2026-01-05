@@ -54,7 +54,7 @@ impl Serialize for Tag {
 #[derive(Clone, Default)]
 pub struct Release {
     /// Associated version tag.
-    pub tag: Option<Tag>,
+    pub tag: Tag,
     /// Release URL link.
     pub link: String,
     /// Git commit SHA for the release.
@@ -87,10 +87,8 @@ impl Serialize for Release {
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_struct("Release", 7)?;
-        let default_tag = Tag::default();
-        let tag = self.tag.as_ref().unwrap_or(&default_tag);
         s.serialize_field("link", &self.link)?;
-        s.serialize_field("version", &tag.semver.to_string())?;
+        s.serialize_field("version", &self.tag.semver.to_string())?;
         s.serialize_field("sha", &self.sha)?;
         s.serialize_field("include_author", &self.include_author)?;
         s.serialize_field("commits", &self.commits)?;

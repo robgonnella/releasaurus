@@ -42,7 +42,7 @@ fn test_breaking_always_increment_major_disabled() {
 
     // In 0.x versions with breaking_always_increment_major=false,
     // breaking changes bump minor instead of major
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.2.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.2.0").unwrap());
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn test_custom_major_regex_works_with_breaking_syntax() {
     let release = result.unwrap();
 
     // Breaking syntax still triggers major bump (custom regex is additive)
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("1.0.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_custom_major_increment_regex() {
     let release = result.unwrap();
 
     // Custom regex matches "doc" in commit message, bumps major
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("1.0.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn test_features_always_increment_minor_disabled() {
 
     // In 0.x versions with features_always_increment_minor=false,
     // features bump patch instead of minor
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.1.1").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.1.1").unwrap());
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn test_custom_minor_increment_regex() {
     let release = result.unwrap();
 
     // Custom regex matches "ci" in commit message, bumps minor
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.2.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.2.0").unwrap());
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn test_custom_minor_regex_works_with_feat_syntax() {
     let release = result.unwrap();
 
     // Feat syntax still triggers minor bump (custom regex is additive)
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.2.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.2.0").unwrap());
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn test_both_boolean_flags_disabled_minor_bump() {
     let release = result.unwrap();
 
     // With both flags disabled, only minor bump
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.2.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.2.0").unwrap());
 }
 
 #[test]
@@ -275,7 +275,7 @@ fn test_both_boolean_flags_disabled_patch_bump() {
     let release = result.unwrap();
 
     // With both flags disabled, only patch bump
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("0.1.1").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("0.1.1").unwrap());
 }
 
 #[test]
@@ -305,5 +305,5 @@ fn test_custom_regex_matches_non_conventional_commit() {
     let release = result.unwrap();
 
     // Custom regex matches "wow" and triggers major bump
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("1.0.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
 }

@@ -186,12 +186,12 @@ mod tests {
             workspace_root: ".".into(),
             path: ".".into(),
             release: Release {
-                tag: Some(Tag {
+                tag: Tag {
                     sha: "test-sha".to_string(),
                     name: format!("v{}", version),
                     semver: SemVer::parse(version).unwrap(),
                     ..Tag::default()
-                }),
+                },
                 sha: "test-sha".to_string(),
                 notes: format!("## Changes\n\nRelease {}", version),
                 timestamp: 1234567890,
@@ -333,17 +333,7 @@ mod tests {
 
         assert_eq!(next_releases.len(), 1);
         assert_eq!(next_releases[0].name, "pkg-a");
-        assert!(next_releases[0].release.tag.is_some());
-        assert_eq!(
-            next_releases[0]
-                .release
-                .tag
-                .as_ref()
-                .unwrap()
-                .semver
-                .to_string(),
-            "0.1.0"
-        );
+        assert_eq!(next_releases[0].release.tag.semver.to_string(), "0.1.0");
         assert!(next_releases[0].release.notes.contains("test feature"));
     }
 
