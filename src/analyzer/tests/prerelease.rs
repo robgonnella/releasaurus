@@ -45,10 +45,7 @@ fn test_prerelease_start_from_stable() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("1.1.0-alpha.1").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0-alpha.1").unwrap());
 }
 
 #[test]
@@ -79,10 +76,7 @@ fn test_prerelease_continue_same_identifier() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("1.1.0-alpha.2").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0-alpha.2").unwrap());
 }
 
 #[test]
@@ -110,7 +104,7 @@ fn test_prerelease_graduate_to_stable() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(release.tag.unwrap().semver, SemVer::parse("1.0.0").unwrap());
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
 }
 
 #[test]
@@ -142,10 +136,7 @@ fn test_prerelease_switch_identifier() {
 
     let release = result.unwrap();
     // Should switch to beta and calculate next version
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("1.1.0-beta.1").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0-beta.1").unwrap());
 }
 
 #[test]
@@ -169,10 +160,7 @@ fn test_prerelease_first_release() {
     let result = analyzer.analyze(commits, None).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("0.1.0-alpha.1").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("0.1.0-alpha.1").unwrap());
 }
 
 #[test]
@@ -204,10 +192,7 @@ fn test_prerelease_breaking_change() {
 
     let release = result.unwrap();
     // Breaking change should bump major version
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("2.0.0-alpha.1").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("2.0.0-alpha.1").unwrap());
 }
 
 #[test]
@@ -239,10 +224,7 @@ fn test_new_prerelease_with_static_strategy() {
 
     let release = result.unwrap();
     // Static strategy should produce version without numeric suffix
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("1.1.0-dev").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0-dev").unwrap());
 }
 
 #[test]
@@ -274,10 +256,7 @@ fn test_continuing_prerelease_with_static_strategy() {
 
     let release = result.unwrap();
     // Static strategy increments base version, keeps static suffix
-    assert_eq!(
-        release.tag.unwrap().semver,
-        SemVer::parse("1.1.1-dev").unwrap()
-    );
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.1-dev").unwrap());
 }
 
 #[test]
@@ -309,7 +288,6 @@ fn test_prerelease_with_tag_prefix() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    let tag = release.tag.unwrap();
-    assert_eq!(tag.semver, SemVer::parse("1.1.0-rc.1").unwrap());
-    assert_eq!(tag.name, "v1.1.0-rc.1");
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0-rc.1").unwrap());
+    assert_eq!(release.tag.name, "v1.1.0-rc.1");
 }

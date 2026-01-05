@@ -69,9 +69,7 @@ pub async fn start_next_release(
             file_changes,
             message: format!(
                 "chore({}): bump patch version {} - {}",
-                base_branch,
-                pkg.name,
-                pkg.release.tag.as_ref().unwrap_or(&Tag::default()).semver
+                base_branch, pkg.name, pkg.release.tag.semver
             ),
         };
 
