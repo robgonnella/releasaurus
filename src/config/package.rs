@@ -86,12 +86,35 @@ pub struct CompiledAdditionalManifest {
     pub version_regex: Regex,
 }
 
+/// Sub-package definition allowing grouping of packages under a parent package
+/// configuration. Sub-packages share changelog, tag, and release with the
+/// parent package definition but receive independent manifest version file
+/// updates according to their defined release type
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, JsonSchema, Builder,
+)]
+pub struct SubPackage {
+    /// Name for this sub-package (default derived from path if not provided).
+    /// For proper manifest version file updates this should match the
+    /// canonical name field in the release_type manifest file.
+    /// i.e. name = "..." in Cargo.toml or "name": "..." in package.json
+    pub name: String,
+    /// Path to the subpackage directory relative to the workspace_root of
+    /// the parent package
+    pub path: String,
+    /// [`ReleaseType`] type for determining which version files to update
+    pub release_type: Option<ReleaseType>,
+}
+
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[serde(default)] // Use default for missing fields
 #[builder(setter(into, strip_option), default)]
 pub struct PackageConfig {
-    /// Name for this package (default derived from path if not provided)
+    /// Name for this package (default derived from path if not provided). For
+    /// proper manifest version file updates this should match the
+    /// canonical name field in the release_type manifest file.
+    /// i.e. name = "..." in Cargo.toml or "name": "..." in package.json
     pub name: String,
     /// Path to the workspace root directory for this package relative to the
     /// repository root
@@ -102,6 +125,10 @@ pub struct PackageConfig {
     pub release_type: Option<ReleaseType>,
     /// Git tag prefix for this package (e.g., "v" or "api-v")
     pub tag_prefix: Option<String>,
+    /// Groups sub-packages under a single release. Each will share changelog,
+    /// tag, and release, but will receive independent manifest version updates
+    /// according to their type
+    pub sub_packages: Option<Vec<SubPackage>>,
     /// Optional prerelease configuration that overrides global settings
     pub prerelease: Option<PrereleaseConfig>,
     /// Auto starts next release for this package by performing a patch version
@@ -136,6 +163,7 @@ impl Default for PackageConfig {
             name: "".into(),
             path: ".".into(),
             workspace_root: ".".into(),
+            sub_packages: None,
             release_type: None,
             tag_prefix: None,
             prerelease: None,
@@ -160,6 +188,26 @@ impl PackageConfig {
                 self.name
             ))
         })
+    }
+}
+
+impl From<SubPackage> for PackageConfig {
+    fn from(value: SubPackage) -> Self {
+        Self {
+            path: value.path,
+            release_type: value.release_type,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<&SubPackage> for PackageConfig {
+    fn from(value: &SubPackage) -> Self {
+        Self {
+            path: value.path.clone(),
+            release_type: value.release_type,
+            ..Default::default()
+        }
     }
 }
 

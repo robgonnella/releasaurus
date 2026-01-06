@@ -175,6 +175,7 @@ mod tests {
         },
     };
     use semver::Version as SemVer;
+    use std::rc::Rc;
 
     /// Creates a minimal releasable package for testing
     fn create_releasable_package(
@@ -185,7 +186,7 @@ mod tests {
             name: name.to_string(),
             workspace_root: ".".into(),
             path: ".".into(),
-            release: Release {
+            release: Rc::new(Release {
                 tag: Tag {
                     sha: "test-sha".to_string(),
                     name: format!("v{}", version),
@@ -196,7 +197,7 @@ mod tests {
                 notes: format!("## Changes\n\nRelease {}", version),
                 timestamp: 1234567890,
                 ..Release::default()
-            },
+            }),
             ..ReleasablePackage::default()
         }
     }

@@ -163,11 +163,38 @@ async fn gather_release_prs_by_branch(
     let mut prs_by_branch: HashMap<String, Vec<ReleasePr>> = HashMap::new();
 
     for pkg in releasable_packages.iter() {
+        let releasable_refs: Vec<&ReleasablePackage> =
+            releasable_packages.iter().collect();
         let mut file_changes =
             UpdateManager::get_package_manifest_file_changes(
                 pkg,
-                releasable_packages,
+                &releasable_refs,
             )?;
+
+        let sub_packages: Vec<ReleasablePackage> = pkg
+            .sub_packages
+            .iter()
+            .map(|s| s.to_releasable(pkg))
+            .collect();
+
+        if !sub_packages.is_empty() {
+            // Build workspace context including both sub-packages and parent.
+            // This is needed for workspace-level manifest updates (e.g., Cargo.lock)
+            // Pre-allocate to avoid reallocation during push
+            let mut workspace_refs: Vec<&ReleasablePackage> =
+                Vec::with_capacity(sub_packages.len() + 1);
+            workspace_refs.extend(sub_packages.iter());
+            workspace_refs.push(pkg); // No clone needed - just a reference!
+
+            for sub in sub_packages.iter() {
+                file_changes.extend(
+                    UpdateManager::get_package_manifest_file_changes(
+                        sub,
+                        &workspace_refs,
+                    )?,
+                )
+            }
+        }
 
         if let Some(additional_manifests) =
             pkg.additional_manifest_files.as_ref()
@@ -285,6 +312,7 @@ mod tests {
         },
     };
     use semver::Version as SemVer;
+    use std::rc::Rc;
 
     // ===== Test Helpers =====
 
@@ -298,10 +326,11 @@ mod tests {
             name: name.to_string(),
             path: ".".to_string(),
             workspace_root: ".".to_string(),
+            sub_packages: vec![],
             manifest_files: None,
             additional_manifest_files: None,
             release_type,
-            release: Release {
+            release: Rc::new(Release {
                 tag: Tag {
                     sha: "test-sha".to_string(),
                     name: format!("v{}", version),
@@ -314,7 +343,7 @@ mod tests {
                 include_author: false,
                 notes: format!("## {}\n\nRelease notes", version),
                 timestamp: 0,
-            },
+            }),
         }
     }
 

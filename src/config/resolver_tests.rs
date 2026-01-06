@@ -5,8 +5,12 @@ use crate::{
     config::{
         Config,
         changelog::{ChangelogConfig, RewordedCommit},
-        package::{AdditionalManifest, AdditionalManifestSpec, PackageConfig},
+        package::{
+            AdditionalManifest, AdditionalManifestSpec, PackageConfig,
+            SubPackage,
+        },
         prerelease::{PrereleaseConfig, PrereleaseStrategy},
+        release_type::ReleaseType,
         resolver::ConfigResolverBuilder,
     },
     error::ReleasaurusError,
@@ -975,4 +979,78 @@ fn resolve_converts_string_paths_to_manifests_with_default_regex() {
         pkg.compiled_additional_manifests[1].version_regex.as_str(),
         GENERIC_VERSION_REGEX_PATTERN
     );
+}
+
+#[test]
+fn resolve_sub_package_name_from_path() {
+    // ARRANGE: Sub-package with no explicit name
+    let config = Config {
+        packages: vec![PackageConfig {
+            name: "parent".into(),
+            workspace_root: ".".into(),
+            path: ".".into(),
+            sub_packages: Some(vec![SubPackage {
+                name: "".into(),
+                path: "packages/api".into(),
+                release_type: Some(ReleaseType::Node),
+            }]),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+
+    let resolver = ConfigResolverBuilder::default()
+        .config(config)
+        .repo_name("test-repo")
+        .repo_default_branch("main")
+        .release_link_base_url("https://example.com")
+        .package_overrides(HashMap::new())
+        .global_overrides(GlobalOverrides::default())
+        .commit_modifiers(CommitModifiers::default())
+        .build()
+        .unwrap();
+
+    // ACT: Resolve config
+    let resolved = resolver.resolve().unwrap();
+
+    // ASSERT: Name is derived from path
+    let sub = &resolved.packages[0].sub_packages.as_ref().unwrap()[0];
+    assert_eq!(sub.name, "api");
+}
+
+#[test]
+fn resolve_sub_package_preserves_explicit_name() {
+    // ARRANGE: Sub-package with explicit name
+    let config = Config {
+        packages: vec![PackageConfig {
+            name: "parent".into(),
+            workspace_root: ".".into(),
+            path: ".".into(),
+            sub_packages: Some(vec![SubPackage {
+                name: "my-custom-name".into(),
+                path: "packages/api".into(),
+                release_type: Some(ReleaseType::Node),
+            }]),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+
+    let resolver = ConfigResolverBuilder::default()
+        .config(config)
+        .repo_name("test-repo")
+        .repo_default_branch("main")
+        .release_link_base_url("https://example.com")
+        .package_overrides(HashMap::new())
+        .global_overrides(GlobalOverrides::default())
+        .commit_modifiers(CommitModifiers::default())
+        .build()
+        .unwrap();
+
+    // ACT: Resolve config
+    let resolved = resolver.resolve().unwrap();
+
+    // ASSERT: Explicit name is preserved
+    let sub = &resolved.packages[0].sub_packages.as_ref().unwrap()[0];
+    assert_eq!(sub.name, "my-custom-name");
 }

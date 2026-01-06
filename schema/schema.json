@@ -94,6 +94,7 @@
           "path": ".",
           "release_type": null,
           "tag_prefix": null,
+          "sub_packages": null,
           "prerelease": null,
           "auto_start_next": null,
           "additional_paths": null,
@@ -227,7 +228,7 @@
       "type": "object",
       "properties": {
         "name": {
-          "description": "Name for this package (default derived from path if not provided)",
+          "description": "Name for this package (default derived from path if not provided). For\nproper manifest version file updates this should match the\ncanonical name field in the release_type manifest file.\ni.e. name = \"...\" in Cargo.toml or \"name\": \"...\" in package.json",
           "type": "string",
           "default": ""
         },
@@ -259,6 +260,17 @@
             "string",
             "null"
           ],
+          "default": null
+        },
+        "sub_packages": {
+          "description": "Groups sub-packages under a single release. Each will share changelog,\ntag, and release, but will receive independent manifest version updates\naccording to their type",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/SubPackage"
+          },
           "default": null
         },
         "prerelease": {
@@ -348,6 +360,35 @@
         "php",
         "ruby",
         "java"
+      ]
+    },
+    "SubPackage": {
+      "description": "Sub-package definition allowing grouping of packages under a parent package\nconfiguration. Sub-packages share changelog, tag, and release with the\nparent package definition but receive independent manifest version file\nupdates according to their defined release type",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name for this sub-package (default derived from path if not provided).\nFor proper manifest version file updates this should match the\ncanonical name field in the release_type manifest file.\ni.e. name = \"...\" in Cargo.toml or \"name\": \"...\" in package.json",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path to the subpackage directory relative to the workspace_root of\nthe parent package",
+          "type": "string"
+        },
+        "release_type": {
+          "description": "[`ReleaseType`] type for determining which version files to update",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path"
       ]
     },
     "AdditionalManifestSpec": {

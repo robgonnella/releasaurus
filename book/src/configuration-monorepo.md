@@ -6,6 +6,7 @@ repository.
 ## Overview
 
 Releasaurus supports monorepos with:
+
 - Multiple packages with independent versions
 - Separate or combined pull requests
 - Custom tag prefixes per package
@@ -50,6 +51,7 @@ tag_prefix = "backend-v"
 ```
 
 Creates separate PRs like:
+
 - `releasaurus-release-main-frontend`
 - `releasaurus-release-main-backend`
 
@@ -75,6 +77,7 @@ Each package needs:
 - `tag_prefix` (optional) - Custom tag prefix
 
 **Tag prefix defaults:**
+
 - Root packages (`path = "."`) → `"v"`
 - Nested packages → `"<package-name>-v"`
 
@@ -83,12 +86,14 @@ Each package needs:
 ### Single PR Mode (Default)
 
 **Best for:**
+
 - Tightly coupled packages that always release together
 - Small monorepos (2-5 packages)
 - Teams that prefer coordinated releases
 - Simple review workflow
 
 **Benefits:**
+
 - One review process
 - Atomic releases
 - Simpler workflow
@@ -96,12 +101,14 @@ Each package needs:
 ### Separate PR Mode
 
 **Best for:**
+
 - Large monorepos (5+ packages)
 - Independently versioned packages
 - Different teams owning different packages
 - Different release cadences per package
 
 **Benefits:**
+
 - Independent release cycles
 - Parallel reviews
 - Flexible scheduling
@@ -176,6 +183,7 @@ tag_prefix = "worker-v"
 ```
 
 This updates:
+
 - `backend/services/api/Cargo.toml`
 - `backend/services/worker/Cargo.toml`
 - `backend/Cargo.lock` (workspace lock file)
@@ -242,6 +250,103 @@ tag_prefix = "mobile-v"
 ```
 
 The shared package releases independently.
+
+## Grouped Releases (Sub-Packages)
+
+Group multiple packages under a single release that shares one changelog, tag,
+and release, while each sub-package maintains independent version file updates
+based on its `release_type`.
+
+**Use this when:**
+
+- Multiple packages should always be released together with the same version
+- You want a single changelog for a group of related packages
+- Sub-packages have different languages/frameworks needing different manifest
+  updates
+
+### Basic Example
+
+```toml
+[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+tag_prefix = "v"
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+```
+
+**Result:**
+
+- **One tag**: `v1.0.0` (covers all packages)
+- **One changelog**: Lists all changes from parent and sub-packages
+- **One release**: Published together
+- **Independent manifests**: `Cargo.toml` (parent + cli) and `package.json`
+  (web) updated separately
+
+### Common Use Case: Plugin System
+
+```toml
+[[package]]
+name = "app"
+workspace_root = "."
+path = "."
+release_type = "node"
+tag_prefix = "v"
+sub_packages = [
+    { name = "auth-plugin", path = "plugins/auth", release_type = "node" },
+    { name = "analytics-plugin", path = "plugins/analytics", release_type = "node" },
+    { name = "native-addon", path = "addons/native", release_type = "node" }
+]
+```
+
+All plugins and addons release together with the main app as a cohesive unit,
+each with properly updated manifests.
+
+## Package Naming and Path Requirements
+
+To avoid conflicts and ensure proper manifest updates:
+
+### Package Names
+
+- **Must be unique** across all packages and sub-packages in the repository
+- **Should match manifest files** if they exist:
+  - Node: `name` field in `package.json`
+  - Rust: `name` field in `Cargo.toml`
+  - Python: `name` field in `pyproject.toml` or `setup.py`
+  - And so on for other languages
+- If not provided, derived from the last component of the path
+
+### Package Paths
+
+- **Must be unique** when combined with `workspace_root`
+- Full path = `workspace_root/path`
+- Example: If two packages have different `workspace_root` values, they can have
+  the same `path`
+
+**Valid (different full paths):**
+
+```toml
+[[package]]
+workspace_root = "backend"
+path = "api"
+
+[[package]]
+workspace_root = "frontend"
+path = "api"
+```
+
+**Invalid (same full path):**
+
+```toml
+[[package]]
+path = "services/api"
+
+[[package]]
+path = "services/api"  # Conflict!
+```
 
 ## Workflow Differences
 

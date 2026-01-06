@@ -2,13 +2,14 @@
 use chrono::Utc;
 use log::*;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 use std::{collections::HashSet, path::Path};
 
 use crate::{
     Result,
     analyzer::{Analyzer, release::Tag},
-    cli::types::ReleasablePackage,
-    config::{package::PackageConfig, release_type::ReleaseType},
+    cli::types::{ReleasablePackage, ReleasableSubPackage},
+    config::package::PackageConfig,
     forge::{
         manager::ForgeManager,
         request::{CreateCommitRequest, ForgeCommit},
@@ -57,9 +58,11 @@ pub async fn start_next_release(
     .await?;
 
     for pkg in releasable_packages.iter() {
+        let releasable_refs: Vec<&ReleasablePackage> =
+            releasable_packages.iter().collect();
         let file_changes = UpdateManager::get_package_manifest_file_changes(
             pkg,
-            &releasable_packages,
+            &releasable_refs,
         )?;
 
         info!("updating manifest files for package: {}", pkg.name);
@@ -119,8 +122,7 @@ pub async fn get_releasable_packages_for_commits(
         if let Some(release) = analyzer.analyze(package_commits, current_tag)? {
             info!("package: {}, release: {:#?}", package.name, release);
 
-            let release_type =
-                package.release_type.unwrap_or(ReleaseType::Generic);
+            let release_type = package.release_type.unwrap_or_default();
 
             let manifest_files = UpdateManager::load_manifests_for_package(
                 package,
@@ -137,14 +139,44 @@ pub async fn get_releasable_packages_for_commits(
                 )
                 .await?;
 
+            let mut sub_packages = vec![];
+
+            if let Some(sub_package_defs) = package.sub_packages.as_ref() {
+                for sub in sub_package_defs.iter() {
+                    let release_type = sub.release_type.unwrap_or_default();
+
+                    let sub_path = package_path(&sub.into(), None);
+
+                    let manifest_files =
+                        UpdateManager::load_manifests_for_package(
+                            &PackageConfig {
+                                path: sub_path.clone(),
+                                release_type: Some(release_type),
+                                ..package.clone()
+                            },
+                            forge_manager,
+                            Some(base_branch.into()),
+                        )
+                        .await?;
+
+                    sub_packages.push(ReleasableSubPackage {
+                        name: sub.name.clone(),
+                        path: sub_path,
+                        release_type,
+                        manifest_files,
+                    })
+                }
+            }
+
             releasable_packages.push(ReleasablePackage {
                 name: package.name.clone(),
                 path: package.path.clone(),
                 workspace_root: package.workspace_root.clone(),
+                sub_packages,
                 manifest_files,
                 additional_manifest_files,
                 release_type,
-                release,
+                release: Rc::new(release),
             });
         } else {
             info!("nothing to release for package: {}", package.name);
@@ -332,10 +364,14 @@ async fn get_commits_for_all_packages_separately(
 mod tests {
     use super::*;
     use crate::{
-        config::package::PackageConfigBuilder,
+        config::{
+            package::{PackageConfigBuilder, SubPackage},
+            release_type::ReleaseType,
+        },
         forge::{request::Commit, traits::MockForge},
     };
     use semver::Version as SemVer;
+    use std::rc::Rc;
 
     #[test]
     fn filter_commits_for_package_includes_commits_in_package_path() {
@@ -691,5 +727,234 @@ mod tests {
             start_next_release(&packages, &forge_manager, "main").await;
 
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn get_releasable_packages_loads_sub_package_manifests() {
+        // ARRANGE: Package with 2 sub-packages (different release types)
+        let mut parent = PackageConfigBuilder::default()
+            .name("parent")
+            .path(".")
+            .workspace_root(".")
+            .release_type(ReleaseType::Rust)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
+
+        parent.sub_packages = Some(vec![
+            SubPackage {
+                name: "api".into(),
+                path: "packages/api".into(),
+                release_type: Some(ReleaseType::Node),
+            },
+            SubPackage {
+                name: "ml".into(),
+                path: "packages/ml".into(),
+                release_type: Some(ReleaseType::Python),
+            },
+        ]);
+
+        let packages = vec![parent];
+
+        let commits = vec![ForgeCommit {
+            id: "abc123".into(),
+            short_id: "abc123".into(),
+            message: "feat: test change".into(),
+            timestamp: 1000,
+            files: vec!["src/main.rs".into()],
+            ..Default::default()
+        }];
+
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(None));
+        mock.expect_get_file_content().returning(|req| {
+            // Return appropriate content based on file type
+            if req.path.contains("Cargo.toml") {
+                Ok(Some(
+                    r#"[package]
+name = "parent"
+version = "1.0.0"
+"#
+                    .into(),
+                ))
+            } else if req.path.contains("package.json") {
+                Ok(Some(r#"{"name": "api", "version": "1.0.0"}"#.into()))
+            } else if req.path.contains("pyproject.toml") {
+                Ok(Some(
+                    r#"[project]
+name = "ml"
+version = "1.0.0"
+"#
+                    .into(),
+                ))
+            } else {
+                Ok(None)
+            }
+        });
+
+        let forge_manager = ForgeManager::new(Box::new(mock));
+
+        // ACT: Get releasable packages
+        let result = get_releasable_packages_for_commits(
+            &packages,
+            &commits,
+            &forge_manager,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        // ASSERT: Verify sub-packages have manifest files loaded
+        assert_eq!(result.len(), 1);
+        let parent = &result[0];
+
+        // Should have 2 sub-packages
+        assert_eq!(parent.sub_packages.len(), 2);
+
+        // First sub-package (Node) - should have package.json loaded
+        assert_eq!(parent.sub_packages[0].name, "api");
+        assert_eq!(parent.sub_packages[0].release_type, ReleaseType::Node);
+        assert_eq!(parent.sub_packages[0].path, "packages/api");
+        assert!(
+            parent.sub_packages[0].manifest_files.is_some(),
+            "Node sub-package should have manifest files loaded"
+        );
+
+        // Second sub-package (Python) - should have pyproject.toml loaded
+        assert_eq!(parent.sub_packages[1].name, "ml");
+        assert_eq!(parent.sub_packages[1].release_type, ReleaseType::Python);
+        assert_eq!(parent.sub_packages[1].path, "packages/ml");
+        assert!(
+            parent.sub_packages[1].manifest_files.is_some(),
+            "Python sub-package should have manifest files loaded"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_releasable_packages_creates_sub_packages_with_shared_release()
+    {
+        // ARRANGE: Package with 3 sub-packages
+        let mut parent = PackageConfigBuilder::default()
+            .name("parent")
+            .path(".")
+            .workspace_root(".")
+            .release_type(ReleaseType::Rust)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
+
+        parent.sub_packages = Some(vec![
+            SubPackage {
+                name: "sub1".into(),
+                path: "packages/sub1".into(),
+                release_type: Some(ReleaseType::Node),
+            },
+            SubPackage {
+                name: "sub2".into(),
+                path: "packages/sub2".into(),
+                release_type: Some(ReleaseType::Node),
+            },
+            SubPackage {
+                name: "sub3".into(),
+                path: "packages/sub3".into(),
+                release_type: Some(ReleaseType::Python),
+            },
+        ]);
+
+        let packages = vec![parent];
+
+        let commits = vec![ForgeCommit {
+            id: "abc123".into(),
+            short_id: "abc123".into(),
+            message: "feat: new feature".into(),
+            timestamp: 1000,
+            files: vec!["src/main.rs".into()],
+            ..Default::default()
+        }];
+
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(None));
+        mock.expect_get_file_content().returning(|_| Ok(None));
+
+        let forge_manager = ForgeManager::new(Box::new(mock));
+
+        // ACT: Get releasable packages
+        let result = get_releasable_packages_for_commits(
+            &packages,
+            &commits,
+            &forge_manager,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        // ASSERT: All sub-packages share same release
+        assert_eq!(result.len(), 1);
+        let parent = &result[0];
+        assert_eq!(parent.sub_packages.len(), 3);
+
+        // Verify all sub-packages reference the same release (via Rc)
+        let release_ptr = Rc::as_ptr(&parent.release);
+        for sub in &parent.sub_packages {
+            let releasable = sub.to_releasable(parent);
+            let sub_release_ptr = Rc::as_ptr(&releasable.release);
+            assert_eq!(
+                release_ptr, sub_release_ptr,
+                "Sub-packages should share the same release"
+            );
+        }
+
+        // Verify each has correct properties
+        assert_eq!(parent.sub_packages[0].name, "sub1");
+        assert_eq!(parent.sub_packages[1].name, "sub2");
+        assert_eq!(parent.sub_packages[2].name, "sub3");
+    }
+
+    #[tokio::test]
+    async fn get_releasable_packages_handles_empty_sub_packages() {
+        // ARRANGE: Package with empty sub_packages array
+        let mut parent = PackageConfigBuilder::default()
+            .name("parent")
+            .path(".")
+            .workspace_root(".")
+            .release_type(ReleaseType::Rust)
+            .tag_prefix("v")
+            .build()
+            .unwrap();
+
+        parent.sub_packages = Some(vec![]);
+        let packages = vec![parent];
+
+        let commits = vec![ForgeCommit {
+            id: "abc123".into(),
+            short_id: "abc123".into(),
+            message: "feat: test change".into(),
+            timestamp: 1000,
+            files: vec!["src/main.rs".into()],
+            ..Default::default()
+        }];
+
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tag_for_prefix()
+            .returning(|_| Ok(None));
+        mock.expect_get_file_content().returning(|_| Ok(None));
+
+        let forge_manager = ForgeManager::new(Box::new(mock));
+
+        // ACT: Get releasable packages
+        let result = get_releasable_packages_for_commits(
+            &packages,
+            &commits,
+            &forge_manager,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        // ASSERT: Works correctly with empty sub-packages
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].sub_packages.len(), 0);
     }
 }
