@@ -26,7 +26,6 @@ impl ManifestTargets for NodeManifests {
         for file in package_files {
             let full_path = package_path(pkg, Some(file));
             targets.push(ManifestTarget {
-                is_workspace: false,
                 path: full_path,
                 basename: file.to_string(),
             })
@@ -37,7 +36,6 @@ impl ManifestTargets for NodeManifests {
                 let full_path = workspace_path(pkg, Some(file));
 
                 targets.push(ManifestTarget {
-                    is_workspace: true,
                     path: full_path,
                     basename: file.to_string(),
                 })
@@ -69,7 +67,6 @@ mod tests {
         let targets = NodeManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 3);
-        assert!(targets.iter().all(|t| !t.is_workspace));
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert!(basenames.contains(&&"package.json".to_string()));
@@ -81,19 +78,7 @@ mod tests {
     fn workspace_package_includes_workspace_lock_files() {
         let pkg = create_test_package("packages/my-app");
         let targets = NodeManifests::manifest_targets(&pkg);
-
         assert_eq!(targets.len(), 5);
-
-        let workspace_targets: Vec<_> =
-            targets.iter().filter(|t| t.is_workspace).collect();
-        assert_eq!(workspace_targets.len(), 2);
-
-        let workspace_basenames: Vec<_> =
-            workspace_targets.iter().map(|t| &t.basename).collect();
-        assert!(
-            workspace_basenames.contains(&&"package-lock.json".to_string())
-        );
-        assert!(workspace_basenames.contains(&&"yarn.lock".to_string()));
     }
 
     #[test]

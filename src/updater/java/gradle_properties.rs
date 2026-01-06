@@ -66,7 +66,6 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "version=1.0.0";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
@@ -95,7 +94,6 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "version  =  1.0.0";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
@@ -124,7 +122,6 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "  version=1.0.0";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
@@ -154,7 +151,6 @@ mod tests {
         let content =
             "org.gradle.jvmargs=-Xmx2048m\nversion=1.0.0\ngroup=com.example";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
@@ -187,7 +183,6 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "org.gradle.jvmargs=-Xmx2048m\ngroup=com.example";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
@@ -213,13 +208,11 @@ mod tests {
     fn process_package_handles_multiple_properties_files() {
         let properties = GradleProperties::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "module1/gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: "version=1.0.0".to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "module2/gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: "version=1.0.0".to_string(),
@@ -247,7 +240,6 @@ mod tests {
     fn process_package_returns_none_when_no_gradle_properties() {
         let properties = GradleProperties::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
@@ -274,7 +266,6 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "# version=0.0.1\nversion=1.0.0";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "gradle.properties".to_string(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),

@@ -116,7 +116,6 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -147,7 +146,6 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -179,7 +177,6 @@ version = "1.0.0"
 dynamic = ["version"]
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -210,7 +207,6 @@ version = "1.0.0"
 dynamic = ["version"]
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -245,7 +241,6 @@ requires-python = ">=3.8"
 requests = "^2.28.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -278,7 +273,6 @@ requests = "^2.28.0"
 requires = ["setuptools", "wheel"]
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -304,14 +298,12 @@ requires = ["setuptools", "wheel"]
     fn process_package_handles_multiple_pyproject_files() {
         let pyproject = PyProject::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: "[project]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/b/pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: "[project]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
@@ -340,7 +332,6 @@ requires = ["setuptools", "wheel"]
     fn process_package_returns_none_when_no_pyproject_files() {
         let pyproject = PyProject::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "setup.py".to_string(),
             basename: "setup.py".to_string(),
             content: "setup(name='my-package', version='1.0.0')".to_string(),

@@ -62,7 +62,6 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pyproject.toml".to_string(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
@@ -88,7 +87,6 @@ version = "1.0.0"
     fn returns_none_when_no_python_files() {
         let updater = PythonUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),

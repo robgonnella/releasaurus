@@ -66,7 +66,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
@@ -95,7 +94,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = "version = '1.0.0'";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
@@ -124,7 +122,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle.kts".to_string(),
             basename: "build.gradle.kts".to_string(),
             content: content.to_string(),
@@ -153,7 +150,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"project.version = "1.0.0""#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
@@ -182,7 +178,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = "dependencies { implementation 'com.example:lib:1.0.0' }";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
@@ -208,13 +203,11 @@ mod tests {
     fn update_handles_multiple_manifests() {
         let gradle = Gradle::new();
         let groovy_manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: r#"version = "1.0.0""#.to_string(),
         };
         let kotlin_manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle.kts".to_string(),
             basename: "build.gradle.kts".to_string(),
             content: r#"version = "1.0.0""#.to_string(),
@@ -242,7 +235,6 @@ mod tests {
     fn update_returns_none_when_no_changes() {
         let gradle = Gradle::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: "<version>1.0.0</version>".to_string(),
@@ -269,7 +261,6 @@ mod tests {
         let gradle = Gradle::new();
         let content = "version   =   \"1.0.0\"";
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),

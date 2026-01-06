@@ -59,7 +59,6 @@ mod tests {
         let updater = NodeUpdater::new();
         let content = r#"{"name":"my-package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -85,7 +84,6 @@ mod tests {
     fn returns_none_when_no_node_files() {
         let updater = NodeUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nversion = \"1.0.0\"\n".to_string(),

@@ -10,32 +10,26 @@ impl ManifestTargets for JavaManifests {
     fn manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
         vec![
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("build.gradle")),
                 basename: "build.gradle".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("lib/build.gradle")),
                 basename: "build.gradle".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("build.gradle.kts")),
                 basename: "build.gradle.kts".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("lib/build.gradle.kts")),
                 basename: "build.gradle.kts".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("gradle.properties")),
                 basename: "gradle.properties".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("pom.xml")),
                 basename: "pom.xml".into(),
             },
@@ -64,7 +58,6 @@ mod tests {
         let targets = JavaManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 6);
-        assert!(targets.iter().all(|t| !t.is_workspace));
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert_eq!(

@@ -124,7 +124,6 @@ mod tests {
         let package_json = PackageJson::new();
         let content = r#"{"name":"my-package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -158,7 +157,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -205,7 +203,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -252,7 +249,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -299,7 +295,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -347,7 +342,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),
@@ -387,13 +381,11 @@ mod tests {
     fn process_package_handles_multiple_package_json_files() {
         let package_json = PackageJson::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"name":"package-a","version":"1.0.0"}"#.to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/subdir/package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"name":"package-a-sub","version":"1.0.0"}"#
@@ -422,7 +414,6 @@ mod tests {
     fn process_package_returns_none_when_no_package_json_files() {
         let package_json = PackageJson::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nversion = \"1.0.0\"".to_string(),
@@ -457,7 +448,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: content.to_string(),

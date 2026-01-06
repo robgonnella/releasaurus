@@ -61,7 +61,6 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
@@ -87,7 +86,6 @@ mod tests {
     fn returns_none_when_no_java_files() {
         let updater = JavaUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),

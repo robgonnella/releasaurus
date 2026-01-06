@@ -13,22 +13,18 @@ impl ManifestTargets for RubyManifests {
 
         vec![
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some(&pkg_gemspec)),
                 basename: pkg_gemspec,
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some(&lib_pkg_version)),
                 basename: "version.rb".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("lib/version.rb")),
                 basename: "version.rb".into(),
             },
             ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some("version.rb")),
                 basename: "version.rb".into(),
             },
@@ -57,7 +53,6 @@ mod tests {
         let targets = RubyManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 4);
-        assert!(targets.iter().all(|t| !t.is_workspace));
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert!(basenames.contains(&&"my-gem.gemspec".to_string()));

@@ -159,7 +159,6 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -193,7 +192,6 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -240,7 +238,6 @@ version = "1.0.0"
 package-b = { version = "1.0.0", features = ["serde"] }
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -288,7 +285,6 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -335,7 +331,6 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "packages/a/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -378,7 +373,6 @@ package-b = "1.0.0"
 members = ["packages/*"]
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -413,7 +407,6 @@ authors = ["Test Author"]
 serde = "1.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -443,14 +436,12 @@ serde = "1.0"
     fn process_package_handles_multiple_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/b/Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
@@ -479,7 +470,6 @@ serde = "1.0"
     fn process_package_returns_none_when_no_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.lock".to_string(),
             basename: "Cargo.lock".to_string(),
             content: "version = 3\n".to_string(),

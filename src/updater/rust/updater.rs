@@ -60,7 +60,6 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Cargo.toml".to_string(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
@@ -86,7 +85,6 @@ version = "1.0.0"
     fn returns_none_when_no_rust_files() {
         let updater = RustUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),

@@ -132,7 +132,6 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
@@ -172,7 +171,6 @@ mod tests {
     </dependencies>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
@@ -212,7 +210,6 @@ mod tests {
     </dependencies>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
@@ -250,7 +247,6 @@ mod tests {
     <packaging>jar</packaging>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
@@ -279,14 +275,12 @@ mod tests {
     fn process_package_handles_multiple_pom_files() {
         let maven = Maven::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "module1/pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "module2/pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
@@ -315,7 +309,6 @@ mod tests {
     fn process_package_returns_none_when_no_pom_files() {
         let maven = Maven::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "build.gradle".to_string(),
             basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
@@ -350,7 +343,6 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "pom.xml".to_string(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),

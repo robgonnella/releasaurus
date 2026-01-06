@@ -9,7 +9,6 @@ pub struct PhpManifests {}
 impl ManifestTargets for PhpManifests {
     fn manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
         vec![ManifestTarget {
-            is_workspace: false,
             path: package_path(pkg, Some("composer.json")),
             basename: "composer.json".into(),
         }]
@@ -37,7 +36,6 @@ mod tests {
         let targets = PhpManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 1);
-        assert!(!targets[0].is_workspace);
         assert_eq!(targets[0].basename, "composer.json");
         assert_eq!(targets[0].path, "composer.json");
     }
