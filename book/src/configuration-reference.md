@@ -379,6 +379,33 @@ release_type = "rust"
 tag_prefix = "v"
 ```
 
+#### `sub_packages`
+
+**Type**: Array of objects (optional)
+
+**Default**: None
+
+Groups multiple packages under a single release that shares one changelog, tag,
+and release. Each sub-package gets independent manifest updates based on its
+`release_type`.
+
+**Use when:** Multiple packages should always be released together with the same
+version and share the same changelog
+
+```toml
+[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+```
+
+See [Grouped Releases](./configuration-monorepo.md#grouped-releases-sub-packages)
+for details.
+
 #### `auto_start_next`
 
 **Type**: Boolean (optional)

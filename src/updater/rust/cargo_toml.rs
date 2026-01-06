@@ -96,7 +96,7 @@ impl PackageUpdater for CargoToml {
                 .cloned()
                 .collect::<Vec<UpdaterPackage>>();
 
-            // loop other packages to check if they current manifest deps
+            // loop other packages to check if they are current manifest deps
             for wkspc_pkg in other_pkgs.iter() {
                 let next_version = wkspc_pkg.next_version.semver.to_string();
 

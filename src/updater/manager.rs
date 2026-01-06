@@ -200,7 +200,7 @@ impl UpdateManager {
 
     pub fn get_package_manifest_file_changes(
         package: &ReleasablePackage,
-        all_packages: &[ReleasablePackage],
+        all_packages: &[&ReleasablePackage],
     ) -> Result<Vec<FileChange>> {
         let mut file_changes = vec![];
 
@@ -208,18 +208,19 @@ impl UpdateManager {
         // same workspace
         let workspace_packages: Vec<_> = all_packages
             .iter()
-            .filter(|p| {
+            .filter(|&&p| {
                 p.name != package.name
                     && p.workspace_root == package.workspace_root
                     && p.release_type == package.release_type
             })
+            .copied()
             .collect();
 
         let updater_package = UpdaterPackage::from_releasable_package(package);
 
         let workspace_updater_packages = workspace_packages
-            .into_iter()
-            .map(UpdaterPackage::from_releasable_package)
+            .iter()
+            .map(|&p| UpdaterPackage::from_releasable_package(p))
             .collect::<Vec<UpdaterPackage>>();
 
         info!(

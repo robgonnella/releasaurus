@@ -23,6 +23,7 @@ use crate::{
     config::{
         package::{
             CompiledAdditionalManifest, DEFAULT_TAG_PREFIX, PackageConfig,
+            SubPackage,
         },
         prerelease::PrereleaseConfig,
     },
@@ -91,6 +92,16 @@ impl ConfigResolver {
                 );
 
             Self::compile_additional_manifests(package)?;
+
+            if let Some(subs) = package.sub_packages.as_mut() {
+                for sub in subs.iter_mut() {
+                    Self::resolve_sub_package_name(
+                        sub,
+                        &package.workspace_root,
+                        &self.repo_name,
+                    );
+                }
+            }
 
             package.analyzer_config = AnalyzerConfig {
                 body: config.changelog.body.clone(),
@@ -174,6 +185,22 @@ impl ConfigResolver {
         }
 
         package.name = Path::new(&package.workspace_root)
+            .join(&package.path)
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| repo_name.to_string());
+    }
+
+    fn resolve_sub_package_name(
+        package: &mut SubPackage,
+        workspace_root: &str,
+        repo_name: &str,
+    ) {
+        if !package.name.is_empty() {
+            return;
+        }
+
+        package.name = Path::new(workspace_root)
             .join(&package.path)
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
