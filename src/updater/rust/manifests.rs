@@ -23,7 +23,6 @@ impl ManifestTargets for RustManifests {
         for file in package_files {
             let full_path = package_path(pkg, Some(file));
             targets.push(ManifestTarget {
-                is_workspace: false,
                 path: full_path,
                 basename: file.to_string(),
             })
@@ -34,7 +33,6 @@ impl ManifestTargets for RustManifests {
                 let full_path = workspace_path(pkg, Some(file));
 
                 targets.push(ManifestTarget {
-                    is_workspace: true,
                     path: full_path,
                     basename: file.to_string(),
                 })
@@ -66,7 +64,6 @@ mod tests {
         let targets = RustManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 2);
-        assert!(targets.iter().all(|t| !t.is_workspace));
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert!(basenames.contains(&&"Cargo.toml".to_string()));
@@ -77,13 +74,7 @@ mod tests {
     fn workspace_package_includes_workspace_lock_file() {
         let pkg = create_test_package("crates/my-crate");
         let targets = RustManifests::manifest_targets(&pkg);
-
         assert_eq!(targets.len(), 3);
-
-        let workspace_targets: Vec<_> =
-            targets.iter().filter(|t| t.is_workspace).collect();
-        assert_eq!(workspace_targets.len(), 1);
-        assert_eq!(workspace_targets[0].basename, "Cargo.lock");
     }
 
     #[test]

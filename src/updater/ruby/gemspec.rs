@@ -81,7 +81,6 @@ mod tests {
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -113,7 +112,6 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -145,7 +143,6 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -176,7 +173,6 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -213,7 +209,6 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -244,13 +239,11 @@ end
     fn process_packages_handles_multiple_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "gems/a/gem-a.gemspec".to_string(),
             basename: "gem-a.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "gems/b/gem-b.gemspec".to_string(),
             basename: "gem-b.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
@@ -278,7 +271,6 @@ end
     fn process_packages_returns_none_when_no_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "Gemfile".to_string(),
             basename: "Gemfile".to_string(),
             content: "source 'https://rubygems.org'\ngem 'rails'".to_string(),

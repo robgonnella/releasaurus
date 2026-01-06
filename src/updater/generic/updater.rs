@@ -82,7 +82,6 @@ mod tests {
 
     fn create_manifest(content: &str) -> ManifestFile {
         ManifestFile {
-            is_workspace: false,
             path: "test.txt".to_string(),
             basename: "test.txt".to_string(),
             content: content.to_string(),

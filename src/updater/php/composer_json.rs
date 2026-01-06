@@ -95,7 +95,6 @@ mod tests {
         let composer_json = ComposerJson::new();
         let content = r#"{"name":"vendor/package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
@@ -124,7 +123,6 @@ mod tests {
         let content =
             r#"{"name":"vendor/package","description":"A test package"}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
@@ -161,7 +159,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
@@ -192,14 +189,12 @@ mod tests {
     fn process_package_handles_multiple_composer_files() {
         let composer_json = ComposerJson::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-a","version":"1.0.0"}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/b/composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-b","version":"1.0.0"}"#
@@ -248,7 +243,6 @@ mod tests {
     fn process_package_returns_none_when_no_composer_json_files() {
         let composer_json = ComposerJson::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),

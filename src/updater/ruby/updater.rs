@@ -59,7 +59,6 @@ mod tests {
 end
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "my-gem.gemspec".to_string(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
@@ -85,7 +84,6 @@ end
     fn returns_none_when_no_ruby_files() {
         let updater = RubyUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),

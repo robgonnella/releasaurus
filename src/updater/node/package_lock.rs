@@ -118,16 +118,8 @@ impl PackageUpdater for PackageLock {
                 continue;
             }
 
-            if manifest.is_workspace
-                && let Some(change) = self.update_lock_file(
-                    manifest,
-                    package,
-                    workspace_packages,
-                )?
-            {
-                file_changes.push(change);
-            } else if let Some(change) =
-                self.update_lock_file(manifest, package, &[])?
+            if let Some(change) =
+                self.update_lock_file(manifest, package, workspace_packages)?
             {
                 file_changes.push(change);
             }
@@ -158,7 +150,6 @@ mod tests {
         let content =
             r#"{"name":"my-package","version":"1.0.0","packages":{}}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -195,7 +186,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -237,7 +227,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: true,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -290,7 +279,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: true,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -343,7 +331,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: true,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -397,7 +384,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
@@ -424,14 +410,12 @@ mod tests {
     fn process_package_handles_multiple_lock_files() {
         let package_lock = PackageLock::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-a","version":"1.0.0","packages":{}}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/b/package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-b","version":"1.0.0","packages":{}}"#
@@ -460,7 +444,6 @@ mod tests {
     fn process_package_returns_none_when_no_lock_files() {
         let package_lock = PackageLock::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
@@ -498,7 +481,6 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package-lock.json".to_string(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),

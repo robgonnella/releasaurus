@@ -57,8 +57,6 @@ impl std::fmt::Debug for AdditionalManifestFile {
 
 #[derive(Debug)]
 pub struct ManifestTarget {
-    /// Whether or not to treat this as a workspace manifest
-    pub is_workspace: bool,
     /// The file path relative to the package path
     pub path: String,
     /// The base name of the file path
@@ -67,8 +65,6 @@ pub struct ManifestTarget {
 
 #[derive(Default, Clone)]
 pub struct ManifestFile {
-    /// Whether or not to treat this as a workspace manifest
-    pub is_workspace: bool,
     /// The file path relative to the package path
     pub path: String,
     /// The base name of the file path
@@ -80,7 +76,6 @@ pub struct ManifestFile {
 impl std::fmt::Debug for ManifestFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ManifestFile")
-            .field("is_workspace", &self.is_workspace)
             .field("path", &self.path)
             .field("basename", &self.basename)
             .finish()
@@ -93,7 +88,6 @@ impl From<AdditionalManifestFile> for ManifestFile {
             path: value.path,
             basename: value.basename,
             content: value.content,
-            is_workspace: false,
         }
     }
 }
@@ -104,7 +98,6 @@ impl From<&AdditionalManifestFile> for ManifestFile {
             path: value.path.clone(),
             basename: value.basename.clone(),
             content: value.content.clone(),
-            is_workspace: false,
         }
     }
 }
@@ -141,7 +134,6 @@ impl UpdateManager {
             {
                 info!("Loaded manifest: {}", target.path);
                 manifests.push(ManifestFile {
-                    is_workspace: target.is_workspace,
                     path: target.path,
                     basename: target.basename,
                     content,

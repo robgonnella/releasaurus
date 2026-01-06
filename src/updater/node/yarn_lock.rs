@@ -120,7 +120,6 @@ mod tests {
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -159,7 +158,6 @@ mod tests {
   resolved "https://registry.yarnpkg.com/package-b/-/package-b-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -210,7 +208,6 @@ mod tests {
   resolved "https://registry.yarnpkg.com/external-lib/-/external-lib-5.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -246,7 +243,6 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -282,7 +278,6 @@ package-a@^1.0.0:
   integrity sha512-abc123
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -313,13 +308,11 @@ package-a@^1.0.0:
     fn process_package_handles_multiple_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest1 = ManifestFile {
-            is_workspace: false,
             path: "packages/a/yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
         };
         let manifest2 = ManifestFile {
-            is_workspace: false,
             path: "packages/b/yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
@@ -349,7 +342,6 @@ package-a@^1.0.0:
     fn process_package_returns_none_when_no_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
@@ -381,7 +373,6 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/external-lib/-/external-lib-5.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
@@ -419,7 +410,6 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.5.0.tgz"
 "#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "yarn.lock".to_string(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),

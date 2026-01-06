@@ -14,7 +14,6 @@ impl ManifestTargets for PythonManifests {
 
         for file in files {
             targets.push(ManifestTarget {
-                is_workspace: false,
                 path: package_path(pkg, Some(file)),
                 basename: file.into(),
             })
@@ -45,7 +44,6 @@ mod tests {
         let targets = PythonManifests::manifest_targets(&pkg);
 
         assert_eq!(targets.len(), 3);
-        assert!(targets.iter().all(|t| !t.is_workspace));
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert!(basenames.contains(&&"pyproject.toml".to_string()));

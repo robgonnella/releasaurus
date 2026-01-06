@@ -50,7 +50,6 @@ mod tests {
         let updater = PhpUpdater::new();
         let content = r#"{"name":"vendor/package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "composer.json".to_string(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
@@ -76,7 +75,6 @@ mod tests {
     fn returns_none_when_no_php_files() {
         let updater = PhpUpdater::new();
         let manifest = ManifestFile {
-            is_workspace: false,
             path: "package.json".to_string(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
