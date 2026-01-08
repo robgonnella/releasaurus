@@ -1,4 +1,3 @@
-use log::*;
 use serde_json::{Value, json};
 
 use crate::{
@@ -30,7 +29,7 @@ impl PackageJson {
         if let Some(workspaces) = doc.get("workspaces")
             && (workspaces.is_array() || workspaces.is_object())
         {
-            debug!("skipping workspace package.json");
+            log::debug!("skipping workspace package.json");
             return Ok(());
         }
 
@@ -91,7 +90,7 @@ impl PackageUpdater for PackageJson {
             let formatted_json = serde_json::to_string_pretty(&doc)?;
 
             file_changes.push(FileChange {
-                path: manifest.path.clone(),
+                path: manifest.path.to_string_lossy().to_string(),
                 content: formatted_json,
                 update_type: FileUpdateType::Replace,
             });
@@ -107,7 +106,7 @@ impl PackageUpdater for PackageJson {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -124,7 +123,7 @@ mod tests {
         let package_json = PackageJson::new();
         let content = r#"{"name":"my-package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -157,7 +156,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "packages/a/package.json".to_string(),
+            path: Path::new("packages/a/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -203,7 +202,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "packages/a/package.json".to_string(),
+            path: Path::new("packages/a/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -249,7 +248,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "packages/a/package.json".to_string(),
+            path: Path::new("packages/a/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -295,7 +294,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "packages/a/package.json".to_string(),
+            path: Path::new("packages/a/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -342,7 +341,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -381,12 +380,12 @@ mod tests {
     fn process_package_handles_multiple_package_json_files() {
         let package_json = PackageJson::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/package.json".to_string(),
+            path: Path::new("packages/a/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"package-a","version":"1.0.0"}"#.to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/a/subdir/package.json".to_string(),
+            path: Path::new("packages/a/subdir/package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"package-a-sub","version":"1.0.0"}"#
                 .to_string(),
@@ -414,7 +413,7 @@ mod tests {
     fn process_package_returns_none_when_no_package_json_files() {
         let package_json = PackageJson::new();
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nversion = \"1.0.0\"".to_string(),
         };
@@ -448,7 +447,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };

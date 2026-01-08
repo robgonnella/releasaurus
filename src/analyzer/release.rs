@@ -97,3 +97,229 @@ impl Serialize for Release {
         s.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::commit::Commit;
+    use semver::Version;
+    use serde_json;
+
+    // Tag tests
+
+    #[test]
+    fn tag_default_creates_empty_tag() {
+        let tag = Tag::default();
+        assert_eq!(tag.name, "");
+        assert_eq!(tag.sha, "");
+        assert_eq!(tag.semver, Version::new(0, 0, 0));
+        assert_eq!(tag.timestamp, None);
+    }
+
+    #[test]
+    fn tag_display_shows_name() {
+        let tag = Tag {
+            name: "v1.2.3".to_string(),
+            sha: "abc123".to_string(),
+            semver: Version::new(1, 2, 3),
+            timestamp: Some(1234567890),
+        };
+        assert_eq!(format!("{}", tag), "v1.2.3");
+    }
+
+    #[test]
+    fn tag_display_handles_empty_name() {
+        let tag = Tag::default();
+        assert_eq!(format!("{}", tag), "");
+    }
+
+    #[test]
+    fn tag_serialize_includes_all_fields() {
+        let tag = Tag {
+            name: "v1.2.3".to_string(),
+            sha: "abc123def456".to_string(),
+            semver: Version::new(1, 2, 3),
+            timestamp: Some(1234567890),
+        };
+
+        let json = serde_json::to_value(&tag).unwrap();
+        assert_eq!(json["name"], "v1.2.3");
+        assert_eq!(json["sha"], "abc123def456");
+        assert_eq!(json["semver"], "1.2.3");
+    }
+
+    #[test]
+    fn tag_serialize_with_prerelease() {
+        let tag = Tag {
+            name: "v2.0.0-beta.1".to_string(),
+            sha: "xyz789".to_string(),
+            semver: Version::parse("2.0.0-beta.1").unwrap(),
+            timestamp: None,
+        };
+
+        let json = serde_json::to_value(&tag).unwrap();
+        assert_eq!(json["semver"], "2.0.0-beta.1");
+    }
+
+    #[test]
+    fn tag_equality_works() {
+        let tag1 = Tag {
+            name: "v1.0.0".to_string(),
+            sha: "abc".to_string(),
+            semver: Version::new(1, 0, 0),
+            timestamp: Some(123),
+        };
+        let tag2 = Tag {
+            name: "v1.0.0".to_string(),
+            sha: "abc".to_string(),
+            semver: Version::new(1, 0, 0),
+            timestamp: Some(123),
+        };
+        assert_eq!(tag1, tag2);
+    }
+
+    #[test]
+    fn tag_inequality_by_semver() {
+        let tag1 = Tag {
+            name: "v1.0.0".to_string(),
+            sha: "abc".to_string(),
+            semver: Version::new(1, 0, 0),
+            timestamp: None,
+        };
+        let tag2 = Tag {
+            name: "v1.0.1".to_string(),
+            sha: "abc".to_string(),
+            semver: Version::new(1, 0, 1),
+            timestamp: None,
+        };
+        assert_ne!(tag1, tag2);
+    }
+
+    // Release tests
+
+    #[test]
+    fn release_debug_excludes_commits_and_notes() {
+        let release = Release {
+            tag: Tag {
+                name: "v1.0.0".to_string(),
+                sha: "tag_sha".to_string(),
+                semver: Version::new(1, 0, 0),
+                timestamp: Some(1234567890),
+            },
+            link: "https://example.com/release".to_string(),
+            sha: "release_sha".to_string(),
+            commits: vec![Commit::default()],
+            include_author: true,
+            notes: "Some long release notes...".to_string(),
+            timestamp: 9876543210,
+        };
+
+        let debug_str = format!("{:?}", release);
+
+        // Should include these fields
+        assert!(debug_str.contains("Release"));
+        assert!(debug_str.contains("tag"));
+        assert!(debug_str.contains("link"));
+        assert!(debug_str.contains("sha"));
+        assert!(debug_str.contains("include_author"));
+        assert!(debug_str.contains("timestamp"));
+
+        // Should NOT include commits or notes in debug output
+        assert!(!debug_str.contains("commits"));
+        assert!(!debug_str.contains("notes"));
+    }
+
+    #[test]
+    fn release_serialize_includes_all_fields() {
+        let tag = Tag {
+            name: "v2.1.0".to_string(),
+            sha: "tag_sha_123".to_string(),
+            semver: Version::new(2, 1, 0),
+            timestamp: Some(1111111111),
+        };
+
+        let commit = Commit {
+            id: "commit_sha".to_string(),
+            raw_message: "feat: new feature".to_string(),
+            ..Default::default()
+        };
+
+        let release = Release {
+            tag,
+            link: "https://github.com/owner/repo/releases/tag/v2.1.0"
+                .to_string(),
+            sha: "release_sha_456".to_string(),
+            commits: vec![commit],
+            include_author: true,
+            notes: "# Release Notes\n\n- Added feature".to_string(),
+            timestamp: 1234567890,
+        };
+
+        let json = serde_json::to_value(&release).unwrap();
+
+        assert_eq!(
+            json["link"],
+            "https://github.com/owner/repo/releases/tag/v2.1.0"
+        );
+        assert_eq!(json["version"], "2.1.0");
+        assert_eq!(json["sha"], "release_sha_456");
+        assert_eq!(json["include_author"], true);
+        assert!(json["commits"].is_array());
+        assert_eq!(json["commits"].as_array().unwrap().len(), 1);
+        assert_eq!(json["notes"], "# Release Notes\n\n- Added feature");
+        assert_eq!(json["timestamp"], 1234567890);
+    }
+
+    #[test]
+    fn release_serialize_empty_commits() {
+        let release = Release {
+            tag: Tag::default(),
+            link: "".to_string(),
+            sha: "".to_string(),
+            commits: vec![],
+            include_author: false,
+            notes: "".to_string(),
+            timestamp: 0,
+        };
+
+        let json = serde_json::to_value(&release).unwrap();
+        assert!(json["commits"].is_array());
+        assert_eq!(json["commits"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn release_with_multiple_commits() {
+        let commits = vec![
+            Commit {
+                id: "sha1".to_string(),
+                raw_message: "feat: feature 1".to_string(),
+                ..Default::default()
+            },
+            Commit {
+                id: "sha2".to_string(),
+                raw_message: "fix: bug fix".to_string(),
+                ..Default::default()
+            },
+            Commit {
+                id: "sha3".to_string(),
+                raw_message: "docs: update docs".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        let release = Release {
+            tag: Tag::default(),
+            link: "".to_string(),
+            sha: "".to_string(),
+            commits,
+            include_author: false,
+            notes: "".to_string(),
+            timestamp: 0,
+        };
+
+        assert_eq!(release.commits.len(), 3);
+        assert_eq!(release.commits[0].id, "sha1");
+        assert_eq!(release.commits[1].id, "sha2");
+        assert_eq!(release.commits[2].id, "sha3");
+    }
+}

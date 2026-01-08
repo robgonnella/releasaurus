@@ -49,7 +49,7 @@ impl PackageUpdater for GradleProperties {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -66,7 +66,7 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "version=1.0.0";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };
@@ -94,7 +94,7 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "version  =  1.0.0";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };
@@ -122,7 +122,7 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "  version=1.0.0";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };
@@ -151,7 +151,7 @@ mod tests {
         let content =
             "org.gradle.jvmargs=-Xmx2048m\nversion=1.0.0\ngroup=com.example";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };
@@ -183,7 +183,7 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "org.gradle.jvmargs=-Xmx2048m\ngroup=com.example";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };
@@ -208,12 +208,12 @@ mod tests {
     fn process_package_handles_multiple_properties_files() {
         let properties = GradleProperties::new();
         let manifest1 = ManifestFile {
-            path: "module1/gradle.properties".to_string(),
+            path: Path::new("module1/gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: "version=1.0.0".to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "module2/gradle.properties".to_string(),
+            path: Path::new("module2/gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: "version=1.0.0".to_string(),
         };
@@ -240,7 +240,7 @@ mod tests {
     fn process_package_returns_none_when_no_gradle_properties() {
         let properties = GradleProperties::new();
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
         };
@@ -266,7 +266,7 @@ mod tests {
         let properties = GradleProperties::new();
         let content = "# version=0.0.1\nversion=1.0.0";
         let manifest = ManifestFile {
-            path: "gradle.properties".to_string(),
+            path: Path::new("gradle.properties").to_path_buf(),
             basename: "gradle.properties".to_string(),
             content: content.to_string(),
         };

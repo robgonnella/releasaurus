@@ -1,4 +1,3 @@
-use log::*;
 use std::path::Path;
 
 use crate::{
@@ -38,7 +37,7 @@ impl PackageUpdater for Gemspec {
                     continue;
                 }
 
-                info!("processing gemspec file: {}", manifest.basename);
+                log::info!("processing gemspec file: {}", manifest.basename);
 
                 if let Some(change) = GenericUpdater::update_manifest(
                     manifest,
@@ -81,7 +80,7 @@ mod tests {
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -112,7 +111,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -143,7 +142,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -173,7 +172,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -209,7 +208,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -239,12 +238,12 @@ end
     fn process_packages_handles_multiple_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest1 = ManifestFile {
-            path: "gems/a/gem-a.gemspec".to_string(),
+            path: Path::new("gems/a/gem-a.gemspec").to_path_buf(),
             basename: "gem-a.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "gems/b/gem-b.gemspec".to_string(),
+            path: Path::new("gems/b/gem-b.gemspec").to_path_buf(),
             basename: "gem-b.gemspec".to_string(),
             content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
         };
@@ -271,7 +270,7 @@ end
     fn process_packages_returns_none_when_no_gemspec_files() {
         let gemspec = Gemspec::new();
         let manifest = ManifestFile {
-            path: "Gemfile".to_string(),
+            path: Path::new("Gemfile").to_path_buf(),
             basename: "Gemfile".to_string(),
             content: "source 'https://rubygems.org'\ngem 'rails'".to_string(),
         };

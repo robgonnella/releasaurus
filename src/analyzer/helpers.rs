@@ -1,4 +1,3 @@
-use log::*;
 use regex::Regex;
 use semver::{Prerelease, Version};
 use std::{borrow::Cow, sync::LazyLock};
@@ -31,9 +30,10 @@ pub fn update_release_with_commit(
     {
         let commit_id = commit.id.to_string();
 
-        info!(
+        log::info!(
             "processing commit: {} : {}",
-            commit.short_id, commit.raw_title
+            commit.short_id,
+            commit.raw_title
         );
 
         // add commit to release

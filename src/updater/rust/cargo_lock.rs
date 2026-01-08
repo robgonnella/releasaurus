@@ -66,7 +66,7 @@ impl PackageUpdater for CargoLock {
                 }
 
                 file_changes.push(FileChange {
-                    path: manifest.path.clone(),
+                    path: manifest.path.to_string_lossy().to_string(),
                     content: lock_doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -83,7 +83,7 @@ impl PackageUpdater for CargoLock {
 
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, slice};
+    use std::{path::Path, rc::Rc, slice};
 
     use super::*;
     use crate::{
@@ -105,7 +105,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
@@ -143,7 +143,7 @@ name = "package-b"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
@@ -193,7 +193,7 @@ name = "external-crate"
 version = "5.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
@@ -237,7 +237,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abc123"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
@@ -272,7 +272,7 @@ checksum = "abc123"
         let content = r#"version = 3
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };
@@ -299,12 +299,12 @@ checksum = "abc123"
     fn process_package_handles_multiple_cargo_lock_files() {
         let cargo_lock = CargoLock::new();
         let manifest1 = ManifestFile {
-            path: "workspace/a/Cargo.lock".to_string(),
+            path: Path::new("workspace/a/Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: "version = 3\n\n[[package]]\nname = \"package-a\"\nversion = \"1.0.0\"\n".to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "workspace/b/Cargo.lock".to_string(),
+            path: Path::new("workspace/b/Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: "version = 3\n\n[[package]]\nname = \"package-a\"\nversion = \"1.0.0\"\n".to_string(),
         };
@@ -333,7 +333,7 @@ checksum = "abc123"
     fn process_package_returns_none_when_no_cargo_lock_files() {
         let cargo_lock = CargoLock::new();
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"my-package\"\nversion = \"1.0.0\"\n"
                 .to_string(),
@@ -373,7 +373,7 @@ name = "external-crate"
 version = "5.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: content.to_string(),
         };

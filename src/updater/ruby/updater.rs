@@ -38,7 +38,7 @@ impl PackageUpdater for RubyUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -59,7 +59,7 @@ mod tests {
 end
 "#;
         let manifest = ManifestFile {
-            path: "my-gem.gemspec".to_string(),
+            path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
         };
@@ -84,7 +84,7 @@ end
     fn returns_none_when_no_ruby_files() {
         let updater = RubyUpdater::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };

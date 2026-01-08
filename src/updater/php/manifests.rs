@@ -1,15 +1,17 @@
-use crate::{
-    config::package::PackageConfig,
-    path_helpers::package_path,
-    updater::{manager::ManifestTarget, traits::ManifestTargets},
-};
+use std::path::Path;
+
+use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
 pub struct PhpManifests {}
 
 impl ManifestTargets for PhpManifests {
-    fn manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
+    fn manifest_targets(
+        _pkg_name: &str,
+        _workspace_path: &Path,
+        pkg_path: &Path,
+    ) -> Vec<ManifestTarget> {
         vec![ManifestTarget {
-            path: package_path(pkg, Some("composer.json")),
+            path: pkg_path.join("composer.json"),
             basename: "composer.json".into(),
         }]
     }
@@ -17,34 +19,40 @@ impl ManifestTargets for PhpManifests {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::config::{package::PackageConfig, release_type::ReleaseType};
+    use std::path::Path;
 
-    fn create_test_package(path: &str) -> PackageConfig {
-        PackageConfig {
-            name: "test-package".to_string(),
-            workspace_root: ".".to_string(),
-            path: path.to_string(),
-            release_type: Some(ReleaseType::Php),
-            ..Default::default()
-        }
-    }
+    use super::*;
 
     #[test]
     fn returns_composer_json_manifest() {
-        let pkg = create_test_package(".");
-        let targets = PhpManifests::manifest_targets(&pkg);
+        let workspace_path = Path::new("").to_path_buf();
+        let pkg_path = workspace_path.clone();
+
+        let targets = PhpManifests::manifest_targets(
+            "tstpkg",
+            &workspace_path,
+            &pkg_path,
+        );
 
         assert_eq!(targets.len(), 1);
         assert_eq!(targets[0].basename, "composer.json");
-        assert_eq!(targets[0].path, "composer.json");
+        assert_eq!(targets[0].path.to_string_lossy(), "composer.json");
     }
 
     #[test]
     fn generates_correct_path_for_nested_package() {
-        let pkg = create_test_package("packages/my-php-lib");
-        let targets = PhpManifests::manifest_targets(&pkg);
+        let workspace_path = Path::new("").to_path_buf();
+        let pkg_path = Path::new("packages/my-php-lib").to_path_buf();
 
-        assert_eq!(targets[0].path, "packages/my-php-lib/composer.json");
+        let targets = PhpManifests::manifest_targets(
+            "tstpkg",
+            &workspace_path,
+            &pkg_path,
+        );
+
+        assert_eq!(
+            targets[0].path.to_string_lossy(),
+            "packages/my-php-lib/composer.json"
+        );
     }
 }

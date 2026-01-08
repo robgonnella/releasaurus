@@ -1,6 +1,5 @@
 use derive_builder::Builder;
 use git_conventional::Commit as ConventionalCommit;
-use log::*;
 use serde::Serialize;
 use std::borrow::Cow;
 
@@ -94,32 +93,36 @@ impl Commit {
                 };
                 commit.group = group_parser.parse(&commit);
                 if commit.group == Group::Ci && config.skip_ci {
-                    debug!(
+                    log::debug!(
                         "omitting ci commit: {} : {}",
-                        commit.short_id, commit.raw_title
+                        commit.short_id,
+                        commit.raw_title
                     );
                     return None;
                 }
                 if commit.group == Group::Chore && config.skip_chore {
-                    debug!(
+                    log::debug!(
                         "omitting chore commit: {} : {}",
-                        commit.short_id, commit.raw_title
+                        commit.short_id,
+                        commit.raw_title
                     );
                     return None;
                 }
                 if commit.group == Group::Miscellaneous
                     && config.skip_miscellaneous
                 {
-                    debug!(
+                    log::debug!(
                         "omitting miscellaneous commit: {} : {}",
-                        commit.short_id, commit.raw_title
+                        commit.short_id,
+                        commit.raw_title
                     );
                     return None;
                 }
                 if commit.merge_commit && config.skip_merge_commits {
-                    debug!(
+                    log::debug!(
                         "omitting merge commit: {} : {}",
-                        commit.short_id, commit.raw_title
+                        commit.short_id,
+                        commit.raw_title
                     );
                     return None;
                 }
@@ -128,9 +131,10 @@ impl Commit {
                         config.release_commit_matcher.as_ref()
                     && matcher.is_match(&commit.raw_title)
                 {
-                    debug!(
+                    log::debug!(
                         "omitting release commit: {} : {}",
-                        commit.short_id, commit.raw_title
+                        commit.short_id,
+                        commit.raw_title
                     );
 
                     return None;
@@ -144,7 +148,9 @@ impl Commit {
                 }
 
                 if merge_commit && config.skip_merge_commits {
-                    debug!("omitting merge commit: {short_id} : {raw_title}");
+                    log::debug!(
+                        "omitting merge commit: {short_id} : {raw_title}"
+                    );
                     return None;
                 }
 
@@ -1110,14 +1116,13 @@ mod tests {
                 ..ForgeCommit::default()
             };
 
-            let result = Commit::parse_forge_commit(
+            let commit = Commit::parse_forge_commit(
                 &group_parser,
                 &forge_commit,
                 &analyzer_config,
-            );
+            )
+            .unwrap();
 
-            assert!(result.is_some(), "Expected Some for message: {}", message);
-            let commit = result.unwrap();
             assert_eq!(
                 commit.group, expected_group,
                 "Wrong group for message: {}",

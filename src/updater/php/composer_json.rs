@@ -1,4 +1,3 @@
-use log::*;
 use serde_json::{Value, json};
 
 use crate::{
@@ -38,13 +37,17 @@ impl PackageUpdater for ComposerJson {
             }
 
             if let Some(mut doc) = self.load_doc(&manifest.content)? {
-                info!("found composer.json for package: {}", manifest.path);
+                log::info!(
+                    "found composer.json for package: {}",
+                    manifest.path.to_string_lossy()
+                );
 
                 // Update the version field
                 if let Some(obj) = doc.as_object_mut() {
-                    info!(
+                    log::info!(
                         "updating {} version to {}",
-                        manifest.path, package.next_version.semver
+                        manifest.path.to_string_lossy(),
+                        package.next_version.semver
                     );
 
                     obj.insert(
@@ -55,14 +58,14 @@ impl PackageUpdater for ComposerJson {
                     let formatted = serde_json::to_string_pretty(&doc)?;
 
                     file_changes.push(FileChange {
-                        path: manifest.path.clone(),
+                        path: manifest.path.to_string_lossy().to_string(),
                         content: formatted,
                         update_type: FileUpdateType::Replace,
                     });
                 } else {
-                    warn!(
+                    log::warn!(
                         "composer.json is not a valid JSON object: {}",
-                        manifest.path
+                        manifest.path.to_string_lossy()
                     );
                 }
             }
@@ -78,7 +81,7 @@ impl PackageUpdater for ComposerJson {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -95,7 +98,7 @@ mod tests {
         let composer_json = ComposerJson::new();
         let content = r#"{"name":"vendor/package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            path: "composer.json".to_string(),
+            path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
         };
@@ -123,7 +126,7 @@ mod tests {
         let content =
             r#"{"name":"vendor/package","description":"A test package"}"#;
         let manifest = ManifestFile {
-            path: "composer.json".to_string(),
+            path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
         };
@@ -159,7 +162,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "composer.json".to_string(),
+            path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
         };
@@ -189,13 +192,13 @@ mod tests {
     fn process_package_handles_multiple_composer_files() {
         let composer_json = ComposerJson::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/composer.json".to_string(),
+            path: Path::new("packages/a/composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-a","version":"1.0.0"}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/composer.json".to_string(),
+            path: Path::new("packages/b/composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: r#"{"name":"vendor/package-b","version":"1.0.0"}"#
                 .to_string(),
@@ -243,7 +246,7 @@ mod tests {
     fn process_package_returns_none_when_no_composer_json_files() {
         let composer_json = ComposerJson::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };

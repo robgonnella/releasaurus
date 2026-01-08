@@ -40,7 +40,7 @@ impl PackageUpdater for RustUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -60,7 +60,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -85,7 +85,7 @@ version = "1.0.0"
     fn returns_none_when_no_rust_files() {
         let updater = RustUpdater::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };

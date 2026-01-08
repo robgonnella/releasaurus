@@ -42,7 +42,7 @@ impl PackageUpdater for PythonUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -62,7 +62,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -87,7 +87,7 @@ version = "1.0.0"
     fn returns_none_when_no_python_files() {
         let updater = PythonUpdater::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };

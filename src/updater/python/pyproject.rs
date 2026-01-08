@@ -1,4 +1,3 @@
-use log::*;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -37,22 +36,23 @@ impl PackageUpdater for PyProject {
 
             if let Some(project) = doc["project"].as_table_mut() {
                 if project.get("dynamic").is_some() {
-                    info!(
+                    log::info!(
                         "dynamic version found in pyproject.toml: skipping update"
                     );
                     continue;
                 }
 
-                info!(
+                log::info!(
                     "updating {} project version to {}",
-                    manifest.path, package.next_version.semver
+                    manifest.path.to_string_lossy(),
+                    package.next_version.semver
                 );
 
                 project["version"] =
                     value(package.next_version.semver.to_string());
 
                 file_changes.push(FileChange {
-                    path: manifest.path.clone(),
+                    path: manifest.path.to_string_lossy().to_string(),
                     content: doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -64,22 +64,23 @@ impl PackageUpdater for PyProject {
                 && let Some(project) = tool["poetry"].as_table_mut()
             {
                 if project.get("dynamic").is_some() {
-                    info!(
+                    log::info!(
                         "dynamic version found in pyproject.toml: skipping update"
                     );
                     continue;
                 }
 
-                info!(
+                log::info!(
                     "updating {} tool.poetry version to {}",
-                    manifest.path, package.next_version.semver
+                    manifest.path.to_string_lossy(),
+                    package.next_version.semver
                 );
 
                 project["version"] =
                     value(package.next_version.semver.to_string());
 
                 file_changes.push(FileChange {
-                    path: manifest.path.clone(),
+                    path: manifest.path.to_string_lossy().to_string(),
                     content: doc.to_string(),
                     update_type: FileUpdateType::Replace,
                 });
@@ -96,7 +97,7 @@ impl PackageUpdater for PyProject {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -116,7 +117,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -146,7 +147,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -177,7 +178,7 @@ version = "1.0.0"
 dynamic = ["version"]
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -207,7 +208,7 @@ version = "1.0.0"
 dynamic = ["version"]
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -241,7 +242,7 @@ requires-python = ">=3.8"
 requests = "^2.28.0"
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -273,7 +274,7 @@ requests = "^2.28.0"
 requires = ["setuptools", "wheel"]
 "#;
         let manifest = ManifestFile {
-            path: "pyproject.toml".to_string(),
+            path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
         };
@@ -298,13 +299,13 @@ requires = ["setuptools", "wheel"]
     fn process_package_handles_multiple_pyproject_files() {
         let pyproject = PyProject::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/pyproject.toml".to_string(),
+            path: Path::new("packages/a/pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: "[project]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/pyproject.toml".to_string(),
+            path: Path::new("packages/b/pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: "[project]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
                 .to_string(),
@@ -332,7 +333,7 @@ requires = ["setuptools", "wheel"]
     fn process_package_returns_none_when_no_pyproject_files() {
         let pyproject = PyProject::new();
         let manifest = ManifestFile {
-            path: "setup.py".to_string(),
+            path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: "setup(name='my-package', version='1.0.0')".to_string(),
         };

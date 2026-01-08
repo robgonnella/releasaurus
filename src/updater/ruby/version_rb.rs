@@ -51,7 +51,7 @@ impl PackageUpdater for VersionRb {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -71,7 +71,7 @@ mod tests {
 end
 "#;
         let manifest = ManifestFile {
-            path: "lib/my_gem/version.rb".to_string(),
+            path: Path::new("lib/my_gem/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: content.to_string(),
         };
@@ -101,7 +101,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "lib/my_gem/version.rb".to_string(),
+            path: Path::new("lib/my_gem/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: content.to_string(),
         };
@@ -131,7 +131,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "lib/my_gem/version.rb".to_string(),
+            path: Path::new("lib/my_gem/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: content.to_string(),
         };
@@ -161,7 +161,7 @@ end
 end
 "#;
         let manifest = ManifestFile {
-            path: "lib/my_gem/version.rb".to_string(),
+            path: Path::new("lib/my_gem/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: content.to_string(),
         };
@@ -197,7 +197,7 @@ module MyGem
 end
 "#;
         let manifest = ManifestFile {
-            path: "lib/my_gem/version.rb".to_string(),
+            path: Path::new("lib/my_gem/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: content.to_string(),
         };
@@ -227,12 +227,12 @@ end
     fn process_package_handles_multiple_version_rb_files() {
         let version_rb = VersionRb::new();
         let manifest1 = ManifestFile {
-            path: "gems/a/lib/gem_a/version.rb".to_string(),
+            path: Path::new("gems/a/lib/gem_a/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: "module GemA\n  VERSION = \"1.0.0\"\nend\n".to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "gems/b/lib/gem_b/version.rb".to_string(),
+            path: Path::new("gems/b/lib/gem_b/version.rb").to_path_buf(),
             basename: "version.rb".to_string(),
             content: "module GemB\n  VERSION = \"1.0.0\"\nend\n".to_string(),
         };
@@ -259,7 +259,7 @@ end
     fn process_package_returns_none_when_no_version_rb_files() {
         let version_rb = VersionRb::new();
         let manifest = ManifestFile {
-            path: "lib/my_gem.rb".to_string(),
+            path: Path::new("lib/my_gem.rb").to_path_buf(),
             basename: "my_gem.rb".to_string(),
             content: "module MyGem\n  # Main module\nend\n".to_string(),
         };

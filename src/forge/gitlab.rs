@@ -31,7 +31,6 @@ use gitlab::{
     },
 };
 use graphql_client::{GraphQLQuery, QueryBody};
-use log::*;
 use regex::Regex;
 use reqwest::{Method, StatusCode};
 use secrecy::ExposeSecret;
@@ -493,7 +492,7 @@ impl Forge for Gitlab {
         let mut forge_commits = vec![];
 
         for commit in result.iter() {
-            debug!("backfilling file list for commit: {}", commit.id);
+            log::debug!("backfilling file list for commit: {}", commit.id);
 
             let vars = CommitDiffQueryVars {
                 project_id: self.project_id.clone(),
@@ -618,7 +617,7 @@ impl Forge for Gitlab {
             }
 
             if content == existing_content.unwrap_or_default() {
-                warn!(
+                log::warn!(
                     "skipping file update content matches existing state: {}",
                     change.path
                 );
@@ -635,9 +634,10 @@ impl Forge for Gitlab {
         }
 
         if actions.is_empty() {
-            warn!(
+            log::warn!(
                 "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch, req.message,
+                req.target_branch,
+                req.message,
             );
             return Ok(Commit { sha: "None".into() });
         }

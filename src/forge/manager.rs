@@ -1,6 +1,5 @@
 //! Manager that wraps forge implementations
 use async_trait::async_trait;
-use log::*;
 use std::sync::OnceLock;
 
 use crate::{
@@ -56,24 +55,24 @@ impl ForgeManager {
         &self,
         req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        debug!("Loading file: {} (branch: {:?})", req.path, req.branch);
+        log::debug!("Loading file: {} (branch: {:?})", req.path, req.branch);
 
         let result = self.forge.get_file_content(req).await;
 
         if let Err(e) = &result {
-            error!("Failed to load file: {}", e);
+            log::error!("Failed to load file: {}", e);
         }
 
         result
     }
 
     pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        info!("Loading configuration from forge (branch: {:?})", branch);
+        log::info!("Loading configuration from forge (branch: {:?})", branch);
 
         let result = self.forge.load_config(branch).await;
 
         if let Err(e) = &result {
-            error!("Failed to load configuration: {}", e);
+            log::error!("Failed to load configuration: {}", e);
         }
 
         result
@@ -98,9 +97,10 @@ impl ForgeManager {
         branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
-        debug!(
+        log::debug!(
             "getting commits for branch [{:?}] starting from sha: {:?}",
-            branch, sha
+            branch,
+            sha
         );
         self.forge.get_commits(branch, sha).await
     }
@@ -109,17 +109,18 @@ impl ForgeManager {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!(
+        log::info!(
             "Looking for open release PR: base={}, head={}",
-            req.base_branch, req.head_branch
+            req.base_branch,
+            req.head_branch
         );
 
         let result = self.forge.get_open_release_pr(req).await;
 
         match &result {
-            Ok(Some(pr)) => info!("Found open PR #{}", pr.number),
-            Ok(None) => debug!("No open PR found"),
-            Err(e) => error!("Error searching for open PR: {}", e),
+            Ok(Some(pr)) => log::info!("Found open PR #{}", pr.number),
+            Ok(None) => log::debug!("No open PR found"),
+            Err(e) => log::error!("Error searching for open PR: {}", e),
         }
 
         result
@@ -129,17 +130,18 @@ impl ForgeManager {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        info!(
+        log::info!(
             "Looking for merged release PR: base={}, head={}",
-            req.base_branch, req.head_branch
+            req.base_branch,
+            req.head_branch
         );
 
         let result = self.forge.get_merged_release_pr(req).await;
 
         match &result {
-            Ok(Some(pr)) => info!("Found merged PR #{}", pr.number),
-            Ok(None) => warn!("No merged PR found"),
-            Err(e) => error!("Error searching for merged PR: {}", e),
+            Ok(Some(pr)) => log::info!("Found merged PR #{}", pr.number),
+            Ok(None) => log::warn!("No merged PR found"),
+            Err(e) => log::error!("Error searching for merged PR: {}", e),
         }
 
         result
@@ -150,22 +152,23 @@ impl ForgeManager {
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         if self.forge.dry_run() {
-            warn!("dry_run: would create release branch: req: {:#?}", req);
+            log::warn!("dry_run: would create release branch: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
 
-        info!(
+        log::info!(
             "Creating release branch: {} from {}",
-            req.release_branch, req.base_branch
+            req.release_branch,
+            req.base_branch
         );
 
         let result = self.forge.create_release_branch(req).await;
 
         match &result {
             Ok(commit) => {
-                info!("Created release branch with commit: {}", commit.sha)
+                log::info!("Created release branch with commit: {}", commit.sha)
             }
-            Err(e) => error!("Failed to create release branch: {}", e),
+            Err(e) => log::error!("Failed to create release branch: {}", e),
         }
 
         result
@@ -176,11 +179,11 @@ impl ForgeManager {
         req: CreateCommitRequest,
     ) -> Result<Commit> {
         if self.forge.dry_run() {
-            warn!("dry_run: would create commit: req: {:#?}", req);
+            log::warn!("dry_run: would create commit: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
 
-        info!(
+        log::info!(
             "Creating commit on branch: {} ({} file changes)",
             req.target_branch,
             req.file_changes.len()
@@ -189,8 +192,8 @@ impl ForgeManager {
         let result = self.forge.create_commit(req).await;
 
         match &result {
-            Ok(commit) => info!("Created commit: {}", commit.sha),
-            Err(e) => error!("Failed to create commit: {}", e),
+            Ok(commit) => log::info!("Created commit: {}", commit.sha),
+            Err(e) => log::error!("Failed to create commit: {}", e),
         }
 
         result
@@ -198,17 +201,21 @@ impl ForgeManager {
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
         if self.forge.dry_run() {
-            warn!("dry_run: would tag commit: tag={}, sha={}", tag_name, sha);
+            log::warn!(
+                "dry_run: would tag commit: tag={}, sha={}",
+                tag_name,
+                sha
+            );
             return Ok(());
         }
 
-        info!("Tagging commit: tag={}, sha={}", tag_name, sha);
+        log::info!("Tagging commit: tag={}, sha={}", tag_name, sha);
 
         let result = self.forge.tag_commit(tag_name, sha).await;
 
         match &result {
-            Ok(_) => info!("Successfully created tag: {}", tag_name),
-            Err(e) => error!("Failed to create tag {}: {}", tag_name, e),
+            Ok(_) => log::info!("Successfully created tag: {}", tag_name),
+            Err(e) => log::error!("Failed to create tag {}: {}", tag_name, e),
         }
 
         result
@@ -216,9 +223,10 @@ impl ForgeManager {
 
     pub async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
         if self.forge.dry_run() {
-            warn!(
+            log::warn!(
                 "dry_run: would create PR: {} -> {}",
-                req.head_branch, req.base_branch
+                req.head_branch,
+                req.base_branch
             );
             return Ok(PullRequest {
                 number: 0,
@@ -227,16 +235,17 @@ impl ForgeManager {
             });
         }
 
-        info!(
+        log::info!(
             "Creating pull request: {} -> {}",
-            req.head_branch, req.base_branch
+            req.head_branch,
+            req.base_branch
         );
 
         let result = self.forge.create_pr(req).await;
 
         match &result {
-            Ok(pr) => info!("Created pull request #{}", pr.number),
-            Err(e) => error!("Failed to create pull request: {}", e),
+            Ok(pr) => log::info!("Created pull request #{}", pr.number),
+            Err(e) => log::error!("Failed to create pull request: {}", e),
         }
 
         result
@@ -244,16 +253,16 @@ impl ForgeManager {
 
     pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         if self.forge.dry_run() {
-            warn!("dry_run: would update PR: req: {:#?}", req);
+            log::warn!("dry_run: would update PR: req: {:#?}", req);
             return Ok(());
         }
 
-        info!("Updating pull request #{}", req.pr_number);
+        log::info!("Updating pull request #{}", req.pr_number);
 
         let result = self.forge.update_pr(req).await;
 
         if let Err(e) = &result {
-            error!("Failed to update PR: {}", e);
+            log::error!("Failed to update PR: {}", e);
         }
 
         result
@@ -261,22 +270,24 @@ impl ForgeManager {
 
     pub async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
         if self.forge.dry_run() {
-            warn!(
+            log::warn!(
                 "dry_run: would replace PR #{} labels with: {:?}",
-                req.pr_number, req.labels
+                req.pr_number,
+                req.labels
             );
             return Ok(());
         }
 
-        info!(
+        log::info!(
             "Replacing labels on PR #{} with: {:?}",
-            req.pr_number, req.labels
+            req.pr_number,
+            req.labels
         );
 
         let result = self.forge.replace_pr_labels(req).await;
 
         if let Err(e) = &result {
-            error!("Failed to update labels on PR: {}", e);
+            log::error!("Failed to update labels on PR: {}", e);
         }
 
         result
@@ -289,19 +300,19 @@ impl ForgeManager {
         notes: &str,
     ) -> Result<()> {
         if self.forge.dry_run() {
-            warn!(
+            log::warn!(
                 "dry_run: would create release: tag: {tag}, sha: {sha}, notes {notes}"
             );
             return Ok(());
         }
 
-        info!("Creating release: tag={}, sha={}", tag, sha);
+        log::info!("Creating release: tag={}, sha={}", tag, sha);
 
         let result = self.forge.create_release(tag, sha, notes).await;
 
         match &result {
-            Ok(_) => info!("Successfully created release: {}", tag),
-            Err(e) => error!("Failed to create release {}: {}", tag, e),
+            Ok(_) => log::info!("Successfully created release: {}", tag),
+            Err(e) => log::error!("Failed to create release {}: {}", tag, e),
         }
 
         result
@@ -340,13 +351,14 @@ mod tests {
             .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
 
         let manager = ForgeManager::new(Box::new(mock_forge));
+
         let result = manager
             .load_file(Some("main".to_string()), "package.json".to_string())
             .await
+            .unwrap()
             .unwrap();
 
-        assert!(result.is_some());
-        assert!(result.unwrap().contains("1.0.0"));
+        assert!(result.contains("1.0.0"));
     }
 
     #[tokio::test]

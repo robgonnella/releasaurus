@@ -1,31 +1,33 @@
-use crate::{
-    config::package::PackageConfig,
-    path_helpers::package_path,
-    updater::{manager::ManifestTarget, traits::ManifestTargets},
-};
+use std::path::Path;
+
+use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
 pub struct RubyManifests {}
 
 impl ManifestTargets for RubyManifests {
-    fn manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
-        let pkg_gemspec = format!("{}.gemspec", pkg.name);
-        let lib_pkg_version = format!("lib/{}/version.rb", pkg.name);
+    fn manifest_targets(
+        pkg_name: &str,
+        _workspace_path: &Path,
+        pkg_path: &Path,
+    ) -> Vec<ManifestTarget> {
+        let pkg_gemspec = format!("{pkg_name}.gemspec");
+        let lib_pkg_version = format!("lib/{pkg_name}/version.rb");
 
         vec![
             ManifestTarget {
-                path: package_path(pkg, Some(&pkg_gemspec)),
+                path: pkg_path.join(&pkg_gemspec),
                 basename: pkg_gemspec,
             },
             ManifestTarget {
-                path: package_path(pkg, Some(&lib_pkg_version)),
+                path: pkg_path.join(&lib_pkg_version),
                 basename: "version.rb".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("lib/version.rb")),
+                path: pkg_path.join("lib/version.rb"),
                 basename: "version.rb".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("version.rb")),
+                path: pkg_path.join("version.rb"),
                 basename: "version.rb".into(),
             },
         ]
@@ -34,23 +36,21 @@ impl ManifestTargets for RubyManifests {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::config::{package::PackageConfig, release_type::ReleaseType};
+    use std::path::Path;
 
-    fn create_test_package(name: &str, path: &str) -> PackageConfig {
-        PackageConfig {
-            name: name.to_string(),
-            workspace_root: ".".to_string(),
-            path: path.to_string(),
-            release_type: Some(ReleaseType::Ruby),
-            ..Default::default()
-        }
-    }
+    use super::*;
 
     #[test]
     fn returns_all_ruby_manifest_targets() {
-        let pkg = create_test_package("my-gem", ".");
-        let targets = RubyManifests::manifest_targets(&pkg);
+        let pkg_name = "my-gem";
+        let workspace_path = Path::new("").to_path_buf();
+        let pkg_path = workspace_path.clone();
+
+        let targets = RubyManifests::manifest_targets(
+            pkg_name,
+            &workspace_path,
+            &pkg_path,
+        );
 
         assert_eq!(targets.len(), 4);
 
@@ -61,10 +61,19 @@ mod tests {
 
     #[test]
     fn generates_correct_paths_for_nested_package() {
-        let pkg = create_test_package("my-gem", "packages/my-gem");
-        let targets = RubyManifests::manifest_targets(&pkg);
+        let pkg_name = "my-gem";
+        let workspace_path = Path::new("").to_path_buf();
+        let pkg_path = Path::new("packages/my-gem").to_path_buf();
 
-        let paths: Vec<_> = targets.iter().map(|t| t.path.as_str()).collect();
+        let targets = RubyManifests::manifest_targets(
+            pkg_name,
+            &workspace_path,
+            &pkg_path,
+        );
+
+        let paths: Vec<_> =
+            targets.iter().map(|t| t.path.to_str().unwrap()).collect();
+
         assert!(paths.contains(&"packages/my-gem/my-gem.gemspec"));
         assert!(paths.contains(&"packages/my-gem/lib/my-gem/version.rb"));
         assert!(paths.contains(&"packages/my-gem/lib/version.rb"));

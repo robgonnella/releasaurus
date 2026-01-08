@@ -1,4 +1,3 @@
-use log::*;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer as XmlWriter};
 
@@ -25,7 +24,10 @@ impl Maven {
         manifest: &ManifestFile,
         package: &UpdaterPackage,
     ) -> Result<Option<FileChange>> {
-        info!("Updating Maven project: {}", manifest.path);
+        log::info!(
+            "Updating Maven project: {}",
+            manifest.path.to_string_lossy()
+        );
 
         let bytes = manifest.content.as_bytes();
 
@@ -64,7 +66,10 @@ impl Maven {
                         // Replace the version text
                         let new_version =
                             package.next_version.semver.to_string();
-                        info!("Updating Maven version to: {}", new_version);
+                        log::info!(
+                            "Updating Maven version to: {}",
+                            new_version
+                        );
                         writer.write_event(Event::Text(BytesText::new(
                             &new_version,
                         )))?;
@@ -81,7 +86,7 @@ impl Maven {
         let result = writer.into_inner();
         let content = String::from_utf8(result)?;
         Ok(Some(FileChange {
-            path: manifest.path.clone(),
+            path: manifest.path.to_string_lossy().to_string(),
             content,
             update_type: FileUpdateType::Replace,
         }))
@@ -115,7 +120,7 @@ impl PackageUpdater for Maven {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -132,7 +137,7 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
@@ -171,7 +176,7 @@ mod tests {
     </dependencies>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
@@ -210,7 +215,7 @@ mod tests {
     </dependencies>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
@@ -247,7 +252,7 @@ mod tests {
     <packaging>jar</packaging>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
@@ -275,13 +280,13 @@ mod tests {
     fn process_package_handles_multiple_pom_files() {
         let maven = Maven::new();
         let manifest1 = ManifestFile {
-            path: "module1/pom.xml".to_string(),
+            path: Path::new("module1/pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "module2/pom.xml".to_string(),
+            path: Path::new("module2/pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
                 .to_string(),
@@ -309,7 +314,7 @@ mod tests {
     fn process_package_returns_none_when_no_pom_files() {
         let maven = Maven::new();
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
         };
@@ -343,7 +348,7 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };

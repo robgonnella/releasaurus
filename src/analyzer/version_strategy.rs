@@ -4,7 +4,6 @@
 //! allowing different strategies for stable releases, versioned prereleases,
 //! and static prereleases.
 
-use log::*;
 use next_version::VersionUpdater;
 use semver::Version;
 
@@ -83,7 +82,7 @@ impl VersionStrategy for StableVersionStrategy {
         if let Some(current) = context.current_tag {
             if current.semver.pre.is_empty() {
                 // Normal stable version bump
-                debug!(
+                log::debug!(
                     "stable version strategy: performing standard version update"
                 );
                 let version_updater = context.create_version_updater()?;
@@ -91,7 +90,7 @@ impl VersionStrategy for StableVersionStrategy {
                     .increment(&current.semver, context.commits.to_vec()))
             } else {
                 // Graduate from prerelease to stable
-                info!(
+                log::info!(
                     "stable version strategy: graduating prerelease {} to stable",
                     current.semver
                 );
@@ -99,7 +98,7 @@ impl VersionStrategy for StableVersionStrategy {
             }
         } else {
             // First release
-            debug!("stable version strategy: first release");
+            log::debug!("stable version strategy: first release");
             Ok(Version::parse("0.1.0")?)
         }
     }
@@ -125,7 +124,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
         if let Some(current) = context.current_tag {
             if current.semver.pre.is_empty() {
                 // Starting new prerelease from stable
-                info!(
+                log::info!(
                     "versioned prerelease strategy: starting new prerelease from stable {}",
                     current.semver
                 );
@@ -144,7 +143,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
 
                 if current_pre_id == self.identifier {
                     // Same prerelease identifier - increment it
-                    info!(
+                    log::info!(
                         "versioned prerelease strategy: incrementing prerelease {}",
                         current.semver
                     );
@@ -153,9 +152,10 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                         .increment(&current.semver, context.commits.to_vec()))
                 } else {
                     // Different prerelease identifier - switch to new one
-                    info!(
+                    log::info!(
                         "versioned prerelease strategy: switching from {} to {}",
-                        current_pre_id, self.identifier
+                        current_pre_id,
+                        self.identifier
                     );
                     let stable_current =
                         helpers::graduate_prerelease(&current.semver);
@@ -171,7 +171,9 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
             }
         } else {
             // First release as prerelease
-            info!("versioned prerelease strategy: first release as prerelease");
+            log::info!(
+                "versioned prerelease strategy: first release as prerelease"
+            );
             let version = Version::parse("0.1.0")?;
             helpers::add_prerelease(
                 version,
@@ -202,7 +204,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
         if let Some(current) = context.current_tag {
             if current.semver.pre.is_empty() {
                 // Starting new prerelease from stable
-                info!(
+                log::info!(
                     "static prerelease strategy: starting new prerelease from stable {}",
                     current.semver
                 );
@@ -221,7 +223,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
 
                 if current_pre_id == self.identifier {
                     // Same static identifier - increment version and re-add suffix
-                    info!(
+                    log::info!(
                         "static prerelease strategy: incrementing prerelease {}",
                         current.semver
                     );
@@ -237,9 +239,10 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                     )
                 } else {
                     // Different prerelease identifier - switch to new one
-                    info!(
+                    log::info!(
                         "static prerelease strategy: switching from {} to {}",
-                        current_pre_id, self.identifier
+                        current_pre_id,
+                        self.identifier
                     );
                     let stable_current =
                         helpers::graduate_prerelease(&current.semver);
@@ -255,7 +258,9 @@ impl VersionStrategy for StaticPrereleaseStrategy {
             }
         } else {
             // First release as prerelease
-            info!("static prerelease strategy: first release as prerelease");
+            log::info!(
+                "static prerelease strategy: first release as prerelease"
+            );
             let version = Version::parse("0.1.0")?;
             helpers::add_prerelease(
                 version,
