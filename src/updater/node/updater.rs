@@ -42,7 +42,7 @@ impl PackageUpdater for NodeUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -59,7 +59,7 @@ mod tests {
         let updater = NodeUpdater::new();
         let content = r#"{"name":"my-package","version":"1.0.0"}"#;
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: content.to_string(),
         };
@@ -84,7 +84,7 @@ mod tests {
     fn returns_none_when_no_node_files() {
         let updater = NodeUpdater::new();
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nversion = \"1.0.0\"\n".to_string(),
         };

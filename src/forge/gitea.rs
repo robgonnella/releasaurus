@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
-use log::*;
 use regex::Regex;
 use reqwest::{
     Client, StatusCode, Url,
@@ -279,7 +278,7 @@ impl Gitea {
 
     async fn create_label(&self, label_name: String) -> Result<Label> {
         if self.config.dry_run {
-            warn!("dry_run: would create label: {label_name}");
+            log::warn!("dry_run: would create label: {label_name}");
             return Ok(Label::default());
         }
         let labels_url = self.base_url.join("labels")?;
@@ -606,7 +605,7 @@ impl Forge for Gitea {
             }
 
             if content == existing_content.unwrap_or_default() {
-                warn!(
+                log::warn!(
                     "skipping file update content matches existing state: {}",
                     change.path
                 );
@@ -622,9 +621,10 @@ impl Forge for Gitea {
         }
 
         if file_changes.is_empty() {
-            warn!(
+            log::warn!(
                 "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch, req.message,
+                req.target_branch,
+                req.message,
             );
             return Ok(Commit { sha: "None".into() });
         }
@@ -726,7 +726,7 @@ impl Forge for Gitea {
 
         for issue in issues.iter() {
             if !issue.pull_request.merged {
-                warn!(
+                log::warn!(
                     "found unmerged closed pr {} with pending label: skipping",
                     issue.number
                 );

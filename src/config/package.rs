@@ -1,11 +1,9 @@
 use derive_builder::Builder;
-use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    analyzer::config::AnalyzerConfig,
     config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
     error::ReleasaurusError,
     updater::generic::updater::GENERIC_VERSION_REGEX_PATTERN,
@@ -75,17 +73,6 @@ pub struct AdditionalManifest {
     pub version_regex: Option<String>,
 }
 
-/// Compiled version of AdditionalManifest with pre-compiled regex patterns.
-/// This is populated during config resolution to avoid repeated regex
-/// compilation.
-#[derive(Debug, Clone)]
-pub struct CompiledAdditionalManifest {
-    /// The path to the manifest file relative to package path
-    pub path: String,
-    /// The compiled regex to use to match and replace versions
-    pub version_regex: Regex,
-}
-
 /// Sub-package definition allowing grouping of packages under a parent package
 /// configuration. Sub-packages share changelog, tag, and release with the
 /// parent package definition but receive independent manifest version file
@@ -140,10 +127,6 @@ pub struct PackageConfig {
     /// be relative to the package path. Accepts either simple string paths or
     /// full config objects with custom regex patterns.
     pub additional_manifest_files: Option<Vec<AdditionalManifestSpec>>,
-    /// Compiled additional manifests with pre-compiled regex patterns.
-    /// Populated during config resolution. Skipped during serialization.
-    #[serde(skip)]
-    pub compiled_additional_manifests: Vec<CompiledAdditionalManifest>,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: Option<bool>,
     /// Always increments minor version on feature commits
@@ -152,9 +135,6 @@ pub struct PackageConfig {
     pub custom_major_increment_regex: Option<String>,
     /// Custom commit type regex matcher to increment minor version
     pub custom_minor_increment_regex: Option<String>,
-    /// derived from all other provided config
-    #[serde(skip)]
-    pub analyzer_config: AnalyzerConfig,
 }
 
 impl Default for PackageConfig {
@@ -170,12 +150,10 @@ impl Default for PackageConfig {
             auto_start_next: None,
             additional_paths: None,
             additional_manifest_files: None,
-            compiled_additional_manifests: Vec::new(),
             breaking_always_increment_major: None,
             features_always_increment_minor: None,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
-            analyzer_config: AnalyzerConfig::default(),
         }
     }
 }

@@ -49,7 +49,7 @@ impl GenericUpdater {
 
         if content != manifest.content {
             return Some(FileChange {
-                path: manifest.path.clone(),
+                path: manifest.path.to_string_lossy().to_string(),
                 content,
                 update_type: FileUpdateType::Replace,
             });
@@ -71,7 +71,7 @@ impl PackageUpdater for GenericUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use crate::{
         config::release_type::ReleaseType, updater::dispatch::Updater,
@@ -82,7 +82,7 @@ mod tests {
 
     fn create_manifest(content: &str) -> ManifestFile {
         ManifestFile {
-            path: "test.txt".to_string(),
+            path: Path::new("test.txt").to_path_buf(),
             basename: "test.txt".to_string(),
             content: content.to_string(),
         }

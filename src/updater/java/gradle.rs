@@ -49,7 +49,7 @@ impl PackageUpdater for Gradle {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -66,7 +66,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
         };
@@ -94,7 +94,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = "version = '1.0.0'";
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
         };
@@ -122,7 +122,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
         let manifest = ManifestFile {
-            path: "build.gradle.kts".to_string(),
+            path: Path::new("build.gradle.kts").to_path_buf(),
             basename: "build.gradle.kts".to_string(),
             content: content.to_string(),
         };
@@ -150,7 +150,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = r#"project.version = "1.0.0""#;
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
         };
@@ -178,7 +178,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = "dependencies { implementation 'com.example:lib:1.0.0' }";
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
         };
@@ -203,12 +203,12 @@ mod tests {
     fn update_handles_multiple_manifests() {
         let gradle = Gradle::new();
         let groovy_manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: r#"version = "1.0.0""#.to_string(),
         };
         let kotlin_manifest = ManifestFile {
-            path: "build.gradle.kts".to_string(),
+            path: Path::new("build.gradle.kts").to_path_buf(),
             basename: "build.gradle.kts".to_string(),
             content: r#"version = "1.0.0""#.to_string(),
         };
@@ -235,7 +235,7 @@ mod tests {
     fn update_returns_none_when_no_changes() {
         let gradle = Gradle::new();
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: "<version>1.0.0</version>".to_string(),
         };
@@ -261,7 +261,7 @@ mod tests {
         let gradle = Gradle::new();
         let content = "version   =   \"1.0.0\"";
         let manifest = ManifestFile {
-            path: "build.gradle".to_string(),
+            path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
         };

@@ -1,36 +1,38 @@
-use crate::{
-    config::package::PackageConfig,
-    path_helpers::package_path,
-    updater::{manager::ManifestTarget, traits::ManifestTargets},
-};
+use std::path::Path;
+
+use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
 pub struct JavaManifests {}
 
 impl ManifestTargets for JavaManifests {
-    fn manifest_targets(pkg: &PackageConfig) -> Vec<ManifestTarget> {
+    fn manifest_targets(
+        _pkg_name: &str,
+        _workspace_path: &Path,
+        pkg_path: &Path,
+    ) -> Vec<ManifestTarget> {
         vec![
             ManifestTarget {
-                path: package_path(pkg, Some("build.gradle")),
+                path: pkg_path.join("build.gradle"),
                 basename: "build.gradle".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("lib/build.gradle")),
+                path: pkg_path.join("lib/build.gradle"),
                 basename: "build.gradle".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("build.gradle.kts")),
+                path: pkg_path.join("build.gradle.kts"),
                 basename: "build.gradle.kts".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("lib/build.gradle.kts")),
+                path: pkg_path.join("lib/build.gradle.kts"),
                 basename: "build.gradle.kts".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("gradle.properties")),
+                path: pkg_path.join("gradle.properties"),
                 basename: "gradle.properties".into(),
             },
             ManifestTarget {
-                path: package_path(pkg, Some("pom.xml")),
+                path: pkg_path.join("pom.xml"),
                 basename: "pom.xml".into(),
             },
         ]
@@ -39,23 +41,19 @@ impl ManifestTargets for JavaManifests {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::config::{package::PackageConfig, release_type::ReleaseType};
+    use std::path::Path;
 
-    fn create_test_package(path: &str) -> PackageConfig {
-        PackageConfig {
-            name: "test-package".to_string(),
-            workspace_root: ".".to_string(),
-            path: path.to_string(),
-            release_type: Some(ReleaseType::Java),
-            ..Default::default()
-        }
-    }
+    use super::*;
 
     #[test]
     fn returns_all_java_manifest_targets() {
-        let pkg = create_test_package(".");
-        let targets = JavaManifests::manifest_targets(&pkg);
+        let workspace_path = Path::new("").to_path_buf();
+
+        let targets = JavaManifests::manifest_targets(
+            "tstpkg",
+            &workspace_path,
+            &workspace_path.clone(),
+        );
 
         assert_eq!(targets.len(), 6);
 
@@ -77,10 +75,15 @@ mod tests {
 
     #[test]
     fn generates_correct_paths_for_nested_package() {
-        let pkg = create_test_package("packages/my-java-app");
-        let targets = JavaManifests::manifest_targets(&pkg);
+        let workspace_path = Path::new("packages/my-java-app").to_path_buf();
+        let targets = JavaManifests::manifest_targets(
+            "tstpkg",
+            &workspace_path,
+            &workspace_path.clone(),
+        );
 
-        let paths: Vec<_> = targets.iter().map(|t| t.path.as_str()).collect();
+        let paths: Vec<_> =
+            targets.iter().map(|t| t.path.to_str().unwrap()).collect();
         assert!(paths.contains(&"packages/my-java-app/build.gradle"));
         assert!(paths.contains(&"packages/my-java-app/lib/build.gradle"));
         assert!(paths.contains(&"packages/my-java-app/build.gradle.kts"));

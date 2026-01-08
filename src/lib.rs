@@ -4,12 +4,14 @@ pub mod config;
 mod error;
 mod file_loader;
 mod forge;
-mod path_helpers;
+mod orchestrator;
 mod updater;
 
-pub use cli::{
-    Cli, Command, ShowCommand, command::release, command::release_pr,
-    command::show, command::start_next,
-};
+pub use cli::{Cli, Command, ShowCommand, show};
 pub use error::{ReleasaurusError, Result};
 pub use forge::factory::ForgeFactory;
+pub use orchestrator::{
+    Orchestrator,
+    config::OrchestratorConfig,
+    package::resolved::{ResolvedPackage, ResolvedPackageHash},
+};

@@ -1,18 +1,15 @@
 //! Framework and package management for multi-language support.
-use log::*;
 use regex::Regex;
-use std::borrow::Cow;
-use std::path::Path;
+use serde::Serialize;
+use serde::ser::SerializeStruct;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::Result;
 use crate::analyzer::release::Tag;
-use crate::cli::types::ReleasablePackage;
-use crate::config::package::PackageConfig;
 use crate::config::release_type::ReleaseType;
 use crate::file_loader::FileLoader;
 use crate::forge::request::FileChange;
-use crate::path_helpers::package_path;
+use crate::orchestrator::package::releasable::ReleasablePackage;
 use crate::updater::generic::updater::GENERIC_VERSION_REGEX;
 use crate::updater::{
     dispatch::Updater, generic::updater::GenericUpdater,
@@ -21,11 +18,12 @@ use crate::updater::{
     ruby::manifests::RubyManifests, rust::manifests::RustManifests,
     traits::ManifestTargets,
 };
+use crate::{ResolvedPackage, Result};
 
 #[derive(Clone)]
 pub struct AdditionalManifestFile {
     /// The file path relative to the package path
-    pub path: String,
+    pub path: PathBuf,
     /// The base name of the file path
     pub basename: String,
     /// The current content of the file
@@ -45,6 +43,22 @@ impl Default for AdditionalManifestFile {
     }
 }
 
+impl Serialize for AdditionalManifestFile {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("AdditionalManifestFile", 3)?;
+        s.serialize_field("path", &self.path)?;
+        s.serialize_field("basename", &self.basename)?;
+        s.serialize_field("version_regex", &self.version_regex.as_str())?;
+        s.end()
+    }
+}
+
 impl std::fmt::Debug for AdditionalManifestFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AdditionalManifestFile")
@@ -58,7 +72,7 @@ impl std::fmt::Debug for AdditionalManifestFile {
 #[derive(Debug)]
 pub struct ManifestTarget {
     /// The file path relative to the package path
-    pub path: String,
+    pub path: PathBuf,
     /// The base name of the file path
     pub basename: String,
 }
@@ -66,11 +80,26 @@ pub struct ManifestTarget {
 #[derive(Default, Clone)]
 pub struct ManifestFile {
     /// The file path relative to the package path
-    pub path: String,
+    pub path: PathBuf,
     /// The base name of the file path
     pub basename: String,
     /// The current content of the file
     pub content: String,
+}
+
+impl Serialize for ManifestFile {
+    fn serialize<S>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("ManifestFile", 2)?;
+        s.serialize_field("path", &self.path)?;
+        s.serialize_field("basename", &self.basename)?;
+        s.end()
+    }
 }
 
 impl std::fmt::Debug for ManifestFile {
@@ -114,11 +143,16 @@ impl UpdateManager {
     /// a package by determining which files are needed (via manifest_targets)
     /// and then loading their content using the provided FileLoader.
     pub async fn load_manifests_for_package<F: FileLoader>(
-        pkg: &PackageConfig,
+        pkg: &ResolvedPackage,
         file_loader: &F,
-        branch: Option<String>,
+        base_branch: &str,
     ) -> Result<Option<Vec<ManifestFile>>> {
-        let targets = Self::release_type_manifest_targets(pkg);
+        let targets = Self::release_type_manifest_targets(
+            &pkg.name,
+            pkg.release_type,
+            &pkg.normalized_workspace_root,
+            &pkg.normalized_full_path,
+        );
 
         if targets.is_empty() {
             return Ok(None);
@@ -127,19 +161,31 @@ impl UpdateManager {
         let mut manifests = vec![];
 
         for target in targets {
-            debug!("Loading manifest target: {}", target.path);
+            log::debug!(
+                "Loading manifest target: {}",
+                target.path.to_string_lossy()
+            );
             if let Some(content) = file_loader
-                .load_file(branch.clone(), target.path.clone())
+                .load_file(
+                    Some(base_branch.into()),
+                    target.path.to_string_lossy().to_string(),
+                )
                 .await?
             {
-                info!("Loaded manifest: {}", target.path);
+                log::info!(
+                    "Loaded manifest: {}",
+                    target.path.to_string_lossy()
+                );
                 manifests.push(ManifestFile {
                     path: target.path,
                     basename: target.basename,
                     content,
                 });
             } else {
-                debug!("Manifest not found: {}", target.path);
+                log::debug!(
+                    "Manifest not found: {}",
+                    target.path.to_string_lossy()
+                );
             }
         }
 
@@ -155,9 +201,9 @@ impl UpdateManager {
     /// Loads user-configured additional manifest files that are not part of
     /// the standard release type manifests.
     pub async fn load_additional_manifests_for_package<F: FileLoader>(
-        pkg: &PackageConfig,
+        pkg: &ResolvedPackage,
         file_loader: &F,
-        branch: Option<String>,
+        branch: &str,
     ) -> Result<Option<Vec<AdditionalManifestFile>>> {
         if pkg.compiled_additional_manifests.is_empty() {
             return Ok(None);
@@ -166,28 +212,41 @@ impl UpdateManager {
         let mut manifests = vec![];
 
         for compiled in &pkg.compiled_additional_manifests {
-            let file_path = package_path(pkg, Some(&compiled.path));
-            let basename = Path::new(&compiled.path)
+            let basename = compiled
+                .path
                 .file_name()
                 .map(|f| f.to_string_lossy())
-                .unwrap_or(Cow::Borrowed(&compiled.path))
+                .unwrap_or(compiled.path.to_string_lossy())
                 .into();
 
-            debug!("Loading additional manifest: {}", file_path);
+            log::debug!(
+                "Loading additional manifest: {}",
+                compiled.path.to_string_lossy()
+            );
+
             if let Some(content) = file_loader
-                .load_file(branch.clone(), file_path.clone())
+                .load_file(
+                    Some(branch.into()),
+                    compiled.path.to_string_lossy().to_string(),
+                )
                 .await?
             {
-                info!("Loaded additional manifest: {}", file_path);
+                log::info!(
+                    "Loaded additional manifest: {}",
+                    compiled.path.to_string_lossy()
+                );
 
                 manifests.push(AdditionalManifestFile {
-                    path: file_path,
+                    path: compiled.path.clone(),
                     basename,
                     content,
                     version_regex: compiled.version_regex.clone(),
                 });
             } else {
-                debug!("Additional manifest not found: {}", file_path);
+                log::warn!(
+                    "Additional manifest not found: {}",
+                    compiled.path.to_string_lossy()
+                );
             }
         }
 
@@ -200,21 +259,9 @@ impl UpdateManager {
 
     pub fn get_package_manifest_file_changes(
         package: &ReleasablePackage,
-        all_packages: &[&ReleasablePackage],
+        workspace_packages: &[&ReleasablePackage],
     ) -> Result<Vec<FileChange>> {
         let mut file_changes = vec![];
-
-        // gather other packages related to target package that may be in
-        // same workspace
-        let workspace_packages: Vec<_> = all_packages
-            .iter()
-            .filter(|&&p| {
-                p.name != package.name
-                    && p.workspace_root == package.workspace_root
-                    && p.release_type == package.release_type
-            })
-            .copied()
-            .collect();
 
         let updater_package = UpdaterPackage::from_releasable_package(package);
 
@@ -222,13 +269,6 @@ impl UpdateManager {
             .iter()
             .map(|&p| UpdaterPackage::from_releasable_package(p))
             .collect::<Vec<UpdaterPackage>>();
-
-        info!(
-            "Package: {}: Found {} other packages for workspace root: {}",
-            updater_package.package_name,
-            workspace_updater_packages.len(),
-            package.workspace_root
-        );
 
         if let Some(changes) = updater_package
             .updater
@@ -253,17 +293,43 @@ impl UpdateManager {
     }
 
     fn release_type_manifest_targets(
-        pkg: &PackageConfig,
+        pkg_name: &str,
+        release_type: ReleaseType,
+        workspace_path: &Path,
+        pkg_path: &Path,
     ) -> Vec<ManifestTarget> {
-        match pkg.release_type {
-            Some(ReleaseType::Generic) => vec![],
-            Some(ReleaseType::Java) => JavaManifests::manifest_targets(pkg),
-            Some(ReleaseType::Node) => NodeManifests::manifest_targets(pkg),
-            Some(ReleaseType::Php) => PhpManifests::manifest_targets(pkg),
-            Some(ReleaseType::Python) => PythonManifests::manifest_targets(pkg),
-            Some(ReleaseType::Ruby) => RubyManifests::manifest_targets(pkg),
-            Some(ReleaseType::Rust) => RustManifests::manifest_targets(pkg),
-            None => vec![],
+        match release_type {
+            ReleaseType::Generic => vec![],
+            ReleaseType::Java => JavaManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            ReleaseType::Node => NodeManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            ReleaseType::Php => PhpManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            ReleaseType::Python => PythonManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            ReleaseType::Ruby => RubyManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            ReleaseType::Rust => RustManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
         }
     }
 }
@@ -287,8 +353,7 @@ pub struct UpdaterPackage {
 
 impl UpdaterPackage {
     fn from_releasable_package(pkg: &ReleasablePackage) -> Self {
-        let release_type = pkg.release_type;
-        let updater = Rc::new(Updater::new(release_type));
+        let updater = Rc::new(Updater::new(pkg.release_type));
 
         UpdaterPackage {
             package_name: pkg.name.clone(),
@@ -298,7 +363,7 @@ impl UpdaterPackage {
                 .as_ref()
                 .cloned()
                 .unwrap_or_default(),
-            next_version: pkg.release.tag.clone(),
+            next_version: pkg.tag.clone(),
             updater,
         }
     }
@@ -306,29 +371,28 @@ impl UpdaterPackage {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
-    fn create_test_package(release_type: Option<ReleaseType>) -> PackageConfig {
-        PackageConfig {
-            name: "test-package".to_string(),
-            workspace_root: ".".to_string(),
-            path: ".".to_string(),
-            release_type,
-            ..Default::default()
-        }
+    fn create_test_manifest_params() -> (String, PathBuf, PathBuf) {
+        let pkg_name = "test-package".to_string();
+        let workspace_path = Path::new("").to_path_buf();
+        let pkg_path = workspace_path.clone();
+        (pkg_name, workspace_path, pkg_path)
     }
 
     #[test]
     fn release_type_manifest_targets_returns_empty_for_generic() {
-        let pkg = create_test_package(Some(ReleaseType::Generic));
-        let targets = UpdateManager::release_type_manifest_targets(&pkg);
-        assert_eq!(targets.len(), 0);
-    }
-
-    #[test]
-    fn release_type_manifest_targets_returns_empty_for_none() {
-        let pkg = create_test_package(None);
-        let targets = UpdateManager::release_type_manifest_targets(&pkg);
+        let release_type = ReleaseType::Generic;
+        let (pkg_name, workspace_path, pkg_path) =
+            create_test_manifest_params();
+        let targets = UpdateManager::release_type_manifest_targets(
+            &pkg_name,
+            release_type,
+            &workspace_path,
+            &pkg_path,
+        );
         assert_eq!(targets.len(), 0);
     }
 
@@ -344,8 +408,16 @@ mod tests {
         ];
 
         for (release_type, expected_count) in test_cases {
-            let pkg = create_test_package(Some(release_type));
-            let targets = UpdateManager::release_type_manifest_targets(&pkg);
+            let (pkg_name, workspace_path, pkg_path) =
+                create_test_manifest_params();
+
+            let targets = UpdateManager::release_type_manifest_targets(
+                &pkg_name,
+                release_type,
+                &workspace_path,
+                &pkg_path,
+            );
+
             assert_eq!(
                 targets.len(),
                 expected_count,

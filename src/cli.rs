@@ -8,9 +8,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use std::{collections::HashMap, env};
 
-pub mod command;
-pub mod common;
-pub mod types;
+pub mod show;
 
 use crate::{
     Result,

@@ -2,7 +2,6 @@
 use async_trait::async_trait;
 use chrono::DateTime;
 use color_eyre::eyre::OptionExt;
-use log::*;
 use octocrab::{
     Octocrab, Page,
     models::repos::{Object, RepoCommit},
@@ -143,11 +142,11 @@ impl Github {
 
         let body = serde_json::json!(tree);
 
-        info!("creating tree starting from: {}", tree.base_tree);
+        log::info!("creating tree starting from: {}", tree.base_tree);
 
         let tree: Tree = self.instance.post(endpoint, Some(&body)).await?;
 
-        info!("created new tree: {}", tree.sha);
+        log::info!("created new tree: {}", tree.sha);
 
         Ok(tree)
     }
@@ -176,7 +175,7 @@ impl Github {
             }
 
             if content == existing_content.unwrap_or_default() {
-                warn!(
+                log::warn!(
                     "skipping file update content matches existing state: {}",
                     change.path
                 );
@@ -465,7 +464,10 @@ impl Forge for Github {
                 return Ok(commits);
             }
 
-            debug!("backfilling file list for commit: {}", thin_commit.sha);
+            log::debug!(
+                "backfilling file list for commit: {}",
+                thin_commit.sha
+            );
 
             let route = format!(
                 "/repos/{}/{}/commits/{}",
@@ -624,9 +626,10 @@ impl Forge for Github {
             .await?;
 
         if entries.is_empty() {
-            warn!(
+            log::warn!(
                 "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch, req.message,
+                req.target_branch,
+                req.message,
             );
             return Ok(Commit { sha: "None".into() });
         }
@@ -733,7 +736,7 @@ impl Forge for Github {
                 if let Some(merged) = pr.merged
                     && !merged
                 {
-                    warn!(
+                    log::warn!(
                         "found unmerged closed pr {} with pending label: skipping",
                         pr.number
                     );

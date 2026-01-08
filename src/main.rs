@@ -15,11 +15,12 @@
 //! ```
 
 use clap::Parser;
+use color_eyre::eyre::Result;
+use std::rc::Rc;
 
 use releasaurus::{
-    Cli, Command, ForgeFactory, ReleasaurusError, Result, ShowCommand,
-    config::resolver::ConfigResolverBuilder, release, release_pr, show,
-    start_next,
+    Cli, Command, ForgeFactory, Orchestrator, OrchestratorConfig,
+    ResolvedPackage, ResolvedPackageHash, ShowCommand, show,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -105,41 +106,65 @@ async fn main() -> Result<()> {
     log::debug!("package overrides: {:#?}", package_overrides);
     log::debug!("commit modifiers: {:#?}", commit_modifiers);
 
-    let config = forge_manager
-        .load_config(global_overrides.base_branch.clone())
-        .await?;
+    let config = Rc::new(
+        forge_manager
+            .load_config(global_overrides.base_branch.clone())
+            .await?,
+    );
 
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch();
     let release_link_base_url = forge_manager.release_link_base_url();
 
-    let config = ConfigResolverBuilder::default()
-        .config(config)
-        .repo_name(repo_name)
-        .repo_default_branch(default_branch)
-        .release_link_base_url(release_link_base_url)
-        .package_overrides(package_overrides)
-        .global_overrides(global_overrides)
-        .commit_modifiers(commit_modifiers)
-        .build()
-        .map_err(|e| {
-            ReleasaurusError::invalid_config(format!(
-                "Failed to build config resolver: {}",
-                e
-            ))
-        })?
-        .resolve()?;
+    let orchestrator_config = Rc::new(
+        OrchestratorConfig::builder()
+            .commit_modifiers(commit_modifiers)
+            .global_overrides(global_overrides)
+            .package_overrides(package_overrides)
+            .release_link_base_url(release_link_base_url)
+            .repo_default_branch(default_branch)
+            .repo_name(repo_name)
+            .toml_config(Rc::clone(&config))
+            .build()?,
+    );
 
+    let mut resolved = vec![];
+
+    for package_config in config.packages.iter() {
+        resolved.push(
+            ResolvedPackage::builder()
+                .orchestrator_config(Rc::clone(&orchestrator_config))
+                .package_config(package_config.clone())
+                .build()?,
+        );
+    }
+
+    let resolved_hash = ResolvedPackageHash::new(resolved)?;
+
+    let orchestrator = Orchestrator::builder()
+        .config(Rc::clone(&orchestrator_config))
+        .package_configs(Rc::new(resolved_hash))
+        .forge(Rc::new(forge_manager))
+        .build()?;
+
+    // wrap all errors using ? and manually return Ok(()) to get the benefit
+    // of eyre Report
     match cli.command {
         Command::ReleasePR { .. } => {
-            release_pr::execute(&forge_manager, config).await
+            orchestrator.create_release_prs().await?;
+            Ok(())
         }
-        Command::Release => release::execute(&forge_manager, config).await,
+        Command::Release => {
+            orchestrator.create_releases().await?;
+            Ok(())
+        }
         Command::Show { command } => {
-            show::execute(&forge_manager, command, config).await
+            show::execute(orchestrator, command).await?;
+            Ok(())
         }
         Command::StartNext { packages, .. } => {
-            start_next::execute(&forge_manager, packages, config).await
+            orchestrator.start_next_release(packages).await?;
+            Ok(())
         }
     }
 }

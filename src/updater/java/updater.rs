@@ -41,7 +41,7 @@ impl PackageUpdater for JavaUpdater {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -61,7 +61,7 @@ mod tests {
     <version>1.0.0</version>
 </project>"#;
         let manifest = ManifestFile {
-            path: "pom.xml".to_string(),
+            path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
         };
@@ -86,7 +86,7 @@ mod tests {
     fn returns_none_when_no_java_files() {
         let updater = JavaUpdater::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
         };

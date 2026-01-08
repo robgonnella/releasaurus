@@ -1,4 +1,3 @@
-use log::*;
 use toml_edit::{DocumentMut, value};
 
 use crate::{
@@ -77,13 +76,13 @@ impl PackageUpdater for CargoToml {
             let mut doc = self.load_doc(&manifest.content)?;
 
             if doc.get("workspace").is_some() {
-                debug!("skipping cargo workspace file");
+                log::debug!("skipping cargo workspace file");
                 continue;
             }
 
             let next_version = package.next_version.semver.to_string();
 
-            info!(
+            log::info!(
                 "setting version for {} to {next_version}",
                 package.package_name
             );
@@ -123,7 +122,7 @@ impl PackageUpdater for CargoToml {
             }
 
             file_changes.push(FileChange {
-                path: manifest.path.clone(),
+                path: manifest.path.to_string_lossy().to_string(),
                 content: doc.to_string(),
                 update_type: FileUpdateType::Replace,
             });
@@ -139,7 +138,7 @@ impl PackageUpdater for CargoToml {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -159,7 +158,7 @@ name = "my-package"
 version = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -192,7 +191,7 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "packages/a/Cargo.toml".to_string(),
+            path: Path::new("packages/a/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -238,7 +237,7 @@ version = "1.0.0"
 package-b = { version = "1.0.0", features = ["serde"] }
 "#;
         let manifest = ManifestFile {
-            path: "packages/a/Cargo.toml".to_string(),
+            path: Path::new("packages/a/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -285,7 +284,7 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "packages/a/Cargo.toml".to_string(),
+            path: Path::new("packages/a/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -331,7 +330,7 @@ version = "1.0.0"
 package-b = "1.0.0"
 "#;
         let manifest = ManifestFile {
-            path: "packages/a/Cargo.toml".to_string(),
+            path: Path::new("packages/a/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -373,7 +372,7 @@ package-b = "1.0.0"
 members = ["packages/*"]
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -407,7 +406,7 @@ authors = ["Test Author"]
 serde = "1.0"
 "#;
         let manifest = ManifestFile {
-            path: "Cargo.toml".to_string(),
+            path: Path::new("Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: content.to_string(),
         };
@@ -436,13 +435,13 @@ serde = "1.0"
     fn process_package_handles_multiple_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/Cargo.toml".to_string(),
+            path: Path::new("packages/a/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/Cargo.toml".to_string(),
+            path: Path::new("packages/b/Cargo.toml").to_path_buf(),
             basename: "Cargo.toml".to_string(),
             content: "[package]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
                 .to_string(),
@@ -470,7 +469,7 @@ serde = "1.0"
     fn process_package_returns_none_when_no_cargo_toml_files() {
         let cargo_toml = CargoToml::new();
         let manifest = ManifestFile {
-            path: "Cargo.lock".to_string(),
+            path: Path::new("Cargo.lock").to_path_buf(),
             basename: "Cargo.lock".to_string(),
             content: "version = 3\n".to_string(),
         };

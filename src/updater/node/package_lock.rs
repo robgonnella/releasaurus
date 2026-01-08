@@ -92,7 +92,7 @@ impl PackageLock {
         let formatted_json = serde_json::to_string_pretty(&lock_doc)?;
 
         Ok(Some(FileChange {
-            path: manifest.path.clone(),
+            path: manifest.path.to_string_lossy().to_string(),
             content: formatted_json,
             update_type: FileUpdateType::Replace,
         }))
@@ -135,7 +135,7 @@ impl PackageUpdater for PackageLock {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -150,7 +150,7 @@ mod tests {
         let content =
             r#"{"name":"my-package","version":"1.0.0","packages":{}}"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -186,7 +186,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -227,7 +227,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -279,7 +279,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -331,7 +331,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -384,7 +384,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };
@@ -410,13 +410,13 @@ mod tests {
     fn process_package_handles_multiple_lock_files() {
         let package_lock = PackageLock::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/package-lock.json".to_string(),
+            path: Path::new("packages/a/package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-a","version":"1.0.0","packages":{}}"#
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/package-lock.json".to_string(),
+            path: Path::new("packages/b/package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: r#"{"name":"package-b","version":"1.0.0","packages":{}}"#
                 .to_string(),
@@ -444,7 +444,7 @@ mod tests {
     fn process_package_returns_none_when_no_lock_files() {
         let package_lock = PackageLock::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };
@@ -481,7 +481,7 @@ mod tests {
   }
 }"#;
         let manifest = ManifestFile {
-            path: "package-lock.json".to_string(),
+            path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
         };

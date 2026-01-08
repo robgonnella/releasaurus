@@ -1,4 +1,3 @@
-use log::*;
 use regex::Regex;
 
 use crate::{
@@ -35,7 +34,7 @@ impl PackageUpdater for YarnLock {
                 continue;
             }
 
-            info!("processing {}", manifest.path);
+            log::info!("processing {}", manifest.path.to_string_lossy());
 
             let mut updated = false;
             let mut lines: Vec<String> = vec![];
@@ -81,7 +80,7 @@ impl PackageUpdater for YarnLock {
 
             if updated {
                 file_changes.push(FileChange {
-                    path: manifest.path.clone(),
+                    path: manifest.path.to_string_lossy().to_string(),
                     content: updated_content,
                     update_type: FileUpdateType::Replace,
                 });
@@ -98,7 +97,7 @@ impl PackageUpdater for YarnLock {
 
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, slice};
+    use std::{path::Path, rc::Rc, slice};
 
     use super::*;
     use crate::{
@@ -120,7 +119,7 @@ mod tests {
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -158,7 +157,7 @@ mod tests {
   resolved "https://registry.yarnpkg.com/package-b/-/package-b-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -208,7 +207,7 @@ mod tests {
   resolved "https://registry.yarnpkg.com/external-lib/-/external-lib-5.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -243,7 +242,7 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -278,7 +277,7 @@ package-a@^1.0.0:
   integrity sha512-abc123
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -308,12 +307,12 @@ package-a@^1.0.0:
     fn process_package_handles_multiple_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/yarn.lock".to_string(),
+            path: Path::new("packages/a/yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/yarn.lock".to_string(),
+            path: Path::new("packages/b/yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: "\"package-a@^1.0.0\":\n  version \"1.0.0\"".to_string(),
         };
@@ -342,7 +341,7 @@ package-a@^1.0.0:
     fn process_package_returns_none_when_no_yarn_lock_files() {
         let yarn_lock = YarnLock::new();
         let manifest = ManifestFile {
-            path: "package.json".to_string(),
+            path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
         };
@@ -373,7 +372,7 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/external-lib/-/external-lib-5.0.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };
@@ -410,7 +409,7 @@ package-a@^1.0.0:
   resolved "https://registry.yarnpkg.com/package-a/-/package-a-1.5.0.tgz"
 "#;
         let manifest = ManifestFile {
-            path: "yarn.lock".to_string(),
+            path: Path::new("yarn.lock").to_path_buf(),
             basename: "yarn.lock".to_string(),
             content: content.to_string(),
         };

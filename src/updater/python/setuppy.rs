@@ -48,7 +48,7 @@ impl PackageUpdater for SetupPy {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{path::Path, rc::Rc};
 
     use super::*;
     use crate::{
@@ -66,7 +66,7 @@ mod tests {
         let content =
             "setup(\n    name='my-package',\n    version=\"1.0.0\",\n)\n";
         let manifest = ManifestFile {
-            path: "setup.py".to_string(),
+            path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: content.to_string(),
         };
@@ -94,7 +94,7 @@ mod tests {
         let content =
             "setup(\n    name='my-package',\n    version='1.0.0',\n)\n";
         let manifest = ManifestFile {
-            path: "setup.py".to_string(),
+            path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: content.to_string(),
         };
@@ -122,7 +122,7 @@ mod tests {
         let content =
             "setup(\n    name='my-package',\n    version   =   \"1.0.0\",\n)\n";
         let manifest = ManifestFile {
-            path: "setup.py".to_string(),
+            path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: content.to_string(),
         };
@@ -161,7 +161,7 @@ setup(
 )
 "#;
         let manifest = ManifestFile {
-            path: "setup.py".to_string(),
+            path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: content.to_string(),
         };
@@ -192,13 +192,13 @@ setup(
     fn process_package_handles_multiple_setup_py_files() {
         let setuppy = SetupPy::new();
         let manifest1 = ManifestFile {
-            path: "packages/a/setup.py".to_string(),
+            path: Path::new("packages/a/setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: "setup(\n    name='package-a',\n    version='1.0.0'\n)"
                 .to_string(),
         };
         let manifest2 = ManifestFile {
-            path: "packages/b/setup.py".to_string(),
+            path: Path::new("packages/b/setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: "setup(\n    name='package-b',\n    version='1.0.0'\n)"
                 .to_string(),
@@ -226,7 +226,7 @@ setup(
     fn process_package_returns_none_when_no_setup_py_files() {
         let setuppy = SetupPy::new();
         let manifest = ManifestFile {
-            path: "setup.cfg".to_string(),
+            path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: "[metadata]\nversion = 1.0.0\n".to_string(),
         };

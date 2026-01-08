@@ -2,7 +2,6 @@
 use async_trait::async_trait;
 use color_eyre::eyre::{Context, OptionExt};
 use git2::{Commit as Git2Commit, Sort, TreeWalkMode};
-use log::*;
 use regex::Regex;
 use std::{
     env,
@@ -114,7 +113,7 @@ impl Forge for LocalRepo {
             let config: Config = toml::from_str(&content)?;
             Ok(config)
         } else {
-            info!("repository configuration not found: using default");
+            log::info!("repository configuration not found: using default");
             Ok(Config::default())
         }
     }
@@ -289,17 +288,19 @@ impl Forge for LocalRepo {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        warn!("local_mode: would create branch: req: {:#?}", req);
+        log::warn!("local_mode: would create branch: req: {:#?}", req);
         Ok(Commit { sha: "None".into() })
     }
 
     async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
-        warn!("local_mode: would create commit: req: {:#?}", req);
+        log::warn!("local_mode: would create commit: req: {:#?}", req);
         Ok(Commit { sha: "None".into() })
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        warn!("local_mode: would tag commit: tag_name: {tag_name}, sha: {sha}");
+        log::warn!(
+            "local_mode: would tag commit: tag_name: {tag_name}, sha: {sha}"
+        );
         Ok(())
     }
 
@@ -307,7 +308,10 @@ impl Forge for LocalRepo {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        warn!("local_mode: would request open release pr: req: {:#?}", req);
+        log::warn!(
+            "local_mode: would request open release pr: req: {:#?}",
+            req
+        );
         Ok(None)
     }
 
@@ -315,7 +319,7 @@ impl Forge for LocalRepo {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        warn!(
+        log::warn!(
             "local_mode: would request merged release pr: req: {:#?}",
             req
         );
@@ -323,7 +327,7 @@ impl Forge for LocalRepo {
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        warn!("local_mode: would create release pr: req: {:#?}", req);
+        log::warn!("local_mode: would create release pr: req: {:#?}", req);
         Ok(PullRequest {
             number: 0,
             sha: "None".into(),
@@ -332,12 +336,12 @@ impl Forge for LocalRepo {
     }
 
     async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        warn!("local_mode: would update release pr: req: {:#?}", req);
+        log::warn!("local_mode: would update release pr: req: {:#?}", req);
         Ok(())
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        warn!("local_mode: would replace pr labels: req: {:#?}", req);
+        log::warn!("local_mode: would replace pr labels: req: {:#?}", req);
         Ok(())
     }
 
@@ -347,7 +351,7 @@ impl Forge for LocalRepo {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        warn!(
+        log::warn!(
             "local_mode: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
         );
         Ok(())
