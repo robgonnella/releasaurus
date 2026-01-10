@@ -3,13 +3,10 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
-use derive_builder::Builder;
 use gitlab::{
     AsyncGitlab,
     api::{
-        AsyncQuery, Endpoint, Pagination, QueryParams,
-        common::NameOrId,
-        ignore,
+        AsyncQuery, Pagination, ignore,
         merge_requests::MergeRequestState,
         paged,
         projects::{
@@ -18,7 +15,7 @@ use gitlab::{
             merge_requests::{
                 CreateMergeRequest, EditMergeRequest, MergeRequests,
             },
-            releases::CreateRelease,
+            releases::{CreateRelease, ProjectReleaseByTag},
             repository::{
                 commits::{
                     CommitAction, CommitActionType, Commits, CommitsOrder,
@@ -32,10 +29,10 @@ use gitlab::{
 };
 use graphql_client::{GraphQLQuery, QueryBody};
 use regex::Regex;
-use reqwest::{Method, StatusCode};
+use reqwest::StatusCode;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, cmp, sync::Arc};
+use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -168,39 +165,6 @@ pub struct GitlabRelease {
 #[derive(Debug, Deserialize)]
 pub struct CreatedCommit {
     pub id: String,
-}
-
-/// Query a specific project release by tag name.
-#[derive(Debug, Builder)]
-#[builder(setter(strip_option))]
-pub struct ProjectReleaseByTag<'a> {
-    /// The project to query for release.
-    #[builder(setter(into))]
-    project: NameOrId<'a>,
-
-    /// Gets a release for a specific tag
-    tag: Cow<'a, str>,
-}
-
-impl<'a> ProjectReleaseByTag<'a> {
-    /// Create a builder for the endpoint.
-    pub fn builder() -> ProjectReleaseByTagBuilder<'a> {
-        ProjectReleaseByTagBuilder::default()
-    }
-}
-
-impl Endpoint for ProjectReleaseByTag<'_> {
-    fn method(&self) -> Method {
-        Method::GET
-    }
-
-    fn endpoint(&self) -> Cow<'static, str> {
-        format!("projects/{}/releases/{}", self.project, self.tag).into()
-    }
-
-    fn parameters(&self) -> QueryParams<'_> {
-        QueryParams::default()
-    }
 }
 
 /// GitLab forge implementation using gitlab crate for API interactions with
@@ -389,7 +353,7 @@ impl Forge for Gitlab {
 
         let endpoint = ProjectReleaseByTag::builder()
             .project(&self.project_id)
-            .tag(tag.name.clone().into())
+            .tag(tag.name.clone())
             .build()
             .map_err(|e| {
                 ReleasaurusError::Other(color_eyre::Report::msg(format!(
