@@ -1,3 +1,13 @@
+# [0.10.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.0) - 2026-01-06
+
+### 🚀 Features
+
+- implements sub-package feature [_(eb3c8aa)_](https://github.com/robgonnella/releasaurus/commit/eb3c8aaa44e026f3f5d24cc023325e3fc836de4b) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- major refactor of repository structure [_(df3b73c)_](https://github.com/robgonnella/releasaurus/commit/df3b73c66968701141f4c4aaf11631e69c4aeba0) (Rob Gonnella)
+
 # [0.9.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.9.0) - 2025-12-30
 
 ### 🚀 Features
