@@ -35,7 +35,10 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-setup
       - name: Install cargo machete
-        run: cargo install cargo-machete
+        run: |
+          if ! cargo machete --version; then
+            cargo install cargo-machete
+          fi
       - name: Run cargo machete
         run: cargo machete
 
