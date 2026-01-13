@@ -1,97 +1,50 @@
 use std::sync::LazyLock;
 
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::analyzer::commit::Commit;
 
 /// Commit categories based on conventional commit types, used for grouping
 /// changes in the changelog.
-#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
 pub enum Group {
+    #[serde(rename = "<!-- 00 -->❌ Breaking")]
     Breaking,
+    #[serde(rename = "<!-- 01 -->🚀 Features")]
     Feat,
+    #[serde(rename = "<!-- 02 -->🐛 Bug Fixes")]
     Fix,
+    #[serde(rename = "<!-- 03 -->◀️ Revert")]
     Revert,
+    #[serde(rename = "<!-- 04 -->🚜 Refactor")]
     Refactor,
+    #[serde(rename = "<!-- 05 -->⚡ Performance")]
     Perf,
+    #[serde(rename = "<!-- 06 -->📚 Documentation")]
     Doc,
+    #[serde(rename = "<!-- 07 -->🎨 Styling")]
     Style,
+    #[serde(rename = "<!-- 08 -->🧪 Testing")]
     Test,
+    #[serde(rename = "<!-- 09 -->🧹 Chore")]
     Chore,
+    #[serde(rename = "<!-- 10 -->⏩ CI/CD")]
     Ci,
+    #[serde(rename = "<!-- 11 -->⚙️ Miscellaneous Tasks")]
     #[default]
     Miscellaneous,
-}
-
-impl Serialize for Group {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Group::Breaking => serializer.serialize_unit_variant(
-                "Group",
-                0,
-                "<!-- 00 -->❌ Breaking",
-            ),
-            Group::Feat => serializer.serialize_unit_variant(
-                "Group",
-                1,
-                "<!-- 01 -->🚀 Features",
-            ),
-            Group::Fix => serializer.serialize_unit_variant(
-                "Group",
-                2,
-                "<!-- 02 -->🐛 Bug Fixes",
-            ),
-            Group::Revert => serializer.serialize_unit_variant(
-                "Group",
-                3,
-                "<!-- 03 -->◀️ Revert",
-            ),
-            Group::Refactor => serializer.serialize_unit_variant(
-                "Group",
-                4,
-                "<!-- 04 -->🚜 Refactor",
-            ),
-            Group::Perf => serializer.serialize_unit_variant(
-                "Group",
-                5,
-                "<!-- 05 -->⚡ Performance",
-            ),
-            Group::Doc => serializer.serialize_unit_variant(
-                "Group",
-                6,
-                "<!-- 06 -->📚 Documentation",
-            ),
-            Group::Style => serializer.serialize_unit_variant(
-                "Group",
-                7,
-                "<!-- 07 -->🎨 Styling",
-            ),
-            Group::Test => serializer.serialize_unit_variant(
-                "Group",
-                8,
-                "<!-- 08 -->🧪 Testing",
-            ),
-            Group::Chore => serializer.serialize_unit_variant(
-                "Group",
-                9,
-                "<!-- 09 -->🧹 Chore",
-            ),
-            Group::Ci => serializer.serialize_unit_variant(
-                "Group",
-                10,
-                "<!-- 10 -->⏩ CI/CD",
-            ),
-            Group::Miscellaneous => serializer.serialize_unit_variant(
-                "Group",
-                11,
-                "<!-- 11 -->⚙️ Miscellaneous Tasks",
-            ),
-        }
-    }
 }
 
 type MessageGroupParserFunction = dyn FnOnce(&Commit) -> Option<Group>;

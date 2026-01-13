@@ -1,8 +1,9 @@
-use color_eyre::eyre::OptionExt;
+use color_eyre::eyre::{OptionExt, eyre};
 use derive_builder::Builder;
 use regex::Regex;
 use serde::Serialize;
-use std::{rc::Rc, sync::LazyLock};
+use std::{path::Path, rc::Rc, sync::LazyLock};
+use tokio::fs;
 
 use crate::{
     ReleasaurusError, ResolvedPackage, Result,
@@ -39,6 +40,12 @@ pub struct CurrentRelease {
     name: String,
     tag: String,
     sha: String,
+    notes: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PackageNotes {
+    name: String,
     notes: String,
 }
 
@@ -85,6 +92,43 @@ impl Orchestrator {
                 Rc::clone(&params.package_configs),
             ),
         })
+    }
+
+    pub async fn get_notes_from_file(
+        &self,
+        file: &str,
+    ) -> Result<Vec<PackageNotes>> {
+        let file_path = Path::new(&file);
+
+        if !file_path.exists() {
+            return Err(ReleasaurusError::Other(eyre!(format!(
+                "file path does not exist: {}",
+                file
+            ))));
+        }
+
+        let content = fs::read_to_string(file_path).await?;
+
+        let packages: Vec<SerializableReleasablePackage> =
+            serde_json::from_str(&content)?;
+
+        // Compile template once before loop to avoid O(n) template compilation
+        let mut tera = tera::Tera::default();
+        tera.add_raw_template("changelog", &self.config.changelog.body)?;
+
+        let mut output = Vec::with_capacity(packages.len());
+
+        for package in packages {
+            let context = tera::Context::from_serialize(&package.release)?;
+            let notes = tera.render("changelog", &context)?;
+
+            output.push(PackageNotes {
+                name: package.name,
+                notes,
+            });
+        }
+
+        Ok(output)
     }
 
     pub async fn create_release_prs(&self) -> Result<()> {

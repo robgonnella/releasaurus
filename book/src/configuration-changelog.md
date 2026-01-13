@@ -152,8 +152,28 @@ releasaurus release-pr --skip-sha "abc123d" \
 
 The main changelog content template using Tera syntax.
 
-**Default template** creates entries starting with `# [version](link) -
-date`.
+**Default template**
+
+```toml
+[changelog]
+body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+{% if commit.breaking -%}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.body -%}
+> {{ commit.body }}
+{% endif -%}
+{% if commit.breaking_description -%}
+> {{ commit.breaking_description }}
+{% endif -%}
+{% else -%}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% endif -%}
+{% endfor %}
+{% endfor %}"""
+```
 
 **Custom template example:**
 
@@ -178,6 +198,7 @@ Available in the `body` template:
 ### Release Variables
 
 - `version` - Semantic version string (e.g., "1.2.3")
+- `tag_name` - Tag for this release including and prefixes and suffixes
 - `link` - URL to the release
 - `sha` - Git commit SHA
 - `timestamp` - Unix timestamp
