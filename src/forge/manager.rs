@@ -18,22 +18,28 @@ use crate::{
     },
 };
 
+pub struct ForgeOptions {
+    pub dry_run: bool,
+}
+
 pub struct ForgeManager {
     forge: Box<dyn Forge>,
     repo_name: OnceLock<String>,
     default_branch: OnceLock<String>,
     release_link_base_url: OnceLock<String>,
+    options: ForgeOptions,
 }
 
 impl ForgeManager {
     /// Create Gitea client with token authentication and API base URL
     /// configuration for self-hosted instances.
-    pub fn new(forge: Box<dyn Forge>) -> Self {
+    pub fn new(forge: Box<dyn Forge>, options: ForgeOptions) -> Self {
         Self {
             forge,
             repo_name: OnceLock::new(),
             default_branch: OnceLock::new(),
             release_link_base_url: OnceLock::new(),
+            options,
         }
     }
 
@@ -151,7 +157,7 @@ impl ForgeManager {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!("dry_run: would create release branch: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
@@ -178,7 +184,7 @@ impl ForgeManager {
         &self,
         req: CreateCommitRequest,
     ) -> Result<Commit> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!("dry_run: would create commit: req: {:#?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
@@ -200,7 +206,7 @@ impl ForgeManager {
     }
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!(
                 "dry_run: would tag commit: tag={}, sha={}",
                 tag_name,
@@ -222,7 +228,7 @@ impl ForgeManager {
     }
 
     pub async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!(
                 "dry_run: would create PR: {} -> {}",
                 req.head_branch,
@@ -252,7 +258,7 @@ impl ForgeManager {
     }
 
     pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!("dry_run: would update PR: req: {:#?}", req);
             return Ok(());
         }
@@ -269,7 +275,7 @@ impl ForgeManager {
     }
 
     pub async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!(
                 "dry_run: would replace PR #{} labels with: {:?}",
                 req.pr_number,
@@ -299,7 +305,7 @@ impl ForgeManager {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        if self.forge.dry_run() {
+        if self.options.dry_run {
             log::warn!(
                 "dry_run: would create release: tag: {tag}, sha: {sha}, notes {notes}"
             );
@@ -350,7 +356,10 @@ mod tests {
             }))
             .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        );
 
         let result = manager
             .load_file(Some("main".to_string()), "package.json".to_string())
@@ -366,7 +375,11 @@ mod tests {
         let mut mock_forge = MockForge::new();
         mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        );
+
         let result = manager
             .load_file(None, "missing.txt".to_string())
             .await
@@ -377,10 +390,12 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_create_release_branch() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
 
         let req = CreateReleaseBranchRequest {
             base_branch: "main".into(),
@@ -395,19 +410,25 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_tag_commit() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
         manager.tag_commit("v1.0.0", "abc123").await.unwrap();
     }
 
     #[tokio::test]
     async fn dry_run_prevents_create_pr() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
         let req = CreatePrRequest {
             title: "test".to_string(),
             body: "test body".to_string(),
@@ -422,10 +443,13 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_update_pr() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
         let req = UpdatePrRequest {
             pr_number: 42,
             title: "Updated title".to_string(),
@@ -436,10 +460,13 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_replace_pr_labels() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
         let req = PrLabelsRequest {
             pr_number: 42,
             labels: vec!["release".to_string()],
@@ -449,10 +476,13 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_create_release() {
-        let mut mock_forge = MockForge::new();
-        mock_forge.expect_dry_run().returning(|| true);
+        let mock_forge = MockForge::new();
 
-        let manager = ForgeManager::new(Box::new(mock_forge));
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
         manager
             .create_release("v1.0.0", "abc123", "Release notes")
             .await

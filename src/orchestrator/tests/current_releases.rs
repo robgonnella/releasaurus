@@ -19,7 +19,6 @@ use crate::{
 async fn get_current_releases_retrieves_release_data() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_latest_tag_for_prefix()
@@ -53,7 +52,6 @@ async fn get_current_releases_retrieves_release_data() {
 async fn get_next_releases_filters_by_package_name() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_latest_tag_for_prefix()

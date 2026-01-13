@@ -8,7 +8,7 @@ use crate::{
         github::Github,
         gitlab::Gitlab,
         local::LocalRepo,
-        manager::ForgeManager,
+        manager::{ForgeManager, ForgeOptions},
         traits::Forge,
     },
 };
@@ -18,7 +18,10 @@ pub struct ForgeFactory;
 
 impl ForgeFactory {
     /// Create a ForgeManager instance based on the Remote configuration.
-    pub async fn create(remote: &Remote) -> Result<ForgeManager> {
+    pub async fn create(
+        remote: &Remote,
+        options: ForgeOptions,
+    ) -> Result<ForgeManager> {
         let forge: Box<dyn Forge> = match remote {
             Remote::Github(config) => Self::create_github(config).await?,
             Remote::Gitlab(config) => Self::create_gitlab(config).await?,
@@ -26,7 +29,7 @@ impl ForgeFactory {
             Remote::Local(repo_path) => Self::create_local(repo_path)?,
         };
 
-        Ok(ForgeManager::new(forge))
+        Ok(ForgeManager::new(forge, options))
     }
 
     async fn create_github(config: &RemoteConfig) -> Result<Box<dyn Forge>> {

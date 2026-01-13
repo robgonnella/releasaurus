@@ -17,7 +17,6 @@ use crate::{
 async fn start_next_release_creates_commits_for_tagged_packages() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_latest_tag_for_prefix()
@@ -49,7 +48,6 @@ async fn start_next_release_creates_commits_for_tagged_packages() {
 async fn start_next_release_filters_by_target_packages() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_latest_tag_for_prefix()
@@ -106,7 +104,6 @@ async fn start_next_release_filters_by_target_packages() {
 async fn start_next_release_skips_untagged_packages() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Return None indicating no tag exists for this package
     mock_forge

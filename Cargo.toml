@@ -20,7 +20,7 @@ ignored = ["openssl"]
 
 [features]
 default = []
-dev-scripts = []
+_dev_scripts = []
 _integration_tests = []
 
 [lib]
@@ -33,7 +33,7 @@ path = "src/main.rs"
 [[bin]]
 name = "generate-schema"
 path = "scripts/gen_schema.rs"
-required-features = ["dev-scripts"]
+required-features = ["_dev_scripts"]
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"]}

@@ -194,7 +194,8 @@ mod tests {
             Config, package::PackageConfigBuilder, release_type::ReleaseType,
         },
         forge::{
-            manager::ForgeManager, request::ForgeCommitBuilder,
+            manager::{ForgeManager, ForgeOptions},
+            request::ForgeCommitBuilder,
             traits::MockForge,
         },
     };
@@ -244,7 +245,10 @@ mod tests {
                 .unwrap(),
         );
 
-        let forge = Rc::new(ForgeManager::new(Box::new(MockForge::new())));
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(MockForge::new()),
+            ForgeOptions { dry_run: false },
+        ));
 
         let package_configs =
             Rc::new(ResolvedPackageHash::new(vec![]).unwrap());
@@ -515,7 +519,10 @@ mod tests {
             })
             .returning(|_, _| Ok(vec![]));
 
-        let forge = Rc::new(ForgeManager::new(Box::new(mock_forge)));
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        ));
 
         // Create two packages
         let pkg_a_config = PackageConfigBuilder::default()
@@ -601,7 +608,10 @@ mod tests {
             .times(2)
             .returning(|_, _| Ok(vec![]));
 
-        let forge = Rc::new(ForgeManager::new(Box::new(mock_forge)));
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        ));
 
         let pkg_a_config = PackageConfigBuilder::default()
             .name("pkg-a")

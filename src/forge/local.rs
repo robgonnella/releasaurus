@@ -74,10 +74,6 @@ impl LocalRepo {}
 
 #[async_trait]
 impl Forge for LocalRepo {
-    fn dry_run(&self) -> bool {
-        true
-    }
-
     fn repo_name(&self) -> String {
         self.repo_name.clone()
     }
