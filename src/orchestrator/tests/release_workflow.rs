@@ -30,7 +30,6 @@ Release notes
 
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_merged_release_pr()
@@ -83,7 +82,6 @@ Release notes
 async fn create_releases_skips_packages_without_merged_pr() {
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Return None indicating no merged PR found
     mock_forge
@@ -117,7 +115,6 @@ Release notes
 
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Expect normal release flow
     mock_forge
@@ -192,7 +189,6 @@ Release B
 
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_merged_release_pr()

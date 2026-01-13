@@ -9,7 +9,10 @@ use crate::{
         Config,
         package::{PackageConfig, PackageConfigBuilder},
     },
-    forge::{manager::ForgeManager, traits::MockForge},
+    forge::{
+        manager::{ForgeManager, ForgeOptions},
+        traits::MockForge,
+    },
     orchestrator::OrchestratorParams,
 };
 
@@ -60,7 +63,10 @@ pub fn create_test_orchestrator(mock_forge: MockForge) -> Orchestrator {
         .unwrap(),
     );
 
-    let forge = Rc::new(ForgeManager::new(Box::new(mock_forge)));
+    let forge = Rc::new(ForgeManager::new(
+        Box::new(mock_forge),
+        ForgeOptions { dry_run: false },
+    ));
 
     Orchestrator::new(OrchestratorParams {
         config: orchestrator_config,
@@ -112,7 +118,10 @@ pub fn create_test_orchestrator_with_config(
         .unwrap(),
     );
 
-    let forge = Rc::new(ForgeManager::new(Box::new(mock_forge)));
+    let forge = Rc::new(ForgeManager::new(
+        Box::new(mock_forge),
+        ForgeOptions { dry_run: false },
+    ));
 
     Orchestrator::new(OrchestratorParams {
         config: orchestrator_config,

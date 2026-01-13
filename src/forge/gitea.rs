@@ -277,10 +277,6 @@ impl Gitea {
     }
 
     async fn create_label(&self, label_name: String) -> Result<Label> {
-        if self.config.dry_run {
-            log::warn!("dry_run: would create label: {label_name}");
-            return Ok(Label::default());
-        }
         let labels_url = self.base_url.join("labels")?;
         let request = self
             .client
@@ -299,10 +295,6 @@ impl Gitea {
 
 #[async_trait]
 impl Forge for Gitea {
-    fn dry_run(&self) -> bool {
-        self.config.dry_run
-    }
-
     fn repo_name(&self) -> String {
         self.config.repo.clone()
     }

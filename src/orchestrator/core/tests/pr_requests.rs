@@ -19,7 +19,6 @@ use crate::{
 #[tokio::test]
 async fn create_pr_branches_creates_branch_before_pr_request() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Expect the branch to be created
     mock_forge
@@ -64,7 +63,6 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
 #[tokio::test]
 async fn create_pr_branches_includes_metadata_in_body() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_create_release_branch()
@@ -110,7 +108,6 @@ async fn create_pr_branches_includes_metadata_in_body() {
 #[tokio::test]
 async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Should only create one branch for multiple packages
     mock_forge
@@ -193,7 +190,6 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
 #[tokio::test]
 async fn create_pr_branches_handles_separate_branches() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Should create two separate branches
     mock_forge
@@ -271,7 +267,6 @@ async fn create_pr_branches_handles_separate_branches() {
 #[tokio::test]
 async fn create_pr_branches_includes_file_changes() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_create_release_branch()
@@ -311,7 +306,6 @@ async fn create_pr_branches_includes_file_changes() {
 #[tokio::test]
 async fn create_pr_branches_uses_correct_title_format() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_create_release_branch()

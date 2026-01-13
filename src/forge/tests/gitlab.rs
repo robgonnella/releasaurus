@@ -4,8 +4,9 @@ use tokio::time::Duration;
 use crate::{
     ForgeFactory,
     cli::{ForgeArgs, ForgeType},
-    forge::tests::common::{
-        gitlab::GitlabForgeTestHelper, run::run_forge_test,
+    forge::{
+        manager::ForgeOptions,
+        tests::common::{gitlab::GitlabForgeTestHelper, run::run_forge_test},
     },
 };
 
@@ -20,11 +21,13 @@ async fn test_gitlab_forge() {
         forge: Some(ForgeType::Gitlab),
         repo: Some(repo.clone()),
         token: Some(token.clone()),
-        dry_run: false,
     };
 
     let remote = forge_args.get_remote().unwrap();
-    let gitea_forge = ForgeFactory::create(&remote).await.unwrap();
+    let gitea_forge =
+        ForgeFactory::create(&remote, ForgeOptions { dry_run: false })
+            .await
+            .unwrap();
     let helper = GitlabForgeTestHelper::new(&repo, &token, &reset_sha).await;
 
     run_forge_test(&gitea_forge, &helper, Duration::from_millis(2000)).await;

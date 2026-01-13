@@ -32,8 +32,7 @@ fn create_test_release(version: &str, notes: &str) -> Release {
 
 #[tokio::test]
 async fn get_notes_from_file_returns_rendered_notes() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -62,8 +61,7 @@ async fn get_notes_from_file_returns_rendered_notes() {
 
 #[tokio::test]
 async fn get_notes_from_file_handles_multiple_packages() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -101,8 +99,7 @@ async fn get_notes_from_file_handles_multiple_packages() {
 
 #[tokio::test]
 async fn get_notes_from_file_renders_with_custom_template() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     // Create custom config with specific template
     let mut config = Config::default();
@@ -134,8 +131,7 @@ async fn get_notes_from_file_renders_with_custom_template() {
 
 #[tokio::test]
 async fn get_notes_from_file_fails_with_nonexistent_file() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -150,8 +146,7 @@ async fn get_notes_from_file_fails_with_nonexistent_file() {
 
 #[tokio::test]
 async fn get_notes_from_file_fails_with_invalid_json() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -168,8 +163,7 @@ async fn get_notes_from_file_fails_with_invalid_json() {
 
 #[tokio::test]
 async fn get_notes_from_file_handles_empty_array() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -187,8 +181,7 @@ async fn get_notes_from_file_handles_empty_array() {
 
 #[tokio::test]
 async fn get_notes_from_file_fails_with_invalid_template() {
-    let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
+    let mock_forge = MockForge::new();
 
     let mut config = Config::default();
     // Invalid template syntax

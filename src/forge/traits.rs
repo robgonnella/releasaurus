@@ -22,8 +22,6 @@ use crate::{
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait Forge: Any + Send + Sync {
-    /// whether or not the forge is in dry_run mode
-    fn dry_run(&self) -> bool;
     /// Get repository name from configuration.
     fn repo_name(&self) -> String;
     /// Get the base URL for release links (e.g., GitHub web URL for commits).

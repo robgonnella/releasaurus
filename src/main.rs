@@ -19,7 +19,7 @@ use color_eyre::eyre::Result;
 use std::rc::Rc;
 
 use releasaurus::{
-    Cli, Command, ForgeFactory, Orchestrator, OrchestratorConfig,
+    Cli, Command, ForgeFactory, ForgeOptions, Orchestrator, OrchestratorConfig,
     ResolvedPackage, ResolvedPackageHash, ShowCommand, show,
 };
 
@@ -84,9 +84,24 @@ fn initialize_logger(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
-async fn create_orchestrator(cli: &Cli) -> Result<Orchestrator> {
+fn get_dry_run_value(cli: &Cli) -> bool {
+    if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
+        return true;
+    }
+
+    match cli.command {
+        Command::Release { dry_run } => dry_run,
+        Command::ReleasePR { dry_run, .. } => dry_run,
+        Command::StartNext { dry_run, .. } => dry_run,
+        _ => false,
+    }
+}
+
+async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
     let remote = cli.forge_args.get_remote()?;
-    let forge_manager = ForgeFactory::create(&remote).await?;
+
+    let forge_manager =
+        ForgeFactory::create(&remote, ForgeOptions { dry_run }).await?;
 
     let global_overrides = cli.get_global_overrides();
     let package_overrides = cli.get_package_overrides()?;
@@ -152,17 +167,15 @@ async fn main() -> Result<()> {
         cli.debug = true;
     }
 
-    if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
-        cli.forge_args.dry_run = true;
-    }
+    let dry_run = get_dry_run_value(&cli);
 
-    if cli.forge_args.dry_run {
+    if dry_run {
         cli.debug = true;
     }
 
     initialize_logger(&cli)?;
 
-    let orchestrator = create_orchestrator(&cli).await?;
+    let orchestrator = create_orchestrator(&cli, dry_run).await?;
 
     // wrap all errors using ? and manually return Ok(()) to get the benefit
     // of eyre Report
@@ -171,7 +184,7 @@ async fn main() -> Result<()> {
             orchestrator.create_release_prs().await?;
             Ok(())
         }
-        Command::Release => {
+        Command::Release { .. } => {
             orchestrator.create_releases().await?;
             Ok(())
         }

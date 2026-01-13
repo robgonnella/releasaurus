@@ -20,7 +20,8 @@ ignored = ["openssl"]
 
 [features]
 default = []
-dev-scripts = []
+json-scripts = ["dep:nucleo-matcher"]
+_dev_scripts = []
 _integration_tests = []
 
 [lib]
@@ -31,9 +32,14 @@ name = "releasaurus"
 path = "src/main.rs"
 
 [[bin]]
+name = "releasaurus-json"
+path = "scripts/releasaurus_json.rs"
+required-features = ["json-scripts"]
+
+[[bin]]
 name = "generate-schema"
 path = "scripts/gen_schema.rs"
-required-features = ["dev-scripts"]
+required-features = ["_dev_scripts"]
 
 [dependencies]
 clap = { version = "4.5.45", features = ["derive"]}
@@ -67,6 +73,7 @@ derive_builder = "0.20.2"
 thiserror = "2.0.9"
 merge = "0.2.0"
 gitlab = "0.1807.0"
+nucleo-matcher = { version = "0.3.1", optional = true }
 
 [dev-dependencies]
 mockall = "0.13.1"

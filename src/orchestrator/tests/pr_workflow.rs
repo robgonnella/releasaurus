@@ -15,7 +15,6 @@ use crate::forge::{
 #[tokio::test]
 async fn create_release_prs_succeeds_when_no_commits_since_last_tag() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // Has tag, but no new commits
     mock_forge
@@ -45,7 +44,6 @@ async fn create_release_prs_succeeds_when_no_commits_since_last_tag() {
 #[tokio::test]
 async fn create_release_prs_creates_new_prs() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     // No tags exist yet
     mock_forge
@@ -97,7 +95,6 @@ async fn create_release_prs_creates_new_prs() {
 #[tokio::test]
 async fn create_release_prs_updates_existing_prs() {
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
 
     mock_forge
         .expect_get_latest_tag_for_prefix()
