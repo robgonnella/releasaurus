@@ -228,10 +228,6 @@ impl Github {
 
 #[async_trait]
 impl Forge for Github {
-    fn dry_run(&self) -> bool {
-        self.config.dry_run
-    }
-
     fn repo_name(&self) -> String {
         self.config.repo.clone()
     }

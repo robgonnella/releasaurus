@@ -9,9 +9,12 @@ mod updater;
 
 pub use cli::{Cli, Command, ShowCommand, show};
 pub use error::{ReleasaurusError, Result};
-pub use forge::factory::ForgeFactory;
+pub use forge::{factory::ForgeFactory, manager::ForgeOptions};
 pub use orchestrator::{
     Orchestrator,
     config::OrchestratorConfig,
-    package::resolved::{ResolvedPackage, ResolvedPackageHash},
+    package::{
+        releasable::SerializableReleasablePackage,
+        resolved::{ResolvedPackage, ResolvedPackageHash},
+    },
 };

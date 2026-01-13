@@ -50,10 +50,6 @@ pub struct ForgeArgs {
     /// Authentication token. Falls back to env vars: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN
     #[arg(short, long, global = true)]
     pub token: Option<String>,
-
-    /// Execute in dry-run mode
-    #[arg(long, default_value_t = false, global = true)]
-    pub dry_run: bool,
 }
 
 impl ForgeArgs {
@@ -77,30 +73,18 @@ impl ForgeArgs {
         match forge {
             ForgeType::Local => Ok(Remote::Local(repo.clone())),
             ForgeType::Github => {
-                let config = get_remote_config(
-                    forge,
-                    &repo,
-                    self.token.clone(),
-                    self.dry_run,
-                )?;
+                let config =
+                    get_remote_config(forge, &repo, self.token.clone())?;
                 Ok(Remote::Github(config))
             }
             ForgeType::Gitlab => {
-                let config = get_remote_config(
-                    forge,
-                    &repo,
-                    self.token.clone(),
-                    self.dry_run,
-                )?;
+                let config =
+                    get_remote_config(forge, &repo, self.token.clone())?;
                 Ok(Remote::Gitlab(config))
             }
             ForgeType::Gitea => {
-                let config = get_remote_config(
-                    forge,
-                    &repo,
-                    self.token.clone(),
-                    self.dry_run,
-                )?;
+                let config =
+                    get_remote_config(forge, &repo, self.token.clone())?;
                 Ok(Remote::Gitea(config))
             }
         }
@@ -328,10 +312,18 @@ pub enum Command {
 
         #[command(flatten)]
         overrides: SharedCommandOverrides,
+
+        /// Execute in dry-run mode
+        #[arg(long, default_value_t = false, global = true)]
+        dry_run: bool,
     },
 
     /// Create a git tag and publish release after PR merge
-    Release,
+    Release {
+        /// Execute in dry-run mode
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 
     /// Outputs info about projected and previous releases
     Show {
@@ -350,6 +342,10 @@ pub enum Command {
         /// Optional comma separated list of package names to target
         #[arg(long, value_delimiter(','))]
         packages: Option<Vec<String>>,
+
+        /// Execute in dry-run mode
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
 }
 
@@ -461,7 +457,6 @@ fn get_remote_config(
     forge: ForgeType,
     repo: &str,
     token: Option<String>,
-    dry_run: bool,
 ) -> Result<RemoteConfig> {
     let parsed = GitUrl::parse(repo)?;
 
@@ -545,7 +540,6 @@ fn get_remote_config(
         path: project_path,
         release_link_base_url,
         token: SecretString::from(token),
-        dry_run,
     })
 }
 
@@ -562,7 +556,6 @@ mod tests {
             forge: Some(ForgeType::Github),
             repo: Some(repo),
             token: Some(token),
-            dry_run: false,
         };
 
         let remote = forge_args.get_remote().unwrap();
@@ -579,7 +572,6 @@ mod tests {
             forge: Some(ForgeType::Gitlab),
             repo: Some(repo),
             token: Some(token),
-            dry_run: false,
         };
 
         let remote = forge_args.get_remote().unwrap();
@@ -596,7 +588,6 @@ mod tests {
             forge: Some(ForgeType::Gitea),
             repo: Some(repo),
             token: Some(token),
-            dry_run: false,
         };
 
         let remote = forge_args.get_remote().unwrap();
@@ -612,7 +603,6 @@ mod tests {
             forge: Some(ForgeType::Local),
             repo: Some(repo),
             token: None,
-            dry_run: false,
         };
 
         let remote = forge_args.get_remote().unwrap();
@@ -629,7 +619,6 @@ mod tests {
             forge: Some(ForgeType::Gitea),
             repo: Some(repo),
             token: Some(token),
-            dry_run: false,
         };
 
         let result = forge_args.get_remote();

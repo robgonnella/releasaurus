@@ -9,7 +9,10 @@ use crate::{
         Config,
         package::{PackageConfig, PackageConfigBuilder},
     },
-    forge::{manager::ForgeManager, traits::MockForge},
+    forge::{
+        manager::{ForgeManager, ForgeOptions},
+        traits::MockForge,
+    },
     orchestrator::{core::Core, package::resolved::ResolvedPackageHash},
 };
 
@@ -38,7 +41,10 @@ pub fn create_core(
             .unwrap(),
     );
 
-    let forge = Rc::new(ForgeManager::new(Box::new(mock_forge)));
+    let forge = Rc::new(ForgeManager::new(
+        Box::new(mock_forge),
+        ForgeOptions { dry_run: false },
+    ));
 
     let pkg_configs = pkg_configs.unwrap_or(vec![
         PackageConfigBuilder::default()

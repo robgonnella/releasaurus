@@ -30,7 +30,6 @@ Release notes here
 
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
     mock_forge
         .expect_tag_commit()
         .times(1)
@@ -109,7 +108,6 @@ Correct notes
 
     // Set up mock forge expectations
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
     mock_forge
         .expect_tag_commit()
         .times(1)
@@ -152,7 +150,6 @@ Release notes
 
     // Set up mock forge expectations
     let mut mock_forge = MockForge::new();
-    mock_forge.expect_dry_run().returning(|| false);
     mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
     mock_forge
         .expect_create_release()

@@ -52,6 +52,7 @@ incrementing patch versions immediately after a release:
 - Skips packages that haven't been tagged yet
 - Supports filtering to specific packages with `--packages` flag
 - Ensures version numbers are always ahead of the last release
+- Supports dry-run mode for testing
 
 **Usage:**
 

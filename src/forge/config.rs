@@ -36,8 +36,6 @@ pub struct RemoteConfig {
     pub token: SecretString,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
-    /// set dry run mode for forge
-    pub dry_run: bool,
 }
 
 impl Default for RemoteConfig {
@@ -51,7 +49,6 @@ impl Default for RemoteConfig {
             path: "".to_string(),
             token: SecretString::from("".to_string()),
             release_link_base_url: "".to_string(),
-            dry_run: false,
         }
     }
 }
@@ -73,7 +70,6 @@ mod tests {
     fn default_remote_config() {
         let remote = RemoteConfig::default();
         assert!(remote.port.is_none());
-        assert!(!remote.dry_run);
         assert_eq!(remote.host, "");
         assert_eq!(remote.scheme, "");
         assert_eq!(remote.owner, "");
