@@ -26,12 +26,45 @@ use releasaurus::{
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
 const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
 
+fn silence_logs(cli: &Cli) -> bool {
+    let mut silent = false;
+
+    if let Command::Show { command, .. } = &cli.command {
+        match command {
+            ShowCommand::NextRelease { out_file, .. } => {
+                if out_file.is_none() {
+                    silent = true;
+                }
+            }
+            ShowCommand::CurrentRelease { out_file, .. } => {
+                if out_file.is_none() {
+                    silent = true;
+                }
+            }
+            ShowCommand::Release { out_file, .. } => {
+                if out_file.is_none() {
+                    silent = true;
+                }
+            }
+            ShowCommand::Notes { out_file, .. } => {
+                if out_file.is_none() {
+                    silent = true;
+                }
+            }
+        }
+    }
+
+    silent
+}
+
 /// Initialize terminal logger with debug or info level filtering for
 /// releasaurus output.
-fn initialize_logger(debug: bool, silent: bool) -> Result<()> {
+fn initialize_logger(cli: &Cli) -> Result<()> {
+    let silent = silence_logs(cli);
+
     let filter = if silent {
         simplelog::LevelFilter::Off
-    } else if debug {
+    } else if cli.debug {
         simplelog::LevelFilter::Debug
     } else {
         simplelog::LevelFilter::Info
@@ -51,51 +84,8 @@ fn initialize_logger(debug: bool, silent: bool) -> Result<()> {
     Ok(())
 }
 
-/// Main entry point that initializes error handling, logging, and dispatches
-/// commands.
-#[tokio::main]
-async fn main() -> Result<()> {
-    color_eyre::install()?;
-
-    let mut cli = Cli::parse();
-
-    let mut silence_logs = false;
-
-    if std::env::var(DEBUG_ENV_VAR).is_ok() {
-        cli.debug = true;
-    }
-
-    if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
-        cli.dry_run = true;
-    }
-
-    if cli.dry_run {
-        cli.debug = true;
-    }
-
-    if let Command::Show { command, .. } = &cli.command {
-        match command {
-            ShowCommand::NextRelease { out_file, .. } => {
-                if out_file.is_none() {
-                    silence_logs = true;
-                }
-            }
-            ShowCommand::CurrentRelease { out_file, .. } => {
-                if out_file.is_none() {
-                    silence_logs = true;
-                }
-            }
-            ShowCommand::Release { out_file, .. } => {
-                if out_file.is_none() {
-                    silence_logs = true;
-                }
-            }
-        }
-    }
-
-    initialize_logger(cli.debug, silence_logs)?;
-
-    let remote = cli.get_remote()?;
+async fn create_orchestrator(cli: &Cli) -> Result<Orchestrator> {
+    let remote = cli.forge_args.get_remote()?;
     let forge_manager = ForgeFactory::create(&remote).await?;
 
     let global_overrides = cli.get_global_overrides();
@@ -147,6 +137,33 @@ async fn main() -> Result<()> {
         .forge(Rc::new(forge_manager))
         .build()?;
 
+    Ok(orchestrator)
+}
+
+/// Main entry point that initializes error handling, logging, and dispatches
+/// commands.
+#[tokio::main]
+async fn main() -> Result<()> {
+    color_eyre::install()?;
+
+    let mut cli = Cli::parse();
+
+    if std::env::var(DEBUG_ENV_VAR).is_ok() {
+        cli.debug = true;
+    }
+
+    if std::env::var(DRY_RUN_ENV_VAR).is_ok() {
+        cli.forge_args.dry_run = true;
+    }
+
+    if cli.forge_args.dry_run {
+        cli.debug = true;
+    }
+
+    initialize_logger(&cli)?;
+
+    let orchestrator = create_orchestrator(&cli).await?;
+
     // wrap all errors using ? and manually return Ok(()) to get the benefit
     // of eyre Report
     match cli.command {
@@ -165,6 +182,165 @@ async fn main() -> Result<()> {
         Command::StartNext { packages, .. } => {
             orchestrator.start_next_release(packages).await?;
             Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_base_args() -> Vec<String> {
+        vec![
+            "releasaurus".to_string(),
+            "--repo".to_string(),
+            "https://github.com/test/repo".to_string(),
+        ]
+    }
+
+    #[test]
+    fn silence_logs_returns_true_for_show_next_release_without_out_file() {
+        let args = [
+            create_base_args(),
+            vec!["show".to_string(), "next-release".to_string()],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_false_for_show_next_release_with_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "next-release".to_string(),
+                "--out-file".to_string(),
+                "output.json".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(!silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_true_for_show_current_release_without_out_file() {
+        let args = [
+            create_base_args(),
+            vec!["show".to_string(), "current-release".to_string()],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_false_for_show_current_release_with_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "current-release".to_string(),
+                "--out-file".to_string(),
+                "output.json".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(!silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_true_for_show_release_without_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "release".to_string(),
+                "--tag".to_string(),
+                "v1.0.0".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_false_for_show_release_with_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "release".to_string(),
+                "--tag".to_string(),
+                "v1.0.0".to_string(),
+                "--out-file".to_string(),
+                "output.json".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(!silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_true_for_show_notes_without_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "notes".to_string(),
+                "--file".to_string(),
+                "releases.json".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_false_for_show_notes_with_out_file() {
+        let args = [
+            create_base_args(),
+            vec![
+                "show".to_string(),
+                "notes".to_string(),
+                "--file".to_string(),
+                "releases.json".to_string(),
+                "--out-file".to_string(),
+                "output.json".to_string(),
+            ],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        assert!(!silence_logs(&cli));
+    }
+
+    #[test]
+    fn silence_logs_returns_false_for_non_show_commands() {
+        let test_cases = vec!["release-pr", "release", "start-next"];
+
+        for cmd in test_cases {
+            let args = [create_base_args(), vec![cmd.to_string()]].concat();
+            let cli = Cli::try_parse_from(args).unwrap();
+
+            assert!(
+                !silence_logs(&cli),
+                "silence_logs should return false for {} command",
+                cmd
+            );
         }
     }
 }

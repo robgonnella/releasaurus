@@ -2,8 +2,8 @@ use std::env;
 use tokio::time::Duration;
 
 use crate::{
-    Cli, Command, ForgeFactory,
-    cli::ForgeType,
+    ForgeFactory,
+    cli::{ForgeArgs, ForgeType},
     forge::tests::common::{gitea::GiteaForgeTestHelper, run::run_forge_test},
 };
 
@@ -14,17 +14,14 @@ async fn test_gitea_forge() {
     let token = env::var("GITEA_TEST_TOKEN").unwrap();
     let reset_sha = env::var("GITEA_RESET_SHA").unwrap();
 
-    let cli = Cli {
+    let forge_args = ForgeArgs {
         forge: Some(ForgeType::Gitea),
-        base_branch: None,
-        command: Command::Release, // doesn't matter just using to create forge
-        debug: true,
-        dry_run: false,
         repo: Some(repo.clone()),
         token: Some(token.clone()),
+        dry_run: false,
     };
 
-    let remote = cli.get_remote().unwrap();
+    let remote = forge_args.get_remote().unwrap();
     let gitea_forge = ForgeFactory::create(&remote).await.unwrap();
     let helper = GiteaForgeTestHelper::new(&repo, &token, &reset_sha).await;
 

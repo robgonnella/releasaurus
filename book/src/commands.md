@@ -189,6 +189,46 @@ releasaurus show release \
 - `sha` - The commit SHA the tag points to
 - `notes` - The release notes content
 
+#### `show notes`
+
+Converts release JSON from `show next-release` back into formatted notes
+using your configured Tera template. This enables custom transformations like
+replacing author names with Slack user IDs before generating final release
+notes.
+
+```bash
+# Convert release JSON to notes
+releasaurus show notes \
+  --file releases.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Save to file
+releasaurus show notes \
+  --file releases.json \
+  --out-file notes.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+**Output:** JSON array of objects with `name` (package name) and `notes`
+(rendered markdown) fields.
+
+**Workflow example:**
+
+```bash
+# 1. Generate release data
+releasaurus show next-release --out-file releases.json \
+  --forge github --repo "https://github.com/owner/repo"
+
+# 2. Transform data (e.g., replace author names with Slack IDs)
+python transform_authors.py releases.json
+
+# 3. Regenerate notes with transformations
+releasaurus show notes --file releases.json \
+  --forge github --repo "https://github.com/owner/repo"
+```
+
 **Custom Notifications:** Use these commands to build notification scripts
 that announce upcoming releases (pre-release) or published releases
 (post-release) to Slack, Discord, email, or other channels.

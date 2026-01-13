@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use git_conventional::Commit as ConventionalCommit;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 
 /// Structured commit with parsed conventional commit fields, author
 /// metadata, and changelog categorization.
-#[derive(Debug, Clone, Default, Serialize, Builder)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
 pub struct Commit {
     pub id: String,

@@ -1,6 +1,6 @@
 //! Data types for releases, tags, and commits.
 use semver::Version;
-use serde::{Serialize, ser::SerializeStruct};
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use std::fmt::Display;
 
 use crate::analyzer::commit::Commit;
@@ -49,9 +49,22 @@ impl Serialize for Tag {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct ShadowRelease {
+    pub version: String,
+    pub tag_name: String,
+    pub link: String,
+    pub sha: String,
+    pub commits: Vec<Commit>,
+    pub include_author: bool,
+    pub notes: String,
+    pub timestamp: i64,
+}
+
 /// Complete release package containing version tag, changelog notes, and all
 /// associated commits for publishing.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Deserialize)]
+#[serde(from = "ShadowRelease")]
 pub struct Release {
     /// Associated version tag.
     pub tag: Tag,
@@ -67,6 +80,26 @@ pub struct Release {
     pub notes: String,
     /// Release timestamp.
     pub timestamp: i64,
+}
+
+impl From<ShadowRelease> for Release {
+    fn from(value: ShadowRelease) -> Self {
+        Self {
+            commits: value.commits,
+            include_author: value.include_author,
+            link: value.link,
+            notes: value.notes,
+            sha: value.sha,
+            timestamp: value.timestamp,
+            tag: Tag {
+                name: value.tag_name,
+                semver: semver::Version::parse(&value.version)
+                    .unwrap_or(semver::Version::new(0, 0, 0)),
+                sha: "".into(),
+                timestamp: None,
+            },
+        }
+    }
 }
 
 impl std::fmt::Debug for Release {
@@ -86,9 +119,10 @@ impl Serialize for Release {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Release", 7)?;
+        let mut s = serializer.serialize_struct("Release", 8)?;
         s.serialize_field("link", &self.link)?;
         s.serialize_field("version", &self.tag.semver.to_string())?;
+        s.serialize_field("tag_name", &self.tag.name)?;
         s.serialize_field("sha", &self.sha)?;
         s.serialize_field("include_author", &self.include_author)?;
         s.serialize_field("commits", &self.commits)?;

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     analyzer::release::{Release, Tag},
@@ -34,7 +34,6 @@ impl ReleasableSubPackage {
 /// manifest content
 #[derive(Debug, Default)]
 pub struct ReleasablePackage {
-    /// The name of this package
     pub name: String,
     pub release_type: ReleaseType,
     pub tag: Tag,
@@ -46,14 +45,17 @@ pub struct ReleasablePackage {
 
 /// Represents a full serializable release-able package complete with
 /// entire analyzed commit history
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SerializableReleasablePackage {
     /// The name of this package
     pub name: String,
     pub path: PathBuf,
     pub release_type: ReleaseType,
     pub release: Release,
+    #[serde(skip)]
     pub sub_packages: Vec<ReleasableSubPackage>,
+    #[serde(skip)]
     pub manifest_files: Option<Vec<ManifestFile>>,
+    #[serde(skip)]
     pub additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
 }
