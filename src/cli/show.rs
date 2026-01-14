@@ -62,7 +62,9 @@ async fn show_notes(
     file: String,
     out_file: Option<String>,
 ) -> Result<()> {
-    let output = orchestrator.get_notes_from_file(&file).await?;
+    let output = orchestrator
+        .recompile_notes_from_release_file(&file)
+        .await?;
     let json = serde_json::json!(output);
     print_json(json, out_file).await
 }

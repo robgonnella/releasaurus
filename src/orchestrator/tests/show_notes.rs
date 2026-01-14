@@ -1,7 +1,7 @@
 //! Tests for show notes functionality.
 //!
 //! Tests for:
-//! - get_notes_from_file method
+//! - recompile_notes_from_release_file method
 //! - Reading and parsing JSON release files
 //! - Template rendering with package release data
 //! - Error handling for invalid files and malformed JSON
@@ -31,7 +31,7 @@ fn create_test_release(version: &str, notes: &str) -> Release {
 }
 
 #[tokio::test]
-async fn get_notes_from_file_returns_rendered_notes() {
+async fn recompile_notes_from_release_file_returns_rendered_notes() {
     let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
@@ -50,17 +50,17 @@ async fn get_notes_from_file_returns_rendered_notes() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await
         .unwrap();
 
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].name, "test-package");
-    assert!(!result[0].notes.is_empty());
+    assert!(!result[0].release.notes.is_empty());
 }
 
 #[tokio::test]
-async fn get_notes_from_file_handles_multiple_packages() {
+async fn recompile_notes_from_release_file_handles_multiple_packages() {
     let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
@@ -86,19 +86,19 @@ async fn get_notes_from_file_handles_multiple_packages() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await
         .unwrap();
 
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].name, "package-one");
     assert_eq!(result[1].name, "package-two");
-    assert!(!result[0].notes.is_empty());
-    assert!(!result[1].notes.is_empty());
+    assert!(!result[0].release.notes.is_empty());
+    assert!(!result[1].release.notes.is_empty());
 }
 
 #[tokio::test]
-async fn get_notes_from_file_renders_with_custom_template() {
+async fn recompile_notes_from_release_file_renders_with_custom_template() {
     let mock_forge = MockForge::new();
 
     // Create custom config with specific template
@@ -121,22 +121,22 @@ async fn get_notes_from_file_renders_with_custom_template() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await
         .unwrap();
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0].notes, "Version: 3.2.1");
+    assert_eq!(result[0].release.notes, "Version: 3.2.1");
 }
 
 #[tokio::test]
-async fn get_notes_from_file_fails_with_nonexistent_file() {
+async fn recompile_notes_from_release_file_fails_with_nonexistent_file() {
     let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
     let result = orchestrator
-        .get_notes_from_file("/nonexistent/path/file.json")
+        .recompile_notes_from_release_file("/nonexistent/path/file.json")
         .await;
 
     assert!(result.is_err());
@@ -145,7 +145,7 @@ async fn get_notes_from_file_fails_with_nonexistent_file() {
 }
 
 #[tokio::test]
-async fn get_notes_from_file_fails_with_invalid_json() {
+async fn recompile_notes_from_release_file_fails_with_invalid_json() {
     let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
@@ -155,14 +155,14 @@ async fn get_notes_from_file_fails_with_invalid_json() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await;
 
     assert!(result.is_err());
 }
 
 #[tokio::test]
-async fn get_notes_from_file_handles_empty_array() {
+async fn recompile_notes_from_release_file_handles_empty_array() {
     let mock_forge = MockForge::new();
 
     let orchestrator = create_test_orchestrator(mock_forge);
@@ -172,7 +172,7 @@ async fn get_notes_from_file_handles_empty_array() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await
         .unwrap();
 
@@ -180,7 +180,7 @@ async fn get_notes_from_file_handles_empty_array() {
 }
 
 #[tokio::test]
-async fn get_notes_from_file_fails_with_invalid_template() {
+async fn recompile_notes_from_release_file_fails_with_invalid_template() {
     let mock_forge = MockForge::new();
 
     let mut config = Config::default();
@@ -203,7 +203,7 @@ async fn get_notes_from_file_fails_with_invalid_template() {
     temp_file.flush().unwrap();
 
     let result = orchestrator
-        .get_notes_from_file(&temp_file.path().to_string_lossy())
+        .recompile_notes_from_release_file(&temp_file.path().to_string_lossy())
         .await;
 
     assert!(result.is_err());

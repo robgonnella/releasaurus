@@ -43,12 +43,6 @@ pub struct CurrentRelease {
     notes: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct PackageNotes {
-    name: String,
-    notes: String,
-}
-
 #[derive(Builder)]
 #[builder(setter(into), build_fn(private, name = "_build"))]
 pub struct OrchestratorParams {
@@ -94,10 +88,10 @@ impl Orchestrator {
         })
     }
 
-    pub async fn get_notes_from_file(
+    pub async fn recompile_notes_from_release_file(
         &self,
         file: &str,
-    ) -> Result<Vec<PackageNotes>> {
+    ) -> Result<Vec<SerializableReleasablePackage>> {
         let file_path = Path::new(&file);
 
         if !file_path.exists() {
@@ -109,26 +103,19 @@ impl Orchestrator {
 
         let content = fs::read_to_string(file_path).await?;
 
-        let packages: Vec<SerializableReleasablePackage> =
+        let mut packages: Vec<SerializableReleasablePackage> =
             serde_json::from_str(&content)?;
 
         // Compile template once before loop to avoid O(n) template compilation
         let mut tera = tera::Tera::default();
         tera.add_raw_template("changelog", &self.config.changelog.body)?;
 
-        let mut output = Vec::with_capacity(packages.len());
-
-        for package in packages {
+        for package in packages.iter_mut() {
             let context = tera::Context::from_serialize(&package.release)?;
-            let notes = tera.render("changelog", &context)?;
-
-            output.push(PackageNotes {
-                name: package.name,
-                notes,
-            });
+            package.release.notes = tera.render("changelog", &context)?;
         }
 
-        Ok(output)
+        Ok(packages)
     }
 
     pub async fn create_release_prs(&self) -> Result<()> {
