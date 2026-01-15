@@ -1,3 +1,23 @@
+# [0.10.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.0) - 2026-01-06
+
+### 🚀 Features
+
+- adds command aliases [_(ab958f7)_](https://github.com/robgonnella/releasaurus/commit/ab958f74f1d65e740c7632985423fd9c04a87659) (Rob Gonnella)
+
+- implements show notes feature [_(eed040c)_](https://github.com/robgonnella/releasaurus/commit/eed040c3cfebb4ec577385a20dc62a8160017df0) (Rob Gonnella)
+
+- implements sub-package feature [_(eb3c8aa)_](https://github.com/robgonnella/releasaurus/commit/eb3c8aaa44e026f3f5d24cc023325e3fc836de4b) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- another fix for restricting show next-release to target package [_(80375b8)_](https://github.com/robgonnella/releasaurus/commit/80375b8193f67c4e4cbbb4f9bca4e37338381001) (Rob Gonnella)
+
+- prevent fetching commits for all when target supplied [_(93986ec)_](https://github.com/robgonnella/releasaurus/commit/93986ec92f0292bb1297cd6bd25b3324ca7df517) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- major refactor of repository structure [_(df3b73c)_](https://github.com/robgonnella/releasaurus/commit/df3b73c66968701141f4c4aaf11631e69c4aeba0) (Rob Gonnella)
+
 # [0.9.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.9.0) - 2025-12-30
 
 ### 🚀 Features
