@@ -119,7 +119,7 @@ impl Orchestrator {
     }
 
     pub async fn create_release_prs(&self) -> Result<()> {
-        let prepared = self.core.prepare_packages().await?;
+        let prepared = self.core.prepare_packages(None).await?;
 
         let analyzed = self.core.analyze_packages(prepared)?;
 
@@ -287,7 +287,7 @@ impl Orchestrator {
         &self,
         package: Option<String>,
     ) -> Result<Vec<SerializableReleasablePackage>> {
-        let prepared = self.core.prepare_packages().await?;
+        let prepared = self.core.prepare_packages(package.clone()).await?;
 
         let analyzed = self.core.analyze_packages(prepared)?;
 

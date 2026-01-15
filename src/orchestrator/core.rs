@@ -124,10 +124,18 @@ impl Core {
         Ok(prepared)
     }
 
-    pub async fn prepare_packages(&self) -> Result<Vec<PreparedPackage>> {
+    pub async fn prepare_packages(
+        &self,
+        target: Option<String>,
+    ) -> Result<Vec<PreparedPackage>> {
         let mut prepared_packages = vec![];
         let commits = self.commits_core.get_commits_for_all_packages().await?;
         for (name, package) in self.package_configs.hash().iter() {
+            if let Some(target) = target.as_ref()
+                && package.name != *target
+            {
+                continue;
+            }
             let current_tag = self
                 .forge
                 .get_latest_tag_for_prefix(&package.tag_prefix)
