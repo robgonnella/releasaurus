@@ -8,13 +8,13 @@
 //! - `release_workflow`: Release creation workflow tests
 //! - `next_release`: Next release workflow tests
 //! - `current_releases`: Release data retrieval tests
-//! - `show_notes`: Show notes functionality tests
+//! - `get_notes`: Get notes functionality tests
 
 mod common;
 mod current_releases;
+mod get_notes;
 mod metadata;
 mod next_release;
 mod package_releases;
 mod pr_workflow;
 mod release_workflow;
-mod show_notes;

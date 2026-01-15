@@ -143,10 +143,10 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
     steps:
       - uses: actions/checkout@v5
-      - name: show next-release
+      - name: get next-release
         uses: ./action
         with:
-          command: show
+          command: get
           command_args: >-
             next-release
             --forge github

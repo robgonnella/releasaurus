@@ -2,31 +2,31 @@
 use std::path::Path;
 use tokio::fs;
 
-use crate::{Orchestrator, Result, cli::ShowCommand};
+use crate::{Orchestrator, Result, cli::GetCommand};
 
 /// Get projected next release info as JSON, optionally filtered by package name
 pub async fn execute(
     orchestrator: Orchestrator,
-    cmd: ShowCommand,
+    cmd: GetCommand,
 ) -> Result<()> {
     match cmd {
-        ShowCommand::NextRelease {
+        GetCommand::NextRelease {
             out_file, package, ..
-        } => show_next_release(orchestrator, out_file, package).await,
-        ShowCommand::CurrentRelease { out_file, package } => {
-            show_current_release(orchestrator, out_file, package).await
+        } => get_next_release(orchestrator, out_file, package).await,
+        GetCommand::CurrentRelease { out_file, package } => {
+            get_current_release(orchestrator, out_file, package).await
         }
-        ShowCommand::Release { out_file, tag } => {
-            show_release(orchestrator, out_file, tag).await
+        GetCommand::Release { out_file, tag } => {
+            get_release(orchestrator, out_file, tag).await
         }
-        ShowCommand::Notes { file, out_file } => {
-            show_notes(orchestrator, file, out_file).await
+        GetCommand::RecompiledNotes { file, out_file } => {
+            get_notes(orchestrator, file, out_file).await
         }
     }
 }
 
 /// Shows the most recent release for each package
-async fn show_current_release(
+async fn get_current_release(
     orchestrator: Orchestrator,
     out_file: Option<String>,
     target_package: Option<String>,
@@ -36,7 +36,7 @@ async fn show_current_release(
     print_json(json, out_file).await
 }
 
-async fn show_release(
+async fn get_release(
     orchestrator: Orchestrator,
     out_file: Option<String>,
     tag: String,
@@ -47,7 +47,7 @@ async fn show_release(
     print_json(json, out_file).await
 }
 
-async fn show_next_release(
+async fn get_next_release(
     orchestrator: Orchestrator,
     out_file: Option<String>,
     package: Option<String>,
@@ -58,7 +58,7 @@ async fn show_next_release(
     print_json(json, out_file).await
 }
 
-async fn show_notes(
+async fn get_notes(
     orchestrator: Orchestrator,
     file: String,
     out_file: Option<String>,

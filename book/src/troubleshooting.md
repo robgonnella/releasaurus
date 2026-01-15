@@ -145,34 +145,34 @@ incorrect.
    # Clone the repository and test locally
    git clone https://github.com/owner/repo
    cd repo
-   releasaurus show next-release --forge local --repo "."
+   releasaurus get next-release --forge local --repo "."
    ```
 
 ## Inspecting Projected Releases
 
-Use the `show next-release` command to inspect what Releasaurus will do
+Use the `get next-release` command to inspect what Releasaurus will do
 before creating a PR or making any changes:
 
 ```bash
 # See all projected releases
-releasaurus show next-release \
+releasaurus get next-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus show next-release \
+releasaurus get next-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save output to file for detailed inspection
-releasaurus show next-release \
+releasaurus get next-release \
   --out-file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 ```
 
 **Use this command to:**

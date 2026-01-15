@@ -125,7 +125,7 @@ automating all the tedious version management tasks.
   release to start the next development cycle. Perfect for continuous
   development workflows.
 
-- **`releasaurus show`** - Query release information for automation,
+- **`releasaurus get`** - Query release information for automation,
   CI/CD pipelines, and custom notifications without making any changes.
 
 ## What Problems Does Releasaurus Solve?

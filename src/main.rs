@@ -19,8 +19,8 @@ use color_eyre::eyre::Result;
 use std::rc::Rc;
 
 use releasaurus::{
-    Cli, Command, ForgeFactory, ForgeOptions, Orchestrator, OrchestratorConfig,
-    ResolvedPackage, ResolvedPackageHash, ShowCommand, show,
+    Cli, Command, ForgeFactory, ForgeOptions, GetCommand, Orchestrator,
+    OrchestratorConfig, ResolvedPackage, ResolvedPackageHash, get,
 };
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -29,24 +29,24 @@ const DRY_RUN_ENV_VAR: &str = "RELEASAURUS_DRY_RUN";
 fn silence_logs(cli: &Cli) -> bool {
     let mut silent = false;
 
-    if let Command::Show { command, .. } = &cli.command {
+    if let Command::Get { command, .. } = &cli.command {
         match command {
-            ShowCommand::NextRelease { out_file, .. } => {
+            GetCommand::NextRelease { out_file, .. } => {
                 if out_file.is_none() {
                     silent = true;
                 }
             }
-            ShowCommand::CurrentRelease { out_file, .. } => {
+            GetCommand::CurrentRelease { out_file, .. } => {
                 if out_file.is_none() {
                     silent = true;
                 }
             }
-            ShowCommand::Release { out_file, .. } => {
+            GetCommand::Release { out_file, .. } => {
                 if out_file.is_none() {
                     silent = true;
                 }
             }
-            ShowCommand::Notes { out_file, .. } => {
+            GetCommand::RecompiledNotes { out_file, .. } => {
                 if out_file.is_none() {
                     silent = true;
                 }
@@ -188,8 +188,8 @@ async fn main() -> Result<()> {
             orchestrator.create_releases().await?;
             Ok(())
         }
-        Command::Show { command } => {
-            show::execute(orchestrator, command).await?;
+        Command::Get { command } => {
+            get::execute(orchestrator, command).await?;
             Ok(())
         }
         Command::StartNext { packages, .. } => {
@@ -212,10 +212,10 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_true_for_show_next_release_without_out_file() {
+    fn silence_logs_returns_true_for_get_next_release_without_out_file() {
         let args = [
             create_base_args(),
-            vec!["show".to_string(), "next-release".to_string()],
+            vec!["get".to_string(), "next-release".to_string()],
         ]
         .concat();
         let cli = Cli::try_parse_from(args).unwrap();
@@ -224,11 +224,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_false_for_show_next_release_with_out_file() {
+    fn silence_logs_returns_false_for_get_next_release_with_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "next-release".to_string(),
                 "--out-file".to_string(),
                 "output.json".to_string(),
@@ -241,10 +241,10 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_true_for_show_current_release_without_out_file() {
+    fn silence_logs_returns_true_for_get_current_release_without_out_file() {
         let args = [
             create_base_args(),
-            vec!["show".to_string(), "current-release".to_string()],
+            vec!["get".to_string(), "current-release".to_string()],
         ]
         .concat();
         let cli = Cli::try_parse_from(args).unwrap();
@@ -253,11 +253,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_false_for_show_current_release_with_out_file() {
+    fn silence_logs_returns_false_for_get_current_release_with_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "current-release".to_string(),
                 "--out-file".to_string(),
                 "output.json".to_string(),
@@ -270,11 +270,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_true_for_show_release_without_out_file() {
+    fn silence_logs_returns_true_for_get_release_without_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "release".to_string(),
                 "--tag".to_string(),
                 "v1.0.0".to_string(),
@@ -287,11 +287,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_false_for_show_release_with_out_file() {
+    fn silence_logs_returns_false_for_get_release_with_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "release".to_string(),
                 "--tag".to_string(),
                 "v1.0.0".to_string(),
@@ -306,11 +306,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_true_for_show_notes_without_out_file() {
+    fn silence_logs_returns_true_for_get_notes_without_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "notes".to_string(),
                 "--file".to_string(),
                 "releases.json".to_string(),
@@ -323,11 +323,11 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_false_for_show_notes_with_out_file() {
+    fn silence_logs_returns_false_for_get_notes_with_out_file() {
         let args = [
             create_base_args(),
             vec![
-                "show".to_string(),
+                "get".to_string(),
                 "notes".to_string(),
                 "--file".to_string(),
                 "releases.json".to_string(),
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn silence_logs_returns_false_for_non_show_commands() {
+    fn silence_logs_returns_false_for_non_get_commands() {
         let test_cases = vec!["release-pr", "release", "start-next"];
 
         for cmd in test_cases {

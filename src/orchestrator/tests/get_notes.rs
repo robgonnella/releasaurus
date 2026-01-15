@@ -1,4 +1,4 @@
-//! Tests for show notes functionality.
+//! Tests for get recompiled-notes functionality.
 //!
 //! Tests for:
 //! - recompile_notes_from_release_file method

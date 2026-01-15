@@ -93,7 +93,7 @@ releasaurus start-next \
 a pull request. Make sure you have the appropriate permissions and that your
 branch protection rules allow this operation.
 
-### `show`
+### `get`
 
 **Purpose**: Query release information without making changes
 
@@ -105,55 +105,58 @@ automation:
 - Generate custom notification scripts for pre/post-release workflows
 - Supports writing output to files for processing
 
+**Note**: The `show` command is maintained as an alias for backwards
+compatibility.
+
 **Sub-commands:**
 
-#### `show next-release`
+#### `get next-release`
 
 Returns projected next release information as JSON:
 
 ```bash
 # Get all projected releases
-releasaurus show next-release \
+releasaurus get next-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Filter to specific package
-releasaurus show next-release \
+releasaurus get next-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Write to file
-releasaurus show next-release \
+releasaurus get next-release \
   --out-file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Test locally
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 ```
 
 **Output:** JSON array of releasable packages with version, commits, and
 notes.
 
-#### `show current-release`
+#### `get current-release`
 
 Returns information about the most recent release for each package:
 
 ```bash
 # Get all current releases
-releasaurus show current-release \
+releasaurus get current-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Filter to specific package
-releasaurus show current-release \
+releasaurus get current-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Write to file
-releasaurus show current-release \
+releasaurus get current-release \
   --out-file current.json \
   --forge github \
   --repo "https://github.com/owner/repo"
@@ -165,19 +168,19 @@ omitted.
 **Use case:** Check what versions are currently deployed or compare
 current releases across packages in a monorepo.
 
-#### `show release`
+#### `get release`
 
 Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:
 
 ```bash
 # Display release notes
-releasaurus show release \
+releasaurus get release \
   --tag v1.0.0 \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save to file
-releasaurus show release \
+releasaurus get release \
   --tag v1.0.0 \
   --out-file release.json \
   --forge github \
@@ -190,22 +193,25 @@ releasaurus show release \
 - `sha` - The commit SHA the tag points to
 - `notes` - The release notes content
 
-#### `show notes`
+#### `get recompiled-notes`
 
-Converts release JSON from `show next-release` back into formatted notes
+Converts release JSON from `get next-release` back into formatted notes
 using your configured Tera template. This enables custom transformations like
 replacing author names with Slack user IDs before generating final release
 notes.
 
+**Note**: The `show notes` command is maintained as an alias for backwards
+compatibility.
+
 ```bash
 # Convert release JSON to notes
-releasaurus show notes \
+releasaurus get recompiled-notes \
   --file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save to file
-releasaurus show notes \
+releasaurus get recompiled-notes \
   --file releases.json \
   --out-file notes.json \
   --forge github \
@@ -219,14 +225,14 @@ releasaurus show notes \
 
 ```bash
 # 1. Generate release data
-releasaurus show next-release --out-file releases.json \
+releasaurus get next-release --out-file releases.json \
   --forge github --repo "https://github.com/owner/repo"
 
 # 2. Transform data (e.g., replace author names with Slack IDs)
 python transform_authors.py releases.json
 
 # 3. Regenerate notes with transformations
-releasaurus show notes --file releases.json \
+releasaurus get recompiled-notes --file releases.json \
   --forge github --repo "https://github.com/owner/repo"
 ```
 
