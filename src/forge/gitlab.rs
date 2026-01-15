@@ -393,7 +393,11 @@ impl Forge for Gitlab {
             .project(&self.project_id)
             .order_by(TagsOrderBy::Updated)
             .build()?;
-        let tags: Vec<GitlabTag> = endpoint.query_async(&self.gl).await?;
+
+        let tags: Vec<GitlabTag> = paged(endpoint, Pagination::All)
+            .query_async(&self.gl)
+            .await?;
+
         for t in tags.into_iter() {
             if re.is_match(&t.name) {
                 let stripped = re.replace_all(&t.name, "").to_string();
@@ -645,7 +649,12 @@ impl Forge for Gitlab {
         let result: std::result::Result<
             Vec<MergeRequestInfo>,
             gitlab::api::ApiError<gitlab::RestError>,
-        > = endpoint.query_async(&self.gl).await;
+        > = paged(
+            endpoint,
+            Pagination::AllPerPageLimit(DEFAULT_PAGE_SIZE.into()),
+        )
+        .query_async(&self.gl)
+        .await;
 
         // Execute the query to get matching merge requests
         match result {
@@ -694,8 +703,12 @@ impl Forge for Gitlab {
             .labels(vec![PENDING_LABEL])
             .build()?;
 
-        let merge_requests: Vec<MergeRequestInfo> =
-            endpoint.query_async(&self.gl).await?;
+        let merge_requests: Vec<MergeRequestInfo> = paged(
+            endpoint,
+            Pagination::AllPerPageLimit(DEFAULT_PAGE_SIZE.into()),
+        )
+        .query_async(&self.gl)
+        .await?;
 
         if merge_requests.is_empty() {
             return Ok(None);
