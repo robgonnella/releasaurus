@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
+            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -399,6 +399,25 @@ path = "."
 release_type = "rust"
 tag_prefix = "v"
 </code></pre>
+<h4 id="sub_packages"><a class="header" href="#sub_packages"><code>sub_packages</code></a></h4>
+<p><strong>Type</strong>: Array of objects (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Groups multiple packages under a single release that shares one changelog, tag,
+and release. Each sub-package gets independent manifest updates based on its
+<code>release_type</code>.</p>
+<p><strong>Use when:</strong> Multiple packages should always be released together with the same
+version and share the same changelog</p>
+<pre><code class="language-toml">[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+</code></pre>
+<p>See <a href="./configuration-monorepo.html#grouped-releases-sub-packages">Grouped Releases</a>
+for details.</p>
 <h4 id="auto_start_next-1"><a class="header" href="#auto_start_next-1"><code>auto_start_next</code></a></h4>
 <p><strong>Type</strong>: Boolean (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>

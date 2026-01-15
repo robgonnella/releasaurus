@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
+            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -282,7 +282,7 @@ release to start the next development cycle. Perfect for continuous
 development workflows.</p>
 </li>
 <li>
-<p><strong><code>releasaurus show</code></strong> - Query release information for automation,
+<p><strong><code>releasaurus get</code></strong> - Query release information for automation,
 CI/CD pipelines, and custom notifications without making any changes.</p>
 </li>
 </ul>
@@ -490,6 +490,7 @@ incrementing patch versions immediately after a release:</p>
 <li>Skips packages that haven’t been tagged yet</li>
 <li>Supports filtering to specific packages with <code>--packages</code> flag</li>
 <li>Ensures version numbers are always ahead of the last release</li>
+<li>Supports dry-run mode for testing</li>
 </ul>
 <p><strong>Usage:</strong></p>
 <pre><code class="language-bash"># Start next release cycle for all packages
@@ -526,7 +527,7 @@ releasaurus start-next \
 <p><strong>Note:</strong> This command commits directly to your base branch without creating
 a pull request. Make sure you have the appropriate permissions and that your
 branch protection rules allow this operation.</p>
-<h3 id="show"><a class="header" href="#show"><code>show</code></a></h3>
+<h3 id="get"><a class="header" href="#get"><code>get</code></a></h3>
 <p><strong>Purpose</strong>: Query release information without making changes</p>
 <p>This command provides release data for inspection, debugging, and custom
 automation:</p>
@@ -536,46 +537,48 @@ automation:</p>
 <li>Generate custom notification scripts for pre/post-release workflows</li>
 <li>Supports writing output to files for processing</li>
 </ul>
+<p><strong>Note</strong>: The <code>show</code> command is maintained as an alias for backwards
+compatibility.</p>
 <p><strong>Sub-commands:</strong></p>
-<h4 id="show-next-release"><a class="header" href="#show-next-release"><code>show next-release</code></a></h4>
+<h4 id="get-next-release"><a class="header" href="#get-next-release"><code>get next-release</code></a></h4>
 <p>Returns projected next release information as JSON:</p>
 <pre><code class="language-bash"># Get all projected releases
-releasaurus show next-release \
+releasaurus get next-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Filter to specific package
-releasaurus show next-release \
+releasaurus get next-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Write to file
-releasaurus show next-release \
+releasaurus get next-release \
   --out-file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Test locally
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 </code></pre>
 <p><strong>Output:</strong> JSON array of releasable packages with version, commits, and
 notes.</p>
-<h4 id="show-current-release"><a class="header" href="#show-current-release"><code>show current-release</code></a></h4>
+<h4 id="get-current-release"><a class="header" href="#get-current-release"><code>get current-release</code></a></h4>
 <p>Returns information about the most recent release for each package:</p>
 <pre><code class="language-bash"># Get all current releases
-releasaurus show current-release \
+releasaurus get current-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Filter to specific package
-releasaurus show current-release \
+releasaurus get current-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Write to file
-releasaurus show current-release \
+releasaurus get current-release \
   --out-file current.json \
   --forge github \
   --repo "https://github.com/owner/repo"
@@ -584,16 +587,16 @@ releasaurus show current-release \
 omitted.</p>
 <p><strong>Use case:</strong> Check what versions are currently deployed or compare
 current releases across packages in a monorepo.</p>
-<h4 id="show-release"><a class="header" href="#show-release"><code>show release</code></a></h4>
+<h4 id="get-release"><a class="header" href="#get-release"><code>get release</code></a></h4>
 <p>Retrieves release data for an existing tag, including the tag name, commit SHA, and release notes:</p>
 <pre><code class="language-bash"># Display release notes
-releasaurus show release \
+releasaurus get release \
   --tag v1.0.0 \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save to file
-releasaurus show release \
+releasaurus get release \
   --tag v1.0.0 \
   --out-file release.json \
   --forge github \
@@ -605,6 +608,40 @@ releasaurus show release \
 <li><code>sha</code> - The commit SHA the tag points to</li>
 <li><code>notes</code> - The release notes content</li>
 </ul>
+<h4 id="get-recompiled-notes"><a class="header" href="#get-recompiled-notes"><code>get recompiled-notes</code></a></h4>
+<p>Converts release JSON from <code>get next-release</code> back into formatted notes
+using your configured Tera template. This enables custom transformations like
+replacing author names with Slack user IDs before generating final release
+notes.</p>
+<p><strong>Note</strong>: The <code>show notes</code> command is maintained as an alias for backwards
+compatibility.</p>
+<pre><code class="language-bash"># Convert release JSON to notes
+releasaurus get recompiled-notes \
+  --file releases.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Save to file
+releasaurus get recompiled-notes \
+  --file releases.json \
+  --out-file notes.json \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p><strong>Output:</strong> JSON array of objects with <code>name</code> (package name) and <code>notes</code>
+(rendered markdown) fields.</p>
+<p><strong>Workflow example:</strong></p>
+<pre><code class="language-bash"># 1. Generate release data
+releasaurus get next-release --out-file releases.json \
+  --forge github --repo "https://github.com/owner/repo"
+
+# 2. Transform data (e.g., replace author names with Slack IDs)
+python transform_authors.py releases.json
+
+# 3. Regenerate notes with transformations
+releasaurus get recompiled-notes --file releases.json \
+  --forge github --repo "https://github.com/owner/repo"
+</code></pre>
 <p><strong>Custom Notifications:</strong> Use these commands to build notification scripts
 that announce upcoming releases (pre-release) or published releases
 (post-release) to Slack, Discord, email, or other channels.</p>
@@ -1176,32 +1213,32 @@ appropriate permissions.</p>
 <pre><code class="language-bash"># Clone the repository and test locally
 git clone https://github.com/owner/repo
 cd repo
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 </code></pre>
 </li>
 </ol>
 <h2 id="inspecting-projected-releases"><a class="header" href="#inspecting-projected-releases">Inspecting Projected Releases</a></h2>
-<p>Use the <code>show next-release</code> command to inspect what Releasaurus will do
+<p>Use the <code>get next-release</code> command to inspect what Releasaurus will do
 before creating a PR or making any changes:</p>
 <pre><code class="language-bash"># See all projected releases
-releasaurus show next-release \
+releasaurus get next-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus show next-release \
+releasaurus get next-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save output to file for detailed inspection
-releasaurus show next-release \
+releasaurus get next-release \
   --out-file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 </code></pre>
 <p><strong>Use this command to:</strong></p>
 <ul>
@@ -1762,7 +1799,26 @@ bumps minor instead of patch).</p>
 <h2 id="template-customization"><a class="header" href="#template-customization">Template Customization</a></h2>
 <h3 id="body-template"><a class="header" href="#body-template"><code>body</code> Template</a></h3>
 <p>The main changelog content template using Tera syntax.</p>
-<p><strong>Default template</strong> creates entries starting with <code># [version](link) - date</code>.</p>
+<p><strong>Default template</strong></p>
+<pre><code class="language-toml">[changelog]
+body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+{% if commit.breaking -%}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.body -%}
+&gt; {{ commit.body }}
+{% endif -%}
+{% if commit.breaking_description -%}
+&gt; {{ commit.breaking_description }}
+{% endif -%}
+{% else -%}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% endif -%}
+{% endfor %}
+{% endfor %}"""
+</code></pre>
 <p><strong>Custom template example:</strong></p>
 <pre><code class="language-toml">[changelog]
 body = """## Release v{{ version }}
@@ -1781,6 +1837,7 @@ Released on {{ timestamp | date(format="%Y-%m-%d") }}
 <h3 id="release-variables"><a class="header" href="#release-variables">Release Variables</a></h3>
 <ul>
 <li><code>version</code> - Semantic version string (e.g., “1.2.3”)</li>
+<li><code>tag_name</code> - Tag for this release including and prefixes and suffixes</li>
 <li><code>link</code> - URL to the release</li>
 <li><code>sha</code> - Git commit SHA</li>
 <li><code>timestamp</code> - Unix timestamp</li>
@@ -2094,6 +2151,89 @@ release_type = "node"
 tag_prefix = "mobile-v"
 </code></pre>
 <p>The shared package releases independently.</p>
+<h2 id="grouped-releases-sub-packages"><a class="header" href="#grouped-releases-sub-packages">Grouped Releases (Sub-Packages)</a></h2>
+<p>Group multiple packages under a single release that shares one changelog, tag,
+and release, while each sub-package maintains independent version file updates
+based on its <code>release_type</code>.</p>
+<p><strong>Use this when:</strong></p>
+<ul>
+<li>Multiple packages should always be released together with the same version</li>
+<li>You want a single changelog for a group of related packages</li>
+<li>Sub-packages have different languages/frameworks needing different manifest
+updates</li>
+</ul>
+<h3 id="basic-example"><a class="header" href="#basic-example">Basic Example</a></h3>
+<pre><code class="language-toml">[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+tag_prefix = "v"
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+</code></pre>
+<p><strong>Result:</strong></p>
+<ul>
+<li><strong>One tag</strong>: <code>v1.0.0</code> (covers all packages)</li>
+<li><strong>One changelog</strong>: Lists all changes from parent and sub-packages</li>
+<li><strong>One release</strong>: Published together</li>
+<li><strong>Independent manifests</strong>: <code>Cargo.toml</code> (parent + cli) and <code>package.json</code>
+(web) updated separately</li>
+</ul>
+<h3 id="common-use-case-plugin-system"><a class="header" href="#common-use-case-plugin-system">Common Use Case: Plugin System</a></h3>
+<pre><code class="language-toml">[[package]]
+name = "app"
+workspace_root = "."
+path = "."
+release_type = "node"
+tag_prefix = "v"
+sub_packages = [
+    { name = "auth-plugin", path = "plugins/auth", release_type = "node" },
+    { name = "analytics-plugin", path = "plugins/analytics", release_type = "node" },
+    { name = "native-addon", path = "addons/native", release_type = "node" }
+]
+</code></pre>
+<p>All plugins and addons release together with the main app as a cohesive unit,
+each with properly updated manifests.</p>
+<h2 id="package-naming-and-path-requirements"><a class="header" href="#package-naming-and-path-requirements">Package Naming and Path Requirements</a></h2>
+<p>To avoid conflicts and ensure proper manifest updates:</p>
+<h3 id="package-names"><a class="header" href="#package-names">Package Names</a></h3>
+<ul>
+<li><strong>Must be unique</strong> across all packages and sub-packages in the repository</li>
+<li><strong>Should match manifest files</strong> if they exist:
+<ul>
+<li>Node: <code>name</code> field in <code>package.json</code></li>
+<li>Rust: <code>name</code> field in <code>Cargo.toml</code></li>
+<li>Python: <code>name</code> field in <code>pyproject.toml</code> or <code>setup.py</code></li>
+<li>And so on for other languages</li>
+</ul>
+</li>
+<li>If not provided, derived from the last component of the path</li>
+</ul>
+<h3 id="package-paths"><a class="header" href="#package-paths">Package Paths</a></h3>
+<ul>
+<li><strong>Must be unique</strong> when combined with <code>workspace_root</code></li>
+<li>Full path = <code>workspace_root/path</code></li>
+<li>Example: If two packages have different <code>workspace_root</code> values, they can have
+the same <code>path</code></li>
+</ul>
+<p><strong>Valid (different full paths):</strong></p>
+<pre><code class="language-toml">[[package]]
+workspace_root = "backend"
+path = "api"
+
+[[package]]
+workspace_root = "frontend"
+path = "api"
+</code></pre>
+<p><strong>Invalid (same full path):</strong></p>
+<pre><code class="language-toml">[[package]]
+path = "services/api"
+
+[[package]]
+path = "services/api"  # Conflict!
+</code></pre>
 <h2 id="workflow-differences"><a class="header" href="#workflow-differences">Workflow Differences</a></h2>
 <h3 id="single-pr-workflow"><a class="header" href="#single-pr-workflow">Single PR Workflow</a></h3>
 <ol>
@@ -2367,6 +2507,25 @@ path = "."
 release_type = "rust"
 tag_prefix = "v"
 </code></pre>
+<h4 id="sub_packages"><a class="header" href="#sub_packages"><code>sub_packages</code></a></h4>
+<p><strong>Type</strong>: Array of objects (optional)</p>
+<p><strong>Default</strong>: None</p>
+<p>Groups multiple packages under a single release that shares one changelog, tag,
+and release. Each sub-package gets independent manifest updates based on its
+<code>release_type</code>.</p>
+<p><strong>Use when:</strong> Multiple packages should always be released together with the same
+version and share the same changelog</p>
+<pre><code class="language-toml">[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+</code></pre>
+<p>See <a href="#grouped-releases-sub-packages">Grouped Releases</a>
+for details.</p>
 <h4 id="auto_start_next-1"><a class="header" href="#auto_start_next-1"><code>auto_start_next</code></a></h4>
 <p><strong>Type</strong>: Boolean (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>

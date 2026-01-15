@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
+            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -274,7 +274,26 @@ bumps minor instead of patch).</p>
 <h2 id="template-customization"><a class="header" href="#template-customization">Template Customization</a></h2>
 <h3 id="body-template"><a class="header" href="#body-template"><code>body</code> Template</a></h3>
 <p>The main changelog content template using Tera syntax.</p>
-<p><strong>Default template</strong> creates entries starting with <code># [version](link) - date</code>.</p>
+<p><strong>Default template</strong></p>
+<pre><code class="language-toml">[changelog]
+body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+{% if commit.breaking -%}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.body -%}
+&gt; {{ commit.body }}
+{% endif -%}
+{% if commit.breaking_description -%}
+&gt; {{ commit.breaking_description }}
+{% endif -%}
+{% else -%}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% endif -%}
+{% endfor %}
+{% endfor %}"""
+</code></pre>
 <p><strong>Custom template example:</strong></p>
 <pre><code class="language-toml">[changelog]
 body = """## Release v{{ version }}
@@ -293,6 +312,7 @@ Released on {{ timestamp | date(format="%Y-%m-%d") }}
 <h3 id="release-variables"><a class="header" href="#release-variables">Release Variables</a></h3>
 <ul>
 <li><code>version</code> - Semantic version string (e.g., “1.2.3”)</li>
+<li><code>tag_name</code> - Tag for this release including and prefixes and suffixes</li>
 <li><code>link</code> - URL to the release</li>
 <li><code>sha</code> - Git commit SHA</li>
 <li><code>timestamp</code> - Unix timestamp</li>

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
+            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -297,32 +297,32 @@ appropriate permissions.</p>
 <pre><code class="language-bash"># Clone the repository and test locally
 git clone https://github.com/owner/repo
 cd repo
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 </code></pre>
 </li>
 </ol>
 <h2 id="inspecting-projected-releases"><a class="header" href="#inspecting-projected-releases">Inspecting Projected Releases</a></h2>
-<p>Use the <code>show next-release</code> command to inspect what Releasaurus will do
+<p>Use the <code>get next-release</code> command to inspect what Releasaurus will do
 before creating a PR or making any changes:</p>
 <pre><code class="language-bash"># See all projected releases
-releasaurus show next-release \
+releasaurus get next-release \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Inspect specific package
-releasaurus show next-release \
+releasaurus get next-release \
   --package my-pkg \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Save output to file for detailed inspection
-releasaurus show next-release \
+releasaurus get next-release \
   --out-file releases.json \
   --forge github \
   --repo "https://github.com/owner/repo"
 
 # Test locally without authentication
-releasaurus show next-release --forge local --repo "."
+releasaurus get next-release --forge local --repo "."
 </code></pre>
 <p><strong>Use this command to:</strong></p>
 <ul>

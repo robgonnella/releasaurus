@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-42da2c6e.js";
+            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -382,6 +382,89 @@ release_type = "node"
 tag_prefix = "mobile-v"
 </code></pre>
 <p>The shared package releases independently.</p>
+<h2 id="grouped-releases-sub-packages"><a class="header" href="#grouped-releases-sub-packages">Grouped Releases (Sub-Packages)</a></h2>
+<p>Group multiple packages under a single release that shares one changelog, tag,
+and release, while each sub-package maintains independent version file updates
+based on its <code>release_type</code>.</p>
+<p><strong>Use this when:</strong></p>
+<ul>
+<li>Multiple packages should always be released together with the same version</li>
+<li>You want a single changelog for a group of related packages</li>
+<li>Sub-packages have different languages/frameworks needing different manifest
+updates</li>
+</ul>
+<h3 id="basic-example"><a class="header" href="#basic-example">Basic Example</a></h3>
+<pre><code class="language-toml">[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+tag_prefix = "v"
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" }
+]
+</code></pre>
+<p><strong>Result:</strong></p>
+<ul>
+<li><strong>One tag</strong>: <code>v1.0.0</code> (covers all packages)</li>
+<li><strong>One changelog</strong>: Lists all changes from parent and sub-packages</li>
+<li><strong>One release</strong>: Published together</li>
+<li><strong>Independent manifests</strong>: <code>Cargo.toml</code> (parent + cli) and <code>package.json</code>
+(web) updated separately</li>
+</ul>
+<h3 id="common-use-case-plugin-system"><a class="header" href="#common-use-case-plugin-system">Common Use Case: Plugin System</a></h3>
+<pre><code class="language-toml">[[package]]
+name = "app"
+workspace_root = "."
+path = "."
+release_type = "node"
+tag_prefix = "v"
+sub_packages = [
+    { name = "auth-plugin", path = "plugins/auth", release_type = "node" },
+    { name = "analytics-plugin", path = "plugins/analytics", release_type = "node" },
+    { name = "native-addon", path = "addons/native", release_type = "node" }
+]
+</code></pre>
+<p>All plugins and addons release together with the main app as a cohesive unit,
+each with properly updated manifests.</p>
+<h2 id="package-naming-and-path-requirements"><a class="header" href="#package-naming-and-path-requirements">Package Naming and Path Requirements</a></h2>
+<p>To avoid conflicts and ensure proper manifest updates:</p>
+<h3 id="package-names"><a class="header" href="#package-names">Package Names</a></h3>
+<ul>
+<li><strong>Must be unique</strong> across all packages and sub-packages in the repository</li>
+<li><strong>Should match manifest files</strong> if they exist:
+<ul>
+<li>Node: <code>name</code> field in <code>package.json</code></li>
+<li>Rust: <code>name</code> field in <code>Cargo.toml</code></li>
+<li>Python: <code>name</code> field in <code>pyproject.toml</code> or <code>setup.py</code></li>
+<li>And so on for other languages</li>
+</ul>
+</li>
+<li>If not provided, derived from the last component of the path</li>
+</ul>
+<h3 id="package-paths"><a class="header" href="#package-paths">Package Paths</a></h3>
+<ul>
+<li><strong>Must be unique</strong> when combined with <code>workspace_root</code></li>
+<li>Full path = <code>workspace_root/path</code></li>
+<li>Example: If two packages have different <code>workspace_root</code> values, they can have
+the same <code>path</code></li>
+</ul>
+<p><strong>Valid (different full paths):</strong></p>
+<pre><code class="language-toml">[[package]]
+workspace_root = "backend"
+path = "api"
+
+[[package]]
+workspace_root = "frontend"
+path = "api"
+</code></pre>
+<p><strong>Invalid (same full path):</strong></p>
+<pre><code class="language-toml">[[package]]
+path = "services/api"
+
+[[package]]
+path = "services/api"  # Conflict!
+</code></pre>
 <h2 id="workflow-differences"><a class="header" href="#workflow-differences">Workflow Differences</a></h2>
 <h3 id="single-pr-workflow"><a class="header" href="#single-pr-workflow">Single PR Workflow</a></h3>
 <ol>
