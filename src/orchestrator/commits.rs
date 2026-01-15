@@ -31,16 +31,17 @@ impl CommitsCore {
     /// redundantly for each package.
     pub async fn get_commits_for_all_packages(
         &self,
+        target: Option<&str>,
     ) -> Result<Vec<ForgeCommit>> {
         log::info!("attempting to get commits for all packages at once");
 
-        let starting_sha = self.get_oldest_tag_sha_for_packages().await?;
+        let starting_sha = self.get_oldest_tag_sha_for_packages(target).await?;
 
         if starting_sha.is_none() {
             log::warn!(
                 "falling back to getting commits for each package separately"
             );
-            return self.get_commits_for_all_packages_separately().await;
+            return self.get_commits_for_all_packages_separately(target).await;
         }
 
         log::info!("found starting sha: {:#?}", starting_sha);
@@ -118,10 +119,16 @@ impl CommitsCore {
     /// in a HashSet
     async fn get_commits_for_all_packages_separately(
         &self,
+        target: Option<&str>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut cache: HashSet<ForgeCommit> = HashSet::new();
 
         for (name, package) in self.package_configs.hash().iter() {
+            if let Some(target) = target
+                && name != target
+            {
+                continue;
+            }
             let current_tag = self
                 .forge
                 .get_latest_tag_for_prefix(&package.tag_prefix)
@@ -153,11 +160,19 @@ impl CommitsCore {
         Ok(commits)
     }
 
-    async fn get_oldest_tag_sha_for_packages(&self) -> Result<Option<String>> {
+    async fn get_oldest_tag_sha_for_packages(
+        &self,
+        target: Option<&str>,
+    ) -> Result<Option<String>> {
         let mut starting_sha = None;
         let mut oldest_timestamp = i64::MAX;
 
-        for (_name, package) in self.package_configs.hash().iter() {
+        for (name, package) in self.package_configs.hash().iter() {
+            if let Some(target) = target
+                && name != target
+            {
+                continue;
+            }
             if let Some(tag) = self
                 .forge
                 .get_latest_tag_for_prefix(&package.tag_prefix)
@@ -560,7 +575,7 @@ mod tests {
             package_configs,
         );
 
-        let result = commits_core.get_commits_for_all_packages().await;
+        let result = commits_core.get_commits_for_all_packages(None).await;
         result.unwrap();
     }
 
@@ -648,7 +663,7 @@ mod tests {
             package_configs,
         );
 
-        let result = commits_core.get_commits_for_all_packages().await;
+        let result = commits_core.get_commits_for_all_packages(None).await;
         result.unwrap();
     }
 }

@@ -52,7 +52,8 @@ async fn show_next_release(
     out_file: Option<String>,
     package: Option<String>,
 ) -> Result<()> {
-    let releasable_packages = orchestrator.get_next_releases(package).await?;
+    let releasable_packages =
+        orchestrator.get_next_releases(package.as_deref()).await?;
     let json = serde_json::json!(&releasable_packages);
     print_json(json, out_file).await
 }

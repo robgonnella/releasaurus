@@ -89,10 +89,7 @@ async fn get_next_releases_filters_by_package_name() {
     );
 
     // Filter by pkg-a only
-    let releases = orchestrator
-        .get_next_releases(Some("pkg-a".to_string()))
-        .await
-        .unwrap();
+    let releases = orchestrator.get_next_releases(Some("pkg-a")).await.unwrap();
     assert_eq!(releases.len(), 1);
     assert_eq!(releases[0].name, "pkg-a");
 }

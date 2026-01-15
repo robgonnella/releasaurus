@@ -126,13 +126,16 @@ impl Core {
 
     pub async fn prepare_packages(
         &self,
-        target: Option<String>,
+        target: Option<&str>,
     ) -> Result<Vec<PreparedPackage>> {
         let mut prepared_packages = vec![];
-        let commits = self.commits_core.get_commits_for_all_packages().await?;
+        let commits = self
+            .commits_core
+            .get_commits_for_all_packages(target)
+            .await?;
         for (name, package) in self.package_configs.hash().iter() {
-            if let Some(target) = target.as_ref()
-                && package.name != *target
+            if let Some(target) = target
+                && package.name != target
             {
                 continue;
             }

@@ -285,9 +285,9 @@ impl Orchestrator {
     /// Fetches projected next release information
     pub async fn get_next_releases(
         &self,
-        package: Option<String>,
+        package: Option<&str>,
     ) -> Result<Vec<SerializableReleasablePackage>> {
-        let prepared = self.core.prepare_packages(package.clone()).await?;
+        let prepared = self.core.prepare_packages(package).await?;
 
         let analyzed = self.core.analyze_packages(prepared)?;
 
