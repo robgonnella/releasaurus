@@ -2,4 +2,4 @@
 _.file = '.env'
 
 [tools]
-rust = "1.90.0"
+rust = "1.92.0"

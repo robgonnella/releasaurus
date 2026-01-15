@@ -20,7 +20,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: dtolnay/rust-toolchain@1.90.0
+    - uses: dtolnay/rust-toolchain@1.92.0
       with:
         targets: ${{ inputs.targets }}
         components: ${{ inputs.components }}
