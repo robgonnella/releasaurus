@@ -2,8 +2,9 @@
 use async_trait::async_trait;
 use chrono::DateTime;
 use color_eyre::eyre::OptionExt;
+use futures_util::TryStreamExt;
 use octocrab::{
-    Octocrab, Page,
+    Octocrab,
     models::repos::{Object, RepoCommit},
     params::{self, repos::Reference},
 };
@@ -11,7 +12,7 @@ use regex::Regex;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::{pin, sync::Mutex};
 
 const SHA_DATE_QUERY: &str = r#"
 query GetShaDate($owner: String!, $repo: String!, $sha: GitObjectID!) {
@@ -31,8 +32,8 @@ use crate::{
     error::ReleasaurusError,
     forge::{
         config::{
-            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR, PENDING_LABEL,
-            RemoteConfig,
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
+            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -362,14 +363,18 @@ impl Forge for Github {
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
-        let page = self
+        let stream = self
             .instance
             .repos(&self.config.owner, &self.config.repo)
             .list_tags()
+            .per_page(DEFAULT_PAGE_SIZE)
             .send()
-            .await?;
+            .await?
+            .into_stream(&self.instance);
 
-        for tag in page.into_iter() {
+        pin!(stream);
+
+        while let Some(tag) = stream.try_next().await? {
             if re.is_match(&tag.name) {
                 // remove tag prefix so we can parse to semver
                 let stripped = re.replace_all(&tag.name, "").to_string();
@@ -415,11 +420,7 @@ impl Forge for Github {
         let branch = branch.unwrap_or_else(|| self.default_branch());
         let search_depth = self.commit_search_depth.lock().await;
 
-        let mut commits = vec![];
-
-        let page: Page<RepoCommit>;
-
-        if let Some(sha) = sha.clone() {
+        let stream = if let Some(sha) = sha.clone() {
             let vars = ShaDateQueryVariables {
                 owner: self.config.owner.clone(),
                 repo: self.config.repo.clone(),
@@ -437,28 +438,37 @@ impl Forge for Github {
             let created = result.data.repository.start_commit.committed_date;
             let since = DateTime::parse_from_rfc3339(&created)?.to_utc();
 
-            page = self
-                .instance
+            self.instance
                 .repos(&self.config.owner, &self.config.repo)
                 .list_commits()
                 .since(since)
                 .sha(&branch)
+                .per_page(DEFAULT_PAGE_SIZE)
                 .send()
-                .await?;
+                .await?
+                .into_stream(&self.instance)
         } else {
-            page = self
-                .instance
+            self.instance
                 .repos(&self.config.owner, &self.config.repo)
                 .list_commits()
                 .sha(&branch)
+                .per_page(DEFAULT_PAGE_SIZE)
                 .send()
-                .await?;
-        }
+                .await?
+                .into_stream(&self.instance)
+        };
 
-        for (i, thin_commit) in page.items.iter().enumerate() {
-            if sha.is_none() && i >= *search_depth as usize {
+        pin!(stream);
+
+        let mut count = 0;
+        let mut commits = vec![];
+
+        while let Some(thin_commit) = stream.try_next().await? {
+            if sha.is_none() && count >= *search_depth as usize {
                 return Ok(commits);
             }
+
+            count += 1;
 
             log::debug!(
                 "backfilling file list for commit: {}",
@@ -675,16 +685,19 @@ impl Forge for Github {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        let prs = self
+        let stream = self
             .instance
             .pulls(&self.config.owner, &self.config.repo)
             .list()
             .state(params::State::Open)
             .head(format!("{}:{}", self.config.owner, req.head_branch))
             .send()
-            .await?;
+            .await?
+            .into_stream(&self.instance);
 
-        for pr in prs {
+        pin!(stream);
+
+        while let Some(pr) = stream.try_next().await? {
             if let Some(labels) = pr.labels
                 && let Some(_pending_label) =
                     labels.iter().find(|l| l.name == PENDING_LABEL)
@@ -707,19 +720,18 @@ impl Forge for Github {
         let issues_handler =
             self.instance.issues(&self.config.owner, &self.config.repo);
 
-        let issues = issues_handler
+        let stream = issues_handler
             .list()
             .direction(params::Direction::Descending)
             .labels(&[PENDING_LABEL.into()])
             .state(params::State::Closed)
             .send()
-            .await?;
+            .await?
+            .into_stream(&self.instance);
 
-        if issues.items.is_empty() {
-            return Ok(None);
-        }
+        pin!(stream);
 
-        for issue in issues {
+        while let Some(issue) = stream.try_next().await? {
             let pr = self
                 .instance
                 .pulls(&self.config.owner, &self.config.repo)
