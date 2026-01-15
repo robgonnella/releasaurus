@@ -8,6 +8,7 @@
 
 use super::common::*;
 use crate::forge::{
+    config::PENDING_LABEL,
     request::{Commit, ForgeCommitBuilder, PullRequest},
     traits::MockForge,
 };
@@ -87,6 +88,14 @@ async fn create_release_prs_creates_new_prs() {
 
     mock_forge.expect_update_pr().times(0);
 
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(1)
+        .withf(|req| {
+            req.pr_number == 1 && req.labels.contains(&PENDING_LABEL.into())
+        })
+        .returning(|_| Ok(()));
+
     let orchestrator = create_test_orchestrator(mock_forge);
 
     orchestrator.create_release_prs().await.unwrap();
@@ -141,6 +150,14 @@ async fn create_release_prs_updates_existing_prs() {
     mock_forge.expect_create_pr().times(0);
 
     mock_forge.expect_update_pr().returning(|_| Ok(())).times(1);
+
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(1)
+        .withf(|req| {
+            req.pr_number == 1 && req.labels.contains(&PENDING_LABEL.into())
+        })
+        .returning(|_| Ok(()));
 
     let orchestrator = create_test_orchestrator(mock_forge);
 

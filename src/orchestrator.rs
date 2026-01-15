@@ -8,7 +8,7 @@ use tokio::fs;
 use crate::{
     ReleasaurusError, ResolvedPackage, Result,
     forge::{
-        config::{DEFAULT_PR_BRANCH_PREFIX, TAGGED_LABEL},
+        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL, TAGGED_LABEL},
         manager::ForgeManager,
         request::{
             CreateCommitRequest, GetPrRequest, PrLabelsRequest, PullRequest,
@@ -137,7 +137,7 @@ impl Orchestrator {
         let requests = self.core.create_pr_branches(pr_packages).await?;
 
         for request in requests {
-            if let Some(pr) = self
+            let pr = if let Some(pr) = self
                 .forge
                 .get_open_release_pr(GetPrRequest {
                     head_branch: request.head_branch.clone(),
@@ -152,9 +152,17 @@ impl Orchestrator {
                         body: request.body,
                     })
                     .await?;
+                pr
             } else {
-                self.forge.create_pr(request).await?;
-            }
+                self.forge.create_pr(request).await?
+            };
+
+            self.forge
+                .replace_pr_labels(PrLabelsRequest {
+                    pr_number: pr.number,
+                    labels: vec![PENDING_LABEL.into()],
+                })
+                .await?;
         }
 
         Ok(())
