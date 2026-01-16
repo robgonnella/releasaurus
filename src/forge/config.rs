@@ -4,6 +4,8 @@ use secrecy::SecretString;
 
 /// Default number of commits to search when finding releases.
 pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
+/// Default number of tag to search when looking for starting tags
+pub const DEFAULT_TAG_SEARCH_DEPTH: u8 = 100;
 /// Default page size for paginated commit queries
 pub const DEFAULT_PAGE_SIZE: u8 = 50;
 /// Default branch name prefix for release PRs.

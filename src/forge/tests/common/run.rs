@@ -138,7 +138,8 @@ pub async fn run_forge_test(
         pr_number: release_pr.number,
     };
     forge.replace_pr_labels(replace_labels_req).await.unwrap();
-    sleep(padding).await;
+    // extra padding here
+    sleep(padding * 10).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_open_release_pr -> Found
@@ -171,7 +172,8 @@ pub async fn run_forge_test(
     ////////////////////////////////////////////////////////////////////////////
     log::info!("merging release PR via helper");
     helper.merge_pr(release_pr.number).await.unwrap();
-    sleep(padding).await;
+    // extra padding here
+    sleep(padding * 10).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_merged_release_pr -> Found
