@@ -1,3 +1,11 @@
+# [0.10.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.1) - 2026-01-16
+
+### 🐛 Bug Fixes
+
+- unify errors for getting open and merged release PRs [_(2520b6a)_](https://github.com/robgonnella/releasaurus/commit/2520b6aa6c240f76d35ae32e3c3850ca9c169d02) (Rob Gonnella)
+
+- addresses pagination issues in forges [_(b2eb837)_](https://github.com/robgonnella/releasaurus/commit/b2eb8376330360e5b739f04660f285bbb46fed8d) (Rob Gonnella)
+
 # [0.10.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.0) - 2026-01-06
 
 ### 🚀 Features
