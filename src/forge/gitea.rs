@@ -9,7 +9,6 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::{cmp, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
@@ -21,7 +20,14 @@ use crate::{
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
+            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
+            RemoteConfig,
+        },
+        gitea::types::{
+            CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
+            GiteaCreatedCommit, GiteaFileChange, GiteaFileChangeOperation,
+            GiteaIssue, GiteaModifyFiles, GiteaPullRequest, GiteaRelease,
+            GiteaTag, Label, UpdatePullBody, UpdatePullLabels,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -33,157 +39,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Default, Serialize)]
-struct CreateLabel {
-    name: String,
-    color: String,
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Label {
-    pub id: u64,
-    pub name: String,
-    color: String,
-    description: String,
-    exclusive: bool,
-    is_archived: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct PullRequestBranch {
-    label: String,
-    sha: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaPullRequest {
-    number: u64,
-    head: PullRequestBranch,
-    merge_commit_sha: Option<String>,
-    body: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaIssuePr {
-    merged: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaIssue {
-    number: u64,
-    pull_request: GiteaIssuePr,
-}
-
-#[derive(Debug, Serialize)]
-struct CreatePull {
-    title: String,
-    body: String,
-    head: String,
-    base: String,
-}
-
-#[derive(Debug, Serialize)]
-struct UpdatePullBody {
-    title: String,
-    body: String,
-}
-
-#[derive(Debug, Serialize)]
-struct UpdatePullLabels {
-    labels: Vec<u64>,
-}
-
-#[derive(Debug, Serialize)]
-struct CreateRelease {
-    tag_name: String,
-    target_commitish: String,
-    name: String,
-    body: String,
-    draft: bool,
-    prerelease: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitAuthor {
-    pub name: String,
-    pub email: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(unused)]
-struct GiteaCommitParent {
-    pub sha: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaCommit {
-    pub author: CommitAuthor,
-    pub message: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaCommitFile {
-    pub filename: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaCommitQueryObject {
-    pub sha: String,
-    pub created: String,
-    pub commit: GiteaCommit,
-    pub files: Vec<GiteaCommitFile>,
-    pub parents: Vec<GiteaCommitParent>,
-    pub html_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaTagCommit {
-    pub created: String,
-    pub sha: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaTag {
-    pub name: String,
-    pub commit: GiteaTagCommit,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaRelease {
-    pub body: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "lowercase")]
-enum GiteaFileChangeOperation {
-    Create,
-    Update,
-}
-
-#[derive(Debug, Serialize)]
-struct GiteaFileChange {
-    pub path: String,
-    pub content: String,
-    pub operation: GiteaFileChangeOperation,
-    pub sha: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-// TODO: Currently gitea does not support the force option
-// Update once below issue is resolved
-// https://github.com/go-gitea/gitea/issues/35538
-struct GiteaModifyFiles {
-    pub old_ref_name: String,
-    pub new_branch: Option<String>,
-    pub message: String,
-    pub files: Vec<GiteaFileChange>,
-    // pub force: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct GiteaCreatedCommit {
-    pub commit: Commit,
-}
+mod types;
 
 /// Gitea forge implementation using reqwest for API interactions with
 /// commit history, tags, pull requests, and releases.
@@ -386,16 +242,18 @@ impl Forge for Gitea {
         })
     }
 
+    // Note: Tags are returned in reverse chronological order
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
-
-        // Search for open issues with the pending label
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
+        let mut count = 0;
+
+        let mut tag_matches = vec![];
 
         while has_more {
             let mut tags_url = self.base_url.join("tags")?;
@@ -419,19 +277,15 @@ impl Forge for Gitea {
             let tags: Vec<GiteaTag> = result.json().await?;
 
             for tag in tags.into_iter() {
+                if count >= DEFAULT_TAG_SEARCH_DEPTH {
+                    has_more = false;
+                    break;
+                }
+                count += 1;
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
                     if let Ok(sver) = semver::Version::parse(&stripped) {
-                        return Ok(Some(Tag {
-                            name: tag.name,
-                            semver: sver,
-                            sha: tag.commit.sha,
-                            timestamp: DateTime::parse_from_rfc3339(
-                                &tag.commit.created,
-                            )
-                            .map(|t| t.timestamp())
-                            .ok(),
-                        }));
+                        tag_matches.push((tag, sver))
                     }
                 }
             }
@@ -439,7 +293,27 @@ impl Forge for Gitea {
             page += 1;
         }
 
-        Ok(None)
+        if tag_matches.is_empty() {
+            return Ok(None);
+        }
+
+        // tags are returned in reverse chronological order (newest first),
+        // which means the could be out of order, so here we sort by
+        // semantic version (descending) to get latest
+        tag_matches.sort_by(|a, b| b.1.cmp(&a.1));
+
+        if let Some((tag, sver)) = tag_matches.first() {
+            return Ok(Some(Tag {
+                name: tag.name.clone(),
+                semver: sver.clone(),
+                sha: tag.commit.sha.clone(),
+                timestamp: DateTime::parse_from_rfc3339(&tag.commit.created)
+                    .map(|t| t.timestamp())
+                    .ok(),
+            }));
+        } else {
+            Ok(None)
+        }
     }
 
     async fn get_commits(

@@ -6,7 +6,9 @@ use color_eyre::eyre::ContextCompat;
 use gitlab::{
     AsyncGitlab,
     api::{
-        AsyncQuery, Pagination, ignore,
+        AsyncQuery, Pagination,
+        common::SortOrder,
+        ignore,
         merge_requests::MergeRequestState,
         paged,
         projects::{
@@ -27,13 +29,15 @@ use gitlab::{
         },
     },
 };
-use graphql_client::{GraphQLQuery, QueryBody};
+use graphql_client::GraphQLQuery;
 use regex::Regex;
 use reqwest::StatusCode;
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
+
+mod graphql;
+mod types;
 
 use crate::{
     Result,
@@ -43,7 +47,15 @@ use crate::{
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
+            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
+            RemoteConfig,
+        },
+        gitlab::{
+            graphql::{CommitDiffQuery, CommitDiffQueryVars},
+            types::{
+                CreatedCommit, FileInfo, GitlabCommit, GitlabRelease,
+                GitlabTag, LabelInfo, MergeRequestInfo,
+            },
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -54,118 +66,6 @@ use crate::{
         traits::Forge,
     },
 };
-
-const COMMIT_DIFF_QUERY: &str = r#"
-query GetCommitDiff($project_id: ID!, $commit_sha: String!) {
-  project(fullPath: $project_id) {
-    repository {
-      commit(ref: $commit_sha) {
-        diffs {
-            newPath
-            oldPath
-        }
-      }
-    }
-  }
-}"#;
-
-#[derive(Debug, Serialize)]
-struct CommitDiffQueryVars {
-    project_id: String,
-    commit_sha: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitFilenameDiff {
-    #[serde(rename = "oldPath")]
-    old_path: Option<String>,
-    #[serde(rename = "newPath")]
-    new_path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitDiffCommit {
-    diffs: Vec<CommitFilenameDiff>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitDiffRepository {
-    commit: CommitDiffCommit,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitDiffProject {
-    repository: CommitDiffRepository,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommitDiffResponse {
-    project: CommitDiffProject,
-}
-
-struct CommitDiffQuery {}
-
-impl GraphQLQuery for CommitDiffQuery {
-    type ResponseData = CommitDiffResponse;
-    type Variables = CommitDiffQueryVars;
-
-    fn build_query(variables: Self::Variables) -> QueryBody<Self::Variables> {
-        QueryBody {
-            variables,
-            query: COMMIT_DIFF_QUERY,
-            operation_name: "GetCommitDiff",
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct FileInfo {
-    content: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MergeRequestInfo {
-    iid: u64,
-    merge_commit_sha: Option<String>,
-    sha: String,
-    merged_at: Option<String>,
-    description: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LabelInfo {
-    name: String,
-}
-
-/// Information about a commit associated with a release.
-#[derive(Debug, Deserialize)]
-pub struct GitlabCommit {
-    pub id: String,
-    pub message: String,
-    pub author_name: String,
-    pub author_email: String,
-    pub parent_ids: Vec<String>,
-    pub created_at: String,
-    pub web_url: String,
-}
-
-/// Represents a Gitlab project Tag
-#[derive(Debug, Deserialize)]
-pub struct GitlabTag {
-    pub name: String,
-    pub commit: GitlabCommit,
-}
-
-/// Represents a Gitlab release
-#[derive(Debug, Deserialize)]
-pub struct GitlabRelease {
-    pub description: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreatedCommit {
-    pub id: String,
-}
 
 /// GitLab forge implementation using gitlab crate for API interactions with
 /// commit history, tags, merge requests, and releases.
@@ -383,7 +283,8 @@ impl Forge for Gitlab {
         }
     }
 
-    /// Get the latest release for the project
+    // Note: Our query orders tags by semantic version descending so we can just
+    // grab the first that matches the target prefix
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
@@ -391,12 +292,14 @@ impl Forge for Gitlab {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let endpoint = Tags::builder()
             .project(&self.project_id)
-            .order_by(TagsOrderBy::Updated)
+            .order_by(TagsOrderBy::Version)
+            .sort(SortOrder::Descending)
             .build()?;
 
-        let tags: Vec<GitlabTag> = paged(endpoint, Pagination::All)
-            .query_async(&self.gl)
-            .await?;
+        let tags: Vec<GitlabTag> =
+            paged(endpoint, Pagination::Limit(DEFAULT_TAG_SEARCH_DEPTH.into()))
+                .query_async(&self.gl)
+                .await?;
 
         for t in tags.into_iter() {
             if re.is_match(&t.name) {
@@ -443,15 +346,13 @@ impl Forge for Gitlab {
             cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth) as usize;
         let search_depth = *search_depth as usize;
 
-        let result: Vec<GitlabCommit> = if sha.is_none() {
-            paged(endpoint, Pagination::Limit(search_depth))
-                .query_async(&self.gl)
-                .await?
-        } else {
-            paged(endpoint, Pagination::AllPerPageLimit(page_limit))
-                .query_async(&self.gl)
-                .await?
-        };
+        let mut pagination = Pagination::AllPerPageLimit(page_limit);
+        if sha.is_none() {
+            pagination = Pagination::Limit(search_depth);
+        }
+
+        let result: Vec<GitlabCommit> =
+            paged(endpoint, pagination).query_async(&self.gl).await?;
 
         let mut forge_commits = vec![];
 

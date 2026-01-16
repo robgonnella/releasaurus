@@ -10,20 +10,11 @@ use octocrab::{
 };
 use regex::Regex;
 use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::{pin, sync::Mutex};
 
-const SHA_DATE_QUERY: &str = r#"
-query GetShaDate($owner: String!, $repo: String!, $sha: GitObjectID!) {
-  repository(owner: $owner, name: $repo) {
-    startCommit: object(oid: $sha) {
-      ... on Commit {
-        committedDate
-      }
-    }
-  }
-}"#;
+mod graphql;
+mod types;
 
 use crate::{
     Result,
@@ -33,7 +24,18 @@ use crate::{
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, PENDING_LABEL, RemoteConfig,
+            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
+            RemoteConfig,
+        },
+        github::{
+            graphql::{
+                SHA_DATE_QUERY, ShaDateQueryVariables, StartCommitResult,
+                TAG_SEARCH_QUERY, TagSearchQueryVariables, TagSearchResult,
+            },
+            types::{
+                GithubTree, GithubTreeEntry, TREE_BLOB_MODE, TREE_BLOB_TYPE,
+                Tree,
+            },
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -44,58 +46,6 @@ use crate::{
         traits::Forge,
     },
 };
-
-#[derive(Debug, Deserialize)]
-struct StartCommit {
-    #[serde(rename = "committedDate")]
-    pub committed_date: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct StartCommitRepo {
-    #[serde(rename = "startCommit")]
-    pub start_commit: StartCommit,
-}
-
-#[derive(Debug, Deserialize)]
-struct StartCommitData {
-    pub repository: StartCommitRepo,
-}
-
-#[derive(Debug, Deserialize)]
-struct StartCommitResult {
-    pub data: StartCommitData,
-}
-
-#[derive(Debug, Serialize)]
-struct ShaDateQueryVariables {
-    pub owner: String,
-    pub repo: String,
-    pub sha: String,
-}
-
-#[derive(Debug, Serialize)]
-struct GithubTreeEntry {
-    pub path: String,
-    pub mode: String,
-    pub content: String,
-    #[serde(rename = "type")]
-    pub kind: String,
-}
-
-#[derive(Debug, Serialize)]
-struct GithubTree {
-    pub base_tree: String,
-    pub tree: Vec<GithubTreeEntry>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Tree {
-    pub sha: String,
-}
-
-pub const TREE_BLOB_MODE: &str = "100644";
-pub const TREE_BLOB_TYPE: &str = "blob";
 
 /// GitHub forge implementation using Octocrab for API interactions with
 /// commit history, tags, PRs, and releases.
@@ -357,54 +307,73 @@ impl Forge for Github {
         })
     }
 
+    // Note: we use graphql query with tags sorted by commit date descending.
+    // This allows us to just grab the first one that matches target prefix
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
-        let stream = self
-            .instance
-            .repos(&self.config.owner, &self.config.repo)
-            .list_tags()
-            .per_page(DEFAULT_PAGE_SIZE)
-            .send()
-            .await?
-            .into_stream(&self.instance);
+        let mut cursor = None;
+        let mut has_next_page = true;
+        let mut count = 0;
 
-        pin!(stream);
+        while has_next_page {
+            let vars = TagSearchQueryVariables {
+                owner: self.config.owner.clone(),
+                repo: self.config.repo.clone(),
+                first: DEFAULT_PAGE_SIZE.into(),
+                cursor: cursor.clone(),
+            };
 
-        while let Some(tag) = stream.try_next().await? {
-            if re.is_match(&tag.name) {
-                // remove tag prefix so we can parse to semver
-                let stripped = re.replace_all(&tag.name, "").to_string();
-                if let Ok(sver) = semver::Version::parse(&stripped) {
-                    // get tag timestamp
-                    let vars = ShaDateQueryVariables {
-                        owner: self.config.owner.clone(),
-                        repo: self.config.repo.clone(),
-                        sha: tag.commit.sha.clone(),
-                    };
+            let json = serde_json::json!({
+              "query": TAG_SEARCH_QUERY,
+              "variables": vars,
+            });
 
-                    let json = serde_json::json!({
-                      "query": SHA_DATE_QUERY,
-                      "variables": vars,
-                    });
+            let result: TagSearchResult = self.instance.graphql(&json).await?;
+            cursor = result.data.repository.refs.page_info.end_cursor;
+            has_next_page = result.data.repository.refs.page_info.has_next_page;
 
-                    let result: StartCommitResult =
-                        self.instance.graphql(&json).await?;
+            for tag in result.data.repository.refs.nodes {
+                if count >= DEFAULT_TAG_SEARCH_DEPTH {
+                    has_next_page = false;
+                    break;
+                }
 
-                    let created =
-                        result.data.repository.start_commit.committed_date;
+                count += 1;
 
-                    return Ok(Some(Tag {
-                        name: tag.name,
-                        semver: sver,
-                        sha: tag.commit.sha,
-                        timestamp: DateTime::parse_from_rfc3339(&created)
+                if re.is_match(&tag.name) {
+                    let stripped = re.replace_all(&tag.name, "").to_string();
+                    if let Ok(sver) = semver::Version::parse(&stripped) {
+                        let sha = tag
+                            .target
+                            .target
+                            .as_ref()
+                            .map(|t| t.oid.clone())
+                            .unwrap_or(tag.target.oid.clone());
+
+                        let committed_date =
+                            tag.target.committed_date.unwrap_or(
+                                tag.target
+                                    .target
+                                    .as_ref()
+                                    .map(|t| t.committed_date.clone())
+                                    .unwrap_or_default(),
+                            );
+
+                        return Ok(Some(Tag {
+                            name: tag.name,
+                            semver: sver,
+                            sha,
+                            timestamp: DateTime::parse_from_rfc3339(
+                                &committed_date,
+                            )
                             .map(|t| t.timestamp())
                             .ok(),
-                    }));
+                        }));
+                    }
                 }
             }
         }
