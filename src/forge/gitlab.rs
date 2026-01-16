@@ -659,20 +659,21 @@ impl Forge for Gitlab {
         // Execute the query to get matching merge requests
         match result {
             Ok(merge_requests) => {
-                // Return the first matching merge request's IID
-                // (should only be one for a given branch)
-                let first = merge_requests.first();
-
-                if first.is_none() {
+                if merge_requests.is_empty() {
                     return Ok(None);
                 }
 
-                let merge_request = first.unwrap();
+                if merge_requests.len() > 1 {
+                    return Err(ReleasaurusError::forge(format!(
+                        "Found more than one open release PR with pending label for branch {}",
+                        req.head_branch
+                    )));
+                }
 
                 Ok(Some(PullRequest {
-                    number: merge_request.iid,
-                    sha: merge_request.sha.clone(),
-                    body: merge_request.description.clone(),
+                    number: merge_requests[0].iid,
+                    sha: merge_requests[0].sha.clone(),
+                    body: merge_requests[0].description.clone(),
                 }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {

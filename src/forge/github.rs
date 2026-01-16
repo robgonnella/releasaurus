@@ -697,20 +697,37 @@ impl Forge for Github {
 
         pin!(stream);
 
+        let mut found_prs = vec![];
+
         while let Some(pr) = stream.try_next().await? {
             if let Some(labels) = pr.labels
                 && let Some(_pending_label) =
                     labels.iter().find(|l| l.name == PENDING_LABEL)
             {
-                return Ok(Some(PullRequest {
+                found_prs.push(PullRequest {
                     number: pr.number,
                     sha: pr.head.sha,
                     body: pr.body.unwrap_or_default(),
-                }));
+                });
             }
         }
 
-        Ok(None)
+        if found_prs.is_empty() {
+            return Ok(None);
+        }
+
+        if found_prs.len() > 1 {
+            return Err(ReleasaurusError::forge(format!(
+                "Found more than one open release PR with pending label for branch {}",
+                req.head_branch
+            )));
+        }
+
+        Ok(Some(PullRequest {
+            number: found_prs[0].number,
+            sha: found_prs[0].sha.clone(),
+            body: found_prs[0].body.clone(),
+        }))
     }
 
     async fn get_merged_release_pr(
@@ -730,6 +747,8 @@ impl Forge for Github {
             .into_stream(&self.instance);
 
         pin!(stream);
+
+        let mut found_prs = vec![];
 
         while let Some(issue) = stream.try_next().await? {
             let pr = self
@@ -755,15 +774,32 @@ impl Forge for Github {
                     ReleasaurusError::forge("no merge_commit_sha found for pr")
                 })?;
 
-                return Ok(Some(PullRequest {
+                found_prs.push(PullRequest {
                     number: pr.number,
                     sha,
                     body: pr.body.unwrap_or_default(),
-                }));
+                });
             }
         }
 
-        Ok(None)
+        if found_prs.is_empty() {
+            return Ok(None);
+        }
+
+        if found_prs.len() > 1 {
+            return Err(ReleasaurusError::forge(format!(
+                "Found more than one closed release PR with pending label for branch {}. \
+              This means either release PRs were closed manually or releasaurus failed to remove tags. \
+              You must remove the {PENDING_LABEL} label from all closed release PRs except for the most recent.",
+                req.head_branch
+            )));
+        }
+
+        Ok(Some(PullRequest {
+            number: found_prs[0].number,
+            sha: found_prs[0].sha.clone(),
+            body: found_prs[0].body.clone(),
+        }))
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {

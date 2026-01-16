@@ -678,6 +678,7 @@ impl Forge for Gitea {
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
+        let mut found_prs = vec![];
 
         while has_more {
             // Search for open issues with the pending label
@@ -711,18 +712,33 @@ impl Forge for Gitea {
                 let result = response.error_for_status()?;
                 let found_pr: GiteaPullRequest = result.json().await?;
                 if found_pr.head.label == req.head_branch {
-                    return Ok(Some(PullRequest {
+                    found_prs.push(PullRequest {
                         number: found_pr.number,
                         sha: found_pr.head.sha,
                         body: found_pr.body,
-                    }));
+                    });
                 }
             }
 
             page += 1;
         }
 
-        Ok(None)
+        if found_prs.is_empty() {
+            return Ok(None);
+        }
+
+        if found_prs.len() > 1 {
+            return Err(ReleasaurusError::forge(format!(
+                "Found more than one open release PR with pending label for branch {}",
+                req.head_branch
+            )));
+        }
+
+        Ok(Some(PullRequest {
+            number: found_prs[0].number,
+            sha: found_prs[0].sha.clone(),
+            body: found_prs[0].body.clone(),
+        }))
     }
 
     async fn get_merged_release_pr(
@@ -732,6 +748,7 @@ impl Forge for Gitea {
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
+        let mut found_prs = vec![];
 
         while has_more {
             // Search for closed issues with the pending label
@@ -779,18 +796,35 @@ impl Forge for Gitea {
                             found_pr.number
                         ))
                     })?;
-                    return Ok(Some(PullRequest {
+                    found_prs.push(PullRequest {
                         number: found_pr.number,
                         sha,
                         body: found_pr.body,
-                    }));
+                    });
                 }
             }
 
             page += 1;
         }
 
-        Ok(None)
+        if found_prs.is_empty() {
+            return Ok(None);
+        }
+
+        if found_prs.len() > 1 {
+            return Err(ReleasaurusError::forge(format!(
+                "Found more than one closed release PR with pending label for branch {}. \
+              This means either release PRs were closed manually or releasaurus failed to remove tags. \
+              You must remove the {PENDING_LABEL} label from all closed release PRs except for the most recent.",
+                req.head_branch
+            )));
+        }
+
+        Ok(Some(PullRequest {
+            number: found_prs[0].number,
+            sha: found_prs[0].sha.clone(),
+            body: found_prs[0].body.clone(),
+        }))
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
