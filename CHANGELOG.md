@@ -1,3 +1,9 @@
+# [0.10.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.2) - 2026-01-16
+
+### 🐛 Bug Fixes
+
+- fixes issue in tag searches [_(df2f10f)_](https://github.com/robgonnella/releasaurus/commit/df2f10f083b923e2db21bb17e532098ce555ae92) (Rob Gonnella)
+
 # [0.10.1](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.1) - 2026-01-16
 
 ### 🐛 Bug Fixes
