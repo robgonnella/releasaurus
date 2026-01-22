@@ -1,3 +1,13 @@
+# [0.11.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.11.0) - 2026-01-22
+
+### 🚀 Features
+
+- allow overriding tag prefix from command line [_(77ecefc)_](https://github.com/robgonnella/releasaurus/commit/77ecefc714ba83e7391433e2bd02a3d00a7f8d14) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- fixes gitlab release link base urls [_(eca9aad)_](https://github.com/robgonnella/releasaurus/commit/eca9aad795058b3470e439752a326b71ef4470dc) (Rob Gonnella)
+
 # [0.10.2](https://github.com/robgonnella/releasaurus/releases/tag/v0.10.2) - 2026-01-16
 
 ### 🐛 Bug Fixes
