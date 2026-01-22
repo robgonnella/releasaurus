@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-57bd3b26.js";
+            window.path_to_searchindex_js = "searchindex-0c3c4f41.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -808,26 +808,33 @@ CI/CD pipelines.</p>
 <p><strong>Available overrides:</strong></p>
 <ul>
 <li><code>--base-branch &lt;branch&gt;</code> - Override the base branch for the release</li>
+<li><code>--tag-prefix &lt;prefix&gt;</code> - Set or override global tag prefix. Applied to
+all packages unless overridden per-package</li>
 <li><code>--prerelease-suffix &lt;suffix&gt;</code> - Set or override global prerelease
-suffix. This is applied to all packages</li>
+suffix. Applied to all packages unless overridden per-package</li>
 <li><code>--prerelease-strategy &lt;strategy&gt;</code> - Set global prerelease strategy
-(<code>versioned</code> or <code>static</code>). This is applied to all packages</li>
+(<code>versioned</code> or <code>static</code>). Applied to all packages unless overridden
+per-package</li>
 <li><code>--skip-sha &lt;sha&gt;</code> - Skip specific commits by SHA prefix (7+ characters).
 Can be used multiple times to skip multiple commits</li>
 <li><code>--reword &lt;sha&gt;=&lt;message&gt;</code> - Rewrite a commit message. Use format
 <code>sha=new message</code>. Can be used multiple times for multiple commits</li>
 <li><code>--set-package &lt;package_name&gt;.&lt;property&gt;=&lt;value&gt;</code> - Override
-package-specific properties. The takes precedence over all global overrides
+package-specific properties. This takes precedence over all global overrides
 and config. Not all properties are overridable. If you try to set an
-unsupported property and error will be displayed with available valid values.
-Currently there is support for
-<code>--set-package &lt;pkg_name&gt;.prerelease.suffix=&lt;suffix&gt;</code> and
-<code>--set-package &lt;pkg_name&gt;.prerelease.strategy=&lt;strategy&gt;</code></li>
+unsupported property an error will be displayed with available valid values.
+Currently supported:
+<ul>
+<li><code>--set-package &lt;pkg_name&gt;.tag_prefix=&lt;prefix&gt;</code></li>
+<li><code>--set-package &lt;pkg_name&gt;.prerelease.suffix=&lt;suffix&gt;</code></li>
+<li><code>--set-package &lt;pkg_name&gt;.prerelease.strategy=&lt;strategy&gt;</code></li>
+</ul>
+</li>
 </ul>
 <p><strong>Override precedence (highest to lowest):</strong></p>
 <ol>
 <li>Package-specific CLI overrides (<code>--set-package</code>)</li>
-<li>Global CLI overrides (<code>--base-branch</code>, <code>--prerelease-*</code>)</li>
+<li>Global CLI overrides (<code>--base-branch</code>, <code>--tag-prefix</code>, <code>--prerelease-*</code>)</li>
 <li>Package configuration in <code>releasaurus.toml</code></li>
 <li>Global configuration in <code>releasaurus.toml</code></li>
 <li>Default values</li>
@@ -836,6 +843,12 @@ Currently there is support for
 <pre><code class="language-bash"># Override base branch
 releasaurus release-pr \
   --base-branch develop \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override global tag prefix for all packages
+releasaurus release-pr \
+  --tag-prefix release-v \
   --forge github \
   --repo "https://github.com/owner/repo"
 
@@ -855,6 +868,12 @@ releasaurus release-pr \
 # Override package-specific prerelease strategy
 releasaurus release-pr \
   --set-package my-pkg.prerelease.strategy=static \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package tag prefix (useful for monorepos or custom tagging)
+releasaurus release-pr \
+  --set-package my-pkg.tag_prefix=custom-v \
   --forge github \
   --repo "https://github.com/owner/repo"
 
@@ -2507,6 +2526,8 @@ path = "."
 release_type = "rust"
 tag_prefix = "v"
 </code></pre>
+<p><strong>Override</strong>: <code>--tag-prefix</code> (global) or <code>--set-package &lt;name&gt;.tag_prefix=&lt;value&gt;</code>
+(per-package) CLI flags</p>
 <h4 id="sub_packages"><a class="header" href="#sub_packages"><code>sub_packages</code></a></h4>
 <p><strong>Type</strong>: Array of objects (optional)</p>
 <p><strong>Default</strong>: None</p>
