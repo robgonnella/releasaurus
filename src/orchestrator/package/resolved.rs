@@ -91,7 +91,12 @@ impl ResolvedPackage {
             &params.package_config,
             &params.orchestrator_config.repo_name,
         );
-        let tag_prefix = resolve_tag_prefix(&params.package_config);
+        let tag_prefix = resolve_tag_prefix(
+            &name,
+            &params.package_config,
+            &params.orchestrator_config.package_overrides,
+            &params.orchestrator_config.global_overrides,
+        );
         let auto_start = resolve_auto_start_next(
             &params.package_config,
             params.orchestrator_config.auto_start_next,

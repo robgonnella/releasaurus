@@ -113,6 +113,9 @@ pub struct PackagePathOverride {
 #[derive(Debug, Clone, Merge, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackageOverrides {
+    #[serde(rename = "tag_prefix")]
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub tag_prefix: Option<String>,
     #[serde(rename = "prerelease.suffix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
@@ -127,6 +130,8 @@ pub struct GlobalOverrides {
     #[merge(strategy = merge::option::overwrite_none)]
     pub base_branch: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
+    pub tag_prefix: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
@@ -139,13 +144,18 @@ pub struct SharedCommandOverrides {
     #[arg(long = "set-package", value_parser = parse_package_override, value_name = "KEY=VALUE")]
     package_overrides: Vec<PackagePathOverride>,
 
-    /// Global override for prerelease suffix. Can be overridden either via
-    /// package config or "--set-package" overrides
+    /// Global override for tag_prefix. Overrides package config. Can
+    /// be overridden via explicit "--set-package" override
+    #[arg(long)]
+    tag_prefix: Option<String>,
+
+    /// Global override for prerelease suffix. Overrides package config. Can
+    /// be overridden via explicit "--set-package" override
     #[arg(long)]
     prerelease_suffix: Option<String>,
 
-    /// Global override for prerelease strategy. Can be overridden either
-    /// via package config or "--set-package" overrides
+    /// Global override for prerelease strategy. Overrides package config. Can
+    /// be overridden via explicit "--set-package" override
     #[arg(long, value_enum)]
     prerelease_strategy: Option<PrereleaseStrategy>,
 }
@@ -432,6 +442,7 @@ impl Cli {
         };
 
         if let Some(overrides) = cmd_overrides {
+            global_overrides.tag_prefix = overrides.tag_prefix.clone();
             global_overrides.prerelease_suffix =
                 overrides.prerelease_suffix.clone();
             global_overrides.prerelease_strategy =
