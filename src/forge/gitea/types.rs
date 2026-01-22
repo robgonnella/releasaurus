@@ -138,15 +138,12 @@ pub struct GiteaFileChange {
 }
 
 #[derive(Debug, Serialize)]
-// TODO: Currently gitea does not support the force option
-// Update once below issue is resolved
-// https://github.com/go-gitea/gitea/issues/35538
 pub struct GiteaModifyFiles {
     pub old_ref_name: String,
     pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<GiteaFileChange>,
-    // pub force: bool,
+    pub force: bool,
 }
 
 #[derive(Debug, Deserialize)]
