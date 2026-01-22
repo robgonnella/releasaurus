@@ -528,7 +528,6 @@ fn get_remote_config(
         .wrap_err("failed to process project path")?
         .to_string();
 
-    // github
     let link_base_url = format!("{}://{}", parsed.scheme, host);
 
     let release_link_base_url = match forge {
@@ -536,7 +535,7 @@ fn get_remote_config(
             format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name)
         }
         ForgeType::Gitlab => {
-            format!("{}/{}/{}/-/releases", link_base_url, owner, parsed.name)
+            format!("{}/{}/-/releases", link_base_url, project_path)
         }
         ForgeType::Gitea => {
             format!("{}/{}/{}/releases", link_base_url, owner, parsed.name)
