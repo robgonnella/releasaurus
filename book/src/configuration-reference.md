@@ -379,6 +379,9 @@ release_type = "rust"
 tag_prefix = "v"
 ```
 
+**Override**: `--tag-prefix` (global) or `--set-package <name>.tag_prefix=<value>`
+(per-package) CLI flags
+
 #### `sub_packages`
 
 **Type**: Array of objects (optional)

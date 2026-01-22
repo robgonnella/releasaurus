@@ -434,26 +434,30 @@ CI/CD pipelines.
 **Available overrides:**
 
 - `--base-branch <branch>` - Override the base branch for the release
+- `--tag-prefix <prefix>` - Set or override global tag prefix. Applied to
+  all packages unless overridden per-package
 - `--prerelease-suffix <suffix>` - Set or override global prerelease
-  suffix. This is applied to all packages
+  suffix. Applied to all packages unless overridden per-package
 - `--prerelease-strategy <strategy>` - Set global prerelease strategy
-  (`versioned` or `static`). This is applied to all packages
+  (`versioned` or `static`). Applied to all packages unless overridden
+  per-package
 - `--skip-sha <sha>` - Skip specific commits by SHA prefix (7+ characters).
   Can be used multiple times to skip multiple commits
 - `--reword <sha>=<message>` - Rewrite a commit message. Use format
   `sha=new message`. Can be used multiple times for multiple commits
 - `--set-package <package_name>.<property>=<value>` - Override
-  package-specific properties. The takes precedence over all global overrides
+  package-specific properties. This takes precedence over all global overrides
   and config. Not all properties are overridable. If you try to set an
-  unsupported property and error will be displayed with available valid values.
-  Currently there is support for
-  `--set-package <pkg_name>.prerelease.suffix=<suffix>` and
-  `--set-package <pkg_name>.prerelease.strategy=<strategy>`
+  unsupported property an error will be displayed with available valid values.
+  Currently supported:
+  - `--set-package <pkg_name>.tag_prefix=<prefix>`
+  - `--set-package <pkg_name>.prerelease.suffix=<suffix>`
+  - `--set-package <pkg_name>.prerelease.strategy=<strategy>`
 
 **Override precedence (highest to lowest):**
 
 1. Package-specific CLI overrides (`--set-package`)
-2. Global CLI overrides (`--base-branch`, `--prerelease-*`)
+2. Global CLI overrides (`--base-branch`, `--tag-prefix`, `--prerelease-*`)
 3. Package configuration in `releasaurus.toml`
 4. Global configuration in `releasaurus.toml`
 5. Default values
@@ -464,6 +468,12 @@ CI/CD pipelines.
 # Override base branch
 releasaurus release-pr \
   --base-branch develop \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override global tag prefix for all packages
+releasaurus release-pr \
+  --tag-prefix release-v \
   --forge github \
   --repo "https://github.com/owner/repo"
 
@@ -483,6 +493,12 @@ releasaurus release-pr \
 # Override package-specific prerelease strategy
 releasaurus release-pr \
   --set-package my-pkg.prerelease.strategy=static \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package tag prefix (useful for monorepos or custom tagging)
+releasaurus release-pr \
+  --set-package my-pkg.tag_prefix=custom-v \
   --forge github \
   --repo "https://github.com/owner/repo"
 
