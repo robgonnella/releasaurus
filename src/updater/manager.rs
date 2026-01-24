@@ -401,7 +401,7 @@ mod tests {
         let test_cases = vec![
             (ReleaseType::Java, 6),
             (ReleaseType::Node, 3),
-            (ReleaseType::Php, 1),
+            (ReleaseType::Php, 2),
             (ReleaseType::Python, 3),
             (ReleaseType::Ruby, 4),
             (ReleaseType::Rust, 2),

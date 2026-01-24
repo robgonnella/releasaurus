@@ -10,10 +10,16 @@ impl ManifestTargets for PhpManifests {
         _workspace_path: &Path,
         pkg_path: &Path,
     ) -> Vec<ManifestTarget> {
-        vec![ManifestTarget {
-            path: pkg_path.join("composer.json"),
-            basename: "composer.json".into(),
-        }]
+        vec![
+            ManifestTarget {
+                path: pkg_path.join("composer.json"),
+                basename: "composer.json".into(),
+            },
+            ManifestTarget {
+                path: pkg_path.join("composer.lock"),
+                basename: "composer.lock".into(),
+            },
+        ]
     }
 }
 
@@ -34,9 +40,11 @@ mod tests {
             &pkg_path,
         );
 
-        assert_eq!(targets.len(), 1);
+        assert_eq!(targets.len(), 2);
         assert_eq!(targets[0].basename, "composer.json");
         assert_eq!(targets[0].path.to_string_lossy(), "composer.json");
+        assert_eq!(targets[1].basename, "composer.lock");
+        assert_eq!(targets[1].path.to_string_lossy(), "composer.lock");
     }
 
     #[test]
@@ -53,6 +61,10 @@ mod tests {
         assert_eq!(
             targets[0].path.to_string_lossy(),
             "packages/my-php-lib/composer.json"
+        );
+        assert_eq!(
+            targets[1].path.to_string_lossy(),
+            "packages/my-php-lib/composer.lock"
         );
     }
 }
