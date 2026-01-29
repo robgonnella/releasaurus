@@ -49,6 +49,13 @@ impl Serialize for Tag {
     }
 }
 
+/// Represents the serialized structure of a release that we actually use when
+/// passing as a context to the Tera template. Really the only difference
+/// is that we flatten the full Tag struct to separate tag_name and version
+/// fields to make it easier to use in Tera template. Below we provide
+/// #[serde(from = "ShadowRelease")] and a From implementation so we can
+/// load from the generated json files and Deserialize back to a normal Release
+/// struct enabling the "recompile-notes" feature
 #[derive(Debug, Deserialize)]
 struct ShadowRelease {
     pub version: String,
@@ -59,6 +66,9 @@ struct ShadowRelease {
     pub include_author: bool,
     pub notes: String,
     pub timestamp: i64,
+    // optional to for backward compatibility
+    pub tag_compare_link: Option<String>,
+    pub sha_compare_link: Option<String>,
 }
 
 /// Complete release package containing version tag, changelog notes, and all
@@ -70,6 +80,13 @@ pub struct Release {
     pub tag: Tag,
     /// Release URL link.
     pub link: String,
+    /// Link to diff between new tag and previous release tag
+    /// This won't be valid until after we finish tagging the release
+    /// but we still want to reference it when updating changelog
+    pub tag_compare_link: String,
+    /// Link to diff between new release sha and previous release tag
+    /// This should always be valid
+    pub sha_compare_link: String,
     /// Git commit SHA for the release.
     pub sha: String,
     /// Commits included in this release.
@@ -88,6 +105,8 @@ impl From<ShadowRelease> for Release {
             commits: value.commits,
             include_author: value.include_author,
             link: value.link,
+            tag_compare_link: value.tag_compare_link.unwrap_or_default(),
+            sha_compare_link: value.sha_compare_link.unwrap_or_default(),
             notes: value.notes,
             sha: value.sha,
             timestamp: value.timestamp,
@@ -107,6 +126,8 @@ impl std::fmt::Debug for Release {
         f.debug_struct("Release")
             .field("tag", &self.tag)
             .field("link", &self.link)
+            .field("tag_compare_link", &self.tag_compare_link)
+            .field("sha_compare_link", &self.sha_compare_link)
             .field("sha", &self.sha)
             .field("include_author", &self.include_author)
             .field("timestamp", &self.timestamp)
@@ -119,8 +140,10 @@ impl Serialize for Release {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Release", 8)?;
+        let mut s = serializer.serialize_struct("Release", 10)?;
         s.serialize_field("link", &self.link)?;
+        s.serialize_field("tag_compare_link", &self.tag_compare_link)?;
+        s.serialize_field("sha_compare_link", &self.sha_compare_link)?;
         s.serialize_field("version", &self.tag.semver.to_string())?;
         s.serialize_field("tag_name", &self.tag.name)?;
         s.serialize_field("sha", &self.sha)?;
@@ -241,6 +264,10 @@ mod tests {
                 timestamp: Some(1234567890),
             },
             link: "https://example.com/release".to_string(),
+            tag_compare_link: "https://example.com/compare/v0.9.0...v1.0.0"
+                .into(),
+            sha_compare_link:
+                "https://example.com/compare/v0.9.0...release_sha".into(),
             sha: "release_sha".to_string(),
             commits: vec![Commit::default()],
             include_author: true,
@@ -254,6 +281,8 @@ mod tests {
         assert!(debug_str.contains("Release"));
         assert!(debug_str.contains("tag"));
         assert!(debug_str.contains("link"));
+        assert!(debug_str.contains("tag_compare_link"));
+        assert!(debug_str.contains("sha_compare_link"));
         assert!(debug_str.contains("sha"));
         assert!(debug_str.contains("include_author"));
         assert!(debug_str.contains("timestamp"));
@@ -282,6 +311,11 @@ mod tests {
             tag,
             link: "https://github.com/owner/repo/releases/tag/v2.1.0"
                 .to_string(),
+            tag_compare_link:
+                "https://github.com/owner/repo/compare/v2.0.0...v2.1.0".into(),
+            sha_compare_link:
+                "https://github.com/owner/repo/compare/v2.0.0...release_sha_456"
+                    .into(),
             sha: "release_sha_456".to_string(),
             commits: vec![commit],
             include_author: true,
@@ -294,6 +328,14 @@ mod tests {
         assert_eq!(
             json["link"],
             "https://github.com/owner/repo/releases/tag/v2.1.0"
+        );
+        assert_eq!(
+            json["tag_compare_link"],
+            "https://github.com/owner/repo/compare/v2.0.0...v2.1.0"
+        );
+        assert_eq!(
+            json["sha_compare_link"],
+            "https://github.com/owner/repo/compare/v2.0.0...release_sha_456"
         );
         assert_eq!(json["version"], "2.1.0");
         assert_eq!(json["sha"], "release_sha_456");
@@ -309,6 +351,8 @@ mod tests {
         let release = Release {
             tag: Tag::default(),
             link: "".to_string(),
+            tag_compare_link: "".to_string(),
+            sha_compare_link: "".to_string(),
             sha: "".to_string(),
             commits: vec![],
             include_author: false,
@@ -344,6 +388,8 @@ mod tests {
         let release = Release {
             tag: Tag::default(),
             link: "".to_string(),
+            tag_compare_link: "".to_string(),
+            sha_compare_link: "".to_string(),
             sha: "".to_string(),
             commits,
             include_author: false,

@@ -49,6 +49,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
         prerelease: params.prerelease,
         release_commit_matcher,
         release_link_base_url: params.config.release_link_base_url.clone(),
+        compare_link_base_url: params.config.compare_link_base_url.clone(),
         skip_chore: params.config.changelog.skip_chore,
         skip_ci: params.config.changelog.skip_ci,
         skip_merge_commits: params.config.changelog.skip_merge_commits,

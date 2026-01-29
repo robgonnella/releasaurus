@@ -156,7 +156,7 @@ The main changelog content template using Tera syntax.
 
 ```toml
 [changelog]
-body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
@@ -200,6 +200,10 @@ Available in the `body` template:
 - `version` - Semantic version string (e.g., "1.2.3")
 - `tag_name` - Tag for this release including and prefixes and suffixes
 - `link` - URL to the release
+- `tag_compare_link` - URL to diff between this release tag and the previous
+  release tag. Empty for the first release (use conditional rendering)
+- `sha_compare_link` - URL to diff between this release commit SHA and the
+  previous release tag. Empty for the first release
 - `sha` - Git commit SHA
 - `timestamp` - Unix timestamp
 - `include_author` - Boolean flag for author names

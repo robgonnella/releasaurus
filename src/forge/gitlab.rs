@@ -142,6 +142,10 @@ impl Forge for Gitlab {
         self.config.release_link_base_url.clone()
     }
 
+    fn compare_link_base_url(&self) -> String {
+        self.config.compare_link_base_url.clone()
+    }
+
     fn default_branch(&self) -> String {
         self.default_branch.clone()
     }

@@ -120,6 +120,7 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch();
     let release_link_base_url = forge_manager.release_link_base_url();
+    let compare_link_base_url = forge_manager.compare_link_base_url();
 
     let orchestrator_config = Rc::new(
         OrchestratorConfig::builder()
@@ -127,6 +128,7 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
             .global_overrides(global_overrides)
             .package_overrides(package_overrides)
             .release_link_base_url(release_link_base_url)
+            .compare_link_base_url(compare_link_base_url)
             .repo_default_branch(default_branch)
             .repo_name(repo_name)
             .toml_config(Rc::clone(&config))

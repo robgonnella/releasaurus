@@ -27,6 +27,7 @@ pub struct ForgeManager {
     repo_name: OnceLock<String>,
     default_branch: OnceLock<String>,
     release_link_base_url: OnceLock<String>,
+    compare_link_base_url: OnceLock<String>,
     options: ForgeOptions,
 }
 
@@ -39,6 +40,7 @@ impl ForgeManager {
             repo_name: OnceLock::new(),
             default_branch: OnceLock::new(),
             release_link_base_url: OnceLock::new(),
+            compare_link_base_url: OnceLock::new(),
             options,
         }
     }
@@ -50,6 +52,11 @@ impl ForgeManager {
     pub fn release_link_base_url(&self) -> &str {
         self.release_link_base_url
             .get_or_init(|| self.forge.release_link_base_url())
+    }
+
+    pub fn compare_link_base_url(&self) -> &str {
+        self.compare_link_base_url
+            .get_or_init(|| self.forge.compare_link_base_url())
     }
 
     pub fn default_branch(&self) -> &str {

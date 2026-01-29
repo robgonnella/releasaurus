@@ -109,6 +109,17 @@ impl<'a> Analyzer<'a> {
         release.link =
             format!("{}/{}", self.config.release_link_base_url, next_tag.name);
 
+        if let Some(current) = current_tag {
+            release.tag_compare_link = format!(
+                "{}/{}...{}",
+                self.config.compare_link_base_url, current.name, next_tag.name
+            );
+            release.sha_compare_link = format!(
+                "{}/{}...{}",
+                self.config.compare_link_base_url, current.name, release.sha,
+            );
+        }
+
         release.tag = next_tag;
 
         let context = tera::Context::from_serialize(&release)?;
