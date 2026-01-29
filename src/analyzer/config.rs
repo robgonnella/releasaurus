@@ -6,7 +6,7 @@ use regex::Regex;
 use crate::{cli::CommitModifiers, config::prerelease::PrereleaseConfig};
 
 /// Default changelog body template.
-pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
@@ -47,6 +47,8 @@ pub struct AnalyzerConfig {
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
+    /// Base URL for comparing releases and showing diffs
+    pub compare_link_base_url: String,
     /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
     /// regex to match and exclude release commits
@@ -76,6 +78,7 @@ impl Default for AnalyzerConfig {
             include_author: false,
             tag_prefix: None,
             release_link_base_url: "".into(),
+            compare_link_base_url: "".into(),
             prerelease: None,
             release_commit_matcher: None,
             breaking_always_increment_major: true,

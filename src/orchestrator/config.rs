@@ -16,6 +16,7 @@ pub struct OrchestratorConfigParams {
     pub repo_name: String,
     pub repo_default_branch: String,
     pub release_link_base_url: String,
+    pub compare_link_base_url: String,
     pub package_overrides: HashMap<String, PackageOverrides>,
     pub global_overrides: GlobalOverrides,
     pub commit_modifiers: CommitModifiers,
@@ -38,6 +39,7 @@ pub struct OrchestratorConfig {
     pub repo_name: String,
     pub base_branch: String,
     pub release_link_base_url: String,
+    pub compare_link_base_url: String,
     pub package_overrides: HashMap<String, PackageOverrides>,
     pub global_overrides: GlobalOverrides,
     pub commit_modifiers: CommitModifiers,
@@ -95,6 +97,7 @@ impl OrchestratorConfig {
             package_overrides: params.package_overrides,
             prerelease: params.toml_config.prerelease.clone(),
             release_link_base_url: params.release_link_base_url,
+            compare_link_base_url: params.compare_link_base_url,
             repo_name: params.repo_name,
             separate_pull_requests: params.toml_config.separate_pull_requests,
         })

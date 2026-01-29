@@ -36,6 +36,8 @@ impl ReleasablePackageBuilder for ReleasablePackage {
             release_type: pkg_config.release_type,
             tag: release.tag,
             notes: release.notes,
+            tag_compare_link: release.tag_compare_link,
+            sha_compare_link: release.sha_compare_link,
             sub_packages,
             additional_manifest_files,
             manifest_files,
@@ -98,6 +100,10 @@ mod tests {
                 timestamp: Some(1234567890),
             },
             link: "https://example.com".to_string(),
+            tag_compare_link: "https://example.com/compare/v0.9.0...v1.0.0"
+                .into(),
+            sha_compare_link: "https://example.com/compare/v0.9.0...abc123"
+                .into(),
             sha: "abc123".to_string(),
             commits: vec![],
             include_author: false,

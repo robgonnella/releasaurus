@@ -543,6 +543,19 @@ fn get_remote_config(
         ForgeType::Local => "".into(),
     };
 
+    let compare_link_base_url = match forge {
+        ForgeType::Github => {
+            format!("{}/{}/{}/compare", link_base_url, owner, parsed.name)
+        }
+        ForgeType::Gitlab => {
+            format!("{}/{}/-/compare", link_base_url, project_path)
+        }
+        ForgeType::Gitea => {
+            format!("{}/{}/{}/compare", link_base_url, owner, parsed.name)
+        }
+        ForgeType::Local => "".into(),
+    };
+
     Ok(RemoteConfig {
         host,
         port: parsed.port,
@@ -552,6 +565,7 @@ fn get_remote_config(
         path: project_path,
         release_link_base_url,
         token: SecretString::from(token),
+        compare_link_base_url,
     })
 }
 

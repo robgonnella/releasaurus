@@ -34,6 +34,7 @@ pub fn create_core(
             .repo_name("test-repo")
             .repo_default_branch("main")
             .release_link_base_url("https://example.com")
+            .compare_link_base_url("https://example.com/compare")
             .package_overrides(std::collections::HashMap::new())
             .global_overrides(GlobalOverrides::default())
             .commit_modifiers(CommitModifiers::default())

@@ -106,6 +106,61 @@ async fn create_pr_branches_includes_metadata_in_body() {
 }
 
 #[tokio::test]
+async fn create_pr_branches_uses_sha_compare_link() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_create_release_branch()
+        .times(1)
+        .returning(|_| {
+            Ok(Commit {
+                sha: "abc123".to_string(),
+            })
+        });
+
+    let core = create_core(mock_forge, None, None);
+
+    let tag_compare_link = "tag_compare_link";
+    let sha_compare_link = "sha_compare_link";
+
+    let releasable = ReleasablePackage {
+        name: "test-pkg".to_string(),
+        tag: Tag {
+            name: "v1.2.3".to_string(),
+            semver: Version::parse("1.2.3").unwrap(),
+            ..Default::default()
+        },
+        notes: format!("Test release notes\n\n{tag_compare_link}"),
+        tag_compare_link: tag_compare_link.into(),
+        sha_compare_link: sha_compare_link.into(),
+        ..Default::default()
+    };
+
+    let grouped = core
+        .release_pr_packages_by_branch(vec![releasable])
+        .unwrap();
+
+    let pr_requests = core.create_pr_branches(grouped).await.unwrap();
+
+    assert_eq!(pr_requests.len(), 1);
+
+    let request = &pr_requests[0];
+
+    // Verify metadata is in PR body
+    assert!(request.body.contains("<!--"));
+    assert!(request.body.contains("test-pkg"));
+    assert!(request.body.contains("v1.2.3"));
+    assert!(request.body.contains("Test release notes"));
+    // should have both version of compare links since we still need to
+    // use tag_compare_link in PR metadata
+    assert!(request.body.contains(tag_compare_link));
+    assert!(request.body.contains(sha_compare_link));
+    // Verify details tag is present and auto-opened for single package
+    assert!(request.body.contains("<details open>"));
+    assert!(request.body.contains("</details>"));
+}
+
+#[tokio::test]
 async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     let mut mock_forge = MockForge::new();
 

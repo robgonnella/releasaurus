@@ -7,6 +7,8 @@ pub struct ReleasePRPackage {
     pub name: String,
     pub tag: Tag,
     pub notes: String,
+    pub tag_compare_link: String,
+    pub sha_compare_link: String,
     pub file_changes: Vec<FileChange>,
     pub release_branch: String,
 }

@@ -238,6 +238,8 @@ impl Core {
                 name: target.name.clone(),
                 tag: target.tag.clone(),
                 notes: target.notes.clone(),
+                tag_compare_link: target.tag_compare_link.clone(),
+                sha_compare_link: target.sha_compare_link.clone(),
                 file_changes,
                 release_branch,
             });
@@ -352,10 +354,16 @@ impl Core {
 "#,
             );
 
+            // in the PR body link to the comparison with sha instead
+            // of tag since the tag doesn't exist yet
+            let notes = pkg
+                .notes
+                .replace(&pkg.tag_compare_link, &pkg.sha_compare_link);
+
             // create the drop down
             let package_body = format!(
                 "{metadata_str}{start_details}<summary>{}</summary>\n\n{}</details>",
-                pkg.tag.name, pkg.notes
+                pkg.tag.name, notes
             );
 
             if body.is_empty() {

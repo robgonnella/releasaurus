@@ -38,6 +38,8 @@ pub struct ReleasablePackage {
     pub release_type: ReleaseType,
     pub tag: Tag,
     pub notes: String,
+    pub tag_compare_link: String,
+    pub sha_compare_link: String,
     pub sub_packages: Vec<ReleasableSubPackage>,
     pub manifest_files: Option<Vec<ManifestFile>>,
     pub additional_manifest_files: Option<Vec<AdditionalManifestFile>>,

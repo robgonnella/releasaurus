@@ -38,6 +38,8 @@ pub struct RemoteConfig {
     pub token: SecretString,
     /// Base URL for release links in changelog.
     pub release_link_base_url: String,
+    /// Compare link to show diff between next release and previous release
+    pub compare_link_base_url: String,
 }
 
 impl Default for RemoteConfig {
@@ -51,6 +53,7 @@ impl Default for RemoteConfig {
             path: "".to_string(),
             token: SecretString::from("".to_string()),
             release_link_base_url: "".to_string(),
+            compare_link_base_url: "".to_string(),
         }
     }
 }

@@ -86,6 +86,10 @@ impl Forge for LocalRepo {
         "".into()
     }
 
+    fn compare_link_base_url(&self) -> String {
+        "".into()
+    }
+
     async fn get_file_content(
         &self,
         req: GetFileContentRequest,
