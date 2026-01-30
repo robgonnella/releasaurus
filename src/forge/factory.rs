@@ -1,5 +1,8 @@
 //! Factory for creating forge implementations based on configuration.
 
+use git_url_parse::GitUrl;
+use std::path::Path;
+
 use crate::{
     Result,
     forge::{
@@ -44,7 +47,7 @@ impl ForgeFactory {
         Ok(Box::new(Gitea::new(config.clone()).await?))
     }
 
-    fn create_local(repo_path: &str) -> Result<Box<dyn Forge>> {
-        Ok(Box::new(LocalRepo::new(repo_path.to_string())?))
+    fn create_local(repo: &GitUrl) -> Result<Box<dyn Forge>> {
+        Ok(Box::new(LocalRepo::new(Path::new(&repo.path))?))
     }
 }

@@ -28,29 +28,44 @@ use crate::{
 
 /// LocalRepo forge implementation using .
 pub struct LocalRepo {
-    repo_path: String,
+    repo_path: PathBuf,
     repo_name: String,
     repo: Arc<Mutex<git2::Repository>>,
     default_branch: String,
 }
 
 impl LocalRepo {
-    pub fn new(repo_path: String) -> Result<Self> {
-        let mut repo_path_buf = Path::new(&repo_path).to_path_buf();
+    pub fn new(repo_path: &Path) -> Result<Self> {
+        let current_dir = env::current_dir()?;
+        let repo_str = repo_path.to_string_lossy();
 
-        if repo_path == "." || repo_path == "./" {
-            repo_path_buf = env::current_dir()?;
+        let repo_path = if repo_str == "." || repo_str == "./" {
+            current_dir.as_path()
+        } else {
+            repo_path
+        };
+
+        if !repo_path.exists() {
+            return Err(ReleasaurusError::forge(format!(
+                "Invalid path for local forge: {repo_str} does not exist"
+            )));
         }
 
-        let repo_name = repo_path_buf
+        if !repo_path.is_dir() {
+            return Err(ReleasaurusError::forge(format!(
+                "Invalid path for local forge: {repo_str} is not a directory"
+            )));
+        }
+
+        let repo_name = repo_path
             .file_name()
-            .ok_or_eyre(
+            .ok_or(ReleasaurusError::forge(
                 "unable to determine repository directory name from path",
-            )?
-            .display()
+            ))?
+            .to_string_lossy()
             .to_string();
 
-        let repo = git2::Repository::init(repo_path.clone())?;
+        let repo = git2::Repository::init(repo_path)?;
 
         let head = repo.head()?;
 
@@ -63,7 +78,7 @@ impl LocalRepo {
 
         Ok(Self {
             repo_name,
-            repo_path,
+            repo_path: repo_path.to_path_buf(),
             repo: Arc::new(Mutex::new(repo)),
             default_branch,
         })

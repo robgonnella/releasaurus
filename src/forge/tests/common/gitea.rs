@@ -38,9 +38,7 @@ pub struct GiteaForgeTestHelper {
 }
 
 impl GiteaForgeTestHelper {
-    pub async fn new(repo: &str, token: &str, reset_sha: &str) -> Self {
-        let parsed = GitUrl::parse(repo).unwrap();
-
+    pub async fn new(repo: &GitUrl, token: &str, reset_sha: &str) -> Self {
         let mut headers = HeaderMap::new();
 
         let token_value =
@@ -53,17 +51,17 @@ impl GiteaForgeTestHelper {
             .build()
             .unwrap();
 
-        let host = parsed.host.unwrap();
+        let host = repo.host.as_ref().unwrap().clone();
 
         let mut base_url = format!(
             "{}://{}/api/v1/repos/{}/",
-            parsed.scheme, host, parsed.fullname
+            repo.scheme, host, repo.fullname
         );
 
-        if let Some(port) = parsed.port {
+        if let Some(port) = repo.port {
             base_url = format!(
                 "{}://{}:{}/api/v1/repos/{}/",
-                parsed.scheme, host, port, parsed.fullname
+                repo.scheme, host, port, repo.fullname
             );
         }
 
