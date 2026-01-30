@@ -1,3 +1,4 @@
+use git_url_parse::GitUrl;
 use std::env;
 use tokio::time::Duration;
 
@@ -13,7 +14,7 @@ use crate::{
 #[tokio::test]
 #[test_log::test]
 async fn test_gitlab_forge() {
-    let repo = env::var("GITLAB_TEST_REPO").unwrap();
+    let repo = GitUrl::parse(&env::var("GITLAB_TEST_REPO").unwrap()).unwrap();
     let token = env::var("GITLAB_TEST_TOKEN").unwrap();
     let reset_sha = env::var("GITLAB_RESET_SHA").unwrap();
 

@@ -121,11 +121,9 @@ pub struct GitlabForgeTestHelper {
 }
 
 impl GitlabForgeTestHelper {
-    pub async fn new(repo: &str, token: &str, reset_sha: &str) -> Self {
-        let parsed = GitUrl::parse(repo).unwrap();
-
-        let host = parsed.host.unwrap();
-        let project_id = parsed.fullname.clone();
+    pub async fn new(repo: &GitUrl, token: &str, reset_sha: &str) -> Self {
+        let host = repo.host.as_ref().unwrap().clone();
+        let project_id = repo.fullname.clone();
 
         let gl = gitlab::GitlabBuilder::new(host, token)
             .build_async()

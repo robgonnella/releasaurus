@@ -1,5 +1,6 @@
 //! Configuration for Git forge platform connections.
 use derive_builder::Builder;
+use git_url_parse::GitUrl;
 use secrecy::SecretString;
 
 /// Default number of commits to search when finding releases.
@@ -64,7 +65,7 @@ pub enum Remote {
     Github(RemoteConfig),
     Gitlab(RemoteConfig),
     Gitea(RemoteConfig),
-    Local(String),
+    Local(GitUrl),
 }
 
 #[cfg(test)]

@@ -45,7 +45,7 @@ pub struct ForgeArgs {
 
     /// Repository URL
     #[arg(short, long, global = true)]
-    pub repo: Option<String>,
+    pub repo: Option<GitUrl>,
 
     /// Authentication token. Falls back to env vars: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN
     #[arg(short, long, global = true)]
@@ -71,7 +71,7 @@ impl ForgeArgs {
         let repo = self.repo.clone().unwrap();
 
         match forge {
-            ForgeType::Local => Ok(Remote::Local(repo.clone())),
+            ForgeType::Local => Ok(Remote::Local(repo)),
             ForgeType::Github => {
                 let config =
                     get_remote_config(forge, &repo, self.token.clone())?;
@@ -468,19 +468,17 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 
 fn get_remote_config(
     forge: ForgeType,
-    repo: &str,
+    repo: &GitUrl,
     token: Option<String>,
 ) -> Result<RemoteConfig> {
-    let parsed = GitUrl::parse(repo)?;
-
-    validate_scheme(parsed.scheme)?;
+    validate_scheme(repo.scheme)?;
 
     let mut token = token.unwrap_or_default();
 
     if token.is_empty()
-        && let Some(parsed_token) = parsed.token
+        && let Some(parsed_token) = repo.token.as_ref()
     {
-        token = parsed_token;
+        token = parsed_token.clone();
     }
 
     if token.is_empty() {
@@ -510,58 +508,58 @@ fn get_remote_config(
         ));
     }
 
-    let host = parsed.host.ok_or_else(|| -> ReleasaurusError {
+    let host = repo.host.as_ref().ok_or_else(|| -> ReleasaurusError {
         ReleasaurusError::InvalidRemoteUrl(
             "unable to parse host from repo".to_string(),
         )
     })?;
 
-    let owner = parsed.owner.ok_or_else(|| -> ReleasaurusError {
+    let owner = repo.owner.as_ref().ok_or_else(|| -> ReleasaurusError {
         ReleasaurusError::InvalidRemoteUrl(
             "unable to parse owner from repo".to_string(),
         )
     })?;
 
-    let project_path = parsed
+    let project_path = repo
         .path
         .strip_prefix("/")
         .wrap_err("failed to process project path")?
         .to_string();
 
-    let link_base_url = format!("{}://{}", parsed.scheme, host);
+    let link_base_url = format!("{}://{}", repo.scheme, host);
 
     let release_link_base_url = match forge {
         ForgeType::Github => {
-            format!("{}/{}/{}/releases/tag", link_base_url, owner, parsed.name)
+            format!("{}/{}/{}/releases/tag", link_base_url, owner, repo.name)
         }
         ForgeType::Gitlab => {
             format!("{}/{}/-/releases", link_base_url, project_path)
         }
         ForgeType::Gitea => {
-            format!("{}/{}/{}/releases", link_base_url, owner, parsed.name)
+            format!("{}/{}/{}/releases", link_base_url, owner, repo.name)
         }
         ForgeType::Local => "".into(),
     };
 
     let compare_link_base_url = match forge {
         ForgeType::Github => {
-            format!("{}/{}/{}/compare", link_base_url, owner, parsed.name)
+            format!("{}/{}/{}/compare", link_base_url, owner, repo.name)
         }
         ForgeType::Gitlab => {
             format!("{}/{}/-/compare", link_base_url, project_path)
         }
         ForgeType::Gitea => {
-            format!("{}/{}/{}/compare", link_base_url, owner, parsed.name)
+            format!("{}/{}/{}/compare", link_base_url, owner, repo.name)
         }
         ForgeType::Local => "".into(),
     };
 
     Ok(RemoteConfig {
-        host,
-        port: parsed.port,
-        scheme: parsed.scheme.to_string(),
-        owner,
-        repo: parsed.name,
+        host: host.clone(),
+        port: repo.port,
+        scheme: repo.scheme.to_string(),
+        owner: owner.clone(),
+        repo: repo.name.clone(),
         path: project_path,
         release_link_base_url,
         token: SecretString::from(token),
@@ -575,7 +573,9 @@ mod tests {
 
     #[test]
     fn gets_github_remote() {
-        let repo = "https://github.com/github_owner/github_repo".to_string();
+        let repo = GitUrl::parse("https://github.com/github_owner/github_repo")
+            .unwrap();
+
         let token = "github_token".to_string();
 
         let forge_args = ForgeArgs {
@@ -591,7 +591,8 @@ mod tests {
 
     #[test]
     fn gets_gitlab_remote() {
-        let repo = "https://gitlab.com/gitlab_owner/gitlab_repo".to_string();
+        let repo = GitUrl::parse("https://gitlab.com/gitlab_owner/gitlab_repo")
+            .unwrap();
         let token = "gitlab_token".to_string();
 
         let forge_args = ForgeArgs {
@@ -607,7 +608,8 @@ mod tests {
 
     #[test]
     fn gets_gitea_remote() {
-        let repo = "http://gitea.com/gitea_owner/gitea_repo".to_string();
+        let repo =
+            GitUrl::parse("http://gitea.com/gitea_owner/gitea_repo").unwrap();
         let token = "gitea_token".to_string();
 
         let forge_args = ForgeArgs {
@@ -623,7 +625,7 @@ mod tests {
 
     #[test]
     fn gets_local_remote() {
-        let repo = ".".to_string();
+        let repo = GitUrl::parse(".").unwrap();
 
         let forge_args = ForgeArgs {
             forge: Some(ForgeType::Local),
@@ -638,7 +640,8 @@ mod tests {
 
     #[test]
     fn only_supports_http_and_https_schemes() {
-        let repo = "git@gitea.com:gitea_owner/gitea_repo".to_string();
+        let repo =
+            GitUrl::parse("git@gitea.com:gitea_owner/gitea_repo").unwrap();
         let token = "gitea_token".to_string();
 
         let forge_args = ForgeArgs {

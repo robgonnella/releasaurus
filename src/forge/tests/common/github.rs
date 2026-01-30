@@ -18,14 +18,12 @@ pub struct GithubForgeTestHelper {
 }
 
 impl GithubForgeTestHelper {
-    pub async fn new(repo: &str, token: &str, reset_sha: &str) -> Self {
-        let parsed = GitUrl::parse(repo).unwrap();
+    pub async fn new(repo: &GitUrl, token: &str, reset_sha: &str) -> Self {
+        let host = repo.host.as_ref().unwrap().clone();
+        let owner = repo.owner.as_ref().unwrap().clone();
+        let repo_str = repo.name.clone();
 
-        let host = parsed.host.unwrap();
-        let owner = parsed.owner.unwrap();
-        let repo_str = parsed.name;
-
-        let base_uri = format!("{}://api.{}", parsed.scheme, host);
+        let base_uri = format!("{}://api.{}", repo.scheme, host);
 
         let builder = Octocrab::builder()
             .personal_token(token)
