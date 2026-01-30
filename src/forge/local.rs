@@ -4,8 +4,7 @@ use color_eyre::eyre::{Context, OptionExt};
 use git2::{Commit as Git2Commit, Sort, TreeWalkMode};
 use regex::Regex;
 use std::{
-    env,
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
     sync::Arc,
 };
 use tokio::{fs, sync::Mutex};
@@ -26,7 +25,7 @@ use crate::{
     },
 };
 
-/// LocalRepo forge implementation using .
+/// LocalRepo forge implementation using git2 for local repository operations.
 pub struct LocalRepo {
     repo_path: PathBuf,
     repo_name: String,
@@ -36,28 +35,22 @@ pub struct LocalRepo {
 
 impl LocalRepo {
     pub fn new(repo_path: &Path) -> Result<Self> {
-        let current_dir = env::current_dir()?;
         let repo_str = repo_path.to_string_lossy();
+        let abs_repo_path = path::absolute(repo_path)?;
 
-        let repo_path = if repo_str == "." || repo_str == "./" {
-            current_dir.as_path()
-        } else {
-            repo_path
-        };
-
-        if !repo_path.exists() {
+        if !abs_repo_path.exists() {
             return Err(ReleasaurusError::forge(format!(
                 "Invalid path for local forge: {repo_str} does not exist"
             )));
         }
 
-        if !repo_path.is_dir() {
+        if !abs_repo_path.is_dir() {
             return Err(ReleasaurusError::forge(format!(
                 "Invalid path for local forge: {repo_str} is not a directory"
             )));
         }
 
-        let repo_name = repo_path
+        let repo_name = abs_repo_path
             .file_name()
             .ok_or(ReleasaurusError::forge(
                 "unable to determine repository directory name from path",

@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
+use git_url_parse::GitUrl;
 use gitlab::{
     AsyncGitlab,
     api::{
@@ -32,7 +33,7 @@ use gitlab::{
 use graphql_client::GraphQLQuery;
 use regex::Regex;
 use reqwest::StatusCode;
-use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -48,7 +49,7 @@ use crate::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
             DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RemoteConfig,
+            RemoteConfig, resolve_token,
         },
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
@@ -75,15 +76,27 @@ pub struct Gitlab {
     gl: AsyncGitlab,
     project_id: String,
     default_branch: String,
+    release_link_base_url: String,
+    compare_link_base_url: String,
 }
 
 impl Gitlab {
     /// Create GitLab client with personal access token authentication and
     /// project ID resolution.
-    pub async fn new(config: RemoteConfig) -> Result<Self> {
-        let project_id = config.path.clone();
+    pub async fn new(url: GitUrl, token: Option<SecretString>) -> Result<Self> {
+        let token = resolve_token(token, url.token.as_ref(), "GITLAB_TOKEN")?;
 
-        let token = config.token.expose_secret();
+        let config = RemoteConfig::from_url(url)?;
+
+        let link_base_url = config.link_base_url();
+
+        let release_link_base_url =
+            format!("{}/{}/-/releases", link_base_url, config.path);
+
+        let compare_link_base_url =
+            format!("{}/{}/-/compare", link_base_url, config.path);
+
+        let project_id = config.path.clone();
 
         let gl = gitlab::GitlabBuilder::new(config.host.clone(), token)
             .build_async()
@@ -105,6 +118,8 @@ impl Gitlab {
             gl,
             project_id,
             default_branch,
+            release_link_base_url,
+            compare_link_base_url,
         })
     }
 
@@ -139,11 +154,11 @@ impl Forge for Gitlab {
     }
 
     fn release_link_base_url(&self) -> String {
-        self.config.release_link_base_url.clone()
+        self.release_link_base_url.clone()
     }
 
     fn compare_link_base_url(&self) -> String {
-        self.config.compare_link_base_url.clone()
+        self.compare_link_base_url.clone()
     }
 
     fn default_branch(&self) -> String {

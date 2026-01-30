@@ -1,12 +1,11 @@
 //! CLI top-level definition for release automation workflow.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use color_eyre::eyre::ContextCompat;
 use git_url_parse::GitUrl;
 use merge::Merge;
 use secrecy::SecretString;
 use serde::Deserialize;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, path::Path};
 
 pub mod get;
 
@@ -14,7 +13,10 @@ use crate::{
     Result,
     config::{changelog::RewordedCommit, prerelease::PrereleaseStrategy},
     error::ReleasaurusError,
-    forge::config::{Remote, RemoteConfig},
+    forge::{
+        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
+        traits::Forge,
+    },
 };
 
 /// Global CLI arguments for forge configuration and debugging.
@@ -49,44 +51,34 @@ pub struct ForgeArgs {
 
     /// Authentication token. Falls back to env vars: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN
     #[arg(short, long, global = true)]
-    pub token: Option<String>,
+    pub token: Option<SecretString>,
 }
 
 impl ForgeArgs {
-    pub fn get_remote(&self) -> Result<Remote> {
-        let mut missing = vec![];
-        if self.forge.is_none() {
-            missing.push("forge")
-        }
-        if self.repo.is_none() {
-            missing.push("repo")
-        }
+    pub async fn forge(&self) -> Result<Box<dyn Forge>> {
+        if let Some(forge_type) = self.forge.as_ref()
+            && let Some(repo) = self.repo.as_ref()
+        {
+            let forge: Box<dyn Forge> = match forge_type {
+                ForgeType::Github => Box::new(
+                    Github::new(repo.to_owned(), self.token.clone()).await?,
+                ),
+                ForgeType::Gitlab => Box::new(
+                    Gitlab::new(repo.to_owned(), self.token.clone()).await?,
+                ),
+                ForgeType::Gitea => Box::new(
+                    Gitea::new(repo.to_owned(), self.token.clone()).await?,
+                ),
+                ForgeType::Local => {
+                    Box::new(LocalRepo::new(Path::new(&repo.path))?)
+                }
+            };
 
-        if !missing.is_empty() {
-            let msg = format!("missing required options: {:#?}", missing);
-            return Err(ReleasaurusError::invalid_config(msg));
-        }
-
-        let forge = self.forge.unwrap();
-        let repo = self.repo.clone().unwrap();
-
-        match forge {
-            ForgeType::Local => Ok(Remote::Local(repo)),
-            ForgeType::Github => {
-                let config =
-                    get_remote_config(forge, &repo, self.token.clone())?;
-                Ok(Remote::Github(config))
-            }
-            ForgeType::Gitlab => {
-                let config =
-                    get_remote_config(forge, &repo, self.token.clone())?;
-                Ok(Remote::Gitlab(config))
-            }
-            ForgeType::Gitea => {
-                let config =
-                    get_remote_config(forge, &repo, self.token.clone())?;
-                Ok(Remote::Gitea(config))
-            }
+            Ok(forge)
+        } else {
+            Err(ReleasaurusError::InvalidArgs(
+                "missing one of required options: [--forge, --repo]".into(),
+            ))
         }
     }
 }
@@ -453,205 +445,55 @@ impl Cli {
     }
 }
 
-/// Validate that repository URL uses HTTP or HTTPS scheme, rejecting SSH and
-/// other protocols.
-fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
-    match scheme {
-        git_url_parse::Scheme::Http => Ok(()),
-        git_url_parse::Scheme::Https => Ok(()),
-        _ => Err(ReleasaurusError::InvalidRemoteUrl(
-            "only http and https schemes are supported for repo urls"
-                .to_string(),
-        )),
-    }
-}
-
-fn get_remote_config(
-    forge: ForgeType,
-    repo: &GitUrl,
-    token: Option<String>,
-) -> Result<RemoteConfig> {
-    validate_scheme(repo.scheme)?;
-
-    let mut token = token.unwrap_or_default();
-
-    if token.is_empty()
-        && let Some(parsed_token) = repo.token.as_ref()
-    {
-        token = parsed_token.clone();
-    }
-
-    if token.is_empty() {
-        match forge {
-            ForgeType::Github => {
-                if let Ok(value) = env::var("GITHUB_TOKEN") {
-                    token = value;
-                }
-            }
-            ForgeType::Gitlab => {
-                if let Ok(value) = env::var("GITLAB_TOKEN") {
-                    token = value;
-                }
-            }
-            ForgeType::Gitea => {
-                if let Ok(value) = env::var("GITEA_TOKEN") {
-                    token = value;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if token.is_empty() {
-        return Err(ReleasaurusError::AuthenticationError(
-            "Token not provided".to_string(),
-        ));
-    }
-
-    let host = repo.host.as_ref().ok_or_else(|| -> ReleasaurusError {
-        ReleasaurusError::InvalidRemoteUrl(
-            "unable to parse host from repo".to_string(),
-        )
-    })?;
-
-    let owner = repo.owner.as_ref().ok_or_else(|| -> ReleasaurusError {
-        ReleasaurusError::InvalidRemoteUrl(
-            "unable to parse owner from repo".to_string(),
-        )
-    })?;
-
-    let project_path = repo
-        .path
-        .strip_prefix("/")
-        .wrap_err("failed to process project path")?
-        .to_string();
-
-    let link_base_url = format!("{}://{}", repo.scheme, host);
-
-    let release_link_base_url = match forge {
-        ForgeType::Github => {
-            format!("{}/{}/{}/releases/tag", link_base_url, owner, repo.name)
-        }
-        ForgeType::Gitlab => {
-            format!("{}/{}/-/releases", link_base_url, project_path)
-        }
-        ForgeType::Gitea => {
-            format!("{}/{}/{}/releases", link_base_url, owner, repo.name)
-        }
-        ForgeType::Local => "".into(),
-    };
-
-    let compare_link_base_url = match forge {
-        ForgeType::Github => {
-            format!("{}/{}/{}/compare", link_base_url, owner, repo.name)
-        }
-        ForgeType::Gitlab => {
-            format!("{}/{}/-/compare", link_base_url, project_path)
-        }
-        ForgeType::Gitea => {
-            format!("{}/{}/{}/compare", link_base_url, owner, repo.name)
-        }
-        ForgeType::Local => "".into(),
-    };
-
-    Ok(RemoteConfig {
-        host: host.clone(),
-        port: repo.port,
-        scheme: repo.scheme.to_string(),
-        owner: owner.clone(),
-        repo: repo.name.clone(),
-        path: project_path,
-        release_link_base_url,
-        token: SecretString::from(token),
-        compare_link_base_url,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn gets_github_remote() {
+    #[tokio::test]
+    async fn forge_args_errors_if_missing_forge_type() {
         let repo = GitUrl::parse("https://github.com/github_owner/github_repo")
             .unwrap();
 
-        let token = "github_token".to_string();
+        let token = SecretString::from("github_token");
+
+        let forge_args = ForgeArgs {
+            forge: None,
+            repo: Some(repo),
+            token: Some(token),
+        };
+
+        let result = forge_args.forge().await;
+
+        match result {
+            Ok(_) => {
+                unreachable!("missing forge type should have resulted in error")
+            }
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn forge_args_errors_if_missing_repo() {
+        let token = SecretString::from("github_token");
 
         let forge_args = ForgeArgs {
             forge: Some(ForgeType::Github),
-            repo: Some(repo),
+            repo: None,
             token: Some(token),
         };
 
-        let remote = forge_args.get_remote().unwrap();
+        let result = forge_args.forge().await;
 
-        assert!(matches!(remote, Remote::Github(_)));
-    }
-
-    #[test]
-    fn gets_gitlab_remote() {
-        let repo = GitUrl::parse("https://gitlab.com/gitlab_owner/gitlab_repo")
-            .unwrap();
-        let token = "gitlab_token".to_string();
-
-        let forge_args = ForgeArgs {
-            forge: Some(ForgeType::Gitlab),
-            repo: Some(repo),
-            token: Some(token),
-        };
-
-        let remote = forge_args.get_remote().unwrap();
-
-        assert!(matches!(remote, Remote::Gitlab(_)));
-    }
-
-    #[test]
-    fn gets_gitea_remote() {
-        let repo =
-            GitUrl::parse("http://gitea.com/gitea_owner/gitea_repo").unwrap();
-        let token = "gitea_token".to_string();
-
-        let forge_args = ForgeArgs {
-            forge: Some(ForgeType::Gitea),
-            repo: Some(repo),
-            token: Some(token),
-        };
-
-        let remote = forge_args.get_remote().unwrap();
-
-        assert!(matches!(remote, Remote::Gitea(_)));
-    }
-
-    #[test]
-    fn gets_local_remote() {
-        let repo = GitUrl::parse(".").unwrap();
-
-        let forge_args = ForgeArgs {
-            forge: Some(ForgeType::Local),
-            repo: Some(repo),
-            token: None,
-        };
-
-        let remote = forge_args.get_remote().unwrap();
-
-        assert!(matches!(remote, Remote::Local(_)));
-    }
-
-    #[test]
-    fn only_supports_http_and_https_schemes() {
-        let repo =
-            GitUrl::parse("git@gitea.com:gitea_owner/gitea_repo").unwrap();
-        let token = "gitea_token".to_string();
-
-        let forge_args = ForgeArgs {
-            forge: Some(ForgeType::Gitea),
-            repo: Some(repo),
-            token: Some(token),
-        };
-
-        let result = forge_args.get_remote();
-        assert!(result.is_err());
+        match result {
+            Ok(_) => {
+                unreachable!("missing repo should have resulted in error")
+            }
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
+            }
+        }
     }
 
     #[test]

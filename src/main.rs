@@ -19,7 +19,7 @@ use color_eyre::eyre::Result;
 use std::rc::Rc;
 
 use releasaurus::{
-    Cli, Command, ForgeFactory, ForgeOptions, GetCommand, Orchestrator,
+    Cli, Command, ForgeManager, ForgeOptions, GetCommand, Orchestrator,
     OrchestratorConfig, ResolvedPackage, ResolvedPackageHash, get,
 };
 
@@ -98,10 +98,9 @@ fn get_dry_run_value(cli: &Cli) -> bool {
 }
 
 async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
-    let remote = cli.forge_args.get_remote()?;
+    let forge = cli.forge_args.forge().await?;
 
-    let forge_manager =
-        ForgeFactory::create(&remote, ForgeOptions { dry_run }).await?;
+    let forge_manager = ForgeManager::new(forge, ForgeOptions { dry_run });
 
     let global_overrides = cli.get_global_overrides();
     let package_overrides = cli.get_package_overrides()?;

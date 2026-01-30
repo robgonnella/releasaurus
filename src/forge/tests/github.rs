@@ -1,9 +1,10 @@
 use git_url_parse::GitUrl;
+use secrecy::SecretString;
 use std::env;
 use tokio::time::Duration;
 
 use crate::{
-    ForgeFactory,
+    ForgeManager,
     cli::{ForgeArgs, ForgeType},
     forge::{
         manager::ForgeOptions,
@@ -15,21 +16,22 @@ use crate::{
 #[test_log::test]
 async fn test_github_forge() {
     let repo = GitUrl::parse(&env::var("GITHUB_TEST_REPO").unwrap()).unwrap();
-    let token = env::var("GITHUB_TEST_TOKEN").unwrap();
+    let token_str = env::var("GITHUB_TEST_TOKEN").unwrap();
+    let token_secret = SecretString::from(token_str.clone());
     let reset_sha = env::var("GITHUB_RESET_SHA").unwrap();
 
     let forge_args = ForgeArgs {
         forge: Some(ForgeType::Github),
         repo: Some(repo.clone()),
-        token: Some(token.clone()),
+        token: Some(token_secret),
     };
 
-    let remote = forge_args.get_remote().unwrap();
-    let gitea_forge =
-        ForgeFactory::create(&remote, ForgeOptions { dry_run: false })
-            .await
-            .unwrap();
-    let helper = GithubForgeTestHelper::new(&repo, &token, &reset_sha).await;
+    let forge = forge_args.forge().await.unwrap();
 
-    run_forge_test(&gitea_forge, &helper, Duration::from_millis(2000)).await;
+    let manager = ForgeManager::new(forge, ForgeOptions { dry_run: false });
+
+    let helper =
+        GithubForgeTestHelper::new(&repo, &token_str, &reset_sha).await;
+
+    run_forge_test(&manager, &helper, Duration::from_millis(2000)).await;
 }

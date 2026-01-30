@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use chrono::DateTime;
 use color_eyre::eyre::OptionExt;
 use futures_util::TryStreamExt;
+use git_url_parse::GitUrl;
 use octocrab::{
     Octocrab,
     models::repos::{Object, RepoCommit},
@@ -10,6 +11,7 @@ use octocrab::{
 };
 use regex::Regex;
 use reqwest::StatusCode;
+use secrecy::SecretString;
 use std::sync::Arc;
 use tokio::{pin, sync::Mutex};
 
@@ -25,7 +27,7 @@ use crate::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
             DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RemoteConfig,
+            RemoteConfig, resolve_token,
         },
         github::{
             graphql::{
@@ -55,16 +57,36 @@ pub struct Github {
     base_uri: String,
     instance: Octocrab,
     default_branch: String,
+    release_link_base_url: String,
+    compare_link_base_url: String,
 }
 
 impl Github {
     /// Create GitHub client with personal access token authentication and API
     /// base URL configuration.
-    pub async fn new(config: RemoteConfig) -> Result<Self> {
+    pub async fn new(url: GitUrl, token: Option<SecretString>) -> Result<Self> {
+        let token = resolve_token(token, url.token.as_ref(), "GITHUB_TOKEN")?;
+
+        let config = RemoteConfig::from_url(url)?;
+
+        let link_base_url = config.link_base_url();
+
+        let release_link_base_url = format!(
+            "{}/{}/{}/releases/tag",
+            link_base_url, config.owner, config.repo
+        );
+
+        let compare_link_base_url = format!(
+            "{}/{}/{}/compare",
+            link_base_url, config.owner, config.repo
+        );
+
         let base_uri = format!("{}://api.{}", config.scheme, config.host);
+
         let builder = Octocrab::builder()
-            .personal_token(config.token.clone())
+            .personal_token(token.clone())
             .base_uri(base_uri.clone())?;
+
         let instance = builder.build()?;
 
         let repo = instance.repos(&config.owner, &config.repo).get().await?;
@@ -82,6 +104,8 @@ impl Github {
             base_uri,
             instance,
             default_branch,
+            release_link_base_url,
+            compare_link_base_url,
         })
     }
 
@@ -184,11 +208,11 @@ impl Forge for Github {
     }
 
     fn release_link_base_url(&self) -> String {
-        self.config.release_link_base_url.clone()
+        self.release_link_base_url.clone()
     }
 
     fn compare_link_base_url(&self) -> String {
-        self.config.compare_link_base_url.clone()
+        self.compare_link_base_url.clone()
     }
 
     fn default_branch(&self) -> String {
