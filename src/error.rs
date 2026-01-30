@@ -5,6 +5,10 @@ use thiserror::Error;
 /// Main error type for Releasaurus operations.
 #[derive(Error, Debug)]
 pub enum ReleasaurusError {
+    // Cli args errors
+    #[error("Invalid arguments: {0}")]
+    InvalidArgs(String),
+
     // Configuration errors
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),

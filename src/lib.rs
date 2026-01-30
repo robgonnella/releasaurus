@@ -9,7 +9,7 @@ mod updater;
 
 pub use cli::{Cli, Command, GetCommand, get};
 pub use error::{ReleasaurusError, Result};
-pub use forge::{factory::ForgeFactory, manager::ForgeOptions};
+pub use forge::manager::{ForgeManager, ForgeOptions};
 pub use orchestrator::{
     Orchestrator,
     config::OrchestratorConfig,

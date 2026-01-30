@@ -3,14 +3,16 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
+use git_url_parse::GitUrl;
 use regex::Regex;
 use reqwest::{
-    Client, StatusCode, Url,
+    Client, StatusCode,
     header::{HeaderMap, HeaderValue},
 };
-use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use std::{cmp, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
+use url::Url;
 
 use crate::{
     Result,
@@ -21,7 +23,7 @@ use crate::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
             DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RemoteConfig,
+            RemoteConfig, resolve_token,
         },
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
@@ -49,13 +51,29 @@ pub struct Gitea {
     base_url: Url,
     client: Client,
     default_branch: String,
+    release_link_base_url: String,
+    compare_link_base_url: String,
 }
 
 impl Gitea {
     /// Create Gitea client with token authentication and API base URL
     /// configuration for self-hosted instances.
-    pub async fn new(config: RemoteConfig) -> Result<Self> {
-        let token = config.token.expose_secret();
+    pub async fn new(url: GitUrl, token: Option<SecretString>) -> Result<Self> {
+        let token = resolve_token(token, url.token.as_ref(), "GITEA_TOKEN")?;
+
+        let config = RemoteConfig::from_url(url)?;
+
+        let link_base_url = config.link_base_url();
+
+        let release_link_base_url = format!(
+            "{}/{}/{}/releases",
+            link_base_url, config.owner, config.repo
+        );
+
+        let compare_link_base_url = format!(
+            "{}/{}/{}/compare",
+            link_base_url, config.owner, config.repo
+        );
 
         let mut headers = HeaderMap::new();
 
@@ -97,6 +115,8 @@ impl Gitea {
             )),
             client,
             base_url,
+            release_link_base_url,
+            compare_link_base_url,
             default_branch: default_branch.into(),
         })
     }
@@ -156,11 +176,11 @@ impl Forge for Gitea {
     }
 
     fn release_link_base_url(&self) -> String {
-        self.config.release_link_base_url.clone()
+        self.release_link_base_url.clone()
     }
 
     fn compare_link_base_url(&self) -> String {
-        self.config.compare_link_base_url.clone()
+        self.compare_link_base_url.clone()
     }
 
     fn default_branch(&self) -> String {
