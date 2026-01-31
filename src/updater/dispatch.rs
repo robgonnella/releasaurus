@@ -5,11 +5,11 @@ use crate::{
     config::release_type::ReleaseType,
     forge::request::FileChange,
     updater::{
-        generic::updater::GenericUpdater, java::updater::JavaUpdater,
-        manager::UpdaterPackage, node::updater::NodeUpdater,
-        php::updater::PhpUpdater, python::updater::PythonUpdater,
-        ruby::updater::RubyUpdater, rust::updater::RustUpdater,
-        traits::PackageUpdater,
+        generic::updater::GenericUpdater, go::updater::GoUpdater,
+        java::updater::JavaUpdater, manager::UpdaterPackage,
+        node::updater::NodeUpdater, php::updater::PhpUpdater,
+        python::updater::PythonUpdater, ruby::updater::RubyUpdater,
+        rust::updater::RustUpdater, traits::PackageUpdater,
     },
 };
 
@@ -21,6 +21,8 @@ use crate::{
 pub enum Updater {
     /// Generic updater for projects without specific language support
     Generic(GenericUpdater),
+    /// Golang updater for version.go files
+    Go(GoUpdater),
     /// Java/Maven updater for pom.xml files
     Java(JavaUpdater),
     /// Node.js updater for package.json, package-lock.json, and yarn.lock
@@ -40,6 +42,7 @@ impl Updater {
     pub fn new(release_type: ReleaseType) -> Self {
         match release_type {
             ReleaseType::Generic => Updater::Generic(GenericUpdater::new()),
+            ReleaseType::Go => Updater::Go(GoUpdater::new()),
             ReleaseType::Java => Updater::Java(JavaUpdater::new()),
             ReleaseType::Node => Updater::Node(NodeUpdater::new()),
             ReleaseType::Php => Updater::Php(PhpUpdater::new()),
@@ -63,6 +66,7 @@ impl Updater {
             Updater::Generic(updater) => {
                 updater.update(package, workspace_packages)
             }
+            Updater::Go(updater) => updater.update(package, workspace_packages),
             Updater::Java(updater) => {
                 updater.update(package, workspace_packages)
             }
@@ -89,6 +93,7 @@ impl std::fmt::Debug for Updater {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Updater::Generic(_) => write!(f, "Updater::Generic"),
+            Updater::Go(_) => write!(f, "Updater::Go"),
             Updater::Java(_) => write!(f, "Updater::Java"),
             Updater::Node(_) => write!(f, "Updater::Node"),
             Updater::Php(_) => write!(f, "Updater::Php"),
