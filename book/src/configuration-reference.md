@@ -347,13 +347,14 @@ path = "packages/backend"
 
 Language/framework for version file updates:
 
-- `"rust"` - Cargo.toml, Cargo.lock
-- `"node"` - package.json, lock files
-- `"python"` - pyproject.toml, setup.py, setup.cfg
-- `"java"` - pom.xml, build.gradle
-- `"php"` - composer.json
-- `"ruby"` - .gemspec, Gemfile
 - `"generic"` - Changelog/tagging only
+- `"go"` - version.go
+- `"java"` - pom.xml, build.gradle
+- `"node"` - package.json, lock files
+- `"php"` - composer.json, composer.lock
+- `"python"` - pyproject.toml, setup.py, setup.cfg
+- `"ruby"` - .gemspec, Gemfile
+- `"rust"` - Cargo.toml, Cargo.lock
 
 ```toml
 [[package]]

@@ -18,6 +18,7 @@ use std::fmt::Display;
 pub enum ReleaseType {
     #[default]
     Generic,
+    Go,
     Node,
     Rust,
     Python,
@@ -30,6 +31,7 @@ impl Display for ReleaseType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ReleaseType::Generic => f.write_str("generic"),
+            ReleaseType::Go => f.write_str("go"),
             ReleaseType::Java => f.write_str("java"),
             ReleaseType::Node => f.write_str("node"),
             ReleaseType::Php => f.write_str("php"),

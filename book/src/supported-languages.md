@@ -14,15 +14,16 @@ release_type = "node"  # or rust, python, java, php, ruby, generic
 
 ## Language Support Reference
 
-| Language    | release_type | Files Updated                                |
-| ----------- | ------------ | -------------------------------------------- |
-| **Rust**    | `"rust"`     | Cargo.toml, Cargo.lock                       |
-| **Node.js** | `"node"`     | package.json, package-lock.json, yarn.lock   |
-| **Python**  | `"python"`   | pyproject.toml, setup.py, setup.cfg          |
-| **Java**    | `"java"`     | pom.xml, build.gradle, build.gradle.kts      |
-| **PHP**     | `"php"`      | composer.json, composer.lock                 |
-| **Ruby**    | `"ruby"`     | \*.gemspec, Gemfile, Gemfile.lock            |
-| **Generic** | `"generic"`  | Custom files via `additional_manifest_files` |
+| Language    | release_type | Files Updated                                                                    |
+| ----------- | ------------ | -------------------------------------------------------------------------------- |
+| **Generic** | `"generic"`  | Custom files via `additional_manifest_files`                                     |
+| **Go**      | `"go"`       | version.go, version/version.go, internal/version.go, internal/version/version.go |
+| **Java**    | `"java"`     | pom.xml, build.gradle, build.gradle.kts                                          |
+| **Node.js** | `"node"`     | package.json, package-lock.json, yarn.lock                                       |
+| **PHP**     | `"php"`      | composer.json, composer.lock                                                     |
+| **Python**  | `"python"`   | pyproject.toml, setup.py, setup.cfg                                              |
+| **Ruby**    | `"ruby"`     | \*.gemspec, Gemfile, Gemfile.lock                                                |
+| **Rust**    | `"rust"`     | Cargo.toml, Cargo.lock                                                           |
 
 ## Notes
 

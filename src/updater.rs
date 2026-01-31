@@ -2,6 +2,7 @@
 mod composite;
 pub mod dispatch;
 pub mod generic;
+mod go;
 mod java;
 pub mod manager;
 mod node;
