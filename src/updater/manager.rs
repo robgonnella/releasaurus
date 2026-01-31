@@ -11,6 +11,7 @@ use crate::file_loader::FileLoader;
 use crate::forge::request::FileChange;
 use crate::orchestrator::package::releasable::ReleasablePackage;
 use crate::updater::generic::updater::GENERIC_VERSION_REGEX;
+use crate::updater::go::manifests::GoManifests;
 use crate::updater::{
     dispatch::Updater, generic::updater::GenericUpdater,
     java::manifests::JavaManifests, node::manifests::NodeManifests,
@@ -326,6 +327,11 @@ impl UpdateManager {
     ) -> Vec<ManifestTarget> {
         match release_type {
             ReleaseType::Generic => vec![],
+            ReleaseType::Go => GoManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
             ReleaseType::Java => JavaManifests::manifest_targets(
                 pkg_name,
                 workspace_path,
