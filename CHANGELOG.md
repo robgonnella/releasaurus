@@ -1,3 +1,27 @@
+# [0.12.0](https://github.com/robgonnella/releasaurus/compare/v0.11.0...v0.12.0) - 2026-01-25
+
+### 🚀 Features
+
+- adds golang updater [_(bb5d736)_](https://github.com/robgonnella/releasaurus/commit/bb5d736eb7c777d969567f6ba89237aac7e02290) (Rob Gonnella)
+
+- adds support for comparison links [_(c5556da)_](https://github.com/robgonnella/releasaurus/commit/c5556da016037de5dc683740aa67e4f530702285) (Rob Gonnella)
+
+- Adds support for php composer.lock file updates [_(ff05afa)_](https://github.com/robgonnella/releasaurus/commit/ff05afa67a3b310563f066fef3b08d4e25fffa5a) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- removes duplicate processing of additional manifest files [_(1866730)_](https://github.com/robgonnella/releasaurus/commit/18667309317df07db13d31deee54e92e4a1692cf) (Rob Gonnella)
+
+- fixes bug in additional-manifest-files feature [_(f0bcc45)_](https://github.com/robgonnella/releasaurus/commit/f0bcc45bb0bab733b6d4975baa65d30f94076396) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- uses Url type in appropriate areas [_(e8ea991)_](https://github.com/robgonnella/releasaurus/commit/e8ea991b66d8539b1d90cec220ed964ffd21da98) (Rob Gonnella)
+
+- refactors forge instantiation [_(8b4fe52)_](https://github.com/robgonnella/releasaurus/commit/8b4fe5223e01febd4e9c07f3c1a45431026ec5a3) (Rob Gonnella)
+
+- parses straight to GitUrl from cli [_(d3d377e)_](https://github.com/robgonnella/releasaurus/commit/d3d377ea0d0fa2397443b14563056b3d75998a14) (Rob Gonnella)
+
 # [0.11.0](https://github.com/robgonnella/releasaurus/releases/tag/v0.11.0) - 2026-01-22
 
 ### 🚀 Features
