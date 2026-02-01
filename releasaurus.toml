@@ -9,5 +9,5 @@ include_author = true
 [[package]]
 release_type = "rust"
 additional_manifest_files = [
-  { path = "./action/action.yml", version_regex = "v(?<version>\\d\\.\\d\\.\\d)" }
+  { path = "./action/action.yml", version_regex = "v(?<version>\\d+\\.\\d+\\.\\d+)" }
 ]
