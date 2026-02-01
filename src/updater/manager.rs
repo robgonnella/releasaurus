@@ -289,6 +289,32 @@ impl UpdateManager {
             }
         }
 
+        let sub_packages: Vec<_> = package
+            .sub_packages
+            .iter()
+            .map(|s| s.to_releasable(package))
+            .collect();
+
+        if !sub_packages.is_empty() {
+            // Build workspace context including both sub-packages and
+            // parent. This is needed for workspace-level manifest updates
+            // (e.g., Cargo.lock) Pre-allocate to avoid reallocation during
+            // push
+            let mut workspace_refs: Vec<&ReleasablePackage> =
+                Vec::with_capacity(package.sub_packages.len() + 1);
+            workspace_refs.extend(sub_packages.iter());
+            workspace_refs.push(package);
+
+            for sub in sub_packages.iter() {
+                file_changes.extend(
+                    UpdateManager::get_package_manifest_file_changes(
+                        sub,
+                        &workspace_refs,
+                    )?,
+                )
+            }
+        }
+
         Ok(file_changes)
     }
 
