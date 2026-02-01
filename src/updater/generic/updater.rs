@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Default generic version matcher regex pattern
-pub const GENERIC_VERSION_REGEX_PATTERN: &str = r#"(?mi)(?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d\.\d\.\d-?.*?)(?<end>['",].*)?$"#;
+pub const GENERIC_VERSION_REGEX_PATTERN: &str = r#"(?mi)(?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#;
 
 /// Compiled version of GENERIC_VERSION_REGEX_PATTERN
 pub static GENERIC_VERSION_REGEX: LazyLock<Regex> =
@@ -277,5 +277,20 @@ mod tests {
         let result = updater.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn update_manifest_handles_multi_digit_versions() {
+        let manifest = create_manifest(r#"version = "10.200.3""#);
+        let next_version = Version::parse("11.0.0").unwrap();
+
+        let result = GenericUpdater::update_manifest(
+            &manifest,
+            &next_version,
+            &GENERIC_VERSION_REGEX,
+        )
+        .unwrap();
+
+        assert_eq!(result.content, r#"version = "11.0.0""#);
     }
 }
