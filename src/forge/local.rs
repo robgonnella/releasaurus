@@ -8,6 +8,7 @@ use std::{
     sync::Arc,
 };
 use tokio::{fs, sync::Mutex};
+use url::Url;
 
 use crate::{
     Result,
@@ -31,6 +32,7 @@ pub struct LocalRepo {
     repo_name: String,
     repo: Arc<Mutex<git2::Repository>>,
     default_branch: String,
+    link_base_url: Url,
 }
 
 impl LocalRepo {
@@ -49,6 +51,17 @@ impl LocalRepo {
                 "Invalid path for local forge: {repo_str} is not a directory"
             )));
         }
+
+        let mut link_base_url =
+            Url::from_file_path(&abs_repo_path).map_err(|_| {
+                ReleasaurusError::forge(format!(
+                    "Unable to create file URL from path: {}",
+                    abs_repo_path.display()
+                ))
+            })?;
+
+        // Ensure trailing slash so Url::join() appends rather than replaces
+        link_base_url.set_path(&format!("{}/", link_base_url.path()));
 
         let repo_name = abs_repo_path
             .file_name()
@@ -74,6 +87,7 @@ impl LocalRepo {
             repo_path: repo_path.to_path_buf(),
             repo: Arc::new(Mutex::new(repo)),
             default_branch,
+            link_base_url,
         })
     }
 }
@@ -90,12 +104,12 @@ impl Forge for LocalRepo {
         self.default_branch.clone()
     }
 
-    fn release_link_base_url(&self) -> String {
-        "".into()
+    fn release_link_base_url(&self) -> Url {
+        self.link_base_url.clone()
     }
 
-    fn compare_link_base_url(&self) -> String {
-        "".into()
+    fn compare_link_base_url(&self) -> Url {
+        self.link_base_url.clone()
     }
 
     async fn get_file_content(

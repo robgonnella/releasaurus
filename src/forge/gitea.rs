@@ -51,8 +51,8 @@ pub struct Gitea {
     base_url: Url,
     client: Client,
     default_branch: String,
-    release_link_base_url: String,
-    compare_link_base_url: String,
+    release_link_base_url: Url,
+    compare_link_base_url: Url,
 }
 
 impl Gitea {
@@ -65,15 +65,15 @@ impl Gitea {
 
         let link_base_url = config.link_base_url();
 
-        let release_link_base_url = format!(
-            "{}/{}/{}/releases",
+        let release_link_base_url = Url::parse(&format!(
+            "{}/{}/{}/releases/",
             link_base_url, config.owner, config.repo
-        );
+        ))?;
 
-        let compare_link_base_url = format!(
-            "{}/{}/{}/compare",
+        let compare_link_base_url = Url::parse(&format!(
+            "{}/{}/{}/compare/",
             link_base_url, config.owner, config.repo
-        );
+        ))?;
 
         let mut headers = HeaderMap::new();
 
@@ -175,11 +175,11 @@ impl Forge for Gitea {
         self.config.repo.clone()
     }
 
-    fn release_link_base_url(&self) -> String {
+    fn release_link_base_url(&self) -> Url {
         self.release_link_base_url.clone()
     }
 
-    fn compare_link_base_url(&self) -> String {
+    fn compare_link_base_url(&self) -> Url {
         self.compare_link_base_url.clone()
     }
 

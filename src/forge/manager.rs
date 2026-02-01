@@ -1,6 +1,7 @@
 //! Manager that wraps forge implementations
 use async_trait::async_trait;
 use std::sync::OnceLock;
+use url::Url;
 
 use crate::{
     Result,
@@ -26,8 +27,8 @@ pub struct ForgeManager {
     forge: Box<dyn Forge>,
     repo_name: OnceLock<String>,
     default_branch: OnceLock<String>,
-    release_link_base_url: OnceLock<String>,
-    compare_link_base_url: OnceLock<String>,
+    release_link_base_url: OnceLock<Url>,
+    compare_link_base_url: OnceLock<Url>,
     options: ForgeOptions,
 }
 
@@ -49,12 +50,12 @@ impl ForgeManager {
         self.repo_name.get_or_init(|| self.forge.repo_name())
     }
 
-    pub fn release_link_base_url(&self) -> &str {
+    pub fn release_link_base_url(&self) -> &Url {
         self.release_link_base_url
             .get_or_init(|| self.forge.release_link_base_url())
     }
 
-    pub fn compare_link_base_url(&self) -> &str {
+    pub fn compare_link_base_url(&self) -> &Url {
         self.compare_link_base_url
             .get_or_init(|| self.forge.compare_link_base_url())
     }

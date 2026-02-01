@@ -17,6 +17,7 @@ use crate::{
 };
 
 pub use semver::Version;
+use url::Url;
 
 /// Creates a Core instance with the provided mock forge, optional package
 /// configs, and optional config. This allows tests to set expectations on the
@@ -33,8 +34,10 @@ pub fn create_core(
             .toml_config(config)
             .repo_name("test-repo")
             .repo_default_branch("main")
-            .release_link_base_url("https://example.com")
-            .compare_link_base_url("https://example.com/compare")
+            .release_link_base_url(Url::parse("https://example.com/").unwrap())
+            .compare_link_base_url(
+                Url::parse("https://example.com/compare/").unwrap(),
+            )
             .package_overrides(std::collections::HashMap::new())
             .global_overrides(GlobalOverrides::default())
             .commit_modifiers(CommitModifiers::default())

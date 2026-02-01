@@ -1,5 +1,6 @@
 use derive_builder::Builder;
 use std::{collections::HashMap, rc::Rc};
+use url::Url;
 
 use crate::{
     ReleasaurusError, Result,
@@ -15,8 +16,8 @@ pub struct OrchestratorConfigParams {
     pub toml_config: Rc<Config>,
     pub repo_name: String,
     pub repo_default_branch: String,
-    pub release_link_base_url: String,
-    pub compare_link_base_url: String,
+    pub release_link_base_url: Url,
+    pub compare_link_base_url: Url,
     pub package_overrides: HashMap<String, PackageOverrides>,
     pub global_overrides: GlobalOverrides,
     pub commit_modifiers: CommitModifiers,
@@ -38,8 +39,8 @@ impl OrchestratorConfigParamsBuilder {
 pub struct OrchestratorConfig {
     pub repo_name: String,
     pub base_branch: String,
-    pub release_link_base_url: String,
-    pub compare_link_base_url: String,
+    pub release_link_base_url: Url,
+    pub compare_link_base_url: Url,
     pub package_overrides: HashMap<String, PackageOverrides>,
     pub global_overrides: GlobalOverrides,
     pub commit_modifiers: CommitModifiers,
