@@ -2,6 +2,7 @@
 
 use derive_builder::Builder;
 use regex::Regex;
+use url::Url;
 
 use crate::{cli::CommitModifiers, config::prerelease::PrereleaseConfig};
 
@@ -46,9 +47,9 @@ pub struct AnalyzerConfig {
     /// Optional prefix for package tags.
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
-    pub release_link_base_url: String,
+    pub release_link_base_url: Option<Url>,
     /// Base URL for comparing releases and showing diffs
-    pub compare_link_base_url: String,
+    pub compare_link_base_url: Option<Url>,
     /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
     /// regex to match and exclude release commits
@@ -77,8 +78,8 @@ impl Default for AnalyzerConfig {
             skip_release_commits: true,
             include_author: false,
             tag_prefix: None,
-            release_link_base_url: "".into(),
-            compare_link_base_url: "".into(),
+            release_link_base_url: None,
+            compare_link_base_url: None,
             prerelease: None,
             release_commit_matcher: None,
             breaking_always_increment_major: true,

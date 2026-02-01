@@ -1,6 +1,7 @@
 //! Common trait interface for Git forge platforms (GitHub, GitLab, Gitea).
 use async_trait::async_trait;
 use std::any::Any;
+use url::Url;
 
 #[cfg(test)]
 use mockall::automock;
@@ -25,9 +26,9 @@ pub trait Forge: Any + Send + Sync {
     /// Get repository name from configuration.
     fn repo_name(&self) -> String;
     /// Get the base URL for release links (e.g., GitHub web URL for commits).
-    fn release_link_base_url(&self) -> String;
+    fn release_link_base_url(&self) -> Url;
     /// Get the base URL for comparing releases and showing diffs
-    fn compare_link_base_url(&self) -> String;
+    fn compare_link_base_url(&self) -> Url;
     /// Fetch the default branch name (e.g., "main" or "master").
     fn default_branch(&self) -> String;
     /// Load releasaurus.toml configuration from repository root.

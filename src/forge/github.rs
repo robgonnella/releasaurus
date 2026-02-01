@@ -14,6 +14,7 @@ use reqwest::StatusCode;
 use secrecy::SecretString;
 use std::sync::Arc;
 use tokio::{pin, sync::Mutex};
+use url::Url;
 
 mod graphql;
 mod types;
@@ -57,8 +58,8 @@ pub struct Github {
     base_uri: String,
     instance: Octocrab,
     default_branch: String,
-    release_link_base_url: String,
-    compare_link_base_url: String,
+    release_link_base_url: Url,
+    compare_link_base_url: Url,
 }
 
 impl Github {
@@ -71,15 +72,15 @@ impl Github {
 
         let link_base_url = config.link_base_url();
 
-        let release_link_base_url = format!(
-            "{}/{}/{}/releases/tag",
+        let release_link_base_url = Url::parse(&format!(
+            "{}/{}/{}/releases/tag/",
             link_base_url, config.owner, config.repo
-        );
+        ))?;
 
-        let compare_link_base_url = format!(
-            "{}/{}/{}/compare",
+        let compare_link_base_url = Url::parse(&format!(
+            "{}/{}/{}/compare/",
             link_base_url, config.owner, config.repo
-        );
+        ))?;
 
         let base_uri = format!("{}://api.{}", config.scheme, config.host);
 
@@ -207,11 +208,11 @@ impl Forge for Github {
         self.config.repo.clone()
     }
 
-    fn release_link_base_url(&self) -> String {
+    fn release_link_base_url(&self) -> Url {
         self.release_link_base_url.clone()
     }
 
-    fn compare_link_base_url(&self) -> String {
+    fn compare_link_base_url(&self) -> Url {
         self.compare_link_base_url.clone()
     }
 

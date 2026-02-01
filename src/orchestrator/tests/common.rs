@@ -17,6 +17,7 @@ use crate::{
 };
 
 pub use semver::Version;
+use url::Url;
 
 pub const TEST_PKG_NAME: &str = "test-pkg";
 
@@ -36,8 +37,8 @@ pub fn create_test_orchestrator(mock_forge: MockForge) -> Orchestrator {
             .toml_config(config)
             .repo_name("test-repo")
             .repo_default_branch("main")
-            .release_link_base_url("")
-            .compare_link_base_url("")
+            .release_link_base_url(Url::parse("file:///").unwrap())
+            .compare_link_base_url(Url::parse("file:///").unwrap())
             .package_overrides(HashMap::new())
             .global_overrides(GlobalOverrides::default())
             .commit_modifiers(CommitModifiers::default())
@@ -93,8 +94,10 @@ pub fn create_test_orchestrator_with_config(
             .toml_config(Rc::clone(&config_rc))
             .repo_name("test-repo")
             .repo_default_branch("main")
-            .release_link_base_url("https://example.com")
-            .compare_link_base_url("https://example.com/compare")
+            .release_link_base_url(Url::parse("https://example.com/").unwrap())
+            .compare_link_base_url(
+                Url::parse("https://example.com/compare/").unwrap(),
+            )
             .package_overrides(HashMap::new())
             .global_overrides(GlobalOverrides::default())
             .commit_modifiers(CommitModifiers::default())

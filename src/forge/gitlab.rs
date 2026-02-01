@@ -36,6 +36,7 @@ use reqwest::StatusCode;
 use secrecy::SecretString;
 use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
+use url::Url;
 
 mod graphql;
 mod types;
@@ -76,8 +77,8 @@ pub struct Gitlab {
     gl: AsyncGitlab,
     project_id: String,
     default_branch: String,
-    release_link_base_url: String,
-    compare_link_base_url: String,
+    release_link_base_url: Url,
+    compare_link_base_url: Url,
 }
 
 impl Gitlab {
@@ -90,11 +91,15 @@ impl Gitlab {
 
         let link_base_url = config.link_base_url();
 
-        let release_link_base_url =
-            format!("{}/{}/-/releases", link_base_url, config.path);
+        let release_link_base_url = Url::parse(&format!(
+            "{}/{}/-/releases/",
+            link_base_url, config.path
+        ))?;
 
-        let compare_link_base_url =
-            format!("{}/{}/-/compare", link_base_url, config.path);
+        let compare_link_base_url = Url::parse(&format!(
+            "{}/{}/-/compare/",
+            link_base_url, config.path
+        ))?;
 
         let project_id = config.path.clone();
 
@@ -153,11 +158,11 @@ impl Forge for Gitlab {
         self.config.repo.clone()
     }
 
-    fn release_link_base_url(&self) -> String {
+    fn release_link_base_url(&self) -> Url {
         self.release_link_base_url.clone()
     }
 
-    fn compare_link_base_url(&self) -> String {
+    fn compare_link_base_url(&self) -> Url {
         self.compare_link_base_url.clone()
     }
 

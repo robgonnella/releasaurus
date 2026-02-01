@@ -200,6 +200,8 @@ impl CommitsCore {
 
 #[cfg(test)]
 mod tests {
+    use url::Url;
+
     use super::*;
     use crate::{
         OrchestratorConfig,
@@ -230,8 +232,12 @@ mod tests {
                 .toml_config(config)
                 .repo_name("test-repo")
                 .repo_default_branch("main")
-                .release_link_base_url("https://example.com")
-                .compare_link_base_url("https://example.com/compare")
+                .release_link_base_url(
+                    Url::parse("https://example.com/").unwrap(),
+                )
+                .compare_link_base_url(
+                    Url::parse("https://example.com/compare/").unwrap(),
+                )
                 .package_overrides(std::collections::HashMap::new())
                 .global_overrides(GlobalOverrides::default())
                 .commit_modifiers(CommitModifiers::default())
@@ -253,8 +259,12 @@ mod tests {
                 .toml_config(config)
                 .repo_name("test-repo")
                 .repo_default_branch("main")
-                .release_link_base_url("https://example.com")
-                .compare_link_base_url("https://example.com/compare")
+                .release_link_base_url(
+                    Url::parse("https://example.com/").unwrap(),
+                )
+                .compare_link_base_url(
+                    Url::parse("https://example.com/compare/").unwrap(),
+                )
                 .package_overrides(std::collections::HashMap::new())
                 .global_overrides(GlobalOverrides::default())
                 .commit_modifiers(CommitModifiers::default())
@@ -494,8 +504,12 @@ mod tests {
                 .toml_config(config.clone())
                 .repo_name("test-repo")
                 .repo_default_branch("main")
-                .release_link_base_url("https://example.com")
-                .compare_link_base_url("https://example.com/compare")
+                .release_link_base_url(
+                    Url::parse("https://example.com/").unwrap(),
+                )
+                .compare_link_base_url(
+                    Url::parse("https://example.com/compare/").unwrap(),
+                )
                 .package_overrides(std::collections::HashMap::new())
                 .global_overrides(GlobalOverrides::default())
                 .commit_modifiers(CommitModifiers::default())
@@ -590,8 +604,12 @@ mod tests {
                 .toml_config(config.clone())
                 .repo_name("test-repo")
                 .repo_default_branch("main")
-                .release_link_base_url("https://example.com")
-                .compare_link_base_url("https://example.com/compare")
+                .release_link_base_url(
+                    Url::parse("https://example.com/").unwrap(),
+                )
+                .compare_link_base_url(
+                    Url::parse("https://example.com/compare/").unwrap(),
+                )
                 .package_overrides(std::collections::HashMap::new())
                 .global_overrides(GlobalOverrides::default())
                 .commit_modifiers(CommitModifiers::default())
