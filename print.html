@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0c3c4f41.js";
+            window.path_to_searchindex_js = "searchindex-722411d6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -1375,13 +1375,14 @@ release_type = "node"  # or rust, python, java, php, ruby, generic
 <tr><th>Language</th><th>release_type</th><th>Files Updated</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Rust</strong></td><td><code>"rust"</code></td><td>Cargo.toml, Cargo.lock</td></tr>
-<tr><td><strong>Node.js</strong></td><td><code>"node"</code></td><td>package.json, package-lock.json, yarn.lock</td></tr>
-<tr><td><strong>Python</strong></td><td><code>"python"</code></td><td>pyproject.toml, setup.py, setup.cfg</td></tr>
-<tr><td><strong>Java</strong></td><td><code>"java"</code></td><td>pom.xml, build.gradle, build.gradle.kts</td></tr>
-<tr><td><strong>PHP</strong></td><td><code>"php"</code></td><td>composer.json, composer.lock</td></tr>
-<tr><td><strong>Ruby</strong></td><td><code>"ruby"</code></td><td>*.gemspec, Gemfile, Gemfile.lock</td></tr>
 <tr><td><strong>Generic</strong></td><td><code>"generic"</code></td><td>Custom files via <code>additional_manifest_files</code></td></tr>
+<tr><td><strong>Go</strong></td><td><code>"go"</code></td><td>version.go, version/version.go, internal/version.go, internal/version/version.go</td></tr>
+<tr><td><strong>Java</strong></td><td><code>"java"</code></td><td>pom.xml, build.gradle, build.gradle.kts</td></tr>
+<tr><td><strong>Node.js</strong></td><td><code>"node"</code></td><td>package.json, package-lock.json, yarn.lock</td></tr>
+<tr><td><strong>PHP</strong></td><td><code>"php"</code></td><td>composer.json, composer.lock</td></tr>
+<tr><td><strong>Python</strong></td><td><code>"python"</code></td><td>pyproject.toml, setup.py, setup.cfg</td></tr>
+<tr><td><strong>Ruby</strong></td><td><code>"ruby"</code></td><td>*.gemspec, Gemfile, Gemfile.lock</td></tr>
+<tr><td><strong>Rust</strong></td><td><code>"rust"</code></td><td>Cargo.toml, Cargo.lock</td></tr>
 </tbody>
 </table>
 </div>
@@ -1820,7 +1821,7 @@ bumps minor instead of patch).</p>
 <p>The main changelog content template using Tera syntax.</p>
 <p><strong>Default template</strong></p>
 <pre><code class="language-toml">[changelog]
-body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
@@ -1858,6 +1859,10 @@ Released on {{ timestamp | date(format="%Y-%m-%d") }}
 <li><code>version</code> - Semantic version string (e.g., “1.2.3”)</li>
 <li><code>tag_name</code> - Tag for this release including and prefixes and suffixes</li>
 <li><code>link</code> - URL to the release</li>
+<li><code>tag_compare_link</code> - URL to diff between this release tag and the previous
+release tag. Empty for the first release (use conditional rendering)</li>
+<li><code>sha_compare_link</code> - URL to diff between this release commit SHA and the
+previous release tag. Empty for the first release</li>
 <li><code>sha</code> - Git commit SHA</li>
 <li><code>timestamp</code> - Unix timestamp</li>
 <li><code>include_author</code> - Boolean flag for author names</li>
@@ -2501,13 +2506,14 @@ path = "packages/backend"
 <p><strong>Default</strong>: None</p>
 <p>Language/framework for version file updates:</p>
 <ul>
-<li><code>"rust"</code> - Cargo.toml, Cargo.lock</li>
-<li><code>"node"</code> - package.json, lock files</li>
-<li><code>"python"</code> - pyproject.toml, setup.py, setup.cfg</li>
-<li><code>"java"</code> - pom.xml, build.gradle</li>
-<li><code>"php"</code> - composer.json</li>
-<li><code>"ruby"</code> - .gemspec, Gemfile</li>
 <li><code>"generic"</code> - Changelog/tagging only</li>
+<li><code>"go"</code> - version.go</li>
+<li><code>"java"</code> - pom.xml, build.gradle</li>
+<li><code>"node"</code> - package.json, lock files</li>
+<li><code>"php"</code> - composer.json, composer.lock</li>
+<li><code>"python"</code> - pyproject.toml, setup.py, setup.cfg</li>
+<li><code>"ruby"</code> - .gemspec, Gemfile</li>
+<li><code>"rust"</code> - Cargo.toml, Cargo.lock</li>
 </ul>
 <pre><code class="language-toml">[[package]]
 path = "."

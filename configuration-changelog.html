@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0c3c4f41.js";
+            window.path_to_searchindex_js = "searchindex-722411d6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -276,7 +276,7 @@ bumps minor instead of patch).</p>
 <p>The main changelog content template using Tera syntax.</p>
 <p><strong>Default template</strong></p>
 <pre><code class="language-toml">[changelog]
-body = """# [{{ version  }}]({{ link }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
@@ -314,6 +314,10 @@ Released on {{ timestamp | date(format="%Y-%m-%d") }}
 <li><code>version</code> - Semantic version string (e.g., “1.2.3”)</li>
 <li><code>tag_name</code> - Tag for this release including and prefixes and suffixes</li>
 <li><code>link</code> - URL to the release</li>
+<li><code>tag_compare_link</code> - URL to diff between this release tag and the previous
+release tag. Empty for the first release (use conditional rendering)</li>
+<li><code>sha_compare_link</code> - URL to diff between this release commit SHA and the
+previous release tag. Empty for the first release</li>
 <li><code>sha</code> - Git commit SHA</li>
 <li><code>timestamp</code> - Unix timestamp</li>
 <li><code>include_author</code> - Boolean flag for author names</li>
