@@ -28,7 +28,7 @@ use crate::{
             resolved::ResolvedPackageHash,
         },
     },
-    updater::{generic::updater::GenericUpdater, manager::UpdateManager},
+    updater::manager::UpdateManager,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -229,8 +229,6 @@ impl Core {
                     &releasable_refs,
                 )?;
 
-            file_changes.extend(self.additional_file_changes(target)?);
-            file_changes.extend(self.sub_package_file_changes(target)?);
             file_changes
                 .push(self.changelog_file_change(target, target_config));
 
@@ -472,64 +470,6 @@ impl Core {
             content: format!("{}\n\n", target.notes),
             update_type: FileUpdateType::Prepend,
         }
-    }
-
-    fn additional_file_changes(
-        &self,
-        target: &ReleasablePackage,
-    ) -> Result<Vec<FileChange>> {
-        let mut file_changes = vec![];
-
-        if let Some(additional_manifests) =
-            target.additional_manifest_files.as_ref()
-        {
-            for manifest in additional_manifests.iter() {
-                if let Some(change) = GenericUpdater::update_manifest(
-                    &manifest.into(),
-                    &target.tag.semver,
-                    &manifest.version_regex,
-                ) {
-                    file_changes.push(change);
-                }
-            }
-        }
-
-        Ok(file_changes)
-    }
-
-    fn sub_package_file_changes(
-        &self,
-        target: &ReleasablePackage,
-    ) -> Result<Vec<FileChange>> {
-        let mut file_changes = vec![];
-
-        let sub_packages: Vec<_> = target
-            .sub_packages
-            .iter()
-            .map(|s| s.to_releasable(target))
-            .collect();
-
-        if !sub_packages.is_empty() {
-            // Build workspace context including both sub-packages and
-            // parent. This is needed for workspace-level manifest updates
-            // (e.g., Cargo.lock) Pre-allocate to avoid reallocation during
-            // push
-            let mut workspace_refs: Vec<&ReleasablePackage> =
-                Vec::with_capacity(target.sub_packages.len() + 1);
-            workspace_refs.extend(sub_packages.iter());
-            workspace_refs.push(target);
-
-            for sub in sub_packages.iter() {
-                file_changes.extend(
-                    UpdateManager::get_package_manifest_file_changes(
-                        sub,
-                        &workspace_refs,
-                    )?,
-                )
-            }
-        }
-
-        Ok(file_changes)
     }
 }
 
