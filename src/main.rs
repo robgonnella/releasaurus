@@ -90,7 +90,7 @@ fn get_dry_run_value(cli: &Cli) -> bool {
     }
 
     match cli.command {
-        Command::Release { dry_run } => dry_run,
+        Command::Release { dry_run, .. } => dry_run,
         Command::ReleasePR { dry_run, .. } => dry_run,
         Command::StartNext { dry_run, .. } => dry_run,
         _ => false,
@@ -181,12 +181,12 @@ async fn main() -> Result<()> {
     // wrap all errors using ? and manually return Ok(()) to get the benefit
     // of eyre Report
     match cli.command {
-        Command::ReleasePR { .. } => {
-            orchestrator.create_release_prs().await?;
+        Command::ReleasePR { package, .. } => {
+            orchestrator.create_release_prs(package).await?;
             Ok(())
         }
-        Command::Release { .. } => {
-            orchestrator.create_releases().await?;
+        Command::Release { package, .. } => {
+            orchestrator.create_releases(package).await?;
             Ok(())
         }
         Command::Get { command } => {

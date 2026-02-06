@@ -118,8 +118,19 @@ impl Orchestrator {
         Ok(packages)
     }
 
-    pub async fn create_release_prs(&self) -> Result<()> {
-        let prepared = self.core.prepare_packages(None).await?;
+    pub async fn create_release_prs(
+        &self,
+        target: Option<String>,
+    ) -> Result<()> {
+        if let Some(target_name) = target.as_ref()
+            && !self.package_configs.hash().contains_key(target_name)
+        {
+            return Err(ReleasaurusError::InvalidArgs(format!(
+                "unknown package: {target_name}"
+            )));
+        }
+
+        let prepared = self.core.prepare_packages(target.as_deref()).await?;
 
         let analyzed = self.core.analyze_packages(prepared)?;
 
@@ -168,11 +179,25 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub async fn create_releases(&self) -> Result<()> {
+    pub async fn create_releases(&self, target: Option<String>) -> Result<()> {
         let mut auto_start_packages: Vec<String> = vec![];
         let base_branch = self.config.base_branch.clone();
 
+        if let Some(target_name) = target.as_ref()
+            && !self.package_configs.hash().contains_key(target_name)
+        {
+            return Err(ReleasaurusError::InvalidArgs(format!(
+                "unknown package: {target_name}"
+            )));
+        }
+
         for (name, package) in self.package_configs.hash().iter() {
+            if let Some(target_name) = target.as_ref()
+                && name != target_name
+            {
+                continue;
+            }
+
             let mut release_branch =
                 format!("{DEFAULT_PR_BRANCH_PREFIX}-{base_branch}");
 

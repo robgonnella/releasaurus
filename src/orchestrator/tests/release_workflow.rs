@@ -9,6 +9,7 @@
 
 use super::common::*;
 use crate::{
+    ReleasaurusError,
     config::{Config, package::PackageConfigBuilder},
     forge::{
         config::TAGGED_LABEL,
@@ -75,7 +76,7 @@ Release notes
         None,
     );
 
-    orchestrator.create_releases().await.unwrap();
+    orchestrator.create_releases(None).await.unwrap();
 }
 
 #[tokio::test]
@@ -97,7 +98,7 @@ async fn create_releases_skips_packages_without_merged_pr() {
     let orchestrator = create_test_orchestrator(mock_forge);
 
     // Should complete without error even though no PR was found
-    orchestrator.create_releases().await.unwrap();
+    orchestrator.create_releases(None).await.unwrap();
 }
 
 #[tokio::test]
@@ -166,7 +167,7 @@ Release notes
         None,
     );
 
-    orchestrator.create_releases().await.unwrap();
+    orchestrator.create_releases(None).await.unwrap();
 }
 
 #[tokio::test]
@@ -245,5 +246,106 @@ Release B
         Some(config),
     );
 
-    orchestrator.create_releases().await.unwrap();
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_targets_specific_package() {
+    let pr_body_a = r#"
+<!--{"metadata":{"name":"pkg-a","tag":"pkg-a-v1.0.0","notes":"Release A"}}-->
+<details><summary>v1.0.0</summary>
+Release A
+</details>
+"#
+    .to_string();
+
+    // Set up mock forge expectations FIRST
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .times(1)
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "sha-a".to_string(),
+                body: pr_body_a.clone(),
+            }))
+        });
+
+    mock_forge
+        .expect_tag_commit()
+        .withf(|tag_name, _| tag_name.contains("pkg-a"))
+        .times(1)
+        .returning(|_, _| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .withf(|tag, _, _| tag.contains("pkg-a"))
+        .times(1)
+        .returning(|_, _, _| Ok(()));
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(1)
+        .returning(|_| Ok(()));
+
+    // Create orchestrator with separate_pull_requests enabled and multiple packages
+    let config = Config {
+        separate_pull_requests: true,
+        ..Default::default()
+    };
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
+        ],
+        Some(config),
+    );
+
+    orchestrator
+        .create_releases(Some("pkg-a".into()))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_returns_error_for_invalid_package_name() {
+    let mock_forge = MockForge::new();
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .tag_prefix("pkg-b-v")
+                .build()
+                .unwrap(),
+        ],
+        None,
+    );
+
+    let err = orchestrator
+        .create_releases(Some("nope".into()))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, ReleasaurusError::InvalidArgs(_)));
 }

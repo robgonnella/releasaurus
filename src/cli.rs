@@ -316,13 +316,21 @@ pub enum Command {
         #[command(flatten)]
         overrides: SharedCommandOverrides,
 
+        /// Targets a specific package in config for release PR generation
+        #[arg(short, long)]
+        package: Option<String>,
+
         /// Execute in dry-run mode
-        #[arg(long, default_value_t = false, global = true)]
+        #[arg(long, default_value_t = false)]
         dry_run: bool,
     },
 
     /// Create a git tag and publish release after PR merge
     Release {
+        /// Targets a specific package in config for release generation
+        #[arg(short, long)]
+        package: Option<String>,
+
         /// Execute in dry-run mode
         #[arg(long, default_value_t = false)]
         dry_run: bool,
