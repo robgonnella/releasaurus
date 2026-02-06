@@ -366,6 +366,29 @@ path = "services/api"  # Conflict!
 4. Run `releasaurus release` after each merge
 5. Each package tagged and released separately
 
+### Targeting a Specific Package
+
+In both modes, you can target a single package using the `--package` flag
+on `release-pr` and `release` commands. This is useful when you want to
+release one package without affecting others:
+
+```bash
+# Create a release PR for just the API package
+releasaurus release-pr \
+  --package api \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Publish a release for just the API package
+releasaurus release \
+  --package api \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+The package name must match a `name` defined in your `releasaurus.toml`.
+An error is returned if the package name is not found.
+
 ## Auto Start Next
 
 Automatically bump versions after release:
@@ -394,10 +417,14 @@ Test locally to verify package detection and tagging:
 # See what packages would be released
 releasaurus release-pr --forge local --repo "."
 
+# Test a specific package
+releasaurus release-pr --package my-pkg --forge local --repo "."
+
 # Check:
 # - All packages detected correctly
 # - Tag prefixes match expectations
 # - Separate/combined PR strategy works
+# - Package targeting works as expected
 ```
 
 ## Next Steps

@@ -23,8 +23,24 @@ This command does the heavy lifting of release preparation:
 - Updates version files across your project
 - Generates a changelog from commit history
 - Creates a pull request with all changes
+- Supports targeting a specific package with `--package` flag
 - Supports prerelease versions (alpha, beta, rc, etc.)
 - Supports dry-run mode for testing
+
+**Usage:**
+
+```bash
+# Create release PRs for all packages
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Target a specific package in a monorepo
+releasaurus release-pr \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
 
 ### `release`
 
@@ -36,8 +52,24 @@ This command finalizes the release:
 - Creates a Git tag for the new version
 - Pushes the tag to the remote repository
 - Creates a release on your forge platform
+- Supports targeting a specific package with `--package` flag
 - Supports prerelease versions (alpha, beta, rc, etc.)
 - Supports dry-run mode for testing
+
+**Usage:**
+
+```bash
+# Create releases for all packages with merged PRs
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Target a specific package in a monorepo
+releasaurus release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
 
 ### `start-next`
 
@@ -263,6 +295,23 @@ releasaurus release \
 
 # Step 4 (Optional): Start next development cycle
 releasaurus start-next \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+```
+
+In monorepo setups, you can target a specific package with the `--package`
+flag on `release-pr` and `release` commands:
+
+```bash
+# Create a release PR for just the frontend package
+releasaurus release-pr \
+  --package frontend \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Publish a release for just the frontend package
+releasaurus release \
+  --package frontend \
   --forge github \
   --repo "https://github.com/owner/repo"
 ```

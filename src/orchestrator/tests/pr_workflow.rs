@@ -7,10 +7,14 @@
 //! - Handling empty releasable packages
 
 use super::common::*;
-use crate::forge::{
-    config::PENDING_LABEL,
-    request::{Commit, ForgeCommitBuilder, PullRequest},
-    traits::MockForge,
+use crate::{
+    ReleasaurusError,
+    config::{Config, package::PackageConfigBuilder},
+    forge::{
+        config::PENDING_LABEL,
+        request::{Commit, ForgeCommitBuilder, PullRequest},
+        traits::MockForge,
+    },
 };
 
 #[tokio::test]
@@ -39,7 +43,7 @@ async fn create_release_prs_succeeds_when_no_commits_since_last_tag() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    orchestrator.create_release_prs().await.unwrap();
+    orchestrator.create_release_prs(None).await.unwrap();
 }
 
 #[tokio::test]
@@ -55,7 +59,97 @@ async fn create_release_prs_creates_new_prs() {
         Ok(vec![
             ForgeCommitBuilder::default()
                 .id("abc123")
-                .files(vec!["dummy.txt".into()])
+                .files(vec![
+                    "packages/pkg-a/dummy.txt".into(),
+                    "packages/pkg-b/dummy.txt".into(),
+                ])
+                .build()
+                .unwrap(),
+        ])
+    });
+
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None))
+        .times(2);
+
+    mock_forge
+        .expect_create_release_branch()
+        .returning(|_| {
+            Ok(Commit {
+                sha: "abc123".to_string(),
+            })
+        })
+        .times(2);
+
+    mock_forge
+        .expect_create_pr()
+        .returning(|req| {
+            let mut pr_number = 1;
+            if req.base_branch.contains("pkg-b") {
+                pr_number = 2;
+            }
+            Ok(PullRequest {
+                number: pr_number,
+                sha: "abc123".into(),
+                body: "".into(),
+            })
+        })
+        .times(2);
+
+    mock_forge.expect_update_pr().times(0);
+
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(2)
+        .withf(|req| {
+            (req.pr_number == 1 || req.pr_number == 2)
+                && req.labels.contains(&PENDING_LABEL.into())
+        })
+        .returning(|_| Ok(()));
+
+    let config = Config {
+        separate_pull_requests: true,
+        ..Default::default()
+    };
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .build()
+                .unwrap(),
+        ],
+        Some(config),
+    );
+
+    orchestrator.create_release_prs(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_release_prs_targets_specific_package() {
+    let mut mock_forge = MockForge::new();
+
+    // No tags exist yet
+    mock_forge
+        .expect_get_latest_tag_for_prefix()
+        .returning(|_| Ok(None));
+
+    mock_forge.expect_get_commits().returning(|_, _| {
+        Ok(vec![
+            ForgeCommitBuilder::default()
+                .id("abc123")
+                .files(vec![
+                    "packages/pkg-a/dummy.txt".into(),
+                    "packages/pkg-b/dummy.txt".into(),
+                ])
                 .build()
                 .unwrap(),
         ])
@@ -77,6 +171,7 @@ async fn create_release_prs_creates_new_prs() {
 
     mock_forge
         .expect_create_pr()
+        .withf(|req| req.head_branch.contains("pkg-a"))
         .returning(|_| {
             Ok(PullRequest {
                 number: 1,
@@ -96,9 +191,61 @@ async fn create_release_prs_creates_new_prs() {
         })
         .returning(|_| Ok(()));
 
-    let orchestrator = create_test_orchestrator(mock_forge);
+    let config = Config {
+        separate_pull_requests: true,
+        ..Default::default()
+    };
 
-    orchestrator.create_release_prs().await.unwrap();
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .build()
+                .unwrap(),
+        ],
+        Some(config),
+    );
+
+    orchestrator
+        .create_release_prs(Some("pkg-a".into()))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn create_release_prs_returns_error_for_invalid_package_name() {
+    let mock_forge = MockForge::new();
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .build()
+                .unwrap(),
+        ],
+        None,
+    );
+
+    let err = orchestrator
+        .create_release_prs(Some("nope".into()))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
 }
 
 #[tokio::test]
@@ -161,5 +308,5 @@ async fn create_release_prs_updates_existing_prs() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    orchestrator.create_release_prs().await.unwrap();
+    orchestrator.create_release_prs(None).await.unwrap();
 }
