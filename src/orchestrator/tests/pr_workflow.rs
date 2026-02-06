@@ -47,6 +47,51 @@ async fn create_release_prs_succeeds_when_no_commits_since_last_tag() {
 }
 
 #[tokio::test]
+async fn create_release_prs_returns_error_when_merged_pr_not_yet_released() {
+    let mut mock_forge = MockForge::new();
+
+    // No tags exist yet
+    mock_forge
+        .expect_get_latest_tag_for_prefix()
+        .returning(|_| Ok(None));
+
+    mock_forge.expect_get_commits().returning(|_, _| {
+        Ok(vec![
+            ForgeCommitBuilder::default()
+                .id("abc123")
+                .files(vec!["dummy.txt".into()])
+                .build()
+                .unwrap(),
+        ])
+    });
+
+    // A merged release PR exists that hasn't been tagged yet
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| {
+            Ok(Some(PullRequest {
+                number: 42,
+                sha: "def456".into(),
+                body: "".into(),
+            }))
+        })
+        .times(1);
+
+    // Should never reach branch creation or PR operations
+    mock_forge.expect_create_release_branch().times(0);
+    mock_forge.expect_get_open_release_pr().times(0);
+    mock_forge.expect_create_pr().times(0);
+    mock_forge.expect_update_pr().times(0);
+    mock_forge.expect_replace_pr_labels().times(0);
+
+    let orchestrator = create_test_orchestrator(mock_forge);
+
+    let err = orchestrator.create_release_prs(None).await.unwrap_err();
+
+    assert!(matches!(err, ReleasaurusError::PendingRelease { .. }));
+}
+
+#[tokio::test]
 async fn create_release_prs_creates_new_prs() {
     let mut mock_forge = MockForge::new();
 
@@ -67,6 +112,10 @@ async fn create_release_prs_creates_new_prs() {
                 .unwrap(),
         ])
     });
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     mock_forge
         .expect_get_open_release_pr()
@@ -154,6 +203,10 @@ async fn create_release_prs_targets_specific_package() {
                 .unwrap(),
         ])
     });
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     mock_forge
         .expect_get_open_release_pr()
@@ -273,6 +326,10 @@ async fn create_release_prs_updates_existing_prs() {
                 .unwrap(),
         ])
     });
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     mock_forge
         .expect_get_open_release_pr()

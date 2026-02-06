@@ -20,6 +20,10 @@ use crate::{
 async fn create_pr_branches_creates_branch_before_pr_request() {
     let mut mock_forge = MockForge::new();
 
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
     // Expect the branch to be created
     mock_forge
         .expect_create_release_branch()
@@ -65,6 +69,10 @@ async fn create_pr_branches_includes_metadata_in_body() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
         .expect_create_release_branch()
         .times(1)
         .returning(|_| {
@@ -108,6 +116,10 @@ async fn create_pr_branches_includes_metadata_in_body() {
 #[tokio::test]
 async fn create_pr_branches_uses_sha_compare_link() {
     let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -163,6 +175,10 @@ async fn create_pr_branches_uses_sha_compare_link() {
 #[tokio::test]
 async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     // Should only create one branch for multiple packages
     mock_forge
@@ -246,6 +262,10 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
 async fn create_pr_branches_handles_separate_branches() {
     let mut mock_forge = MockForge::new();
 
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
     // Should create two separate branches
     mock_forge
         .expect_create_release_branch()
@@ -324,6 +344,10 @@ async fn create_pr_branches_includes_file_changes() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
         .expect_create_release_branch()
         .times(1)
         .withf(|req: &CreateReleaseBranchRequest| {
@@ -361,6 +385,10 @@ async fn create_pr_branches_includes_file_changes() {
 #[tokio::test]
 async fn create_pr_branches_uses_correct_title_format() {
     let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()

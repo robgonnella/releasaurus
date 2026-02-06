@@ -4,14 +4,14 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    OrchestratorConfig, ResolvedPackage, Result,
+    OrchestratorConfig, ReleasaurusError, ResolvedPackage, Result,
     analyzer::Analyzer,
     forge::{
         config::DEFAULT_PR_BRANCH_PREFIX,
         manager::ForgeManager,
         request::{
             CreatePrRequest, CreateReleaseBranchRequest, FileChange,
-            FileUpdateType, ForgeCommit,
+            FileUpdateType, ForgeCommit, GetPrRequest,
         },
     },
     orchestrator::{
@@ -274,6 +274,20 @@ impl Core {
         let mut pr_requests = vec![];
 
         for (release_branch, pr_packages) in packages.into_iter() {
+            if let Some(pending_release) = self
+                .forge
+                .get_merged_release_pr(GetPrRequest {
+                    base_branch: self.config.base_branch.clone(),
+                    head_branch: release_branch.clone(),
+                })
+                .await?
+            {
+                return Err(ReleasaurusError::pending_release(
+                    release_branch.clone(),
+                    pending_release.number,
+                ));
+            }
+
             let file_changes: Vec<FileChange> = pr_packages
                 .iter()
                 .flat_map(|p| p.file_changes.clone())
