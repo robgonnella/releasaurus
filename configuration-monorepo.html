@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-722411d6.js";
+            window.path_to_searchindex_js = "searchindex-bd10504f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -482,6 +482,24 @@ path = "services/api"  # Conflict!
 <li>Run <code>releasaurus release</code> after each merge</li>
 <li>Each package tagged and released separately</li>
 </ol>
+<h3 id="targeting-a-specific-package"><a class="header" href="#targeting-a-specific-package">Targeting a Specific Package</a></h3>
+<p>In both modes, you can target a single package using the <code>--package</code> flag
+on <code>release-pr</code> and <code>release</code> commands. This is useful when you want to
+release one package without affecting others:</p>
+<pre><code class="language-bash"># Create a release PR for just the API package
+releasaurus release-pr \
+  --package api \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Publish a release for just the API package
+releasaurus release \
+  --package api \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p>The package name must match a <code>name</code> defined in your <code>releasaurus.toml</code>.
+An error is returned if the package name is not found.</p>
 <h2 id="auto-start-next"><a class="header" href="#auto-start-next">Auto Start Next</a></h2>
 <p>Automatically bump versions after release:</p>
 <pre><code class="language-toml">auto_start_next = true
@@ -502,10 +520,14 @@ release_type = "node"
 <pre><code class="language-bash"># See what packages would be released
 releasaurus release-pr --forge local --repo "."
 
+# Test a specific package
+releasaurus release-pr --package my-pkg --forge local --repo "."
+
 # Check:
 # - All packages detected correctly
 # - Tag prefixes match expectations
 # - Separate/combined PR strategy works
+# - Package targeting works as expected
 </code></pre>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>

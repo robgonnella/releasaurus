@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-722411d6.js";
+            window.path_to_searchindex_js = "searchindex-bd10504f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -196,9 +196,22 @@ a pull request</p>
 <li>Updates version files across your project</li>
 <li>Generates a changelog from commit history</li>
 <li>Creates a pull request with all changes</li>
+<li>Supports targeting a specific package with <code>--package</code> flag</li>
 <li>Supports prerelease versions (alpha, beta, rc, etc.)</li>
 <li>Supports dry-run mode for testing</li>
 </ul>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash"># Create release PRs for all packages
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Target a specific package in a monorepo
+releasaurus release-pr \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
 <h3 id="release"><a class="header" href="#release"><code>release</code></a></h3>
 <p><strong>Purpose</strong>: Create tags and publish the release after PR approval</p>
 <p>This command finalizes the release:</p>
@@ -207,9 +220,22 @@ a pull request</p>
 <li>Creates a Git tag for the new version</li>
 <li>Pushes the tag to the remote repository</li>
 <li>Creates a release on your forge platform</li>
+<li>Supports targeting a specific package with <code>--package</code> flag</li>
 <li>Supports prerelease versions (alpha, beta, rc, etc.)</li>
 <li>Supports dry-run mode for testing</li>
 </ul>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash"># Create releases for all packages with merged PRs
+releasaurus release \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Target a specific package in a monorepo
+releasaurus release \
+  --package my-pkg \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
 <h3 id="start-next"><a class="header" href="#start-next"><code>start-next</code></a></h3>
 <p><strong>Purpose</strong>: Prepare for the next development cycle by bumping patch versions</p>
 <p>This command helps maintain a continuous development workflow by automatically
@@ -395,6 +421,20 @@ releasaurus release \
 
 # Step 4 (Optional): Start next development cycle
 releasaurus start-next \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p>In monorepo setups, you can target a specific package with the <code>--package</code>
+flag on <code>release-pr</code> and <code>release</code> commands:</p>
+<pre><code class="language-bash"># Create a release PR for just the frontend package
+releasaurus release-pr \
+  --package frontend \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Publish a release for just the frontend package
+releasaurus release \
+  --package frontend \
   --forge github \
   --repo "https://github.com/owner/repo"
 </code></pre>
