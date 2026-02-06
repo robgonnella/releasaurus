@@ -1,3 +1,13 @@
+# [0.13.0](https://github.com/robgonnella/releasaurus/compare/v0.12.0...v0.13.0) - 2026-02-06
+
+### 🚀 Features
+
+- allows targeting specific packages in cli commands [_(8137b24)_](https://github.com/robgonnella/releasaurus/commit/8137b24ef40f053732e9f18cdbc188897b1b4fe2) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- fixes missing pending release guard in release-pr cmd [_(37c3b2b)_](https://github.com/robgonnella/releasaurus/commit/37c3b2b4ddf4f0ea28ca6ba843a3a67ebaceefa4) (Rob Gonnella)
+
 # [0.12.0](https://github.com/robgonnella/releasaurus/compare/v0.11.0...v0.12.0) - 2026-01-25
 
 ### 🚀 Features
