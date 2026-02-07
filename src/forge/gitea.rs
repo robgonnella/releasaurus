@@ -10,8 +10,8 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::SecretString;
-use std::{cmp, sync::Arc, time::Duration};
-use tokio::{sync::Mutex, time::sleep};
+use std::{cmp, sync::Arc};
+use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{
@@ -119,17 +119,6 @@ impl Gitea {
             compare_link_base_url,
             default_branch: default_branch.into(),
         })
-    }
-
-    // TODO: Right now gitea does not support force updating a branch
-    // Once the below issue is resolved we can remove this method and use the
-    // "force" option
-    // https://github.com/go-gitea/gitea/issues/35538
-    async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
-        let url = self.base_url.join(&format!("branches/{branch}"))?;
-        let request = self.client.delete(url).build()?;
-        self.client.execute(request).await?;
-        Ok(())
     }
 
     async fn get_file_sha(&self, path: &str) -> Result<String> {
@@ -439,13 +428,6 @@ impl Forge for Gitea {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        // TODO: Once below issue is resolved we can delete this call
-        // https://github.com/go-gitea/gitea/issues/35538
-        self.delete_branch_if_exists(&req.release_branch).await?;
-        // pause execution to wait for any PRs that might have been closed as
-        // a result to fully register as closed
-        sleep(Duration::from_millis(3000)).await;
-
         let mut file_changes: Vec<GiteaFileChange> = vec![];
 
         for change in req.file_changes.iter() {
@@ -474,15 +456,12 @@ impl Forge for Gitea {
             })
         }
 
-        // TODO: Currently gitea does not support the force option
-        // Update once below issue is resolved
-        // https://github.com/go-gitea/gitea/issues/35538
         let body = GiteaModifyFiles {
             old_ref_name: req.base_branch,
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
-            // force: true,
+            force: true,
         };
 
         let contents_url = self.base_url.join("contents")?;
@@ -546,6 +525,7 @@ impl Forge for Gitea {
             old_ref_name: req.target_branch,
             message: req.message,
             files: file_changes,
+            force: false,
         };
 
         let contents_url = self.base_url.join("contents")?;
