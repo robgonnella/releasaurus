@@ -57,7 +57,7 @@ When configured, updates version files for:
 - **Rust** (Cargo.toml)
 - **Node.js** (package.json, package-lock.json, yarn.lock)
 - **Python** (pyproject.toml, setup.py, setup.cfg, requirements files)
-- **Java** (Maven pom.xml, Gradle build files)
+- **Java** (Maven pom.xml, Gradle build files, Gradle version catalogs)
 - **PHP** (composer.json)
 - **Ruby** (Gemfile, .gemspec files)
 - **Generic** projects (custom version file patterns)

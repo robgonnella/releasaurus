@@ -167,8 +167,8 @@ Use existing language implementations as templates:
 
 - **Node**: `src/updater/node/` - Workspace support, multiple lock files
 - **Rust**: `src/updater/rust/` - Workspace detection, dependency updates
-- **Java**: `src/updater/java/` - Multiple build tools (Maven, Gradle),
-  properties files
+- **Java**: `src/updater/java/` - Multiple build tools
+  (Maven, Gradle, version catalogs), properties files
 
 **Key Traits to Implement:**
 
