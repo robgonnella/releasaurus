@@ -4,7 +4,8 @@ use crate::{
     updater::{
         composite::CompositeUpdater,
         java::{
-            gradle::Gradle, gradle_properties::GradleProperties, maven::Maven,
+            gradle::Gradle, gradle_properties::GradleProperties,
+            libs_versions_toml::LibsVersionsToml, maven::Maven,
         },
         manager::UpdaterPackage,
         traits::PackageUpdater,
@@ -23,6 +24,7 @@ impl JavaUpdater {
             composite: CompositeUpdater::new(vec![
                 Box::new(Gradle::new()),
                 Box::new(GradleProperties::new()),
+                Box::new(LibsVersionsToml::new()),
                 Box::new(Maven::new()),
             ]),
         }

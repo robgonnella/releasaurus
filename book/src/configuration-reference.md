@@ -349,7 +349,8 @@ Language/framework for version file updates:
 
 - `"generic"` - Changelog/tagging only
 - `"go"` - version.go
-- `"java"` - pom.xml, build.gradle
+- `"java"` - pom.xml, build.gradle, build.gradle.kts, gradle.properties,
+  gradle/libs.versions.toml
 - `"node"` - package.json, lock files
 - `"php"` - composer.json, composer.lock
 - `"python"` - pyproject.toml, setup.py, setup.cfg

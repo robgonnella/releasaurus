@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn release_type_manifest_targets_delegates_to_language_manifests() {
         let test_cases = vec![
-            (ReleaseType::Java, 6),
+            (ReleaseType::Java, 7),
             (ReleaseType::Node, 3),
             (ReleaseType::Php, 2),
             (ReleaseType::Python, 3),

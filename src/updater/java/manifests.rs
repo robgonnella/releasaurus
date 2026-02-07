@@ -35,6 +35,10 @@ impl ManifestTargets for JavaManifests {
                 path: pkg_path.join("pom.xml"),
                 basename: "pom.xml".into(),
             },
+            ManifestTarget {
+                path: pkg_path.join("gradle/libs.versions.toml"),
+                basename: "libs.versions.toml".into(),
+            },
         ]
     }
 }
@@ -55,7 +59,7 @@ mod tests {
             &workspace_path.clone(),
         );
 
-        assert_eq!(targets.len(), 6);
+        assert_eq!(targets.len(), 7);
 
         let basenames: Vec<_> = targets.iter().map(|t| &t.basename).collect();
         assert_eq!(
@@ -71,6 +75,7 @@ mod tests {
         );
         assert!(basenames.contains(&&"gradle.properties".to_string()));
         assert!(basenames.contains(&&"pom.xml".to_string()));
+        assert!(basenames.contains(&&"libs.versions.toml".to_string()));
     }
 
     #[test]
@@ -90,5 +95,8 @@ mod tests {
         assert!(paths.contains(&"packages/my-java-app/lib/build.gradle.kts"));
         assert!(paths.contains(&"packages/my-java-app/gradle.properties"));
         assert!(paths.contains(&"packages/my-java-app/pom.xml"));
+        assert!(
+            paths.contains(&"packages/my-java-app/gradle/libs.versions.toml")
+        );
     }
 }
