@@ -1,12 +1,22 @@
+use regex::Regex;
+use std::sync::LazyLock;
+
 use crate::{
     Result,
     forge::request::FileChange,
     updater::{
-        generic::updater::{GENERIC_VERSION_REGEX, GenericUpdater},
-        manager::UpdaterPackage,
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
         traits::PackageUpdater,
     },
 };
+
+/// Gradle-specific version regex that only matches the project `version`
+/// property. Unlike GENERIC_VERSION_REGEX, this anchors to the start of the
+/// line and only allows an optional `project.` prefix, preventing false matches
+/// on variables like `awsSoftwareVersion`, `kotlinVersion`, etc.
+static GRADLE_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?mi)(?<start>^\s*(?:project\.)?version\s*=\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#).unwrap()
+});
 
 /// Handles Gradle build.gradle and build.gradle.kts file parsing and version updates for Java packages.
 pub struct Gradle {}
@@ -32,7 +42,7 @@ impl PackageUpdater for Gradle {
                 && let Some(change) = GenericUpdater::update_manifest(
                     manifest,
                     &package.next_version.semver,
-                    &GENERIC_VERSION_REGEX,
+                    &GRADLE_VERSION_REGEX,
                 )
             {
                 file_changes.push(change);
@@ -254,6 +264,61 @@ mod tests {
         let result = gradle.update(&package, &[]).unwrap();
 
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn does_not_update_ext_variables_containing_version() {
+        let gradle = Gradle::new();
+        let content = r#"
+buildscript {
+    ext {
+        awsSoftwareVersion = "1.0.0"
+        kotlinVersion = "1.9.20"
+        springBootVersion = "3.2.0"
+    }
+}
+
+version = "1.0.0"
+"#
+        .trim();
+        let manifest = ManifestFile {
+            path: Path::new("build.gradle").to_path_buf(),
+            basename: "build.gradle".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
+        };
+
+        let result = gradle.update(&package, &[]).unwrap();
+
+        let change = result.unwrap();
+        assert_eq!(change.len(), 1);
+        let updated = &change[0].content;
+        assert!(
+            updated.contains(r#"awsSoftwareVersion = "1.0.0""#),
+            "awsSoftwareVersion should not be updated"
+        );
+        assert!(
+            updated.contains(r#"kotlinVersion = "1.9.20""#),
+            "kotlinVersion should not be updated"
+        );
+        assert!(
+            updated.contains(r#"springBootVersion = "3.2.0""#),
+            "springBootVersion should not be updated"
+        );
+        assert!(
+            updated.contains(r#"version = "2.0.0""#),
+            "project version should be updated"
+        );
     }
 
     #[test]

@@ -1,12 +1,21 @@
+use regex::Regex;
+use std::sync::LazyLock;
+
 use crate::{
     Result,
     forge::request::FileChange,
     updater::{
-        generic::updater::{GENERIC_VERSION_REGEX, GenericUpdater},
-        manager::UpdaterPackage,
+        generic::updater::GenericUpdater, manager::UpdaterPackage,
         traits::PackageUpdater,
     },
 };
+
+/// Gradle properties-specific version regex that only matches a standalone
+/// `version` property. Prevents false matches on properties like
+/// `awsSoftwareVersion`, `kotlinVersion`, etc.
+static GRADLE_PROPERTIES_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?mi)(?<start>^\s*version\s*=\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#).unwrap()
+});
 
 /// Handles gradle.properties file parsing and version updates for Java packages.
 pub struct GradleProperties {}
@@ -32,7 +41,7 @@ impl PackageUpdater for GradleProperties {
                 && let Some(change) = GenericUpdater::update_manifest(
                     manifest,
                     &package.next_version.semver,
-                    &GENERIC_VERSION_REGEX,
+                    &GRADLE_PROPERTIES_VERSION_REGEX,
                 )
             {
                 file_changes.push(change);
@@ -262,7 +271,48 @@ mod tests {
     }
 
     #[test]
-    fn updates_commented_version_lines() {
+    fn does_not_update_properties_containing_version_in_name() {
+        let properties = GradleProperties::new();
+        let content =
+            "awsSoftwareVersion=1.0.0\nkotlinVersion=1.9.20\nversion=1.0.0";
+        let manifest = ManifestFile {
+            path: Path::new("gradle.properties").to_path_buf(),
+            basename: "gradle.properties".to_string(),
+            content: content.to_string(),
+        };
+        let package = UpdaterPackage {
+            package_name: "test".to_string(),
+            manifest_files: vec![manifest.clone()],
+            next_version: Tag {
+                name: "v2.0.0".into(),
+                semver: semver::Version::parse("2.0.0").unwrap(),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
+            updater: Rc::new(Updater::new(ReleaseType::Java)),
+        };
+
+        let result = properties.update(&package, &[]).unwrap();
+
+        let changes = result.unwrap();
+        assert_eq!(changes.len(), 1);
+        let updated = &changes[0].content;
+        assert!(
+            updated.contains("awsSoftwareVersion=1.0.0"),
+            "awsSoftwareVersion should not be updated"
+        );
+        assert!(
+            updated.contains("kotlinVersion=1.9.20"),
+            "kotlinVersion should not be updated"
+        );
+        assert!(
+            updated.contains("version=2.0.0"),
+            "version property should be updated"
+        );
+    }
+
+    #[test]
+    fn does_not_update_commented_version_lines() {
         let properties = GradleProperties::new();
         let content = "# version=0.0.1\nversion=1.0.0";
         let manifest = ManifestFile {
@@ -288,7 +338,10 @@ mod tests {
         assert_eq!(changes.len(), 1);
 
         let updated = changes[0].content.clone();
-        assert!(updated.contains("# version=2.0.0"));
+        assert!(
+            updated.contains("# version=0.0.1"),
+            "commented version should not be updated"
+        );
         assert!(updated.contains("version=2.0.0"));
     }
 }
