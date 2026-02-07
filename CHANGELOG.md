@@ -1,3 +1,13 @@
+# [0.14.0](https://github.com/robgonnella/releasaurus/compare/v0.13.0...v0.14.0) - 2026-02-07
+
+### 🚀 Features
+
+- adds support for libs.versions.toml in java updater [_(97ce9bd)_](https://github.com/robgonnella/releasaurus/commit/97ce9bdf4888ba7442d62aac2b72dc90d85e2e31) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- fixes issue in java updater [_(b66e4f5)_](https://github.com/robgonnella/releasaurus/commit/b66e4f5be8034dfa4fb3367fe2e1bd9505e60cf0) (Rob Gonnella)
+
 # [0.13.0](https://github.com/robgonnella/releasaurus/compare/v0.12.0...v0.13.0) - 2026-02-06
 
 ### 🚀 Features
