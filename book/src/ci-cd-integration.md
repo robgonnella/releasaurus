@@ -51,7 +51,7 @@ jobs:
 
 ## GitLab CI
 
-Use the Releasaurus Docker image directly in your `.gitlab-ci.yml`:
+Use the Releasaurus Docker image directly in your `.gitlab-ci.yml`. Ensure that you have a CI/CD variable named `GITLAB_TOKEN` with the Maintainer role and following scopes: api, read_api, read_repository, write_repository.
 
 ### Example
 
@@ -64,8 +64,6 @@ publish-release:
     - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  variables:
-    GITLAB_TOKEN: $GITLAB_TOKEN
 
 release-pr:
   image:
@@ -75,6 +73,4 @@ release-pr:
     - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  variables:
-    GITLAB_TOKEN: $GITLAB_TOKEN
 ```
