@@ -51,7 +51,15 @@ jobs:
 
 ## GitLab CI
 
-Use the Releasaurus Docker image directly in your `.gitlab-ci.yml`. Ensure that you have a CI/CD variable named `GITLAB_TOKEN` with the Maintainer role and following scopes: api, read_api, read_repository, write_repository.
+Use the Releasaurus Docker image directly in your `.gitlab-ci.yml`.
+You may provide authentication token either by specifying a CI/CD variable named
+`GITLAB_TOKEN`, or by directly passing the `--token` option with reference to
+your defined variable, i.e. `--token $RELEASE_TOKEN`
+
+**Required Scopes**:
+
+- `api` (full API access)
+- `write_repository` (repository write access)
 
 ### Example
 
@@ -61,6 +69,7 @@ publish-release:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
+    # Assumes use of $GITLAB_TOKEN var for token authentication
     - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -70,7 +79,8 @@ release-pr:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
-    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
+    # Uses custom var for token authentication
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
