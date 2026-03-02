@@ -69,7 +69,6 @@ releasaurus release-pr \
 **Required Scopes**:
 
 - `api` (full API access)
-- `read_repository` (repository read access)
 - `write_repository` (repository write access)
 
 **Token Types**:
