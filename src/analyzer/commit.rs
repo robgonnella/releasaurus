@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn test_parse_conventional_feat_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc123")
             .message("feat: add new user authentication")
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_parse_conventional_feat_commit_with_scope() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("def456")
             .message("feat(auth): add OAuth2 support")
@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn test_parse_conventional_fix_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("ghi789")
             .message("fix: resolve null pointer exception")
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn test_parse_breaking_change_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("jkl012")
             .message("feat!: redesign user API\n\nBREAKING CHANGE: The user API has been completely redesigned")
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_parse_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let message = "feat: add user registration\n\nThis feature allows new users to register\nwith email verification.";
         let forge_commit = ForgeCommitBuilder::default()
             .id("mno345")
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn test_parse_non_conventional_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("pqr678")
             .message("Update user authentication logic")
@@ -389,7 +389,7 @@ mod tests {
     #[test]
     fn test_parse_non_conventional_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let message = "Update database schema\n\nAdded new indexes for better performance\nand updated user table structure.";
         let forge_commit = ForgeCommitBuilder::default()
             .id("stu901")
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn test_parses_and_omits_merge_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("Merge pull request #123 from feature/auth")
@@ -442,7 +442,7 @@ mod tests {
             skip_merge_commits: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("Merge pull request #123 from feature/auth")
@@ -478,7 +478,7 @@ mod tests {
             tag_prefix: Some("test-package-v".into()),
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("chore(main): release test-package test-package-v1.0.0")
@@ -504,7 +504,7 @@ mod tests {
             skip_release_commits: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("chore(main): release test-package test-package-v1.0.0")
@@ -531,7 +531,7 @@ mod tests {
     #[test]
     fn test_parse_empty_message() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("yz567")
             .message("")
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn test_parse_chore_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc890")
             .message("chore: update dependencies")
@@ -581,7 +581,7 @@ mod tests {
     #[test]
     fn test_parse_ci_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("def123")
             .message("ci: update GitHub Actions workflow")
@@ -605,7 +605,7 @@ mod tests {
     #[test]
     fn test_parse_docs_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("ghi456")
             .message("doc: update README with installation instructions")
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn test_parse_test_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("jkl789")
             .message("test: add unit tests for user service")
@@ -656,7 +656,7 @@ mod tests {
     #[test]
     fn test_parse_refactor_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("mno012")
             .message("refactor: simplify authentication logic")
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn test_parse_perf_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("pqr345")
             .message("perf: optimize database queries")
@@ -704,7 +704,7 @@ mod tests {
     #[test]
     fn test_parse_style_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("stu678")
             .message("style: format code with prettier")
@@ -728,7 +728,7 @@ mod tests {
     #[test]
     fn test_parse_revert_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx901")
             .message("revert: undo breaking changes")
@@ -752,7 +752,7 @@ mod tests {
     #[test]
     fn test_parse_commit_with_trailing_whitespace() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("xyz234")
             .message("feat: add new feature   \n\n  ")
@@ -778,7 +778,7 @@ mod tests {
     #[test]
     fn test_parse_commit_with_empty_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc567")
             .message("fix: resolve issue\n\n")
@@ -803,7 +803,7 @@ mod tests {
     #[test]
     fn test_parse_breaking_change_with_conventional_format() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let message = "feat(api)!: remove deprecated endpoints\n\nBREAKING CHANGE: The old v1 API endpoints have been removed".to_string();
         let forge_commit = ForgeCommitBuilder::default()
             .id("def890")
@@ -834,7 +834,7 @@ mod tests {
     #[test]
     fn test_metadata_preservation() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("unique123")
             .short_id("uni")
@@ -868,7 +868,7 @@ mod tests {
     #[test]
     fn test_non_conventional_single_line() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("single123")
             .message("Just a simple commit message")
@@ -896,7 +896,7 @@ mod tests {
     #[test]
     fn test_breaking_takes_precedence_over_type() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("breaking123")
             .message("feat!: feature change")
@@ -925,7 +925,7 @@ mod tests {
             skip_ci: true,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("ci123")
             .message("ci: update github actions workflow")
@@ -951,7 +951,7 @@ mod tests {
             skip_ci: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("ci123")
             .message("ci: update github actions workflow")
@@ -979,7 +979,7 @@ mod tests {
             skip_chore: true,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("chore123")
             .message("chore: update dependencies")
@@ -1005,7 +1005,7 @@ mod tests {
             skip_chore: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("chore123")
             .message("chore: update dependencies")
@@ -1033,7 +1033,7 @@ mod tests {
             skip_miscellaneous: true,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("misc123")
             .message("random commit message without type")
@@ -1059,7 +1059,7 @@ mod tests {
             skip_miscellaneous: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommitBuilder::default()
             .id("misc123")
             .message("random commit message without type")
@@ -1091,7 +1091,7 @@ mod tests {
             skip_release_commits: true,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
 
         // Test that other commit types are not affected
         let test_cases = vec![
@@ -1134,7 +1134,7 @@ mod tests {
     #[test]
     fn test_author_information_preserved() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::new();
+        let group_parser = GroupParser::default();
         let forge_commit = ForgeCommit {
             id: "author123".into(),
             message: "feat: add feature".into(),

@@ -47,115 +47,104 @@ pub enum Group {
     Miscellaneous,
 }
 
-type MessageGroupParserFunction = dyn FnOnce(&Commit) -> Option<Group>;
-
-type MessageGroupParser = Box<MessageGroupParserFunction>;
-
-// CHORE
-static CHORE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^chore").unwrap());
-
-// CI
-static CI_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^ci").unwrap());
-
-// DOC
-static DOC_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^doc").unwrap());
-
-// FEAT
-static FEAT_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^feat").unwrap());
-
-// FIX
-static FIX_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^fix").unwrap());
-
-// PERF
-static PERF_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^perf").unwrap());
-
-// REFACTOR
-static REFACTOR_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^refactor").unwrap());
-
-// REVERT
-static REVERT_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^revert").unwrap());
-
-// STYLE
-static STYLE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^style").unwrap());
-
-// TEST
-static TEST_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^test").unwrap());
-
-fn create_message_group_parser(
-    pattern: &'static Regex,
+// Parser data structure that can parse groups from commit message patterns
+struct Parser {
+    pattern: Regex,
     target_group: Group,
-) -> MessageGroupParser {
-    let f: MessageGroupParser = Box::new(move |c: &Commit| -> Option<Group> {
-        if pattern.is_match(c.raw_message.trim()) {
-            return Some(target_group);
+}
+
+impl Parser {
+    fn new(pattern: Regex, target_group: Group) -> Self {
+        Self {
+            pattern,
+            target_group,
+        }
+    }
+
+    pub fn parse(&self, c: &Commit) -> Option<Group> {
+        if self.pattern.is_match(c.raw_message.trim()) {
+            return Some(self.target_group);
         }
 
         None
-    });
-
-    f
+    }
 }
 
-#[derive(Default)]
+// CHORE
+static CHORE_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^chore").unwrap(), Group::Chore));
+
+// CI
+static CI_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^ci").unwrap(), Group::Ci));
+
+// DOC
+static DOC_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^doc").unwrap(), Group::Doc));
+
+// FEAT
+static FEAT_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^feat").unwrap(), Group::Feat));
+
+// FIX
+static FIX_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^fix").unwrap(), Group::Fix));
+
+// PERF
+static PERF_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^perf").unwrap(), Group::Perf));
+
+// REFACTOR
+static REFACTOR_PARSER: LazyLock<Parser> = LazyLock::new(|| {
+    Parser::new(Regex::new(r"^refactor").unwrap(), Group::Refactor)
+});
+
+// REVERT
+static REVERT_PARSER: LazyLock<Parser> = LazyLock::new(|| {
+    Parser::new(Regex::new(r"^revert").unwrap(), Group::Revert)
+});
+
+// STYLE
+static STYLE_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^style").unwrap(), Group::Style));
+
+// TEST
+static TEST_PARSER: LazyLock<Parser> =
+    LazyLock::new(|| Parser::new(Regex::new(r"^test").unwrap(), Group::Test));
+
+static GROUP_PARSERS: [&LazyLock<Parser>; 10] = [
+    &FEAT_PARSER,
+    &FIX_PARSER,
+    &REVERT_PARSER,
+    &REFACTOR_PARSER,
+    &PERF_PARSER,
+    &DOC_PARSER,
+    &STYLE_PARSER,
+    &TEST_PARSER,
+    &CHORE_PARSER,
+    &CI_PARSER,
+];
+
 /// Determines which changelog category a commit belongs to by matching
 /// against conventional commit type patterns.
+#[derive(Default)]
 pub struct GroupParser {}
 
 impl GroupParser {
-    /// Create new group parser with regex-based conventional commit type
-    /// matchers.
-    pub fn new() -> Self {
-        Self {}
-    }
-
     /// Determine the changelog category for a commit by checking breaking
     /// changes first, then matching commit type prefixes.
     pub fn parse(&self, commit: &Commit) -> Group {
-        let parsers = self.get_parsers();
-        for parser in parsers {
-            if let Some(group) = parser(commit) {
+        if commit.breaking {
+            return Group::Breaking;
+        }
+
+        for parser in GROUP_PARSERS {
+            if let Some(group) = parser.parse(commit) {
                 return group;
             }
         }
 
         Group::default()
-    }
-
-    fn get_parsers(&self) -> Vec<MessageGroupParser> {
-        let breaking: MessageGroupParser = Box::new(|c: &Commit| {
-            if c.breaking {
-                return Some(Group::Breaking);
-            }
-
-            None
-        });
-
-        let chore = create_message_group_parser(&CHORE_REGEX, Group::Chore);
-        let ci = create_message_group_parser(&CI_REGEX, Group::Ci);
-        let doc = create_message_group_parser(&DOC_REGEX, Group::Doc);
-        let feat = create_message_group_parser(&FEAT_REGEX, Group::Feat);
-        let fix = create_message_group_parser(&FIX_REGEX, Group::Fix);
-        let perf = create_message_group_parser(&PERF_REGEX, Group::Perf);
-        let refactor =
-            create_message_group_parser(&REFACTOR_REGEX, Group::Refactor);
-        let revert = create_message_group_parser(&REVERT_REGEX, Group::Revert);
-        let style = create_message_group_parser(&STYLE_REGEX, Group::Style);
-        let test = create_message_group_parser(&TEST_REGEX, Group::Test);
-
-        vec![
-            breaking, feat, fix, revert, refactor, perf, doc, style, test,
-            chore, ci,
-        ]
     }
 }
 
@@ -242,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_breaking_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("feat!: breaking change", true);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Breaking);
@@ -250,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_feat_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("feat: add new feature", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Feat);
@@ -258,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_fix_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("fix: resolve bug", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Fix);
@@ -266,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_chore_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("chore: update dependencies", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Chore);
@@ -274,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_ci_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("ci: update workflow", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Ci);
@@ -282,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_doc_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("doc: update readme", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Doc);
@@ -290,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_perf_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("perf: optimize algorithm", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Perf);
@@ -298,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_refactor_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("refactor: clean up code", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Refactor);
@@ -306,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_revert_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("revert: undo previous change", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Revert);
@@ -314,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_style_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("style: format code", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Style);
@@ -322,7 +311,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_test_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("test: add unit tests", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Test);
@@ -330,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_unknown_commit() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("random: unknown type", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Miscellaneous);
@@ -338,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_empty_message() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Miscellaneous);
@@ -346,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_whitespace_handling() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit =
             create_test_commit("  feat: feature with leading spaces", false);
         let group = parser.parse(&commit);
@@ -355,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_case_sensitivity() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
 
         // Lowercase should match
         let commit1 = create_test_commit("feat: lowercase", false);
@@ -368,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_breaking_takes_precedence() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         // Even if it matches feat pattern, breaking should take precedence
         let commit = create_test_commit("feat!: breaking feature", true);
         let group = parser.parse(&commit);
@@ -377,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_with_scope() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let commit = create_test_commit("feat(api): add endpoint", false);
         let group = parser.parse(&commit);
         assert_eq!(group, Group::Feat);
@@ -385,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_multiline_message() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
         let multiline_msg = "fix: resolve issue\n\nThis is a longer description\nwith multiple lines";
         let commit = create_test_commit(multiline_msg, false);
         let group = parser.parse(&commit);
@@ -393,26 +382,8 @@ mod tests {
     }
 
     #[test]
-    fn test_regex_patterns() {
-        // Test the regex patterns directly
-        assert!(FEAT_REGEX.is_match("feat: something"));
-        assert!(FEAT_REGEX.is_match("feat(scope): something"));
-        assert!(FEAT_REGEX.is_match("feature: something")); // "feature" starts with "feat"
-
-        assert!(FIX_REGEX.is_match("fix: something"));
-        assert!(FIX_REGEX.is_match("fix(bug): something"));
-        assert!(FIX_REGEX.is_match("fixed: something")); // "fixed" starts with "fix"
-
-        assert!(CHORE_REGEX.is_match("chore: something"));
-        assert!(CHORE_REGEX.is_match("choreography: something")); // "choreography" starts with "chore"
-
-        assert!(DOC_REGEX.is_match("doc: something"));
-        assert!(DOC_REGEX.is_match("docs: something")); // "docs" starts with "doc"
-    }
-
-    #[test]
     fn test_all_groups_covered() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
 
         // Test that we have parsers for all the main groups
         let test_cases = vec![
@@ -441,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_group_parser_order_matters() {
-        let parser = GroupParser::new();
+        let parser = GroupParser::default();
 
         // Breaking should always take precedence over other types
         let breaking_feat = create_test_commit(
