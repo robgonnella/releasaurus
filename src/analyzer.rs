@@ -32,7 +32,7 @@ impl<'a> Analyzer<'a> {
     pub fn new(config: &'a config::AnalyzerConfig) -> Result<Self> {
         Ok(Self {
             config,
-            group_parser: group::GroupParser::new(),
+            group_parser: group::GroupParser::default(),
         })
     }
 
