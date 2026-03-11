@@ -139,7 +139,7 @@ fn test_features_always_increment_minor_disabled() {
 #[test]
 fn test_custom_minor_increment_regex() {
     let config = AnalyzerConfig {
-        custom_minor_increment_regex: Some("ci".to_string()),
+        custom_minor_increment_regex: Some("^ci".to_string()),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();

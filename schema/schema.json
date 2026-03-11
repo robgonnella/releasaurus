@@ -51,7 +51,7 @@
       "default": true
     },
     "custom_major_increment_regex": {
-      "description": "Custom commit type regex matcher to increment major version",
+      "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`).",
       "type": [
         "string",
         "null"
@@ -59,7 +59,7 @@
       "default": null
     },
     "custom_minor_increment_regex": {
-      "description": "Custom commit type regex matcher to increment minor version",
+      "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).",
       "type": [
         "string",
         "null"
@@ -332,7 +332,7 @@
           "default": null
         },
         "custom_major_increment_regex": {
-          "description": "Custom commit type regex matcher to increment major version",
+          "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`).",
           "type": [
             "string",
             "null"
@@ -340,7 +340,7 @@
           "default": null
         },
         "custom_minor_increment_regex": {
-          "description": "Custom commit type regex matcher to increment minor version",
+          "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).",
           "type": [
             "string",
             "null"

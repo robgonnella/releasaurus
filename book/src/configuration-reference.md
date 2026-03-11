@@ -98,8 +98,22 @@ features_always_increment_minor = false
 
 **Default**: None
 
-Custom regex pattern to trigger major version bumps (additive with
-breaking changes).
+Custom regex pattern matched against commit messages to trigger a major
+version bump. This is **additive** — breaking change commits (`feat!:`,
+`fix!:`, `BREAKING CHANGE:` footer, etc.) always trigger major bumps
+regardless of this setting. The custom regex adds an additional way to
+trigger the same bump.
+
+The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write `\\` to
+represent a single `\` in the regex). For example, to match the literal
+text `[MAJOR]` in a commit message:
+
+```toml
+custom_major_increment_regex = "\\[MAJOR\\]"
+```
+
+A simpler pattern with no special characters needs no escaping:
 
 ```toml
 custom_major_increment_regex = "MAJOR"
@@ -111,8 +125,21 @@ custom_major_increment_regex = "MAJOR"
 
 **Default**: None
 
-Custom regex pattern to trigger minor version bumps (additive with
-`feat:` commits).
+Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is **additive** — `feat:` commits always trigger minor
+bumps regardless of this setting. The custom regex adds an additional way
+to trigger the same bump.
+
+The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write `\\` to
+represent a single `\` in the regex). For example, to match the literal
+text `[FEATURE]` in a commit message:
+
+```toml
+custom_minor_increment_regex = "\\[FEATURE\\]"
+```
+
+A simpler pattern with no special characters needs no escaping:
 
 ```toml
 custom_minor_increment_regex = "FEATURE"
@@ -568,7 +595,14 @@ features_always_increment_minor = false
 
 **Default**: Inherits global setting
 
-Override global major version regex.
+Custom regex pattern matched against commit messages to trigger a major
+version bump. This is **additive** — breaking change commits always
+trigger major bumps regardless of this setting. Overrides the global
+`custom_major_increment_regex` for this package.
+
+In TOML double-quoted strings, backslashes must be escaped (write `\\`
+to represent a single `\` in the regex). For example, to match the
+literal text `[BREAKING]`:
 
 ```toml
 [[package]]
@@ -583,7 +617,14 @@ custom_major_increment_regex = "\\[BREAKING\\]"
 
 **Default**: Inherits global setting
 
-Override global minor version regex.
+Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is **additive** — `feat:` commits always trigger minor
+bumps regardless of this setting. Overrides the global
+`custom_minor_increment_regex` for this package.
+
+In TOML double-quoted strings, backslashes must be escaped (write `\\`
+to represent a single `\` in the regex). For example, to match the
+literal text `[FEATURE]`:
 
 ```toml
 [[package]]

@@ -131,9 +131,16 @@ pub struct PackageConfig {
     pub breaking_always_increment_major: Option<bool>,
     /// Always increments minor version on feature commits
     pub features_always_increment_minor: Option<bool>,
-    /// Custom commit type regex matcher to increment major version
+    /// Custom regex pattern matched against commit messages to trigger a
+    /// major version bump. This is additive — breaking change commits always
+    /// trigger major bumps regardless of this setting. In TOML double-quoted
+    /// strings, escape backslashes (e.g. `"\\[BREAKING\\]"` matches
+    /// `[BREAKING]`).
     pub custom_major_increment_regex: Option<String>,
-    /// Custom commit type regex matcher to increment minor version
+    /// Custom regex pattern matched against commit messages to trigger a
+    /// minor version bump. This is additive — `feat:` commits always trigger
+    /// minor bumps regardless of this setting. In TOML double-quoted strings,
+    /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
     pub custom_minor_increment_regex: Option<String>,
 }
 
