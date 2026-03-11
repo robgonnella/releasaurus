@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd10504f.js";
+            window.path_to_searchindex_js = "searchindex-e1126017.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -232,15 +232,34 @@ version.</p>
 <h3 id="custom_major_increment_regex"><a class="header" href="#custom_major_increment_regex"><code>custom_major_increment_regex</code></a></h3>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Custom regex pattern to trigger major version bumps (additive with
-breaking changes).</p>
+<p>Custom regex pattern matched against commit messages to trigger a major
+version bump. This is <strong>additive</strong> — breaking change commits (<code>feat!:</code>,
+<code>fix!:</code>, <code>BREAKING CHANGE:</code> footer, etc.) always trigger major bumps
+regardless of this setting. The custom regex adds an additional way to
+trigger the same bump.</p>
+<p>The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write <code>\\</code> to
+represent a single <code>\</code> in the regex). For example, to match the literal
+text <code>[MAJOR]</code> in a commit message:</p>
+<pre><code class="language-toml">custom_major_increment_regex = "\\[MAJOR\\]"
+</code></pre>
+<p>A simpler pattern with no special characters needs no escaping:</p>
 <pre><code class="language-toml">custom_major_increment_regex = "MAJOR"
 </code></pre>
 <h3 id="custom_minor_increment_regex"><a class="header" href="#custom_minor_increment_regex"><code>custom_minor_increment_regex</code></a></h3>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Custom regex pattern to trigger minor version bumps (additive with
-<code>feat:</code> commits).</p>
+<p>Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is <strong>additive</strong> — <code>feat:</code> commits always trigger minor
+bumps regardless of this setting. The custom regex adds an additional way
+to trigger the same bump.</p>
+<p>The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write <code>\\</code> to
+represent a single <code>\</code> in the regex). For example, to match the literal
+text <code>[FEATURE]</code> in a commit message:</p>
+<pre><code class="language-toml">custom_minor_increment_regex = "\\[FEATURE\\]"
+</code></pre>
+<p>A simpler pattern with no special characters needs no escaping:</p>
 <pre><code class="language-toml">custom_minor_increment_regex = "FEATURE"
 </code></pre>
 <h2 id="prerelease-section"><a class="header" href="#prerelease-section">Prerelease Section</a></h2>
@@ -376,7 +395,8 @@ path = "packages/backend"
 <ul>
 <li><code>"generic"</code> - Changelog/tagging only</li>
 <li><code>"go"</code> - version.go</li>
-<li><code>"java"</code> - pom.xml, build.gradle</li>
+<li><code>"java"</code> - pom.xml, build.gradle, build.gradle.kts, gradle.properties,
+gradle/libs.versions.toml</li>
 <li><code>"node"</code> - package.json, lock files</li>
 <li><code>"php"</code> - composer.json, composer.lock</li>
 <li><code>"python"</code> - pyproject.toml, setup.py, setup.cfg</li>
@@ -529,7 +549,13 @@ features_always_increment_minor = false
 <h4 id="custom_major_increment_regex-1"><a class="header" href="#custom_major_increment_regex-1"><code>custom_major_increment_regex</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>
-<p>Override global major version regex.</p>
+<p>Custom regex pattern matched against commit messages to trigger a major
+version bump. This is <strong>additive</strong> — breaking change commits always
+trigger major bumps regardless of this setting. Overrides the global
+<code>custom_major_increment_regex</code> for this package.</p>
+<p>In TOML double-quoted strings, backslashes must be escaped (write <code>\\</code>
+to represent a single <code>\</code> in the regex). For example, to match the
+literal text <code>[BREAKING]</code>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "node"
@@ -538,7 +564,13 @@ custom_major_increment_regex = "\\[BREAKING\\]"
 <h4 id="custom_minor_increment_regex-1"><a class="header" href="#custom_minor_increment_regex-1"><code>custom_minor_increment_regex</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>
-<p>Override global minor version regex.</p>
+<p>Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is <strong>additive</strong> — <code>feat:</code> commits always trigger minor
+bumps regardless of this setting. Overrides the global
+<code>custom_minor_increment_regex</code> for this package.</p>
+<p>In TOML double-quoted strings, backslashes must be escaped (write <code>\\</code>
+to represent a single <code>\</code> in the regex). For example, to match the
+literal text <code>[FEATURE]</code>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "rust"

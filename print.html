@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd10504f.js";
+            window.path_to_searchindex_js = "searchindex-e1126017.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -222,7 +222,7 @@ they’re hosted.</p>
 <li><strong>Rust</strong> (Cargo.toml)</li>
 <li><strong>Node.js</strong> (package.json, package-lock.json, yarn.lock)</li>
 <li><strong>Python</strong> (pyproject.toml, setup.py, setup.cfg, requirements files)</li>
-<li><strong>Java</strong> (Maven pom.xml, Gradle build files)</li>
+<li><strong>Java</strong> (Maven pom.xml, Gradle build files, Gradle version catalogs)</li>
 <li><strong>PHP</strong> (composer.json)</li>
 <li><strong>Ruby</strong> (Gemfile, .gemspec files)</li>
 <li><strong>Generic</strong> projects (custom version file patterns)</li>
@@ -1127,29 +1127,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </code></pre>
 <h2 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h2>
-<p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>:</p>
+<p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>.
+You may provide authentication token either by specifying a CI/CD variable named
+<code>GITLAB_TOKEN</code>, or by directly passing the <code>--token</code> option with reference to
+your defined variable, i.e. <code>--token $RELEASE_TOKEN</code></p>
+<p><strong>Required Scopes</strong>:</p>
+<ul>
+<li><code>api</code> (full API access)</li>
+<li><code>write_repository</code> (repository write access)</li>
+</ul>
 <h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
 <pre><code class="language-yaml">publish-release:
   image:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
+    # Assumes use of $GITLAB_TOKEN var for token authentication
     - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  variables:
-    GITLAB_TOKEN: $GITLAB_TOKEN
 
 release-pr:
   image:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
-    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
+    # Uses custom var for token authentication
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  variables:
-    GITLAB_TOKEN: $GITLAB_TOKEN
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
@@ -1417,7 +1423,7 @@ release_type = "node"  # or rust, python, java, php, ruby, generic
 <tbody>
 <tr><td><strong>Generic</strong></td><td><code>"generic"</code></td><td>Custom files via <code>additional_manifest_files</code></td></tr>
 <tr><td><strong>Go</strong></td><td><code>"go"</code></td><td>version.go, version/version.go, internal/version.go, internal/version/version.go</td></tr>
-<tr><td><strong>Java</strong></td><td><code>"java"</code></td><td>pom.xml, build.gradle, build.gradle.kts</td></tr>
+<tr><td><strong>Java</strong></td><td><code>"java"</code></td><td>pom.xml, build.gradle, build.gradle.kts, gradle.properties, gradle/libs.versions.toml</td></tr>
 <tr><td><strong>Node.js</strong></td><td><code>"node"</code></td><td>package.json, package-lock.json, yarn.lock</td></tr>
 <tr><td><strong>PHP</strong></td><td><code>"php"</code></td><td>composer.json, composer.lock</td></tr>
 <tr><td><strong>Python</strong></td><td><code>"python"</code></td><td>pyproject.toml, setup.py, setup.cfg</td></tr>
@@ -2426,15 +2432,34 @@ version.</p>
 <h3 id="custom_major_increment_regex"><a class="header" href="#custom_major_increment_regex"><code>custom_major_increment_regex</code></a></h3>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Custom regex pattern to trigger major version bumps (additive with
-breaking changes).</p>
+<p>Custom regex pattern matched against commit messages to trigger a major
+version bump. This is <strong>additive</strong> — breaking change commits (<code>feat!:</code>,
+<code>fix!:</code>, <code>BREAKING CHANGE:</code> footer, etc.) always trigger major bumps
+regardless of this setting. The custom regex adds an additional way to
+trigger the same bump.</p>
+<p>The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write <code>\\</code> to
+represent a single <code>\</code> in the regex). For example, to match the literal
+text <code>[MAJOR]</code> in a commit message:</p>
+<pre><code class="language-toml">custom_major_increment_regex = "\\[MAJOR\\]"
+</code></pre>
+<p>A simpler pattern with no special characters needs no escaping:</p>
 <pre><code class="language-toml">custom_major_increment_regex = "MAJOR"
 </code></pre>
 <h3 id="custom_minor_increment_regex"><a class="header" href="#custom_minor_increment_regex"><code>custom_minor_increment_regex</code></a></h3>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: None</p>
-<p>Custom regex pattern to trigger minor version bumps (additive with
-<code>feat:</code> commits).</p>
+<p>Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is <strong>additive</strong> — <code>feat:</code> commits always trigger minor
+bumps regardless of this setting. The custom regex adds an additional way
+to trigger the same bump.</p>
+<p>The pattern is matched against the full commit message. In TOML
+double-quoted strings, backslashes must be escaped (write <code>\\</code> to
+represent a single <code>\</code> in the regex). For example, to match the literal
+text <code>[FEATURE]</code> in a commit message:</p>
+<pre><code class="language-toml">custom_minor_increment_regex = "\\[FEATURE\\]"
+</code></pre>
+<p>A simpler pattern with no special characters needs no escaping:</p>
 <pre><code class="language-toml">custom_minor_increment_regex = "FEATURE"
 </code></pre>
 <h2 id="prerelease-section"><a class="header" href="#prerelease-section">Prerelease Section</a></h2>
@@ -2570,7 +2595,8 @@ path = "packages/backend"
 <ul>
 <li><code>"generic"</code> - Changelog/tagging only</li>
 <li><code>"go"</code> - version.go</li>
-<li><code>"java"</code> - pom.xml, build.gradle</li>
+<li><code>"java"</code> - pom.xml, build.gradle, build.gradle.kts, gradle.properties,
+gradle/libs.versions.toml</li>
 <li><code>"node"</code> - package.json, lock files</li>
 <li><code>"php"</code> - composer.json, composer.lock</li>
 <li><code>"python"</code> - pyproject.toml, setup.py, setup.cfg</li>
@@ -2723,7 +2749,13 @@ features_always_increment_minor = false
 <h4 id="custom_major_increment_regex-1"><a class="header" href="#custom_major_increment_regex-1"><code>custom_major_increment_regex</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>
-<p>Override global major version regex.</p>
+<p>Custom regex pattern matched against commit messages to trigger a major
+version bump. This is <strong>additive</strong> — breaking change commits always
+trigger major bumps regardless of this setting. Overrides the global
+<code>custom_major_increment_regex</code> for this package.</p>
+<p>In TOML double-quoted strings, backslashes must be escaped (write <code>\\</code>
+to represent a single <code>\</code> in the regex). For example, to match the
+literal text <code>[BREAKING]</code>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "node"
@@ -2732,7 +2764,13 @@ custom_major_increment_regex = "\\[BREAKING\\]"
 <h4 id="custom_minor_increment_regex-1"><a class="header" href="#custom_minor_increment_regex-1"><code>custom_minor_increment_regex</code></a></h4>
 <p><strong>Type</strong>: String (optional)</p>
 <p><strong>Default</strong>: Inherits global setting</p>
-<p>Override global minor version regex.</p>
+<p>Custom regex pattern matched against commit messages to trigger a minor
+version bump. This is <strong>additive</strong> — <code>feat:</code> commits always trigger minor
+bumps regardless of this setting. Overrides the global
+<code>custom_minor_increment_regex</code> for this package.</p>
+<p>In TOML double-quoted strings, backslashes must be escaped (write <code>\\</code>
+to represent a single <code>\</code> in the regex). For example, to match the
+literal text <code>[FEATURE]</code>:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
 release_type = "rust"
@@ -2841,7 +2879,6 @@ releasaurus release-pr \
 <p><strong>Required Scopes</strong>:</p>
 <ul>
 <li><code>api</code> (full API access)</li>
-<li><code>read_repository</code> (repository read access)</li>
 <li><code>write_repository</code> (repository write access)</li>
 </ul>
 <p><strong>Token Types</strong>:</p>
@@ -3120,8 +3157,8 @@ parsing</li>
 <ul>
 <li><strong>Node</strong>: <code>src/updater/node/</code> - Workspace support, multiple lock files</li>
 <li><strong>Rust</strong>: <code>src/updater/rust/</code> - Workspace detection, dependency updates</li>
-<li><strong>Java</strong>: <code>src/updater/java/</code> - Multiple build tools (Maven, Gradle),
-properties files</li>
+<li><strong>Java</strong>: <code>src/updater/java/</code> - Multiple build tools
+(Maven, Gradle, version catalogs), properties files</li>
 </ul>
 <p><strong>Key Traits to Implement:</strong></p>
 <ul>
