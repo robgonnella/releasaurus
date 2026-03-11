@@ -34,10 +34,8 @@ pub struct AnalyzerParams {
 /// settings, and generates package-specific patterns (like release
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
-    let release_commit_matcher = build_release_commit_matcher(
-        &params.config.base_branch,
-        &params.package_name,
-    );
+    let release_commit_matcher =
+        build_release_commit_matcher(&params.package_name);
 
     AnalyzerConfig {
         body: params.config.changelog.body.clone(),
@@ -68,13 +66,9 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
 ///
 /// Release commits follow the pattern:
 /// `chore(base_branch): release package_name`
-fn build_release_commit_matcher(
-    base_branch: &str,
-    package_name: &str,
-) -> Option<Regex> {
+fn build_release_commit_matcher(package_name: &str) -> Option<Regex> {
     Regex::new(&format!(
-        r#"^chore\({}\): release {}"#,
-        regex::escape(base_branch),
+        r#"^chore\(.*\): release {}"#,
         regex::escape(package_name)
     ))
     .ok()
@@ -86,18 +80,18 @@ mod tests {
 
     #[test]
     fn builds_release_commit_matcher_correctly() {
-        let matcher = build_release_commit_matcher("main", "my-package");
+        let matcher = build_release_commit_matcher("my-package");
         assert!(matcher.is_some());
 
         let regex = matcher.unwrap();
         assert!(regex.is_match("chore(main): release my-package"));
+        assert!(regex.is_match("chore(dev): release my-package"));
         assert!(!regex.is_match("chore(main): release other-package"));
-        assert!(!regex.is_match("chore(dev): release my-package"));
     }
 
     #[test]
     fn escapes_special_regex_characters() {
-        let matcher = build_release_commit_matcher("main", "my-package");
+        let matcher = build_release_commit_matcher("my-package");
         assert!(matcher.is_some());
 
         let regex = matcher.unwrap();
