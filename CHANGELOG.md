@@ -1,3 +1,29 @@
+# [0.14.0](https://github.com/robgonnella/releasaurus/compare/v0.13.0...v0.14.0) - 2026-02-07
+
+### 🚀 Features
+
+- adds support for libs.versions.toml in java updater [_(97ce9bd)_](https://github.com/robgonnella/releasaurus/commit/97ce9bdf4888ba7442d62aac2b72dc90d85e2e31) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- loosen regex for matching release commits [_(499b72c)_](https://github.com/robgonnella/releasaurus/commit/499b72c751a7c910d6b49050a0944a5b73951449) (Rob Gonnella)
+
+- fixes issue in gitlab forge for first release [_(cca35e1)_](https://github.com/robgonnella/releasaurus/commit/cca35e18cf98461210fdd54675891ca6787b9ff9) (Rob Gonnella)
+
+- minor updates to config documentation [_(c24fdbc)_](https://github.com/robgonnella/releasaurus/commit/c24fdbcb626b2151c8a5fc6bdea15ed32b200aee) (Rob Gonnella)
+
+- fixes issue in java updater [_(b66e4f5)_](https://github.com/robgonnella/releasaurus/commit/b66e4f5be8034dfa4fb3367fe2e1bd9505e60cf0) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- improves performance of commit group parsing [_(0e8824d)_](https://github.com/robgonnella/releasaurus/commit/0e8824d92261c3d2d887682c480cee4a1e846800) (Rob Gonnella)
+
+### 📚 Documentation
+
+- minor updates to CI/CD docs for Gitlab [_(eb74b5a)_](https://github.com/robgonnella/releasaurus/commit/eb74b5a8745f16a560b1e1ded283bd0ef9255af9) (Rob Gonnella)
+
+- fix gitlab ci/cd example [_(b948203)_](https://github.com/robgonnella/releasaurus/commit/b9482037461ef5eb0530cb0b043e6eb70aea14e7) (Rob Gonnella)
+
 # [0.13.0](https://github.com/robgonnella/releasaurus/compare/v0.12.0...v0.13.0) - 2026-02-06
 
 ### 🚀 Features
