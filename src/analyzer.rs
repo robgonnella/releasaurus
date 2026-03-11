@@ -6,6 +6,7 @@
 use crate::{
     Result,
     analyzer::{
+        group::GroupParser,
         release::{Release, Tag},
         version_strategy::{VersionContext, VersionStrategyFactory},
     },
@@ -23,7 +24,7 @@ mod version_strategy;
 /// bumps and generate changelogs.
 pub struct Analyzer<'a> {
     config: &'a config::AnalyzerConfig,
-    group_parser: group::GroupParser,
+    group_parser: GroupParser,
 }
 
 impl<'a> Analyzer<'a> {
@@ -32,7 +33,7 @@ impl<'a> Analyzer<'a> {
     pub fn new(config: &'a config::AnalyzerConfig) -> Result<Self> {
         Ok(Self {
             config,
-            group_parser: group::GroupParser::default(),
+            group_parser: GroupParser::default(),
         })
     }
 
