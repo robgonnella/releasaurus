@@ -360,9 +360,11 @@ impl Forge for Gitlab {
             .project(&self.project_id)
             .order(CommitsOrder::Default);
 
-        if let Some(sha) = sha.clone() {
+        if let Some(sha) = sha.as_ref() {
             let range = format!("{sha}..{branch}");
             builder.ref_name(range);
+        } else {
+            builder.ref_name(branch);
         }
 
         let endpoint = builder.build()?;
