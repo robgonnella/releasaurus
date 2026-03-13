@@ -167,6 +167,28 @@ impl Gitea {
         let label: Label = result.json().await?;
         Ok(label)
     }
+
+    /// Returns true if `tag_sha` is an ancestor of `branch`. Uses the
+    /// Gitea compare API: `total_commits == 0` when base=branch, head=tag
+    /// means the tag has no commits that the branch doesn't, so the tag
+    /// is fully contained within the branch's history.
+    async fn is_tag_ancestor_of_branch(
+        &self,
+        tag_sha: &str,
+        branch: &str,
+    ) -> Result<bool> {
+        let compare_url = Url::parse(&format!(
+            "{}compare/{}...{}",
+            self.base_url.as_str(),
+            branch,
+            tag_sha,
+        ))?;
+        let request = self.client.get(compare_url).build()?;
+        let response = self.client.execute(request).await?;
+        let result: serde_json::Value =
+            response.error_for_status()?.json().await?;
+        Ok(result["total_commits"].as_u64() == Some(0))
+    }
 }
 
 #[async_trait]
@@ -266,10 +288,13 @@ impl Forge for Gitea {
         })
     }
 
-    // Note: Tags are returned in reverse chronological order
+    // Note: Tags are returned in reverse chronological order. We return the
+    // first tag (by semver descending) that matches the prefix AND is an
+    // ancestor of the target base branch.
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut has_more = true;
@@ -322,22 +347,29 @@ impl Forge for Gitea {
         }
 
         // tags are returned in reverse chronological order (newest first),
-        // which means the could be out of order, so here we sort by
+        // which means they could be out of order, so here we sort by
         // semantic version (descending) to get latest
         tag_matches.sort_by(|a, b| b.1.cmp(&a.1));
 
-        if let Some((tag, sver)) = tag_matches.first() {
-            return Ok(Some(Tag {
-                name: tag.name.clone(),
-                semver: sver.clone(),
-                sha: tag.commit.sha.clone(),
-                timestamp: DateTime::parse_from_rfc3339(&tag.commit.created)
+        for (tag, sver) in tag_matches.into_iter() {
+            if self
+                .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
+                .await?
+            {
+                return Ok(Some(Tag {
+                    name: tag.name.clone(),
+                    semver: sver.clone(),
+                    sha: tag.commit.sha.clone(),
+                    timestamp: DateTime::parse_from_rfc3339(
+                        &tag.commit.created,
+                    )
                     .map(|t| t.timestamp())
                     .ok(),
-            }));
-        } else {
-            Ok(None)
+                }));
+            }
         }
+
+        Ok(None)
     }
 
     async fn get_commits(

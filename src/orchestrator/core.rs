@@ -93,7 +93,10 @@ impl Core {
 
             let current_tag = self
                 .forge
-                .get_latest_tag_for_prefix(&pkg.tag_prefix)
+                .get_latest_tag_for_prefix(
+                    &pkg.tag_prefix,
+                    &self.config.base_branch,
+                )
                 .await?;
 
             if current_tag.is_none() {
@@ -141,7 +144,10 @@ impl Core {
             }
             let current_tag = self
                 .forge
-                .get_latest_tag_for_prefix(&package.tag_prefix)
+                .get_latest_tag_for_prefix(
+                    &package.tag_prefix,
+                    &self.config.base_branch,
+                )
                 .await?;
             let commits = self.commits_core.filter_commits_for_package(
                 package,

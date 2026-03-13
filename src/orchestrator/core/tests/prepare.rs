@@ -17,7 +17,7 @@ async fn generate_prepared_with_dummy_commit_skips_untagged_packages() {
 
     mock_forge
         .expect_get_latest_tag_for_prefix()
-        .returning(|_| Ok(None)); // No tags exist
+        .returning(|_, _| Ok(None)); // No tags exist
 
     let orchestrator = create_core(mock_forge, None, None);
 
@@ -46,15 +46,15 @@ async fn generate_prepared_with_dummy_commit_filters_by_targets() {
 
     let mut mock_forge = MockForge::new();
 
-    mock_forge
-        .expect_get_latest_tag_for_prefix()
-        .returning(|prefix| {
+    mock_forge.expect_get_latest_tag_for_prefix().returning(
+        |prefix, _branch| {
             Ok(Some(Tag {
                 name: format!("{prefix}1.0.0"),
                 timestamp: Some(1000),
                 ..Default::default()
             }))
-        });
+        },
+    );
 
     let orchestrator = create_core(mock_forge, Some(pkg_configs), None);
 

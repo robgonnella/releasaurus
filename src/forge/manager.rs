@@ -102,8 +102,9 @@ impl ForgeManager {
     pub async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>> {
-        self.forge.get_latest_tag_for_prefix(prefix).await
+        self.forge.get_latest_tag_for_prefix(prefix, branch).await
     }
 
     pub async fn get_commits(

@@ -1,7 +1,6 @@
 use git_url_parse::GitUrl;
 use secrecy::SecretString;
 use std::env;
-use tokio::time::Duration;
 
 use crate::{
     ForgeManager,
@@ -33,5 +32,5 @@ async fn test_gitea_forge() {
 
     let helper = GiteaForgeTestHelper::new(&repo, &token_str, &reset_sha).await;
 
-    run_forge_test(&manager, &helper, Duration::from_millis(2000)).await;
+    run_forge_test(&manager, &helper).await;
 }

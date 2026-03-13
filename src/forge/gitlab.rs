@@ -20,6 +20,7 @@ use gitlab::{
             },
             releases::{CreateRelease, ProjectReleaseByTag},
             repository::{
+                commits::CompareCommits,
                 commits::{
                     CommitAction, CommitActionType, Commits, CommitsOrder,
                     CreateCommit,
@@ -149,6 +150,25 @@ impl Gitlab {
         let label: LabelInfo = endpoint.query_async(&self.gl).await?;
 
         Ok(label)
+    }
+
+    /// Returns true if `tag_sha` is an ancestor of `branch`. Uses the
+    /// GitLab compare API: commits in tag (to) not in branch (from) is
+    /// empty when the tag is fully contained within the branch's history.
+    async fn is_tag_ancestor_of_branch(
+        &self,
+        tag_sha: &str,
+        branch: &str,
+    ) -> Result<bool> {
+        let endpoint = CompareCommits::builder()
+            .project(&self.project_id)
+            .from(branch)
+            .to(tag_sha)
+            .build()
+            .map_err(|e| ReleasaurusError::forge(e.to_string()))?;
+        let result: serde_json::Value = endpoint.query_async(&self.gl).await?;
+        let commits = result["commits"].as_array();
+        Ok(commits.map(|c| c.is_empty()).unwrap_or(false))
     }
 }
 
@@ -307,11 +327,13 @@ impl Forge for Gitlab {
         }
     }
 
-    // Note: Our query orders tags by semantic version descending so we can just
-    // grab the first that matches the target prefix
+    // Note: Our query orders tags by semantic version descending. We return
+    // the first tag that matches the prefix AND is an ancestor of the target
+    // base branch.
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let endpoint = Tags::builder()
@@ -328,7 +350,11 @@ impl Forge for Gitlab {
         for t in tags.into_iter() {
             if re.is_match(&t.name) {
                 let stripped = re.replace_all(&t.name, "").to_string();
-                if let Ok(sver) = semver::Version::parse(&stripped) {
+                if let Ok(sver) = semver::Version::parse(&stripped)
+                    && self
+                        .is_tag_ancestor_of_branch(&t.commit.id, branch)
+                        .await?
+                {
                     return Ok(Some(Tag {
                         name: t.name,
                         semver: sver,

@@ -138,7 +138,7 @@ Release notes
     // Expect auto-start-next flow
     mock_forge
         .expect_get_latest_tag_for_prefix()
-        .returning(|_| {
+        .returning(|_, _| {
             Ok(Some(Tag {
                 semver: Version::parse("1.0.0").unwrap(),
                 ..Default::default()

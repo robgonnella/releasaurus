@@ -16,10 +16,12 @@ use crate::{
     },
 };
 
+const SHORT_WAIT: Duration = Duration::from_secs(2);
+const LONG_WAIT: Duration = Duration::from_secs(20);
+
 pub async fn run_forge_test(
     forge: &ForgeManager,
     helper: &dyn ForgeTestHelper,
-    padding: Duration,
 ) {
     log::info!("resetting repository");
     helper.reset().await.unwrap();
@@ -56,7 +58,29 @@ pub async fn run_forge_test(
 
     let created_commit = forge.create_commit(create_commit_req).await.unwrap();
     assert!(!created_commit.sha.is_empty());
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_release_branch forked here (before the release tag) so
+    // we can later assert the tag is invisible on this branch
+    ////////////////////////////////////////////////////////////////////////////
+    let pre_tag_branch = "pre-tag-branch";
+    log::info!("creating pre-tag-branch before release merge");
+    let pre_tag_branch_req = CreateReleaseBranchRequest {
+        base_branch: default_branch.to_string(),
+        message: "chore: pre-tag branch".into(),
+        release_branch: pre_tag_branch.to_string(),
+        file_changes: vec![FileChange {
+            content: "pre-tag".to_string(),
+            path: "pre-tag.txt".into(),
+            update_type: FileUpdateType::Replace,
+        }],
+    };
+    forge
+        .create_release_branch(pre_tag_branch_req)
+        .await
+        .unwrap();
+    sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_commits -> succeeds
@@ -98,7 +122,7 @@ pub async fn run_forge_test(
         .await
         .unwrap();
     assert!(!release_commit.sha.is_empty());
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_open_release_pr: expect -> None
@@ -127,7 +151,7 @@ pub async fn run_forge_test(
     assert_ne!(release_pr.number, 0);
     assert!(!release_pr.body.is_empty());
     assert!(!release_pr.sha.is_empty());
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // replace_pr_labels -> succeeds
@@ -139,7 +163,7 @@ pub async fn run_forge_test(
     };
     forge.replace_pr_labels(replace_labels_req).await.unwrap();
     // extra padding here
-    sleep(padding * 10).await;
+    sleep(LONG_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_open_release_pr -> Found
@@ -173,7 +197,7 @@ pub async fn run_forge_test(
     log::info!("merging release PR via helper");
     helper.merge_pr(release_pr.number).await.unwrap();
     // extra padding here
-    sleep(padding * 10).await;
+    sleep(LONG_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_merged_release_pr -> Found
@@ -196,7 +220,10 @@ pub async fn run_forge_test(
     log::info!("looking for non-existent tag by prefix");
     let semver = "1.1.0";
     let tag = format!("v{}", semver);
-    let current_tag = forge.get_latest_tag_for_prefix("v").await.unwrap();
+    let current_tag = forge
+        .get_latest_tag_for_prefix("v", default_branch)
+        .await
+        .unwrap();
     assert!(current_tag.is_none());
 
     ////////////////////////////////////////////////////////////////////////////
@@ -204,18 +231,38 @@ pub async fn run_forge_test(
     ////////////////////////////////////////////////////////////////////////////
     log::info!("tagging commit");
     forge.tag_commit(&tag, &merged_pr.sha).await.unwrap();
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_latest_tag_for_prefix -> Found
     ////////////////////////////////////////////////////////////////////////////
     log::info!("looking for newly tagged commit by prefix");
-    let current_tag = forge.get_latest_tag_for_prefix("v").await.unwrap();
+    let current_tag = forge
+        .get_latest_tag_for_prefix("v", default_branch)
+        .await
+        .unwrap();
     assert!(current_tag.is_some());
     let current_tag = current_tag.unwrap();
     assert_eq!(current_tag.name, tag);
     assert_eq!(current_tag.semver, Version::parse(semver).unwrap());
     assert_eq!(current_tag.sha, merged_pr.sha);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_latest_tag_for_prefix on pre-tag-branch -> None
+    //
+    // pre-tag-branch was forked before the release merge, so the tag
+    // commit is not in its ancestry and must not be returned.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("verifying tag is not visible on branch forked before release");
+    let pre_tag_result = forge
+        .get_latest_tag_for_prefix("v", pre_tag_branch)
+        .await
+        .unwrap();
+    assert!(
+        pre_tag_result.is_none(),
+        "tag must not appear on a branch that diverged before it \
+         was created"
+    );
 
     ////////////////////////////////////////////////////////////////////////////
     // get_release_by_tag -> Err Not Found
@@ -235,7 +282,7 @@ pub async fn run_forge_test(
         .create_release(&current_tag.name, &current_tag.sha, "release notes")
         .await
         .unwrap();
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
     // get_release_by_tag -> Found
@@ -279,7 +326,7 @@ pub async fn run_forge_test(
     log::info!("loading newly created releasaurus config file");
     let created_commit = forge.create_commit(create_commit_req).await.unwrap();
     assert!(!created_commit.sha.is_empty());
-    sleep(padding).await;
+    sleep(SHORT_WAIT).await;
 
     let config = forge
         .load_config(Some(default_branch.to_string()))
