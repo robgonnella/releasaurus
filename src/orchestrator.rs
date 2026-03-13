@@ -290,7 +290,10 @@ impl Orchestrator {
 
             let current = self
                 .forge
-                .get_latest_tag_for_prefix(&package.tag_prefix)
+                .get_latest_tag_for_prefix(
+                    &package.tag_prefix,
+                    &self.config.base_branch,
+                )
                 .await?;
 
             if let Some(tag) = current {

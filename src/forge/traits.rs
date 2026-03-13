@@ -54,10 +54,11 @@ pub trait Forge: Any + Send + Sync {
     /// Create a git tag pointing to a specific commit SHA.
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()>;
     /// Find the most recent tag matching the given prefix (e.g., "v" or
-    /// "api-v").
+    /// "api-v") that is an ancestor of the given branch.
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>>;
     /// Fetch commits for a package path, optionally starting from a specific
     /// SHA.

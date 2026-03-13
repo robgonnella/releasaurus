@@ -131,7 +131,10 @@ impl CommitsCore {
             }
             let current_tag = self
                 .forge
-                .get_latest_tag_for_prefix(&package.tag_prefix)
+                .get_latest_tag_for_prefix(
+                    &package.tag_prefix,
+                    &self.orchestrator_config.base_branch,
+                )
                 .await?;
 
             let current_sha = current_tag.as_ref().map(|t| t.sha.clone());
@@ -175,7 +178,10 @@ impl CommitsCore {
             }
             if let Some(tag) = self
                 .forge
-                .get_latest_tag_for_prefix(&package.tag_prefix)
+                .get_latest_tag_for_prefix(
+                    &package.tag_prefix,
+                    &self.orchestrator_config.base_branch,
+                )
                 .await?
                 && let Some(timestamp) = tag.timestamp
             {
@@ -523,7 +529,7 @@ mod tests {
         mock_forge
             .expect_get_latest_tag_for_prefix()
             .times(2)
-            .returning(|prefix| {
+            .returning(|prefix, _branch| {
                 if prefix.contains("pkg-a") {
                     // pkg-a has newer tag (timestamp 2000)
                     Ok(Some(Tag {
@@ -626,7 +632,7 @@ mod tests {
         mock_forge
             .expect_get_latest_tag_for_prefix()
             .times(3..=4) // Allow either 3 or 4 calls depending on hash order
-            .returning(|prefix| {
+            .returning(|prefix, _branch| {
                 if prefix.contains("pkg-a") {
                     Ok(Some(Tag {
                         sha: "some-sha".to_string(),

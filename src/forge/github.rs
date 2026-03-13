@@ -200,6 +200,25 @@ impl Github {
 
         Ok(commit)
     }
+
+    /// Returns true if `tag_sha` is an ancestor of `branch` (i.e., the
+    /// branch has the tag in its history). Uses the GitHub compare API:
+    /// `ahead_by == 0` when base=branch, head=tag means the tag has no
+    /// commits that the branch doesn't, so the tag is fully contained
+    /// within the branch's history.
+    async fn is_tag_ancestor_of_branch(
+        &self,
+        tag_sha: &str,
+        branch: &str,
+    ) -> Result<bool> {
+        let endpoint = format!(
+            "{}/repos/{}/{}/compare/{}...{}",
+            self.base_uri, self.config.owner, self.config.repo, branch, tag_sha,
+        );
+        let result: serde_json::Value =
+            self.instance.get(endpoint, None::<&()>).await?;
+        Ok(result["ahead_by"].as_u64() == Some(0))
+    }
 }
 
 #[async_trait]
@@ -337,10 +356,12 @@ impl Forge for Github {
     }
 
     // Note: we use graphql query with tags sorted by commit date descending.
-    // This allows us to just grab the first one that matches target prefix
+    // We return the first tag that matches the prefix AND is an ancestor of
+    // the target base branch.
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
@@ -392,16 +413,18 @@ impl Forge for Github {
                                     .unwrap_or_default(),
                             );
 
-                        return Ok(Some(Tag {
-                            name: tag.name,
-                            semver: sver,
-                            sha,
-                            timestamp: DateTime::parse_from_rfc3339(
-                                &committed_date,
-                            )
-                            .map(|t| t.timestamp())
-                            .ok(),
-                        }));
+                        if self.is_tag_ancestor_of_branch(&sha, branch).await? {
+                            return Ok(Some(Tag {
+                                name: tag.name,
+                                semver: sver,
+                                sha,
+                                timestamp: DateTime::parse_from_rfc3339(
+                                    &committed_date,
+                                )
+                                .map(|t| t.timestamp())
+                                .ok(),
+                            }));
+                        }
                     }
                 }
             }

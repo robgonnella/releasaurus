@@ -1,7 +1,7 @@
 //! Local forge implementation for offline development and testing.
 use async_trait::async_trait;
 use color_eyre::eyre::{Context, OptionExt};
-use git2::{Commit as Git2Commit, Sort, TreeWalkMode};
+use git2::{BranchType, Commit as Git2Commit, Sort, TreeWalkMode};
 use regex::Regex;
 use std::{
     path::{self, Path, PathBuf},
@@ -150,6 +150,7 @@ impl Forge for LocalRepo {
     async fn get_latest_tag_for_prefix(
         &self,
         prefix: &str,
+        branch: &str,
     ) -> Result<Option<Tag>> {
         let regex_prefix = format!(r"^{}", prefix);
         let tag_prefix_regex = Regex::new(&regex_prefix)?;
@@ -184,6 +185,28 @@ impl Forge for LocalRepo {
                 commits.push((commit, tag));
             }
         }
+
+        if commits.is_empty() {
+            return Ok(None);
+        }
+
+        let branch_head_oid = repo
+            .find_branch(branch, BranchType::Local)?
+            .get()
+            .peel_to_commit()?
+            .id();
+
+        // Keep only tags that are ancestors of the branch head.
+        // graph_descendant_of(a, b) returns true if a is a descendant of b,
+        // so graph_descendant_of(branch_head, tag) means tag is an ancestor
+        // of branch_head. We also include the case where the tag IS the
+        // branch head (e.g., immediately after a release is tagged).
+        commits.retain(|(commit, _)| {
+            commit.id() == branch_head_oid
+                || repo
+                    .graph_descendant_of(branch_head_oid, commit.id())
+                    .unwrap_or(false)
+        });
 
         if commits.is_empty() {
             return Ok(None);
@@ -377,5 +400,103 @@ impl Forge for LocalRepo {
             "local_mode: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Creates a commit on whatever HEAD currently points to.
+    /// For the very first commit (unborn branch) pass no parent —
+    /// git2 handles that transparently via HEAD resolution.
+    fn add_commit(repo: &git2::Repository, message: &str) -> git2::Oid {
+        let sig = git2::Signature::now("Test", "test@example.com").unwrap();
+        let mut index = repo.index().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let parent = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+        let parents: Vec<_> = parent.iter().collect();
+        repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)
+            .unwrap()
+    }
+
+    fn tag_oid(repo: &git2::Repository, name: &str, oid: git2::Oid) {
+        let obj = repo.find_object(oid, None).unwrap();
+        repo.tag_lightweight(name, &obj, false).unwrap();
+    }
+
+    fn default_branch(repo: &git2::Repository) -> String {
+        repo.head().unwrap().shorthand().unwrap().to_string()
+    }
+
+    /// Regression test: a tag that points to the exact same commit
+    /// as the branch head must be returned. Previously,
+    /// `graph_descendant_of` (a strict check) would return `false`
+    /// here and the tag was wrongly filtered out.
+    #[tokio::test]
+    async fn tag_at_branch_head_is_found() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let oid = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "v1.0.0", oid);
+        let branch = default_branch(&repo);
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path()).unwrap();
+        let result =
+            forge.get_latest_tag_for_prefix("v", &branch).await.unwrap();
+
+        assert!(result.is_some(), "tag at branch head should be found");
+        assert_eq!(result.unwrap().name, "v1.0.0");
+    }
+
+    /// A tag that lives on a divergent branch must NOT be returned
+    /// when querying a branch that does not have that commit in its
+    /// history.
+    #[tokio::test]
+    async fn tag_on_divergent_branch_is_excluded() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+
+        // Commit on the main branch and tag it v1.0.0.
+        let base_oid = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "v1.0.0", base_oid);
+        let main_branch = default_branch(&repo);
+
+        // Create a divergent branch from that same base commit,
+        // add a commit there, and tag it v2.0.0.
+        {
+            let base_commit = repo.find_commit(base_oid).unwrap();
+            repo.branch("other", &base_commit, false).unwrap();
+        }
+        repo.set_head("refs/heads/other").unwrap();
+        let divergent_oid = add_commit(&repo, "divergent commit");
+        tag_oid(&repo, "v2.0.0", divergent_oid);
+
+        // Restore HEAD to the main branch before handing off to
+        // LocalRepo so it detects the correct default branch.
+        repo.set_head(&format!("refs/heads/{main_branch}")).unwrap();
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path()).unwrap();
+
+        // Querying main_branch must return v1.0.0 only; v2.0.0 is
+        // not in main_branch's history.
+        let result = forge
+            .get_latest_tag_for_prefix("v", &main_branch)
+            .await
+            .unwrap();
+
+        assert!(
+            result.is_some(),
+            "v1.0.0 (ancestor of main) should be found"
+        );
+        assert_eq!(
+            result.unwrap().name,
+            "v1.0.0",
+            "v2.0.0 (only on divergent branch) must be excluded"
+        );
     }
 }
