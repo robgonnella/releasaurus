@@ -1,3 +1,13 @@
+# [0.14.1](https://github.com/robgonnella/releasaurus/compare/v0.14.0...v0.14.1) - 2026-03-13
+
+### 🐛 Bug Fixes
+
+- ensures tag is ancestor of target branch [_(f94b83f)_](https://github.com/robgonnella/releasaurus/commit/f94b83ffc4a762092be8c59329fe5284b3dc4a45) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- reduces calls to fetch tags for packages [_(a2be2c6)_](https://github.com/robgonnella/releasaurus/commit/a2be2c61a2f68ebf07213f8396276870360d8f6c) (Rob Gonnella)
+
 # [0.14.0](https://github.com/robgonnella/releasaurus/compare/v0.13.0...v0.14.0) - 2026-02-07
 
 ### 🚀 Features
