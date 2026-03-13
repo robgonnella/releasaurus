@@ -1,4 +1,8 @@
-use std::{collections::HashSet, path::Path, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    rc::Rc,
+};
 
 use crate::{
     OrchestratorConfig, ResolvedPackage, Result,
@@ -26,32 +30,36 @@ impl CommitsCore {
         }
     }
 
-    /// Retrieves all commits for all packages using the oldest found tag across
-    /// all packages. We do this once so we don't keep fetching the same commit
-    /// redundantly for each package.
+    /// Retrieves all commits for all packages along with the latest tag for
+    /// each package. Uses the oldest tag across all packages as a shared
+    /// starting point when possible, avoiding redundant per-package fetches.
+    /// Returns `(commits, tags)` so callers can reuse the tags rather than
+    /// re-querying the forge.
     pub async fn get_commits_for_all_packages(
         &self,
         target: Option<&str>,
-    ) -> Result<Vec<ForgeCommit>> {
+    ) -> Result<(Vec<ForgeCommit>, HashMap<String, Option<Tag>>)> {
         log::info!("attempting to get commits for all packages at once");
 
-        let starting_sha = self.get_oldest_tag_sha_for_packages(target).await?;
+        let tags = self.collect_tags_for_packages(target).await?;
+        let oldest_sha = self.oldest_tag_sha_from_map(&tags);
 
-        if starting_sha.is_none() {
+        let commits = if let Some(sha) = oldest_sha {
+            log::info!("found starting sha: {:#?}", sha);
+            self.forge
+                .get_commits(
+                    Some(self.orchestrator_config.base_branch.clone()),
+                    Some(sha),
+                )
+                .await?
+        } else {
             log::warn!(
                 "falling back to getting commits for each package separately"
             );
-            return self.get_commits_for_all_packages_separately(target).await;
-        }
+            self.get_commits_for_packages_with_tags(&tags).await?
+        };
 
-        log::info!("found starting sha: {:#?}", starting_sha);
-
-        self.forge
-            .get_commits(
-                Some(self.orchestrator_config.base_branch.clone()),
-                starting_sha,
-            )
-            .await
+        Ok((commits, tags))
     }
 
     /// Filters list of commit to just the commits pertaining to a specific package
@@ -114,34 +122,45 @@ impl CommitsCore {
         package_commits
     }
 
-    /// When we can't determine a common starting point for all packages, we fall
-    /// back to pulling commits for each package individually and dedup by storing
-    /// in a HashSet
-    async fn get_commits_for_all_packages_separately(
+    /// Collects the latest tag for every (target-filtered) package in a
+    /// single pass, returning a map keyed by package name.
+    async fn collect_tags_for_packages(
         &self,
         target: Option<&str>,
-    ) -> Result<Vec<ForgeCommit>> {
-        let mut cache: HashSet<ForgeCommit> = HashSet::new();
-
+    ) -> Result<HashMap<String, Option<Tag>>> {
+        let mut tags = HashMap::new();
         for (name, package) in self.package_configs.hash().iter() {
             if let Some(target) = target
                 && name != target
             {
                 continue;
             }
-            let current_tag = self
+            let tag = self
                 .forge
                 .get_latest_tag_for_prefix(
                     &package.tag_prefix,
                     &self.orchestrator_config.base_branch,
                 )
                 .await?;
+            tags.insert(name.clone(), tag);
+        }
+        Ok(tags)
+    }
 
-            let current_sha = current_tag.as_ref().map(|t| t.sha.clone());
+    /// Fetches commits per-package using pre-fetched tags, deduplicating via
+    /// a HashSet. Used when a unified starting point cannot be determined
+    /// (i.e. any package has no tag yet).
+    async fn get_commits_for_packages_with_tags(
+        &self,
+        tags: &HashMap<String, Option<Tag>>,
+    ) -> Result<Vec<ForgeCommit>> {
+        let mut cache: HashSet<ForgeCommit> = HashSet::new();
+
+        for (name, tag) in tags.iter() {
+            let current_sha = tag.as_ref().map(|t| t.sha.clone());
 
             log::info!(
-                "{}: current tag sha: {:?} : fetching commits",
-                name,
+                "{name}: current tag sha: {:?} : fetching commits",
                 current_sha
             );
 
@@ -157,50 +176,35 @@ impl CommitsCore {
         }
 
         let mut commits = cache.iter().cloned().collect::<Vec<ForgeCommit>>();
-
         commits.sort_by(|c1, c2| c1.timestamp.cmp(&c2.timestamp));
-
         Ok(commits)
     }
 
-    async fn get_oldest_tag_sha_for_packages(
+    /// Returns the SHA of the oldest tag across all packages, or `None` if
+    /// any package has no tag (meaning a shared starting point cannot be
+    /// determined).
+    fn oldest_tag_sha_from_map(
         &self,
-        target: Option<&str>,
-    ) -> Result<Option<String>> {
-        let mut starting_sha = None;
-        let mut oldest_timestamp = i64::MAX;
+        tags: &HashMap<String, Option<Tag>>,
+    ) -> Option<String> {
+        if tags.values().any(|t| t.is_none()) {
+            log::warn!("found package that hasn't been tagged yet");
+            return None;
+        }
 
-        for (name, package) in self.package_configs.hash().iter() {
-            if let Some(target) = target
-                && name != target
+        let mut oldest_timestamp = i64::MAX;
+        let mut oldest_sha = None;
+
+        for tag in tags.values().flatten() {
+            if let Some(ts) = tag.timestamp
+                && ts < oldest_timestamp
             {
-                continue;
-            }
-            if let Some(tag) = self
-                .forge
-                .get_latest_tag_for_prefix(
-                    &package.tag_prefix,
-                    &self.orchestrator_config.base_branch,
-                )
-                .await?
-                && let Some(timestamp) = tag.timestamp
-            {
-                if timestamp < oldest_timestamp {
-                    oldest_timestamp = timestamp;
-                    starting_sha = Some(tag.sha);
-                }
-            } else {
-                // since we have a package that hasn't been tagged yet, we can't
-                // determine if oldest tag for other packages will sufficiently
-                // capture all the necessary commits for this package so we
-                // must fall back on pull individually for each package
-                log::warn!("found package that hasn't been tagged yet");
-                starting_sha = None;
-                break;
+                oldest_timestamp = ts;
+                oldest_sha = Some(tag.sha.clone());
             }
         }
 
-        Ok(starting_sha)
+        oldest_sha
     }
 }
 
@@ -525,7 +529,7 @@ mod tests {
 
         let mut mock_forge = MockForge::new();
 
-        // Setup expectations for getting tags
+        // One tag fetch per package (collected once, not re-fetched later)
         mock_forge
             .expect_get_latest_tag_for_prefix()
             .times(2)
@@ -598,8 +602,12 @@ mod tests {
             package_configs,
         );
 
-        let result = commits_core.get_commits_for_all_packages(None).await;
-        result.unwrap();
+        let (commits, tags) = commits_core
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
+        assert_eq!(commits.len(), 0);
+        assert_eq!(tags.len(), 2);
     }
 
     #[tokio::test]
@@ -625,13 +633,11 @@ mod tests {
 
         let mut mock_forge = MockForge::new();
 
-        // First package has a tag, second doesn't
-        // Note: HashMap iteration order is not guaranteed, so if pkg-b (no tag)
-        // comes first, the initial check breaks early (1 call), then fallback
-        // makes 2 more calls (3 total). If pkg-a comes first, it's 2+2=4 calls.
+        // Tags are collected once in a single pass (2 calls total).
+        // The fallback fetch reuses the already-collected tags.
         mock_forge
             .expect_get_latest_tag_for_prefix()
-            .times(3..=4) // Allow either 3 or 4 calls depending on hash order
+            .times(2)
             .returning(|prefix, _branch| {
                 if prefix.contains("pkg-a") {
                     Ok(Some(Tag {
@@ -691,7 +697,11 @@ mod tests {
             package_configs,
         );
 
-        let result = commits_core.get_commits_for_all_packages(None).await;
-        result.unwrap();
+        let (commits, tags) = commits_core
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
+        assert_eq!(commits.len(), 0);
+        assert_eq!(tags.len(), 2);
     }
 }

@@ -132,34 +132,34 @@ impl Core {
         target: Option<&str>,
     ) -> Result<Vec<PreparedPackage>> {
         let mut prepared_packages = vec![];
-        let commits = self
+
+        let (commits, tags) = self
             .commits_core
             .get_commits_for_all_packages(target)
             .await?;
+
         for (name, package) in self.package_configs.hash().iter() {
             if let Some(target) = target
                 && package.name != target
             {
                 continue;
             }
-            let current_tag = self
-                .forge
-                .get_latest_tag_for_prefix(
-                    &package.tag_prefix,
-                    &self.config.base_branch,
-                )
-                .await?;
+
+            let current_tag = tags.get(name).cloned().flatten();
+
             let commits = self.commits_core.filter_commits_for_package(
                 package,
                 current_tag.as_ref(),
                 &commits,
             );
+
             prepared_packages.push(PreparedPackage {
                 name: name.clone(),
                 current_tag,
                 commits,
             })
         }
+
         Ok(prepared_packages)
     }
 
