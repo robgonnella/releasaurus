@@ -40,7 +40,7 @@ pub struct GiteaIssuePr {
 #[derive(Debug, Deserialize)]
 pub struct GiteaIssue {
     pub number: u64,
-    pub pull_request: GiteaIssuePr,
+    pub pull_request: Option<GiteaIssuePr>,
 }
 
 #[derive(Debug, Serialize)]

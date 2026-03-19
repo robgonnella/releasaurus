@@ -705,7 +705,12 @@ impl Forge for Gitea {
             let issues: Vec<GiteaIssue> = result.json().await?;
 
             for issue in issues.iter() {
-                if !issue.pull_request.merged {
+                let is_merged = issue
+                    .pull_request
+                    .as_ref()
+                    .map(|pr| pr.merged)
+                    .unwrap_or(false);
+                if !is_merged {
                     log::warn!(
                         "found unmerged closed pr {} with pending label: skipping",
                         issue.number
