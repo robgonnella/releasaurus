@@ -143,7 +143,8 @@ pub struct GiteaModifyFiles {
     pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<GiteaFileChange>,
-    pub force_push: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force_push: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

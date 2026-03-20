@@ -10,6 +10,7 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::SecretString;
+use semver::{Version as SemVer, VersionReq};
 use std::{cmp, sync::Arc};
 use tokio::sync::Mutex;
 use url::Url;
@@ -53,6 +54,8 @@ pub struct Gitea {
     default_branch: String,
     release_link_base_url: Url,
     compare_link_base_url: Url,
+    token: String,
+    supports_force_push: bool,
 }
 
 impl Gitea {
@@ -108,6 +111,49 @@ impl Gitea {
             .as_str()
             .wrap_err("failed to get default branch")?;
 
+        let version_url = if let Some(port) = config.port {
+            format!(
+                "{}://{}:{}/api/v1/version",
+                config.scheme, config.host, port
+            )
+        } else {
+            format!("{}://{}/api/v1/version", config.scheme, config.host)
+        };
+
+        let force_push_req =
+            VersionReq::parse(">=1.26.0").expect("valid version requirement");
+
+        let supports_force_push =
+            match client.get(&version_url).send().await {
+                Ok(response) => match response.json::<serde_json::Value>().await
+                {
+                    Ok(body) => {
+                        let version_str =
+                            body["version"].as_str().unwrap_or("0.0.0");
+                        match SemVer::parse(version_str) {
+                            Ok(version) => {
+                                log::info!(
+                                    "detected Gitea version: {version}"
+                                );
+                                force_push_req.matches(&version)
+                            }
+                            Err(e) => {
+                                log::warn!("failed to parse Gitea version '{version_str}': {e}, defaulting to compatibility mode");
+                                false
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("failed to parse Gitea version response: {e}, defaulting to compatibility mode");
+                        false
+                    }
+                },
+                Err(e) => {
+                    log::warn!("failed to fetch Gitea version: {e}, defaulting to compatibility mode");
+                    false
+                }
+            };
+
         Ok(Self {
             config,
             commit_search_depth: Arc::new(Mutex::new(
@@ -118,7 +164,118 @@ impl Gitea {
             release_link_base_url,
             compare_link_base_url,
             default_branch: default_branch.into(),
+            token,
+            supports_force_push,
         })
+    }
+
+    async fn branch_exists(&self, branch: &str) -> Result<bool> {
+        let url = self.base_url.join(&format!("branches/{branch}"))?;
+        let request = self.client.get(url).build()?;
+        let response = self.client.execute(request).await?;
+        Ok(response.status() == StatusCode::OK)
+    }
+
+    fn remote_url(&self) -> String {
+        if let Some(port) = self.config.port {
+            format!(
+                "{}://x-token:{}@{}:{}/{}.git",
+                self.config.scheme,
+                self.token,
+                self.config.host,
+                port,
+                self.config.path
+            )
+        } else {
+            format!(
+                "{}://x-token:{}@{}/{}.git",
+                self.config.scheme,
+                self.token,
+                self.config.host,
+                self.config.path
+            )
+        }
+    }
+
+    /// Creates a commit locally on top of a remote base branch and
+    /// force-pushes it to the target branch. Used as a workaround for
+    /// Gitea < 1.26.0 which lacks API-level force-push support.
+    async fn git_create_commit_and_push(
+        &self,
+        base_branch: &str,
+        target_branch: &str,
+        message: &str,
+        file_changes: Vec<(String, String)>,
+    ) -> Result<String> {
+        let remote_url = self.remote_url();
+        let base_branch = base_branch.to_string();
+        let target_branch = target_branch.to_string();
+        let message = message.to_string();
+
+        tokio::task::spawn_blocking(move || -> Result<String> {
+            let repo = git2::Repository::discover(".")?;
+            let mut remote = repo.remote_anonymous(&remote_url)?;
+
+            // Fetch the base branch from the remote
+            let tmp_ref = format!("refs/releasaurus/{base_branch}");
+            let fetch_refspec =
+                format!("refs/heads/{base_branch}:{tmp_ref}");
+            remote.fetch(&[&fetch_refspec], None, None)?;
+
+            let base_commit =
+                repo.find_reference(&tmp_ref)?.peel_to_commit()?;
+            let base_tree = base_commit.tree()?;
+
+            // Build a new tree with the file changes applied
+            let mut index = git2::Index::new()?;
+            index.read_tree(&base_tree)?;
+
+            for (path, content) in &file_changes {
+                let entry = git2::IndexEntry {
+                    ctime: git2::IndexTime::new(0, 0),
+                    mtime: git2::IndexTime::new(0, 0),
+                    dev: 0,
+                    ino: 0,
+                    mode: 0o100644,
+                    uid: 0,
+                    gid: 0,
+                    file_size: 0,
+                    id: git2::Oid::zero(),
+                    flags: 0,
+                    flags_extended: 0,
+                    path: path.clone().into_bytes(),
+                };
+                index.add_frombuffer(&entry, content.as_bytes())?;
+            }
+
+            let tree_oid = index.write_tree_to(&repo)?;
+            let tree = repo.find_tree(tree_oid)?;
+
+            // Create the commit
+            let sig = git2::Signature::now(
+                "releasaurus",
+                "releasaurus@noreply",
+            )?;
+            let commit_oid = repo.commit(
+                None, &sig, &sig, &message, &tree, &[&base_commit],
+            )?;
+
+            // Force-push the commit to the target branch
+            let push_refspec =
+                format!("+{commit_oid}:refs/heads/{target_branch}");
+            remote.push(&[&push_refspec], None)?;
+
+            // Clean up the temporary local ref
+            repo.find_reference(&tmp_ref)?.delete()?;
+
+            Ok(commit_oid.to_string())
+        })
+        .await
+        .map_err(|e| {
+            ReleasaurusError::forge(format!(
+                "git create commit and push task panicked: {e}"
+            ))
+        })?
     }
 
     async fn get_file_sha(&self, path: &str) -> Result<String> {
@@ -460,12 +617,14 @@ impl Forge for Gitea {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        let mut file_changes: Vec<GiteaFileChange> = vec![];
+        // Resolve file content (handling Prepend) before branching on the
+        // code path, since both the API and the local git path need it.
+        let mut resolved_changes: Vec<(String, String, Option<String>)> =
+            vec![];
 
         for change in req.file_changes.iter() {
-            let mut op = GiteaFileChangeOperation::Update;
-            let mut sha = None;
             let mut content = change.content.clone();
+            let mut sha = None;
             let existing_content = self
                 .get_file_content(GetFileContentRequest {
                     branch: Some(req.base_branch.clone()),
@@ -477,32 +636,72 @@ impl Forge for Gitea {
                 if matches!(change.update_type, FileUpdateType::Prepend) {
                     content = format!("{content}{existing_content}");
                 }
-            } else {
-                op = GiteaFileChangeOperation::Create;
             }
-            file_changes.push(GiteaFileChange {
-                path: change.path.clone(),
-                content: BASE64_STANDARD.encode(&content),
-                operation: op,
-                sha,
-            })
+            resolved_changes.push((change.path.clone(), content, sha));
         }
 
-        let body = GiteaModifyFiles {
-            old_ref_name: req.base_branch,
-            new_branch: Some(req.release_branch),
-            message: req.message,
-            files: file_changes,
-            force_push: true,
-        };
+        let use_api = self.supports_force_push
+            || !self.branch_exists(&req.release_branch).await?;
 
-        let contents_url = self.base_url.join("contents")?;
-        let request = self.client.post(contents_url).json(&body).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let created: GiteaCreatedCommit = result.json().await?;
+        if use_api {
+            // Gitea >= 1.26.0 or branch does not exist yet: use the API.
+            let file_changes = resolved_changes
+                .into_iter()
+                .map(|(path, content, sha)| {
+                    let operation = if sha.is_some() {
+                        GiteaFileChangeOperation::Update
+                    } else {
+                        GiteaFileChangeOperation::Create
+                    };
+                    GiteaFileChange {
+                        path,
+                        content: BASE64_STANDARD.encode(&content),
+                        operation,
+                        sha,
+                    }
+                })
+                .collect();
 
-        Ok(created.commit)
+            let body = GiteaModifyFiles {
+                old_ref_name: req.base_branch,
+                new_branch: Some(req.release_branch),
+                message: req.message,
+                files: file_changes,
+                force_push: if self.supports_force_push {
+                    Some(true)
+                } else {
+                    None
+                },
+            };
+
+            let contents_url = self.base_url.join("contents")?;
+            let request =
+                self.client.post(contents_url).json(&body).build()?;
+            let response = self.client.execute(request).await?;
+            let result = response.error_for_status()?;
+            let created: GiteaCreatedCommit = result.json().await?;
+
+            Ok(created.commit)
+        } else {
+            // Gitea < 1.26.0 and branch already exists: create the commit
+            // locally and force-push via git2. The release branch is never
+            // deleted so the existing PR stays open.
+            let local_changes = resolved_changes
+                .into_iter()
+                .map(|(path, content, _)| (path, content))
+                .collect();
+
+            let sha = self
+                .git_create_commit_and_push(
+                    &req.base_branch,
+                    &req.release_branch,
+                    &req.message,
+                    local_changes,
+                )
+                .await?;
+
+            Ok(Commit { sha })
+        }
     }
 
     async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
@@ -557,7 +756,7 @@ impl Forge for Gitea {
             old_ref_name: req.target_branch,
             message: req.message,
             files: file_changes,
-            force_push: false,
+            force_push: None,
         };
 
         let contents_url = self.base_url.join("contents")?;
