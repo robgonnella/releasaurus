@@ -1,8 +1,13 @@
 //! Local forge implementation for offline development and testing.
 use async_trait::async_trait;
 use color_eyre::eyre::{Context, OptionExt};
-use git2::{BranchType, Commit as Git2Commit, Sort, TreeWalkMode};
+use git_url_parse::GitUrl;
+use git2::{
+    BranchType, Commit as Git2Commit, Oid, RemoteCallbacks, Sort,
+    StatusOptions, TreeWalkMode,
+};
 use regex::Regex;
+use secrecy::{ExposeSecret, SecretString};
 use std::{
     path::{self, Path, PathBuf},
     sync::Arc,
@@ -18,13 +23,31 @@ use crate::{
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
-            UpdatePrRequest,
+            CreateReleaseBranchRequest, FileChange, FileUpdateType,
+            ForgeCommit, GetFileContentRequest, GetPrRequest, PrLabelsRequest,
+            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
 };
+
+/// Create Git authentication callbacks for token-based HTTPS auth.
+/// Uses "git" as a fixed username placeholder — all supported forges
+/// (GitHub, GitLab, Gitea) authenticate solely via the token/password
+/// and ignore the username field.
+fn get_auth_callbacks<'r>(token: String) -> RemoteCallbacks<'r> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(move |_url, _username, _allowed| {
+        git2::Cred::userpass_plaintext("git", &token)
+    });
+    callbacks
+}
+
+pub(crate) struct Remote {
+    pub forge: Arc<dyn Forge>,
+    pub token: SecretString,
+    pub url: GitUrl,
+}
 
 /// LocalRepo forge implementation using git2 for local repository operations.
 pub struct LocalRepo {
@@ -33,10 +56,11 @@ pub struct LocalRepo {
     repo: Arc<Mutex<git2::Repository>>,
     default_branch: String,
     link_base_url: Url,
+    remote: Option<Remote>,
 }
 
 impl LocalRepo {
-    pub fn new(repo_path: &Path) -> Result<Self> {
+    pub fn new(repo_path: &Path, remote: Option<Remote>) -> Result<Self> {
         let repo_str = repo_path.to_string_lossy();
         let abs_repo_path = path::absolute(repo_path)?;
 
@@ -71,7 +95,7 @@ impl LocalRepo {
             .to_string_lossy()
             .to_string();
 
-        let repo = git2::Repository::init(repo_path)?;
+        let repo = git2::Repository::open(repo_path)?;
 
         let head = repo.head()?;
 
@@ -88,28 +112,198 @@ impl LocalRepo {
             repo: Arc::new(Mutex::new(repo)),
             default_branch,
             link_base_url,
+            remote,
         })
     }
 }
 
-impl LocalRepo {}
+impl LocalRepo {
+    /// Create new branch from current HEAD (force creates, overwrites existing).
+    async fn create_branch(&self, branch: &str) -> Result<()> {
+        log::info!("creating branch: {branch}");
+        let repo = self.repo.lock().await;
+        let head = repo.head()?;
+        let commit = head.peel_to_commit()?;
+        repo.branch(branch, &commit, true)?;
+        Ok(())
+    }
+
+    /// Switch to branch and update working directory.
+    async fn switch_branch(&self, branch: &str) -> Result<()> {
+        log::info!("switching to branch: {branch}");
+        let repo = self.repo.lock().await;
+        let ref_name = format!("refs/heads/{}", branch);
+        let target_obj = repo.revparse_single(&ref_name)?;
+        repo.checkout_tree(&target_obj, None)?;
+        repo.set_head(&ref_name)?;
+        Ok(())
+    }
+
+    /// Add file path to git index (equivalent to `git add <file_path>`).
+    /// Accepts both absolute paths and paths relative to the workdir.
+    async fn stage_file(&self, path: &Path) -> Result<()> {
+        log::info!("adding file path to index: {}", path.display());
+        let repo = self.repo.lock().await;
+        let mut index = repo.index()?;
+        // git2 requires a path relative to the repo workdir.
+        // Strip the repo root prefix for absolute paths, or the
+        // leading "./" for explicitly relative ones.
+        let relative = if path.is_absolute() {
+            path.strip_prefix(&self.repo_path).unwrap_or(path)
+        } else {
+            path.strip_prefix("./").unwrap_or(path)
+        };
+        index.add_path(relative)?;
+        index.write()?;
+        Ok(())
+    }
+
+    /// Create commit with staged changes and specified message.
+    async fn local_commit(
+        &self,
+        msg: &str,
+        file_changes: &[FileChange],
+    ) -> Result<Commit> {
+        for change in file_changes {
+            let mut content = change.content.clone();
+            if change.update_type == FileUpdateType::Prepend {
+                let existing_content = fs::read_to_string(&change.path).await?;
+                content = format!("{content}{existing_content}");
+            }
+            fs::write(&change.path, content).await?;
+            self.stage_file(Path::new(&change.path)).await?;
+        }
+
+        log::debug!("committing changes with msg: {msg}");
+        let repo = self.repo.lock().await;
+
+        let mut options = StatusOptions::new();
+        let statuses = repo.statuses(Some(&mut options))?;
+
+        // If the list of statuses is empty, there are no changes to be committed
+        if !statuses.is_empty() {
+            let config = repo.config()?.snapshot()?;
+            let user = config.get_str("user.name")?;
+            let email = config.get_str("user.email")?;
+            log::debug!("using committer: user: {user}, email: {email}");
+            let mut index = repo.index()?;
+            let oid = index.write_tree()?;
+            let tree = repo.find_tree(oid)?;
+            let parent_commit = repo.head()?.peel_to_commit()?;
+            let committer = git2::Signature::now(user, email)?;
+            let oid = repo.commit(
+                Some("HEAD"),
+                &committer,
+                &committer,
+                msg,
+                &tree,
+                &[&parent_commit],
+            )?;
+
+            Ok(Commit {
+                sha: oid.to_string(),
+            })
+        } else {
+            Err(ReleasaurusError::git_other("nothing to commit"))
+        }
+    }
+
+    /// Push branch to remote with option to force push.
+    async fn push_branch(&self, branch: &str, force: bool) -> Result<()> {
+        if let Some(remote) = self.remote.as_ref() {
+            log::info!("pushing branch {branch}");
+            let repo = self.repo.lock().await;
+            let token = remote.token.expose_secret().to_string();
+            let callbacks = get_auth_callbacks(token);
+            let mut push_opts = git2::PushOptions::default();
+            push_opts.remote_callbacks(callbacks);
+
+            let mut git_remote =
+                repo.remote_anonymous(&remote.url.to_string())?;
+
+            let mut ref_spec = format!("refs/heads/{branch}");
+
+            if force {
+                // + indicates "force" push
+                ref_spec = format!("+{ref_spec}");
+            }
+
+            git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+        } else {
+            log::warn!("no remote configured: skipping branch push")
+        }
+
+        Ok(())
+    }
+
+    /// Create annotated git tag pointing to specified commit.
+    async fn local_tag_commit(&self, tag: &str, sha: &str) -> Result<()> {
+        let repo = self.repo.lock().await;
+        let config = repo.config()?.snapshot()?;
+        let user = config.get_str("user.name")?;
+        let email = config.get_str("user.email")?;
+
+        let oid = Oid::from_str(sha)?;
+        let commit = repo.find_commit(oid)?;
+        let tagger = git2::Signature::now(user, email)?;
+
+        repo.tag(tag, commit.as_object(), &tagger, tag, false)?;
+
+        Ok(())
+    }
+
+    /// Push git tag to remote repository.
+    async fn push_tag(&self, tag: &str) -> Result<()> {
+        if let Some(remote) = self.remote.as_ref() {
+            let repo = self.repo.lock().await;
+            let token = remote.token.expose_secret().to_string();
+            let callbacks = get_auth_callbacks(token);
+            let mut push_opts = git2::PushOptions::default();
+            push_opts.remote_callbacks(callbacks);
+            let mut git_remote =
+                repo.remote_anonymous(&remote.url.to_string())?;
+            let ref_spec = format!("refs/tags/{tag}");
+            git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+        } else {
+            log::warn!("no remote configured: skipping tag push")
+        }
+
+        Ok(())
+    }
+}
 
 #[async_trait]
 impl Forge for LocalRepo {
     fn repo_name(&self) -> String {
-        self.repo_name.clone()
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.repo_name()
+        } else {
+            self.repo_name.clone()
+        }
     }
 
     fn default_branch(&self) -> String {
-        self.default_branch.clone()
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.default_branch()
+        } else {
+            self.default_branch.clone()
+        }
     }
 
     fn release_link_base_url(&self) -> Url {
-        self.link_base_url.clone()
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.release_link_base_url()
+        } else {
+            self.link_base_url.clone()
+        }
     }
 
     fn compare_link_base_url(&self) -> Url {
-        self.link_base_url.clone()
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.compare_link_base_url()
+        } else {
+            self.link_base_url.clone()
+        }
     }
 
     async fn get_file_content(
@@ -333,61 +527,104 @@ impl Forge for LocalRepo {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        log::warn!("local_mode: would create branch: req: {:#?}", req);
-        Ok(Commit { sha: "None".into() })
+        if self.remote.is_some() {
+            self.create_branch(&req.release_branch).await?;
+            self.switch_branch(&req.release_branch).await?;
+            let commit =
+                self.local_commit(&req.message, &req.file_changes).await?;
+            self.push_branch(&req.release_branch, true).await?;
+            Ok(commit)
+        } else {
+            log::warn!("local_mode: would create branch: req: {:#?}", req);
+            Ok(Commit { sha: "None".into() })
+        }
     }
 
     async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
-        log::warn!("local_mode: would create commit: req: {:#?}", req);
-        Ok(Commit { sha: "None".into() })
+        if self.remote.is_some() {
+            let commit =
+                self.local_commit(&req.message, &req.file_changes).await?;
+            self.push_branch(&req.target_branch, false).await?;
+            Ok(commit)
+        } else {
+            log::warn!("local_mode: would create commit: req: {:#?}", req);
+            Ok(Commit { sha: "None".into() })
+        }
     }
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
-        log::warn!(
-            "local_mode: would tag commit: tag_name: {tag_name}, sha: {sha}"
-        );
-        Ok(())
+        if self.remote.is_some() {
+            self.local_tag_commit(tag_name, sha).await?;
+            self.push_tag(tag_name).await?;
+            Ok(())
+        } else {
+            log::warn!(
+                "local_mode: would tag commit: \
+                 tag_name: {tag_name}, sha: {sha}"
+            );
+            Ok(())
+        }
     }
 
     async fn get_open_release_pr(
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        log::warn!(
-            "local_mode: would request open release pr: req: {:#?}",
-            req
-        );
-        Ok(None)
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.get_open_release_pr(req).await
+        } else {
+            log::warn!(
+                "local_mode: would request open release pr: req: {:#?}",
+                req
+            );
+            Ok(None)
+        }
     }
 
     async fn get_merged_release_pr(
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        log::warn!(
-            "local_mode: would request merged release pr: req: {:#?}",
-            req
-        );
-        Ok(None)
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.get_merged_release_pr(req).await
+        } else {
+            log::warn!(
+                "local_mode: would request merged release pr: req: {:#?}",
+                req
+            );
+            Ok(None)
+        }
     }
 
     async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
-        log::warn!("local_mode: would create release pr: req: {:#?}", req);
-        Ok(PullRequest {
-            number: 0,
-            sha: "None".into(),
-            body: req.body,
-        })
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.create_pr(req).await
+        } else {
+            log::warn!("local_mode: would create release pr: req: {:#?}", req);
+            Ok(PullRequest {
+                number: 0,
+                sha: "None".into(),
+                body: req.body,
+            })
+        }
     }
 
     async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
-        log::warn!("local_mode: would update release pr: req: {:#?}", req);
-        Ok(())
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.update_pr(req).await
+        } else {
+            log::warn!("local_mode: would update release pr: req: {:#?}", req);
+            Ok(())
+        }
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        log::warn!("local_mode: would replace pr labels: req: {:#?}", req);
-        Ok(())
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.replace_pr_labels(req).await
+        } else {
+            log::warn!("local_mode: would replace pr labels: req: {:#?}", req);
+            Ok(())
+        }
     }
 
     async fn create_release(
@@ -396,16 +633,21 @@ impl Forge for LocalRepo {
         sha: &str,
         notes: &str,
     ) -> Result<()> {
-        log::warn!(
-            "local_mode: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
-        );
-        Ok(())
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.create_release(tag, sha, notes).await
+        } else {
+            log::warn!(
+                "local_mode: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
+            );
+            Ok(())
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::forge::request::{FileChange, FileUpdateType};
     use tempfile::TempDir;
 
     /// Creates a commit on whatever HEAD currently points to.
@@ -422,12 +664,18 @@ mod tests {
             .unwrap()
     }
 
+    fn configure_git_user(repo: &git2::Repository) {
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+    }
+
     fn tag_oid(repo: &git2::Repository, name: &str, oid: git2::Oid) {
         let obj = repo.find_object(oid, None).unwrap();
         repo.tag_lightweight(name, &obj, false).unwrap();
     }
 
-    fn default_branch(repo: &git2::Repository) -> String {
+    fn current_branch_name(repo: &git2::Repository) -> String {
         repo.head().unwrap().shorthand().unwrap().to_string()
     }
 
@@ -441,15 +689,248 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         let oid = add_commit(&repo, "initial commit");
         tag_oid(&repo, "v1.0.0", oid);
-        let branch = default_branch(&repo);
+        let branch = current_branch_name(&repo);
         drop(repo);
 
-        let forge = LocalRepo::new(dir.path()).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
         let result =
             forge.get_latest_tag_for_prefix("v", &branch).await.unwrap();
 
         assert!(result.is_some(), "tag at branch head should be found");
         assert_eq!(result.unwrap().name, "v1.0.0");
+    }
+
+    /// `create_branch` must create a branch pointing to current HEAD.
+    #[tokio::test]
+    async fn create_branch_from_head() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let oid = add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge.create_branch("release").await.unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let branch = repo
+            .find_branch("release", git2::BranchType::Local)
+            .unwrap();
+        let branch_oid = branch.get().peel_to_commit().unwrap().id();
+        assert_eq!(branch_oid, oid);
+    }
+
+    /// `create_branch` must force-overwrite an existing branch,
+    /// moving it to the current HEAD.
+    #[tokio::test]
+    async fn create_branch_overwrites_existing() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        add_commit(&repo, "initial commit");
+        let second_oid = add_commit(&repo, "second commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        // Create once, then overwrite from second commit (HEAD).
+        forge.create_branch("release").await.unwrap();
+        forge.create_branch("release").await.unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let branch = repo
+            .find_branch("release", git2::BranchType::Local)
+            .unwrap();
+        let branch_oid = branch.get().peel_to_commit().unwrap().id();
+        assert_eq!(branch_oid, second_oid);
+    }
+
+    /// `switch_branch` must move HEAD to the target branch.
+    #[tokio::test]
+    async fn switch_branch_updates_head() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge.create_branch("release").await.unwrap();
+        forge.switch_branch("release").await.unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let head = current_branch_name(&repo);
+        assert_eq!(head, "release");
+    }
+
+    /// `stage_file` must add the file to the git index.
+    #[tokio::test]
+    async fn stage_file_adds_to_index() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        // Write a new file to the working directory.
+        let file_path = dir.path().join("staged.txt");
+        std::fs::write(&file_path, "hello").unwrap();
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge
+            .stage_file(std::path::Path::new("staged.txt"))
+            .await
+            .unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let index = repo.index().unwrap();
+        let entry = index.get_path(std::path::Path::new("staged.txt"), 0);
+        assert!(entry.is_some(), "staged.txt should be in the index");
+    }
+
+    /// `local_commit` must create a commit with the given message
+    /// and write the supplied file content to disk.
+    #[tokio::test]
+    async fn local_commit_creates_commit_with_message() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let change = FileChange {
+            path: dir.path().join("version.txt").to_string_lossy().to_string(),
+            content: "1.2.3".to_string(),
+            update_type: FileUpdateType::Replace,
+        };
+
+        let commit = forge
+            .local_commit("chore: bump version", &[change])
+            .await
+            .unwrap();
+
+        assert!(!commit.sha.is_empty());
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let msg = repo
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .message()
+            .unwrap()
+            .to_string();
+        assert_eq!(msg, "chore: bump version");
+
+        let written =
+            std::fs::read_to_string(dir.path().join("version.txt")).unwrap();
+        assert_eq!(written, "1.2.3");
+    }
+
+    /// `local_commit` with `Prepend` update type must prepend the new
+    /// content in front of the existing file content.
+    #[tokio::test]
+    async fn local_commit_with_prepend_updates_content() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+
+        // Create the initial file and commit it.
+        let file_path = dir.path().join("CHANGELOG.md");
+        std::fs::write(&file_path, "existing\n").unwrap();
+        let mut index = repo.index().unwrap();
+        index
+            .add_path(std::path::Path::new("CHANGELOG.md"))
+            .unwrap();
+        index.write().unwrap();
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let change = FileChange {
+            path: file_path.to_string_lossy().to_string(),
+            content: "new\n".to_string(),
+            update_type: FileUpdateType::Prepend,
+        };
+
+        forge
+            .local_commit("chore: update changelog", &[change])
+            .await
+            .unwrap();
+
+        let written = std::fs::read_to_string(&file_path).unwrap();
+        assert!(
+            written.starts_with("new\n"),
+            "prepended content should come first"
+        );
+        assert!(
+            written.contains("existing\n"),
+            "existing content should be preserved"
+        );
+    }
+
+    /// `local_commit` must return an error when there are no staged
+    /// changes to commit.
+    #[tokio::test]
+    async fn local_commit_returns_error_when_nothing_to_commit() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let result = forge.local_commit("chore: empty", &[]).await;
+        assert!(
+            result.is_err(),
+            "should error when there is nothing to commit"
+        );
+    }
+
+    /// `local_tag_commit` must create an annotated tag pointing to
+    /// the specified commit OID.
+    #[tokio::test]
+    async fn local_tag_commit_creates_annotated_tag() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        let oid = add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge
+            .local_tag_commit("v1.0.0", &oid.to_string())
+            .await
+            .unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        // find_tag resolves annotated tags only (not lightweight).
+        let tag_ref = repo.find_reference("refs/tags/v1.0.0").unwrap();
+        let tag = tag_ref.peel_to_tag().unwrap();
+        assert_eq!(tag.name().unwrap(), "v1.0.0");
+        assert_eq!(tag.target_id(), oid);
+    }
+
+    /// `push_branch` must succeed (no-op) when no remote is
+    /// configured.
+    #[tokio::test]
+    async fn push_branch_without_remote_is_noop() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge.push_branch("main", false).await.unwrap();
+    }
+
+    /// `push_tag` must succeed (no-op) when no remote is configured.
+    #[tokio::test]
+    async fn push_tag_without_remote_is_noop() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let oid = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "v1.0.0", oid);
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        forge.push_tag("v1.0.0").await.unwrap();
     }
 
     /// A tag that lives on a divergent branch must NOT be returned
@@ -463,7 +944,7 @@ mod tests {
         // Commit on the main branch and tag it v1.0.0.
         let base_oid = add_commit(&repo, "initial commit");
         tag_oid(&repo, "v1.0.0", base_oid);
-        let main_branch = default_branch(&repo);
+        let main_branch = current_branch_name(&repo);
 
         // Create a divergent branch from that same base commit,
         // add a commit there, and tag it v2.0.0.
@@ -480,7 +961,7 @@ mod tests {
         repo.set_head(&format!("refs/heads/{main_branch}")).unwrap();
         drop(repo);
 
-        let forge = LocalRepo::new(dir.path()).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
 
         // Querying main_branch must return v1.0.0 only; v2.0.0 is
         // not in main_branch's history.

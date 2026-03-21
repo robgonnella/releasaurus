@@ -22,6 +22,18 @@ pub const TAGGED_LABEL: &str = "releasaurus:tagged";
 /// Label applied to release PRs while waiting for merge.
 pub const PENDING_LABEL: &str = "releasaurus:pending";
 
+/// Represents the default token variable names that are checked for
+/// authenticating each forge type
+#[derive(Clone, Copy, strum::Display)]
+pub(crate) enum TokenVar {
+    #[strum(to_string = "GITHUB_TOKEN")]
+    Github,
+    #[strum(to_string = "GITLAB_TOKEN")]
+    Gitlab,
+    #[strum(to_string = "GITEA_TOKEN")]
+    Gitea,
+}
+
 /// Validate that repository URL uses HTTP or HTTPS scheme, rejecting SSH and
 /// other protocols.
 fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
@@ -44,12 +56,12 @@ fn validate_scheme(scheme: git_url_parse::Scheme) -> Result<()> {
 pub fn resolve_token(
     cli_token: Option<SecretString>,
     url_token: Option<&String>,
-    env_var: &str,
+    token_var: TokenVar,
 ) -> Result<String> {
     cli_token
         .map(|t| t.expose_secret().to_string())
         .or_else(|| url_token.cloned())
-        .or_else(|| env::var(env_var).ok())
+        .or_else(|| env::var(token_var.to_string()).ok())
         .ok_or_else(|| {
             ReleasaurusError::AuthenticationError(
                 "Token not provided".to_string(),
@@ -229,7 +241,7 @@ mod tests {
         let cli_token = Some(SecretString::from("cli_token"));
         let url_token = Some(&"url_token".to_string());
 
-        let result = resolve_token(cli_token, url_token, "NONEXISTENT_VAR");
+        let result = resolve_token(cli_token, url_token, TokenVar::Github);
 
         assert_eq!(result.unwrap(), "cli_token");
     }
@@ -238,74 +250,56 @@ mod tests {
     fn resolve_token_falls_back_to_url_token() {
         let url_token = Some(&"url_token".to_string());
 
-        let result = resolve_token(None, url_token, "NONEXISTENT_VAR");
+        let result = resolve_token(None, url_token, TokenVar::Gitlab);
 
         assert_eq!(result.unwrap(), "url_token");
     }
 
     #[test]
     fn resolve_token_falls_back_to_env_var() {
-        // Use a unique env var name to avoid conflicts
-        let env_var = "RELEASAURUS_TEST_TOKEN_12345";
-        // SAFETY: This test runs in isolation and uses a unique env var name
-        unsafe {
-            env::set_var(env_var, "env_token");
-        }
-
-        let result = resolve_token(None, None, env_var);
-
-        // SAFETY: Cleaning up the env var we set above
-        unsafe {
-            env::remove_var(env_var);
-        }
-
-        assert_eq!(result.unwrap(), "env_token");
+        temp_env::with_var(
+            TokenVar::Github.to_string(),
+            Some("env_token"),
+            || {
+                let result = resolve_token(None, None, TokenVar::Github);
+                assert_eq!(result.unwrap(), "env_token");
+            },
+        );
     }
 
     #[test]
     fn resolve_token_errors_when_no_token_available() {
-        let result = resolve_token(None, None, "NONEXISTENT_VAR_67890");
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(matches!(err, ReleasaurusError::AuthenticationError(_)));
+        temp_env::with_var_unset(TokenVar::Gitea.to_string(), || {
+            let result = resolve_token(None, None, TokenVar::Gitea);
+            assert!(result.is_err());
+            let err = result.unwrap_err();
+            assert!(matches!(err, ReleasaurusError::AuthenticationError(_)));
+        });
     }
 
     #[test]
     fn resolve_token_cli_takes_precedence_over_env() {
-        let env_var = "RELEASAURUS_TEST_TOKEN_PRECEDENCE";
-        // SAFETY: This test runs in isolation and uses a unique env var name
-        unsafe {
-            env::set_var(env_var, "env_token");
-        }
-
-        let cli_token = Some(SecretString::from("cli_token"));
-        let result = resolve_token(cli_token, None, env_var);
-
-        // SAFETY: Cleaning up the env var we set above
-        unsafe {
-            env::remove_var(env_var);
-        }
-
-        assert_eq!(result.unwrap(), "cli_token");
+        temp_env::with_var(
+            TokenVar::Gitea.to_string(),
+            Some("env_token"),
+            || {
+                let cli_token = Some(SecretString::from("cli_token"));
+                let result = resolve_token(cli_token, None, TokenVar::Gitea);
+                assert_eq!(result.unwrap(), "cli_token");
+            },
+        );
     }
 
     #[test]
     fn resolve_token_url_takes_precedence_over_env() {
-        let env_var = "RELEASAURUS_TEST_TOKEN_URL_PRECEDENCE";
-        // SAFETY: This test runs in isolation and uses a unique env var name
-        unsafe {
-            env::set_var(env_var, "env_token");
-        }
-
-        let url_token = Some(&"url_token".to_string());
-        let result = resolve_token(None, url_token, env_var);
-
-        // SAFETY: Cleaning up the env var we set above
-        unsafe {
-            env::remove_var(env_var);
-        }
-
-        assert_eq!(result.unwrap(), "url_token");
+        temp_env::with_var(
+            TokenVar::Gitlab.to_string(),
+            Some("env_token"),
+            || {
+                let url_token = Some(&"url_token".to_string());
+                let result = resolve_token(None, url_token, TokenVar::Gitlab);
+                assert_eq!(result.unwrap(), "url_token");
+            },
+        );
     }
 }

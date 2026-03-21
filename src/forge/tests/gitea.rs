@@ -24,6 +24,7 @@ async fn test_gitea_forge() {
         forge: Some(ForgeType::Gitea),
         repo: Some(repo.clone()),
         token: Some(token_secret),
+        local_path: None,
     };
 
     let forge = forge_args.forge().await.unwrap();

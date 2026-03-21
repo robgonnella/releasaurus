@@ -23,6 +23,7 @@ async fn test_github_forge() {
         forge: Some(ForgeType::Github),
         repo: Some(repo.clone()),
         token: Some(token_secret),
+        local_path: None,
     };
 
     let forge = forge_args.forge().await.unwrap();

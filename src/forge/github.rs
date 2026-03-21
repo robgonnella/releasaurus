@@ -28,7 +28,7 @@ use crate::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
             DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RemoteConfig, resolve_token,
+            RemoteConfig, TokenVar, resolve_token,
         },
         github::{
             graphql::{
@@ -66,7 +66,7 @@ impl Github {
     /// Create GitHub client with personal access token authentication and API
     /// base URL configuration.
     pub async fn new(url: GitUrl, token: Option<SecretString>) -> Result<Self> {
-        let token = resolve_token(token, url.token.as_ref(), "GITHUB_TOKEN")?;
+        let token = resolve_token(token, url.token.as_ref(), TokenVar::Github)?;
 
         let config = RemoteConfig::from_url(url)?;
 

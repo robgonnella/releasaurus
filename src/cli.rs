@@ -5,7 +5,11 @@ use git_url_parse::GitUrl;
 use merge::Merge;
 use secrecy::SecretString;
 use serde::Deserialize;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 pub mod get;
 
@@ -14,7 +18,11 @@ use crate::{
     config::{changelog::RewordedCommit, prerelease::PrereleaseStrategy},
     error::ReleasaurusError,
     forge::{
-        gitea::Gitea, github::Github, gitlab::Gitlab, local::LocalRepo,
+        config::{TokenVar, resolve_token},
+        gitea::Gitea,
+        github::Github,
+        gitlab::Gitlab,
+        local::{LocalRepo, Remote},
         traits::Forge,
     },
 };
@@ -49,6 +57,12 @@ pub struct ForgeArgs {
     #[arg(short, long, global = true)]
     pub repo: Option<GitUrl>,
 
+    /// Optional path to local repository. Performs local git operations for
+    /// commit analysis, file updates, commits, tagging, pushing, and only uses
+    /// remote forge for PR and release creation
+    #[arg(long, global = true)]
+    pub local_path: Option<PathBuf>,
+
     /// Authentication token. Falls back to env vars: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN
     #[arg(short, long, global = true)]
     pub token: Option<SecretString>,
@@ -60,17 +74,52 @@ impl ForgeArgs {
             && let Some(repo) = self.repo.as_ref()
         {
             let forge: Box<dyn Forge> = match forge_type {
-                ForgeType::Github => Box::new(
-                    Github::new(repo.to_owned(), self.token.clone()).await?,
-                ),
-                ForgeType::Gitlab => Box::new(
-                    Gitlab::new(repo.to_owned(), self.token.clone()).await?,
-                ),
-                ForgeType::Gitea => Box::new(
-                    Gitea::new(repo.to_owned(), self.token.clone()).await?,
-                ),
+                ForgeType::Github => {
+                    let github =
+                        Github::new(repo.to_owned(), self.token.clone())
+                            .await?;
+                    if let Some(local_path) = self.local_path.as_ref() {
+                        self.resolve_hybrid_forge(
+                            Arc::new(github),
+                            local_path,
+                            repo,
+                            TokenVar::Github,
+                        )?
+                    } else {
+                        Box::new(github)
+                    }
+                }
+                ForgeType::Gitlab => {
+                    let gitlab =
+                        Gitlab::new(repo.to_owned(), self.token.clone())
+                            .await?;
+                    if let Some(local_path) = self.local_path.as_ref() {
+                        self.resolve_hybrid_forge(
+                            Arc::new(gitlab),
+                            local_path,
+                            repo,
+                            TokenVar::Gitlab,
+                        )?
+                    } else {
+                        Box::new(gitlab)
+                    }
+                }
+                ForgeType::Gitea => {
+                    let gitea =
+                        Gitea::new(repo.to_owned(), self.token.clone()).await?;
+                    if let Some(local_path) = self.local_path.as_ref() {
+                        self.resolve_hybrid_forge(
+                            Arc::new(gitea),
+                            local_path,
+                            repo,
+                            TokenVar::Gitea,
+                        )?
+                    } else {
+                        Box::new(gitea)
+                    }
+                }
                 ForgeType::Local => {
-                    Box::new(LocalRepo::new(Path::new(&repo.path))?)
+                    Box::new(LocalRepo::new(Path::new(&repo.path), None)?)
                 }
             };
 
@@ -80,6 +129,26 @@ impl ForgeArgs {
                 "missing one of required options: [--forge, --repo]".into(),
             ))
         }
+    }
+
+    fn resolve_hybrid_forge(
+        &self,
+        forge: Arc<dyn Forge>,
+        local_path: &Path,
+        repo: &GitUrl,
+        token_var: TokenVar,
+    ) -> Result<Box<dyn Forge>> {
+        let token =
+            resolve_token(self.token.clone(), repo.token.as_ref(), token_var)?;
+
+        Ok(Box::new(LocalRepo::new(
+            local_path,
+            Some(Remote {
+                forge,
+                token: SecretString::from(token),
+                url: repo.clone(),
+            }),
+        )?))
     }
 }
 
@@ -468,6 +537,7 @@ mod tests {
             forge: None,
             repo: Some(repo),
             token: Some(token),
+            local_path: None,
         };
 
         let result = forge_args.forge().await;
@@ -490,6 +560,7 @@ mod tests {
             forge: Some(ForgeType::Github),
             repo: None,
             token: Some(token),
+            local_path: None,
         };
 
         let result = forge_args.forge().await;

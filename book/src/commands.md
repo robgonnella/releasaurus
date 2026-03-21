@@ -473,6 +473,55 @@ repository and does not require forge authentication tokens. See the
 [Troubleshooting](./troubleshooting.md) guide for help diagnosing
 configuration issues.
 
+### Hybrid Mode (Local Git + Remote Forge)
+
+Use a local repository checkout for git operations while still creating
+real PRs and releases on your remote forge. This is useful when you
+already have the repository cloned locally and want to reduce the
+volume of API calls for the data-gathering phase (reading commits,
+fetching tags, loading file content).
+
+**Normal mode vs. `--local-path`:**
+
+- **Normal mode** performs all operations entirely through forge API
+  calls — no local git operations at all. Zero setup required; just
+  point it at any repository URL. Ideal for CI environments where you
+  don't want or need a local checkout.
+- **`--local-path` mode** performs all git operations (reading commits,
+  reading tags, reading files, creating branches, committing, and
+  pushing) using a local clone via git2. Only PR creation and release
+  publishing are delegated to the remote forge API. Best suited for
+  workflows where a local clone is already available and you want to
+  avoid the cost of repeated API calls for data gathering.
+
+**Usage:**
+
+```bash
+# GitHub
+releasaurus release-pr \
+  --forge github \
+  --repo "https://github.com/owner/repo" \
+  --token "$GITHUB_TOKEN" \
+  --local-path /path/to/checkout
+
+# GitLab
+releasaurus release-pr \
+  --forge gitlab \
+  --repo "https://gitlab.com/owner/repo" \
+  --token "$GITLAB_TOKEN" \
+  --local-path /path/to/checkout
+
+# Gitea
+releasaurus release-pr \
+  --forge gitea \
+  --repo "https://gitea.example.com/owner/repo" \
+  --token "$GITEA_TOKEN" \
+  --local-path /path/to/checkout
+```
+
+**Note:** A forge authentication token is still required for PR
+creation and release publishing.
+
 ### Configuration Overrides
 
 Override configuration properties from the command line without modifying your
