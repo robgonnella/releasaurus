@@ -69,9 +69,11 @@ merge = "0.2.0"
 gitlab = "0.1807.0"
 futures-util = "0.3.31"
 md5 = "0.8.0"
+strum = { version = "0.28.0", features = ["derive"] }
 
 [dev-dependencies]
 mockall = "0.13.1"
 nanoid = "0.4.0"
+temp-env = "0.3.6"
 tempfile = "3.23.0"
 test-log = "0.2.19"

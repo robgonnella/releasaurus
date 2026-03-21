@@ -23,6 +23,7 @@ async fn test_gitlab_forge() {
         forge: Some(ForgeType::Gitlab),
         repo: Some(repo.clone()),
         token: Some(token_secret),
+        local_path: None,
     };
 
     let forge = forge_args.forge().await.unwrap();

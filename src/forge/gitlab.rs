@@ -51,7 +51,7 @@ use crate::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
             DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RemoteConfig, resolve_token,
+            RemoteConfig, TokenVar, resolve_token,
         },
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
@@ -86,7 +86,7 @@ impl Gitlab {
     /// Create GitLab client with personal access token authentication and
     /// project ID resolution.
     pub async fn new(url: GitUrl, token: Option<SecretString>) -> Result<Self> {
-        let token = resolve_token(token, url.token.as_ref(), "GITLAB_TOKEN")?;
+        let token = resolve_token(token, url.token.as_ref(), TokenVar::Gitlab)?;
 
         let config = RemoteConfig::from_url(url)?;
 

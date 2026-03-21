@@ -34,6 +34,9 @@ pub enum ReleasaurusError {
     #[error("Git operation failed: {0}")]
     GitError(#[from] git2::Error),
 
+    #[error("Git operation failed: {0}")]
+    GitOther(String),
+
     // Network/API errors
     #[error("Network request failed: {0}")]
     NetworkError(String),
@@ -97,6 +100,11 @@ impl ReleasaurusError {
     /// Create a forge error with context
     pub fn forge(msg: impl Into<String>) -> Self {
         Self::ForgeError(msg.into())
+    }
+
+    /// Create a git error with context
+    pub fn git_other(msg: impl Into<String>) -> Self {
+        Self::GitOther(msg.into())
     }
 
     /// Create an invalid config error
