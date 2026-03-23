@@ -10,6 +10,25 @@ Actions and Gitea Actions workflows.
 | `command`      | Yes      | The releasaurus command to run   |
 | `command_args` | No       | Arguments to pass to the command |
 
+## Known Limitations
+
+### Gitea: Closed Release PRs on Repeated Runs (Gitea < 1.26)
+
+Gitea versions prior to **1.26** do not support force-pushing a branch via
+the API. As a workaround, releasaurus deletes the release branch and
+re-creates it on each run. Gitea automatically closes any open pull request
+targeting a deleted branch, so each run produces a new PR and leaves a
+closed one behind.
+
+**Workaround**: Use `--local-path` (hybrid mode) to perform git operations
+locally. This bypasses the branch-deletion workaround and avoids accumulating
+closed PRs. See the [Using `--local-path`](#using---local-path-hybrid-mode)
+example below, substituting `--forge gitea` and your Gitea repository URL.
+
+This limitation will be resolved once Gitea 1.26 is released and a
+corresponding releasaurus update ships. See
+[PR #200](https://github.com/robgonnella/releasaurus/pull/200).
+
 ## Examples
 
 ### Basic Release Workflow
