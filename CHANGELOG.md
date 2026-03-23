@@ -1,3 +1,25 @@
+# [0.15.0](https://github.com/robgonnella/releasaurus/compare/v0.14.0...v0.15.0) - 2026-03-13
+
+### 🚀 Features
+
+- support local git variant for all forges [_(05b1b20)_](https://github.com/robgonnella/releasaurus/commit/05b1b205e9f64a01eb1d6a537707ecb3d7dcc187) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- make GiteaIssue pull_request field optional [_(37955e7)_](https://github.com/robgonnella/releasaurus/commit/37955e71af6a57cda0cf27a47ecd5d45cdaab0d3) (Rob Gonnella)
+
+- ensures tag is ancestor of target branch [_(f94b83f)_](https://github.com/robgonnella/releasaurus/commit/f94b83ffc4a762092be8c59329fe5284b3dc4a45) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- reduces calls to fetch tags for packages [_(a2be2c6)_](https://github.com/robgonnella/releasaurus/commit/a2be2c61a2f68ebf07213f8396276870360d8f6c) (Rob Gonnella)
+
+### 📚 Documentation
+
+- documents gitea known limitation and workaround [_(3e9779f)_](https://github.com/robgonnella/releasaurus/commit/3e9779fa218d0a883a1239db95f41e1f196b5d8b) (Rob Gonnella)
+
+- updates documentation on usage of hybrid mode in CI [_(cbf798a)_](https://github.com/robgonnella/releasaurus/commit/cbf798a81c63e3204657d62bde0630d6240d5a2c) (Rob Gonnella)
+
 # [0.14.0](https://github.com/robgonnella/releasaurus/compare/v0.13.0...v0.14.0) - 2026-02-07
 
 ### 🚀 Features
