@@ -522,6 +522,35 @@ releasaurus release-pr \
 **Note:** A forge authentication token is still required for PR
 creation and release publishing.
 
+**CI fetch depth:** When using `--local-path` in CI, the local
+checkout must include the full commit history and all tags back to
+the previous release. Many CI systems perform a shallow clone by
+default (e.g. `fetch-depth: 1` in GitHub Actions), which will cause
+Releasaurus to miss commits or tags. Configure your checkout step
+to fetch the complete history:
+
+```yaml
+# GitHub Actions / Gitea Actions
+- uses: actions/checkout@v5
+  with:
+    fetch-depth: 0  # full history + all tags
+```
+
+```yaml
+# GitLab CI (fresh clone)
+variables:
+  GIT_DEPTH: 0  # full history + all tags
+```
+
+If the runner reuses an existing workspace (`GIT_STRATEGY: fetch`),
+add an explicit unshallow step instead:
+
+```yaml
+# GitLab CI (runner may reuse workspace from a prior job)
+before_script:
+  - git fetch --unshallow || true
+```
+
 ### Configuration Overrides
 
 Override configuration properties from the command line without modifying your
