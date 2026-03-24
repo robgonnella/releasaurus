@@ -1,0 +1,369 @@
+use semver::Version;
+use tokio::time::{Duration, sleep};
+use url::Url;
+
+use crate::{
+    config::Config,
+    error::ReleasaurusError,
+    forge::{
+        config::Scheme,
+        config::{PENDING_LABEL, RepoUrl},
+        manager::ForgeManager,
+        request::{
+            CreateCommitRequest, CreatePrRequest, CreateReleaseBranchRequest,
+            FileChange, FileUpdateType, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest,
+        },
+        tests::common::traits::ForgeTestHelper,
+    },
+};
+
+/// Parse a URL string into a [`RepoUrl`] for use in integration tests.
+pub fn parse_repo_url(raw: &str) -> RepoUrl {
+    let parsed = Url::parse(raw).expect("invalid test URL");
+    let scheme = if parsed.scheme() == "http" {
+        Scheme::Http
+    } else {
+        Scheme::Https
+    };
+    let host = parsed.host_str().unwrap_or("").to_string();
+    let port = parsed.port();
+    let segments: Vec<&str> = parsed
+        .path_segments()
+        .map(|s| s.collect())
+        .unwrap_or_default();
+    let owner = segments.first().copied().unwrap_or("").to_string();
+    let name = segments.get(1).copied().unwrap_or("").to_string();
+    let path = format!("{}/{}", owner, name);
+    RepoUrl {
+        scheme,
+        host,
+        owner,
+        name,
+        path,
+        port,
+        token: None,
+    }
+}
+
+const SHORT_WAIT: Duration = Duration::from_secs(2);
+const LONG_WAIT: Duration = Duration::from_secs(20);
+
+pub async fn run_forge_test(
+    forge: &ForgeManager,
+    helper: &dyn ForgeTestHelper,
+) {
+    log::info!("resetting repository");
+    helper.reset().await.unwrap();
+
+    let default_branch = forge.default_branch();
+    let release_branch = "release-branch";
+    let test_file_path = "test.txt";
+    let test_file_content = "test content";
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_file_content: expect -> None
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for non-existent file content");
+    let get_file_req = GetFileContentRequest {
+        branch: Some(default_branch.to_string()),
+        path: test_file_path.to_string(),
+    };
+    let file_content = forge.get_file_content(get_file_req).await.unwrap();
+    assert!(file_content.is_none());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_commit -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating commit with new file content");
+    let create_commit_req = CreateCommitRequest {
+        target_branch: default_branch.to_string(),
+        message: "fix: test fix commit".into(),
+        file_changes: vec![FileChange {
+            content: test_file_content.to_string(),
+            path: test_file_path.to_string(),
+            update_type: FileUpdateType::Replace,
+        }],
+    };
+
+    let created_commit = forge.create_commit(create_commit_req).await.unwrap();
+    assert!(!created_commit.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_release_branch forked here (before the release tag) so
+    // we can later assert the tag is invisible on this branch
+    ////////////////////////////////////////////////////////////////////////////
+    let pre_tag_branch = "pre-tag-branch";
+    log::info!("creating pre-tag-branch before release merge");
+    let pre_tag_branch_req = CreateReleaseBranchRequest {
+        base_branch: default_branch.to_string(),
+        message: "chore: pre-tag branch".into(),
+        release_branch: pre_tag_branch.to_string(),
+        file_changes: vec![FileChange {
+            content: "pre-tag".to_string(),
+            path: "pre-tag.txt".into(),
+            update_type: FileUpdateType::Replace,
+        }],
+    };
+    forge
+        .create_release_branch(pre_tag_branch_req)
+        .await
+        .unwrap();
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_commits -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+
+    let commits = forge.get_commits(None, None).await.unwrap();
+    assert_eq!(commits.len(), 2);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // re-get file content: expect -> content
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for existing file content");
+    let get_file_req = GetFileContentRequest {
+        branch: Some(default_branch.to_string()),
+        path: test_file_path.to_string(),
+    };
+    let file_content = forge.get_file_content(get_file_req).await.unwrap();
+    assert!(file_content.is_some());
+    let file_content = file_content.unwrap();
+    assert_eq!(file_content, test_file_content);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_release_branch with changelog file change -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating release-branch");
+    let create_release_branch_req = CreateReleaseBranchRequest {
+        base_branch: default_branch.to_string(),
+        message: "chore(main): release".into(),
+        release_branch: release_branch.to_string(),
+        file_changes: vec![FileChange {
+            content: format!("# Changelog - {}", created_commit.sha),
+            path: "CHANGELOG.md".into(),
+            update_type: FileUpdateType::Prepend,
+        }],
+    };
+
+    let release_commit = forge
+        .create_release_branch(create_release_branch_req)
+        .await
+        .unwrap();
+    assert!(!release_commit.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_open_release_pr: expect -> None
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("getting non-existent open PR");
+    let get_pr_req = GetPrRequest {
+        base_branch: default_branch.to_string(),
+        head_branch: release_branch.to_string(),
+    };
+
+    let open_pr = forge.get_open_release_pr(get_pr_req).await.unwrap();
+    assert!(open_pr.is_none());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_pr from release_branch -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating PR");
+    let create_pr_req = CreatePrRequest {
+        base_branch: default_branch.to_string(),
+        body: "Test PR".into(),
+        head_branch: release_branch.to_string(),
+        title: "Test PR".into(),
+    };
+
+    let release_pr = forge.create_pr(create_pr_req).await.unwrap();
+    assert_ne!(release_pr.number, 0);
+    assert!(!release_pr.body.is_empty());
+    assert!(!release_pr.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // replace_pr_labels -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("replacing PR labels");
+    let replace_labels_req = PrLabelsRequest {
+        labels: vec![PENDING_LABEL.into()],
+        pr_number: release_pr.number,
+    };
+    forge.replace_pr_labels(replace_labels_req).await.unwrap();
+    // extra padding here
+    sleep(LONG_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_open_release_pr -> Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for newly created open PR");
+    let get_pr_req = GetPrRequest {
+        base_branch: default_branch.to_string(),
+        head_branch: release_branch.to_string(),
+    };
+    let open_pr = forge.get_open_release_pr(get_pr_req).await.unwrap();
+    assert!(open_pr.is_some());
+    let open_pr = open_pr.unwrap();
+    assert_ne!(open_pr.number, 0);
+    assert!(!open_pr.body.is_empty());
+    assert!(!open_pr.sha.is_empty());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_merged_release_pr -> None
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for non-existent merged PR");
+    let get_pr_req = GetPrRequest {
+        base_branch: default_branch.to_string(),
+        head_branch: release_branch.to_string(),
+    };
+    let merged_pr = forge.get_merged_release_pr(get_pr_req).await.unwrap();
+    assert!(merged_pr.is_none());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // merge release PR -> helper succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("merging release PR via helper");
+    helper.merge_pr(release_pr.number).await.unwrap();
+    // extra padding here
+    sleep(LONG_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_merged_release_pr -> Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for newly merged release PR");
+    let get_pr_req = GetPrRequest {
+        base_branch: default_branch.to_string(),
+        head_branch: release_branch.to_string(),
+    };
+    let merged_pr = forge.get_merged_release_pr(get_pr_req).await.unwrap();
+    assert!(merged_pr.is_some());
+    let merged_pr = merged_pr.unwrap();
+    assert_ne!(merged_pr.number, 0);
+    assert!(!merged_pr.sha.is_empty());
+    assert!(!merged_pr.body.is_empty());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_latest_tag_for_prefix -> None
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for non-existent tag by prefix");
+    let semver = "1.1.0";
+    let tag = format!("v{}", semver);
+    let current_tag = forge
+        .get_latest_tag_for_prefix("v", default_branch)
+        .await
+        .unwrap();
+    assert!(current_tag.is_none());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // tag_commit -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("tagging commit");
+    forge.tag_commit(&tag, &merged_pr.sha).await.unwrap();
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_latest_tag_for_prefix -> Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for newly tagged commit by prefix");
+    let current_tag = forge
+        .get_latest_tag_for_prefix("v", default_branch)
+        .await
+        .unwrap();
+    assert!(current_tag.is_some());
+    let current_tag = current_tag.unwrap();
+    assert_eq!(current_tag.name, tag);
+    assert_eq!(current_tag.semver, Version::parse(semver).unwrap());
+    assert_eq!(current_tag.sha, merged_pr.sha);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_latest_tag_for_prefix on pre-tag-branch -> None
+    //
+    // pre-tag-branch was forked before the release merge, so the tag
+    // commit is not in its ancestry and must not be returned.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("verifying tag is not visible on branch forked before release");
+    let pre_tag_result = forge
+        .get_latest_tag_for_prefix("v", pre_tag_branch)
+        .await
+        .unwrap();
+    assert!(
+        pre_tag_result.is_none(),
+        "tag must not appear on a branch that diverged before it \
+         was created"
+    );
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_release_by_tag -> Err Not Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("getting non-existent release by tag name");
+    let err = forge
+        .get_release_by_tag(&current_tag.name)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, ReleasaurusError::ForgeError(_)));
+
+    ////////////////////////////////////////////////////////////////////////////
+    // create_release -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating release for tag");
+    forge
+        .create_release(&current_tag.name, &current_tag.sha, "release notes")
+        .await
+        .unwrap();
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_release_by_tag -> Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("getting newly created release by tag name");
+    let release = forge.get_release_by_tag(&current_tag.name).await.unwrap();
+    assert_eq!(release.tag, current_tag.name);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // load_config -> Default::default()
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("loading non-existent config file");
+    let config = forge.load_config(None).await.unwrap();
+    assert_eq!(
+        config.packages[0].workspace_root,
+        Config::default().packages[0].workspace_root
+    );
+    assert_eq!(config.packages[0].path, Config::default().packages[0].path);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // load_config -> Found config
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating commit to add releasaurus config file");
+    let releasaurus_toml_content = r#"
+    [[package]]
+    name = "test-package"
+    workspace_root = "packages"
+    path = "test-package"
+    "#;
+
+    let create_commit_req = CreateCommitRequest {
+        target_branch: default_branch.to_string(),
+        message: "chore: adds releasaurus.toml".into(),
+        file_changes: vec![FileChange {
+            content: releasaurus_toml_content.to_string(),
+            path: "releasaurus.toml".to_string(),
+            update_type: FileUpdateType::Replace,
+        }],
+    };
+
+    log::info!("loading newly created releasaurus config file");
+    let created_commit = forge.create_commit(create_commit_req).await.unwrap();
+    assert!(!created_commit.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    let config = forge
+        .load_config(Some(default_branch.to_string()))
+        .await
+        .unwrap();
+
+    assert_eq!(config.packages[0].name, "test-package");
+    assert_eq!(config.packages[0].workspace_root, "packages");
+    assert_eq!(config.packages[0].path, "test-package");
+}

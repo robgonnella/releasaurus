@@ -112,13 +112,13 @@ codebase.
 Each language updater consists of:
 
 1. **ReleaseType enum variant** - Configuration option in
-   `src/config/release_type.rs`
+   `crates/releasaurus-core/src/config/release_type.rs`
 2. **Manifests module** - Defines manifest file targets in
-   `src/updater/yourlanguage/manifests.rs`
+   `crates/releasaurus-core/src/updater/yourlanguage/manifests.rs`
 3. **Updater module** - Language-specific implementation in
-   `src/updater/yourlanguage/updater.rs`
+   `crates/releasaurus-core/src/updater/yourlanguage/updater.rs`
 4. **File parsers** - Version file format handlers (e.g.,
-   `src/updater/yourlanguage/your_file_type.rs`)
+   `crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs`)
 5. **Tests** - Comprehensive test coverage for all modules
 6. **Documentation** - User-facing documentation updates
 
@@ -126,21 +126,27 @@ Each language updater consists of:
 
 **1. Add ReleaseType Variant**
 
-- `src/config/release_type.rs` - Add your language to the `ReleaseType` enum
+- `crates/releasaurus-core/src/config/release_type.rs` - Add your
+  language to the `ReleaseType` enum
 
 **2. Create Manifests Module**
 
-- `src/updater/yourlanguage/manifests.rs` - Implement `ManifestTargets` trait
-- `src/updater/manager.rs` - Register in `release_type_manifest_targets()`
-  function
+- `crates/releasaurus-core/src/updater/yourlanguage/manifests.rs` -
+  Implement `ManifestTargets` trait
+- `crates/releasaurus-core/src/updater/manager.rs` - Register in
+  `release_type_manifest_targets()` function
 
 **3. Create Updater Implementation**
 
-- `src/updater/yourlanguage.rs` - Module declaration file
-- `src/updater/yourlanguage/updater.rs` - Implement `PackageUpdater` trait
-- `src/updater/yourlanguage/your_file_type.rs` - File format parser(s)
-- `src/updater.rs` - Add module declaration
-- `src/updater/manager.rs` - Register in `updater()` function
+- `crates/releasaurus-core/src/updater/yourlanguage.rs` - Module
+  declaration file
+- `crates/releasaurus-core/src/updater/yourlanguage/updater.rs` -
+  Implement `PackageUpdater` trait
+- `crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs` -
+  File format parser(s)
+- `crates/releasaurus-core/src/updater.rs` - Add module declaration
+- `crates/releasaurus-core/src/updater/manager.rs` - Register in
+  `updater()` function
 
 **4. Add Tests**
 
@@ -159,16 +165,19 @@ Use existing language implementations as templates:
 
 **Simple Languages (Good starting points):**
 
-- **PHP**: `src/updater/php/` - Single manifest file, straightforward JSON
-  parsing
-- **Python**: `src/updater/python/` - Multiple manifest formats (TOML, cfg, py)
+- **PHP**: `crates/releasaurus-core/src/updater/php/` - Single
+  manifest file, straightforward JSON parsing
+- **Python**: `crates/releasaurus-core/src/updater/python/` -
+  Multiple manifest formats (TOML, cfg, py)
 
 **Complex Languages (Advanced features):**
 
-- **Node**: `src/updater/node/` - Workspace support, multiple lock files
-- **Rust**: `src/updater/rust/` - Workspace detection, dependency updates
-- **Java**: `src/updater/java/` - Multiple build tools
-  (Maven, Gradle, version catalogs), properties files
+- **Node**: `crates/releasaurus-core/src/updater/node/` - Workspace
+  support, multiple lock files
+- **Rust**: `crates/releasaurus-core/src/updater/rust/` - Workspace
+  detection, dependency updates
+- **Java**: `crates/releasaurus-core/src/updater/java/` - Multiple
+  build tools (Maven, Gradle, version catalogs), properties files
 
 **Key Traits to Implement:**
 
@@ -179,16 +188,21 @@ Use existing language implementations as templates:
 
 Follow the established testing patterns:
 
-- **Test outcomes, not implementation** - Verify behavior, not how it's achieved
+- **Test outcomes, not implementation** - Verify behavior, not how
+  it's achieved
 - **Minimal and concise** - Only test what provides value
 - **Use helper functions** - Reduce duplication (see `test_helpers.rs`)
-- **Descriptive names** - e.g., `returns_all_manifest_targets` not `test_1`
+- **Descriptive names** - e.g., `returns_all_manifest_targets` not
+  `test_1`
 
 **Example test files to reference:**
 
-- `src/updater/php/manifests.rs` - Simple manifest tests
-- `src/updater/node/manifests.rs` - Workspace-aware manifest tests
-- `src/updater/php/updater.rs` - Basic updater tests
+- `crates/releasaurus-core/src/updater/php/manifests.rs` - Simple
+  manifest tests
+- `crates/releasaurus-core/src/updater/node/manifests.rs` -
+  Workspace-aware manifest tests
+- `crates/releasaurus-core/src/updater/php/updater.rs` - Basic
+  updater tests
 
 #### Running Tests
 
@@ -217,7 +231,8 @@ releasaurus release-pr \
 
 #### Getting Help
 
-- Review existing implementations in `src/updater/`
+- Review existing implementations in
+  `crates/releasaurus-core/src/updater/`
 - Check test files for usage patterns
 - Ask questions in GitHub Discussions
 - Reference the `PackageUpdater` and `ManifestTargets` trait documentation

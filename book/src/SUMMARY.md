@@ -23,6 +23,10 @@
   - [Configuration Reference](./configuration-reference.md)
 - [Environment Variables](./environment-variables.md)
 
+# Library API
+
+- [Using as a Library](./library-api.md)
+
 # About
 
 - [Contributing](./contributing.md)
