@@ -7,7 +7,13 @@ skip_miscellaneous = false
 include_author = true
 
 [[package]]
+name = "workspace"
+tag_prefix = "v"
 release_type = "rust"
 additional_manifest_files = [
   { path = "./action/action.yml", version_regex = "v(?<version>\\d+\\.\\d+\\.\\d+)" }
+]
+sub_packages = [
+  { name = "releasaurus", path = "crates/releasaurus", release_type = "rust" },
+  { name = "releasaurus-core", path = "crates/releasaurus-core", release_type = "rust" }
 ]
