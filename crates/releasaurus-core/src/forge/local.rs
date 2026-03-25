@@ -534,6 +534,7 @@ impl Forge for LocalRepo {
             let commit =
                 self.local_commit(&req.message, &req.file_changes).await?;
             self.push_branch(&req.release_branch, true).await?;
+            self.switch_branch(&req.base_branch).await?;
             Ok(commit)
         } else {
             log::warn!("local_mode: would create branch: req: {:#?}", req);
@@ -1037,6 +1038,84 @@ mod tests {
             result.unwrap().name,
             "v1.0.0",
             "v2.0.0 (only on divergent branch) must be excluded"
+        );
+    }
+
+    /// Simulates what `create_release_branch` does for two packages in
+    /// sequence. After processing the first package the code must switch
+    /// HEAD back to the base branch so the second branch forks from the
+    /// correct commit and does not inherit the first package's changes.
+    #[tokio::test]
+    async fn multi_package_release_branches_are_independent() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+        let base_branch = current_branch_name(&repo);
+        drop(repo);
+
+        std::fs::create_dir_all(dir.path().join("pkg-a")).unwrap();
+        std::fs::create_dir_all(dir.path().join("pkg-b")).unwrap();
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+
+        // Simulate create_release_branch for pkg-a.
+        forge.create_branch("release-pkg-a").await.unwrap();
+        forge.switch_branch("release-pkg-a").await.unwrap();
+        forge
+            .local_commit(
+                "chore: release pkg-a",
+                &[FileChange {
+                    path: "pkg-a/CHANGELOG.md".to_string(),
+                    content: "# pkg-a 1.0.0\n".to_string(),
+                    update_type: FileUpdateType::Replace,
+                }],
+            )
+            .await
+            .unwrap();
+        // This is the fix: switch back to base branch.
+        forge.switch_branch(&base_branch).await.unwrap();
+
+        // HEAD must be back on the base branch.
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        assert_eq!(
+            current_branch_name(&repo),
+            base_branch,
+            "HEAD should be restored to base branch"
+        );
+        drop(repo);
+
+        // Simulate create_release_branch for pkg-b.
+        forge.create_branch("release-pkg-b").await.unwrap();
+        forge.switch_branch("release-pkg-b").await.unwrap();
+        forge
+            .local_commit(
+                "chore: release pkg-b",
+                &[FileChange {
+                    path: "pkg-b/CHANGELOG.md".to_string(),
+                    content: "# pkg-b 1.0.0\n".to_string(),
+                    update_type: FileUpdateType::Replace,
+                }],
+            )
+            .await
+            .unwrap();
+        forge.switch_branch(&base_branch).await.unwrap();
+
+        // Verify the second branch does NOT contain pkg-a's changes.
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let branch_b = repo
+            .find_branch("release-pkg-b", BranchType::Local)
+            .unwrap();
+        let commit_b = branch_b.get().peel_to_commit().unwrap();
+        let tree_b = commit_b.tree().unwrap();
+
+        assert!(
+            tree_b.get_path(Path::new("pkg-b/CHANGELOG.md")).is_ok(),
+            "pkg-b branch should contain pkg-b/CHANGELOG.md"
+        );
+        assert!(
+            tree_b.get_path(Path::new("pkg-a/CHANGELOG.md")).is_err(),
+            "pkg-b branch must NOT contain pkg-a/CHANGELOG.md"
         );
     }
 }
