@@ -8,9 +8,19 @@ process across multiple programming languages and forge platforms.
 ## Documentation
 
 For complete documentation, installation instructions, and usage examples,
-please visit:
+for current release, please visit:
 
 **[https://releasaurus.rgon.io](https://releasaurus.rgon.io)**
+
+For documentation for tip of `main`, view mdbook documentation
+[SUMMARY.md](./book/src/SUMMARY.md).
+
+If you install mdbook, you can build and view documentation locally as html via
+
+```bash
+cd book
+mdbook serve --open
+```
 
 ## License
 
