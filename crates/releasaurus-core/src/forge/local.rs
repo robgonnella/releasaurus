@@ -164,13 +164,15 @@ impl LocalRepo {
         file_changes: &[FileChange],
     ) -> Result<Commit> {
         for change in file_changes {
+            let full_path = self.repo_path.join(&change.path);
             let mut content = change.content.clone();
             if change.update_type == FileUpdateType::Prepend {
-                let existing_content = fs::read_to_string(&change.path).await?;
-                content = format!("{content}{existing_content}");
+                if let Ok(existing_content) = fs::read_to_string(&full_path).await {
+                    content = format!("{content}{existing_content}");
+                }
             }
-            fs::write(&change.path, content).await?;
-            self.stage_file(Path::new(&change.path)).await?;
+            fs::write(&full_path, content).await?;
+            self.stage_file(&full_path).await?;
         }
 
         log::debug!("committing changes with msg: {msg}");
@@ -862,6 +864,64 @@ mod tests {
             written.contains("existing\n"),
             "existing content should be preserved"
         );
+    }
+
+    /// `local_commit` with `Prepend` on a file that does not yet exist
+    /// must create the file with just the new content (first release).
+    #[tokio::test]
+    async fn local_commit_with_prepend_creates_missing_file() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let change = FileChange {
+            path: "CHANGELOG.md".to_string(),
+            content: "# 1.0.0\n\n- first release\n".to_string(),
+            update_type: FileUpdateType::Prepend,
+        };
+
+        forge
+            .local_commit("chore: update changelog", &[change])
+            .await
+            .unwrap();
+
+        let written =
+            std::fs::read_to_string(dir.path().join("CHANGELOG.md")).unwrap();
+        assert_eq!(written, "# 1.0.0\n\n- first release\n");
+    }
+
+    /// `local_commit` must resolve relative `FileChange` paths against
+    /// `repo_path` so that file I/O works regardless of the process CWD.
+    #[tokio::test]
+    async fn local_commit_resolves_relative_paths_against_repo_path() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+        drop(repo);
+
+        // Create a sub-directory to mimic a monorepo package path.
+        let sub_dir = dir.path().join("packages").join("ui");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+
+        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let change = FileChange {
+            path: "packages/ui/version.txt".to_string(),
+            content: "1.0.0".to_string(),
+            update_type: FileUpdateType::Replace,
+        };
+
+        forge
+            .local_commit("chore: bump version", &[change])
+            .await
+            .unwrap();
+
+        let written = std::fs::read_to_string(sub_dir.join("version.txt"))
+            .unwrap();
+        assert_eq!(written, "1.0.0");
     }
 
     /// `local_commit` must return an error when there are no staged
