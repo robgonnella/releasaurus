@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e1126017.js";
+            window.path_to_searchindex_js = "searchindex-62cd7dfa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f5e2ee4c.js"></script>
@@ -180,57 +180,32 @@
                         <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
 <p>Releasaurus provides official integrations for GitHub Actions and Gitea
 Actions. For GitLab CI, use the Docker image directly.</p>
+<blockquote>
+<p><strong>Note on fetch depth:</strong> When using <code>--local-path</code> (hybrid mode),
+Releasaurus reads commit history and tags directly from the local
+clone. Most CI systems shallow-clone by default, which will cause
+missing commits or tags. Configure your CI checkout for full depth
+when using <code>--local-path</code>. Platform-specific instructions are in
+each section below.</p>
+</blockquote>
 <h2 id="github-actions--gitea-actions"><a class="header" href="#github-actions--gitea-actions">GitHub Actions &amp; Gitea Actions</a></h2>
 <p>A single action works for both GitHub Actions and Gitea Actions
-workflows, exposing the <code>releasaurus</code> executable for maximum
-flexibility.</p>
-<p><strong>Documentation</strong>: <a href="https://github.com/robgonnella/releasaurus/tree/main/action">action/README.md</a></p>
-<h3 id="example"><a class="header" href="#example">Example</a></h3>
-<pre><code class="language-yaml">name: Release
-on:
-  push:
-    branches: [main]
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      # Run release before release-pr to ensure pending releases are
-      # published first
-      - name: Publish Release
-        uses: robgonnella/releasaurus/action@vX.X.X
-        with:
-          command: release
-          command_args: &gt;-
-            --forge github
-            --repo ${{ github.server_url }}/${{ github.repository }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release PR
-        uses: robgonnella/releasaurus/action@vX.X.X
-        with:
-          command: release-pr
-          command_args: &gt;-
-            --forge github
-            --repo ${{ github.server_url }}/${{ github.repository }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-</code></pre>
+workflows. See the
+<a href="https://github.com/robgonnella/releasaurus/tree/main/action">action README</a>
+for inputs, usage examples, and fetch depth configuration for
+<code>--local-path</code>.</p>
 <h2 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h2>
 <p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>.
-You may provide authentication token either by specifying a CI/CD variable named
-<code>GITLAB_TOKEN</code>, or by directly passing the <code>--token</code> option with reference to
-your defined variable, i.e. <code>--token $RELEASE_TOKEN</code></p>
+You may provide an authentication token either by specifying a CI/CD
+variable named <code>GITLAB_TOKEN</code>, or by directly passing the <code>--token</code>
+option with a reference to your defined variable, e.g.
+<code>--token $RELEASE_TOKEN</code>.</p>
 <p><strong>Required Scopes</strong>:</p>
 <ul>
 <li><code>api</code> (full API access)</li>
 <li><code>write_repository</code> (repository write access)</li>
 </ul>
-<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
 <pre><code class="language-yaml">publish-release:
   image:
     name: rgonnella/releasaurus:vX.X.X
@@ -247,10 +222,25 @@ release-pr:
     entrypoint: [""]
   script:
     # Uses custom var for token authentication
-    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
+    - releasaurus release-pr --forge gitlab \
+        --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 </code></pre>
+<h3 id="using---local-path"><a class="header" href="#using---local-path">Using <code>--local-path</code></a></h3>
+<p>When using <code>--local-path</code>, Releasaurus reads commit history and tags
+from the local clone and requires a full checkout. Configure
+<code>GIT_DEPTH: 0</code> to ensure a full clone when the runner starts fresh:</p>
+<pre><code class="language-yaml">variables:
+  GIT_DEPTH: 0
+</code></pre>
+<p>If the runner reuses an existing workspace from a prior job
+(i.e. <code>GIT_STRATEGY: fetch</code>), <code>GIT_DEPTH</code> has no effect on the
+already-shallow repository. Unshallow explicitly in <code>before_script</code>:</p>
+<pre><code class="language-yaml">before_script:
+  - git fetch --unshallow || true  # no-op if already full-depth
+</code></pre>
+<p>Using both together is safe and covers all runner states.</p>
 
                     </main>
 
