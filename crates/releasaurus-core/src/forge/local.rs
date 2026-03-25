@@ -220,6 +220,7 @@ impl LocalRepo {
                     parent.display(),
                     parent.exists()
                 );
+                fs::create_dir_all(parent).await?;
             }
             fs::write(&full_path, content).await?;
             self.stage_file(&full_path).await?;
