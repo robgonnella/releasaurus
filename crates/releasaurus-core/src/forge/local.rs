@@ -62,6 +62,11 @@ impl LocalRepo {
     pub fn new(repo_path: &Path, remote: Option<Remote>) -> Result<Self> {
         let repo_str = repo_path.to_string_lossy();
         let abs_repo_path = path::absolute(repo_path)?;
+        log::debug!(
+            "LocalRepo::new: repo_path={}, abs_repo_path={}",
+            repo_str,
+            abs_repo_path.display()
+        );
 
         if !abs_repo_path.exists() {
             return Err(ReleasaurusError::forge(format!(
@@ -94,7 +99,14 @@ impl LocalRepo {
             .to_string_lossy()
             .to_string();
 
+        log::debug!("LocalRepo::new: opening repository at {}", repo_str);
         let repo = git2::Repository::open(repo_path)?;
+        log::debug!(
+            "LocalRepo::new: repository workdir={}",
+            repo.workdir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<bare>".into())
+        );
 
         let head = repo.head()?;
 
@@ -131,10 +143,20 @@ impl LocalRepo {
     async fn switch_branch(&self, branch: &str) -> Result<()> {
         log::info!("switching to branch: {branch}");
         let repo = self.repo.lock().await;
+        log::debug!(
+            "switch_branch: repo workdir={}",
+            repo.workdir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<bare>".into())
+        );
         let ref_name = format!("refs/heads/{}", branch);
+        log::debug!("switch_branch: resolving ref {ref_name}");
         let target_obj = repo.revparse_single(&ref_name)?;
+        log::debug!("switch_branch: checking out tree for {ref_name}");
         repo.checkout_tree(&target_obj, None)?;
+        log::debug!("switch_branch: setting HEAD to {ref_name}");
         repo.set_head(&ref_name)?;
+        log::debug!("switch_branch: done");
         Ok(())
     }
 
@@ -163,13 +185,41 @@ impl LocalRepo {
         msg: &str,
         file_changes: &[FileChange],
     ) -> Result<Commit> {
+        log::debug!(
+            "local_commit: repo_path={}, file_changes count={}",
+            self.repo_path.display(),
+            file_changes.len()
+        );
         for change in file_changes {
             let full_path = self.repo_path.join(&change.path);
+            log::debug!(
+                "local_commit: processing file change: path={}, full_path={}, update_type={:?}",
+                change.path,
+                full_path.display(),
+                change.update_type
+            );
             let mut content = change.content.clone();
             if change.update_type == FileUpdateType::Prepend {
                 if let Ok(existing_content) = fs::read_to_string(&full_path).await {
+                    log::debug!(
+                        "local_commit: read existing content from {} ({} bytes)",
+                        full_path.display(),
+                        existing_content.len()
+                    );
                     content = format!("{content}{existing_content}");
+                } else {
+                    log::debug!(
+                        "local_commit: no existing file at {}, creating new",
+                        full_path.display()
+                    );
                 }
+            }
+            if let Some(parent) = full_path.parent() {
+                log::debug!(
+                    "local_commit: parent dir {} exists={}",
+                    parent.display(),
+                    parent.exists()
+                );
             }
             fs::write(&full_path, content).await?;
             self.stage_file(&full_path).await?;
