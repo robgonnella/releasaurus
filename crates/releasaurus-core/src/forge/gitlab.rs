@@ -98,7 +98,11 @@ impl Gitlab {
         let compare_link_base_url =
             Url::parse(&format!("{}/{}/-/compare/", link_base_url, url.path))?;
 
-        let project_id = url.path.clone();
+        let project_id = url
+            .path
+            .strip_prefix("/")
+            .map(|p| p.to_string())
+            .unwrap_or(url.path.clone());
 
         let gl =
             gitlab::GitlabBuilder::new(url.host.clone(), token.expose_secret())
