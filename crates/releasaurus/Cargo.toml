@@ -1,6 +1,6 @@
 [package]
 name = "releasaurus"
-version = "0.16.0"
+version = "0.16.1"
 edition = { workspace = true }
 description = { workspace = true }
 homepage = { workspace = true }
@@ -29,7 +29,7 @@ color-eyre = "0.6.5"
 git-url-parse = { workspace = true }
 log = "0.4.29"
 merge = "0.2.0"
-releasaurus-core = { path = "../releasaurus-core", version = "0.16.0" }
+releasaurus-core = { path = "../releasaurus-core", version = "0.16.1" }
 secrecy = { workspace = true }
 serde = "1.0.228"
 serde_json = "1.0.149"
