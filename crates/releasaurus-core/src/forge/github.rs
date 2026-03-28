@@ -522,10 +522,14 @@ impl Forge for Github {
                 if let Some(email) = author.email {
                     author_email = email;
                 }
+            }
 
-                if let Some(date) = author.date {
-                    timestamp = date.timestamp();
-                }
+            // Use the date from time it was committed to target branch
+            // not when it was authored
+            if let Some(committer) = commit.commit.committer
+                && let Some(date) = committer.date
+            {
+                timestamp = date.timestamp();
             }
 
             let sha = commit.sha.clone();
