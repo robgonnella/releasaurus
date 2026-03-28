@@ -101,12 +101,6 @@ impl LocalRepo {
 
         log::debug!("LocalRepo::new: opening repository at {}", repo_str);
         let repo = git2::Repository::open(repo_path)?;
-        log::debug!(
-            "LocalRepo::new: repository workdir={}",
-            repo.workdir()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| "<bare>".into())
-        );
 
         let head = repo.head()?;
 
@@ -129,12 +123,28 @@ impl LocalRepo {
 }
 
 impl LocalRepo {
-    /// Create new branch from current HEAD (force creates, overwrites existing).
-    async fn create_branch(&self, branch: &str) -> Result<()> {
-        log::info!("creating branch: {branch}");
+    async fn get_current_branch(&self) -> Result<String> {
         let repo = self.repo.lock().await;
         let head = repo.head()?;
-        let commit = head.peel_to_commit()?;
+        let current_branch = head
+            .shorthand()
+            .ok_or(ReleasaurusError::git_other(
+                "unable to get current branch for local repo",
+            ))?
+            .to_string();
+        Ok(current_branch)
+    }
+
+    /// Create new branch from provided base_ref. If the new branch already
+    /// exists it is force overwritten to start from the base_ref
+    async fn create_branch(&self, branch: &str, base_ref: &str) -> Result<()> {
+        let repo = self.repo.lock().await;
+        log::debug!("finding base ref: {base_ref}");
+        let base_branch = repo.find_branch(base_ref, BranchType::Local)?;
+        let base_branch = base_branch.get();
+        let commit = base_branch.peel_to_commit()?;
+        log::debug!("base_branch={base_ref} commit={}", commit.id());
+        log::info!("creating branch: {branch}");
         repo.branch(branch, &commit, true)?;
         Ok(())
     }
@@ -143,12 +153,6 @@ impl LocalRepo {
     async fn switch_branch(&self, branch: &str) -> Result<()> {
         log::info!("switching to branch: {branch}");
         let repo = self.repo.lock().await;
-        log::debug!(
-            "switch_branch: repo workdir={}",
-            repo.workdir()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| "<bare>".into())
-        );
         let ref_name = format!("refs/heads/{}", branch);
         log::debug!("switch_branch: resolving ref {ref_name}");
         let target_obj = repo.revparse_single(&ref_name)?;
@@ -200,7 +204,9 @@ impl LocalRepo {
             );
             let mut content = change.content.clone();
             if change.update_type == FileUpdateType::Prepend {
-                if let Ok(existing_content) = fs::read_to_string(&full_path).await {
+                if let Ok(existing_content) =
+                    fs::read_to_string(&full_path).await
+                {
                     log::debug!(
                         "local_commit: read existing content from {} ({} bytes)",
                         full_path.display(),
@@ -580,12 +586,14 @@ impl Forge for LocalRepo {
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         if self.remote.is_some() {
-            self.create_branch(&req.release_branch).await?;
+            let current_branch = self.get_current_branch().await?;
+            self.create_branch(&req.release_branch, &req.base_branch)
+                .await?;
             self.switch_branch(&req.release_branch).await?;
             let commit =
                 self.local_commit(&req.message, &req.file_changes).await?;
             self.push_branch(&req.release_branch, true).await?;
-            self.switch_branch(&req.base_branch).await?;
+            self.switch_branch(&current_branch).await?;
             Ok(commit)
         } else {
             log::warn!("local_mode: would create branch: req: {:#?}", req);
@@ -703,6 +711,26 @@ mod tests {
     use crate::forge::request::{FileChange, FileUpdateType};
     use tempfile::TempDir;
 
+    fn create_branch(
+        repo: &git2::Repository,
+        branch: &str,
+        base_ref: &str,
+    ) -> Result<()> {
+        let base_branch = repo.find_branch(base_ref, BranchType::Local)?;
+        let base_reference = base_branch.get();
+        let commit = base_reference.peel_to_commit()?;
+        repo.branch(branch, &commit, true)?;
+        Ok(())
+    }
+
+    fn switch_branch(repo: &git2::Repository, branch: &str) -> Result<()> {
+        let ref_name = format!("refs/heads/{}", branch);
+        let target_obj = repo.revparse_single(&ref_name)?;
+        repo.checkout_tree(&target_obj, None)?;
+        repo.set_head(&ref_name)?;
+        Ok(())
+    }
+
     /// Creates a commit on whatever HEAD currently points to.
     /// For the very first commit (unborn branch) pass no parent —
     /// git2 handles that transparently via HEAD resolution.
@@ -755,14 +783,15 @@ mod tests {
 
     /// `create_branch` must create a branch pointing to current HEAD.
     #[tokio::test]
-    async fn create_branch_from_head() {
+    async fn create_branch_from_base_branch() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         let oid = add_commit(&repo, "initial commit");
+        let base_branch = current_branch_name(&repo);
         drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
-        forge.create_branch("release").await.unwrap();
+        forge.create_branch("release", &base_branch).await.unwrap();
 
         let repo = git2::Repository::open(dir.path()).unwrap();
         let branch = repo
@@ -778,21 +807,35 @@ mod tests {
     async fn create_branch_overwrites_existing() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
-        add_commit(&repo, "initial commit");
-        let second_oid = add_commit(&repo, "second commit");
+        let base_commit_oid = add_commit(&repo, "initial commit");
+        let base_branch = current_branch_name(&repo);
+
+        create_branch(&repo, "test1", &base_branch).unwrap();
+        switch_branch(&repo, "test1").unwrap();
+        add_commit(&repo, "test1 commit");
+
+        create_branch(&repo, "test2", &base_branch).unwrap();
+        switch_branch(&repo, "test2").unwrap();
+        add_commit(&repo, "test2 commit");
+
+        switch_branch(&repo, &base_branch).unwrap();
+
         drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
-        // Create once, then overwrite from second commit (HEAD).
-        forge.create_branch("release").await.unwrap();
-        forge.create_branch("release").await.unwrap();
+        // Both should be overwritten with main.
+        forge.create_branch("test1", &base_branch).await.unwrap();
+        forge.create_branch("test2", &base_branch).await.unwrap();
 
         let repo = git2::Repository::open(dir.path()).unwrap();
-        let branch = repo
-            .find_branch("release", git2::BranchType::Local)
-            .unwrap();
-        let branch_oid = branch.get().peel_to_commit().unwrap().id();
-        assert_eq!(branch_oid, second_oid);
+        let test1_branch =
+            repo.find_branch("test1", git2::BranchType::Local).unwrap();
+        let test2_branch =
+            repo.find_branch("test2", git2::BranchType::Local).unwrap();
+        let test1_oid = test1_branch.get().peel_to_commit().unwrap().id();
+        let test2_oid = test2_branch.get().peel_to_commit().unwrap().id();
+        assert_eq!(test1_oid, base_commit_oid);
+        assert_eq!(test2_oid, base_commit_oid);
     }
 
     /// `switch_branch` must move HEAD to the target branch.
@@ -801,10 +844,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         add_commit(&repo, "initial commit");
+        let base_branch = current_branch_name(&repo);
         drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
-        forge.create_branch("release").await.unwrap();
+        forge.create_branch("release", &base_branch).await.unwrap();
         forge.switch_branch("release").await.unwrap();
 
         let repo = git2::Repository::open(dir.path()).unwrap();
@@ -971,8 +1015,8 @@ mod tests {
             .await
             .unwrap();
 
-        let written = std::fs::read_to_string(sub_dir.join("version.txt"))
-            .unwrap();
+        let written =
+            std::fs::read_to_string(sub_dir.join("version.txt")).unwrap();
         assert_eq!(written, "1.0.0");
     }
 
@@ -1025,10 +1069,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         add_commit(&repo, "initial commit");
+        let base_branch = current_branch_name(&repo);
         drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
-        forge.push_branch("main", false).await.unwrap();
+        forge.push_branch(&base_branch, false).await.unwrap();
     }
 
     /// `push_tag` must succeed (no-op) when no remote is configured.
@@ -1089,84 +1134,6 @@ mod tests {
             result.unwrap().name,
             "v1.0.0",
             "v2.0.0 (only on divergent branch) must be excluded"
-        );
-    }
-
-    /// Simulates what `create_release_branch` does for two packages in
-    /// sequence. After processing the first package the code must switch
-    /// HEAD back to the base branch so the second branch forks from the
-    /// correct commit and does not inherit the first package's changes.
-    #[tokio::test]
-    async fn multi_package_release_branches_are_independent() {
-        let dir = TempDir::new().unwrap();
-        let repo = git2::Repository::init(dir.path()).unwrap();
-        configure_git_user(&repo);
-        add_commit(&repo, "initial commit");
-        let base_branch = current_branch_name(&repo);
-        drop(repo);
-
-        std::fs::create_dir_all(dir.path().join("pkg-a")).unwrap();
-        std::fs::create_dir_all(dir.path().join("pkg-b")).unwrap();
-
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
-
-        // Simulate create_release_branch for pkg-a.
-        forge.create_branch("release-pkg-a").await.unwrap();
-        forge.switch_branch("release-pkg-a").await.unwrap();
-        forge
-            .local_commit(
-                "chore: release pkg-a",
-                &[FileChange {
-                    path: "pkg-a/CHANGELOG.md".to_string(),
-                    content: "# pkg-a 1.0.0\n".to_string(),
-                    update_type: FileUpdateType::Replace,
-                }],
-            )
-            .await
-            .unwrap();
-        // This is the fix: switch back to base branch.
-        forge.switch_branch(&base_branch).await.unwrap();
-
-        // HEAD must be back on the base branch.
-        let repo = git2::Repository::open(dir.path()).unwrap();
-        assert_eq!(
-            current_branch_name(&repo),
-            base_branch,
-            "HEAD should be restored to base branch"
-        );
-        drop(repo);
-
-        // Simulate create_release_branch for pkg-b.
-        forge.create_branch("release-pkg-b").await.unwrap();
-        forge.switch_branch("release-pkg-b").await.unwrap();
-        forge
-            .local_commit(
-                "chore: release pkg-b",
-                &[FileChange {
-                    path: "pkg-b/CHANGELOG.md".to_string(),
-                    content: "# pkg-b 1.0.0\n".to_string(),
-                    update_type: FileUpdateType::Replace,
-                }],
-            )
-            .await
-            .unwrap();
-        forge.switch_branch(&base_branch).await.unwrap();
-
-        // Verify the second branch does NOT contain pkg-a's changes.
-        let repo = git2::Repository::open(dir.path()).unwrap();
-        let branch_b = repo
-            .find_branch("release-pkg-b", BranchType::Local)
-            .unwrap();
-        let commit_b = branch_b.get().peel_to_commit().unwrap();
-        let tree_b = commit_b.tree().unwrap();
-
-        assert!(
-            tree_b.get_path(Path::new("pkg-b/CHANGELOG.md")).is_ok(),
-            "pkg-b branch should contain pkg-b/CHANGELOG.md"
-        );
-        assert!(
-            tree_b.get_path(Path::new("pkg-a/CHANGELOG.md")).is_err(),
-            "pkg-b branch must NOT contain pkg-a/CHANGELOG.md"
         );
     }
 }
