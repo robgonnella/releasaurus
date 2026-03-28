@@ -56,6 +56,8 @@ pub struct LocalRepo {
     default_branch: String,
     link_base_url: Url,
     remote: Option<Remote>,
+    // only used in testing
+    push_targets_disabled: bool,
 }
 
 impl LocalRepo {
@@ -118,7 +120,13 @@ impl LocalRepo {
             default_branch,
             link_base_url,
             remote,
+            push_targets_disabled: false,
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn disable_push_targets(&mut self) {
+        self.push_targets_disabled = true
     }
 
     async fn get_current_branch(&self) -> Result<String> {
@@ -284,7 +292,9 @@ impl LocalRepo {
                 ref_spec = format!("+{ref_spec}");
             }
 
-            git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+            if !self.push_targets_disabled {
+                git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+            }
         } else {
             log::warn!("no remote configured: skipping branch push")
         }
@@ -319,7 +329,9 @@ impl LocalRepo {
             let mut git_remote =
                 repo.remote_anonymous(&remote.url.to_string())?;
             let ref_spec = format!("refs/tags/{tag}");
-            git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+            if !self.push_targets_disabled {
+                git_remote.push(&[ref_spec], Some(&mut push_opts))?;
+            }
         } else {
             log::warn!("no remote configured: skipping tag push")
         }
@@ -710,7 +722,11 @@ impl Forge for LocalRepo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forge::request::{FileChange, FileUpdateType};
+    use crate::forge::{
+        config::Scheme,
+        request::{FileChange, FileUpdateType},
+        traits::MockForge,
+    };
     use tempfile::TempDir;
 
     fn create_branch(
@@ -1137,5 +1153,57 @@ mod tests {
             "v1.0.0",
             "v2.0.0 (only on divergent branch) must be excluded"
         );
+    }
+
+    #[tokio::test]
+    #[test_log::test]
+    async fn create_release_branch_always_returns_to_starting_branch() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        add_commit(&repo, "initial commit");
+        add_commit(&repo, "feat: main branch feature");
+        let base_branch = current_branch_name(&repo);
+
+        let test_branch = "test";
+        create_branch(&repo, test_branch, &base_branch).unwrap();
+        switch_branch(&repo, test_branch).unwrap();
+        add_commit(&repo, "fix: test commit");
+
+        let remote = Remote {
+            forge: Arc::new(MockForge::new()),
+            token: SecretString::from("token"),
+            url: RepoUrl {
+                host: "host".into(),
+                name: "test-repo".into(),
+                owner: "test".into(),
+                path: "test/test-repo".into(),
+                port: None,
+                scheme: Scheme::Http,
+                token: None,
+            },
+        };
+
+        let mut local_forge = LocalRepo::new(dir.path(), Some(remote)).unwrap();
+        local_forge.disable_push_targets();
+
+        local_forge
+            .create_release_branch(CreateReleaseBranchRequest {
+                base_branch,
+                release_branch: "release-main".into(),
+                message: "chore(main): release test".into(),
+                file_changes: vec![FileChange {
+                    content: "content".into(),
+                    path: "CHANGELOG.md".into(),
+                    update_type: FileUpdateType::Prepend,
+                }],
+            })
+            .await
+            .unwrap();
+
+        drop(local_forge);
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let current_branch = current_branch_name(&repo);
+        assert_eq!(current_branch, test_branch);
     }
 }
