@@ -8,6 +8,7 @@ repository = { workspace = true }
 license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
+readme = "README.md"
 exclude = ["src/bin/gen_schema.rs"]
 
 [package.metadata.cargo-machete]
