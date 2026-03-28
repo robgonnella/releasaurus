@@ -789,7 +789,6 @@ mod tests {
         let oid = add_commit(&repo, "initial commit");
         tag_oid(&repo, "v1.0.0", oid);
         let branch = current_branch_name(&repo);
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         let result =
@@ -806,7 +805,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         let oid = add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         forge.create_branch("release", &base_branch).await.unwrap();
@@ -838,8 +836,6 @@ mod tests {
 
         switch_branch(&repo, &base_branch).unwrap();
 
-        drop(repo);
-
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         // Both should be overwritten with main.
         forge.create_branch("test1", &base_branch).await.unwrap();
@@ -863,7 +859,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         forge.create_branch("release", &base_branch).await.unwrap();
@@ -880,7 +875,6 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         // Write a new file to the working directory.
         let file_path = dir.path().join("staged.txt");
@@ -906,7 +900,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         let change = FileChange {
@@ -955,7 +948,6 @@ mod tests {
             .unwrap();
         index.write().unwrap();
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         let change = FileChange {
@@ -988,7 +980,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         let change = FileChange {
@@ -1015,7 +1006,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         // Create a sub-directory to mimic a monorepo package path.
         let sub_dir = dir.path().join("packages").join("ui");
@@ -1046,7 +1036,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         let result = forge.local_commit("chore: empty", &[]).await;
@@ -1064,7 +1053,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         let oid = add_commit(&repo, "initial commit");
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         forge
@@ -1088,7 +1076,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         forge.push_branch(&base_branch, false).await.unwrap();
@@ -1101,7 +1088,6 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         let oid = add_commit(&repo, "initial commit");
         tag_oid(&repo, "v1.0.0", oid);
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
         forge.push_tag("v1.0.0").await.unwrap();
@@ -1133,7 +1119,6 @@ mod tests {
         // Restore HEAD to the main branch before handing off to
         // LocalRepo so it detects the correct default branch.
         repo.set_head(&format!("refs/heads/{main_branch}")).unwrap();
-        drop(repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
 
