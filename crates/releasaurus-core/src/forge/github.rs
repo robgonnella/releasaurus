@@ -516,7 +516,7 @@ impl Forge for Github {
             let mut author_email = "".to_string();
             let mut timestamp = 0;
 
-            if let Some(author) = commit.commit.committer {
+            if let Some(author) = commit.commit.author {
                 author_name = author.name;
 
                 if let Some(email) = author.email {
