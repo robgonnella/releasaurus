@@ -1,3 +1,9 @@
+# [0.16.1](https://github.com/robgonnella/releasaurus/compare/v0.16.0...v0.16.1) - 2026-03-28
+
+### 🐛 Bug Fixes
+
+- adds missing READMEs for each crate [_(c24694e)_](https://github.com/robgonnella/releasaurus/commit/c24694e641bab6d3c401066a67a212c0c7fc9439) (Rob Gonnella)
+
 # [0.16.0](https://github.com/robgonnella/releasaurus/compare/v0.15.0...v0.16.0) - 2026-03-25
 
 ### 🚀 Features
