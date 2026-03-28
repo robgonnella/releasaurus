@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-62cd7dfa.js";
+            window.path_to_searchindex_js = "searchindex-63ddf765.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f5e2ee4c.js"></script>
+        <script src="toc-c547b300.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -280,34 +280,40 @@ codebase.</p>
 <p>Each language updater consists of:</p>
 <ol>
 <li><strong>ReleaseType enum variant</strong> - Configuration option in
-<code>src/config/release_type.rs</code></li>
+<code>crates/releasaurus-core/src/config/release_type.rs</code></li>
 <li><strong>Manifests module</strong> - Defines manifest file targets in
-<code>src/updater/yourlanguage/manifests.rs</code></li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code></li>
 <li><strong>Updater module</strong> - Language-specific implementation in
-<code>src/updater/yourlanguage/updater.rs</code></li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code></li>
 <li><strong>File parsers</strong> - Version file format handlers (e.g.,
-<code>src/updater/yourlanguage/your_file_type.rs</code>)</li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code>)</li>
 <li><strong>Tests</strong> - Comprehensive test coverage for all modules</li>
 <li><strong>Documentation</strong> - User-facing documentation updates</li>
 </ol>
 <h4 id="files-to-update"><a class="header" href="#files-to-update">Files to Update</a></h4>
 <p><strong>1. Add ReleaseType Variant</strong></p>
 <ul>
-<li><code>src/config/release_type.rs</code> - Add your language to the <code>ReleaseType</code> enum</li>
+<li><code>crates/releasaurus-core/src/config/release_type.rs</code> - Add your
+language to the <code>ReleaseType</code> enum</li>
 </ul>
 <p><strong>2. Create Manifests Module</strong></p>
 <ul>
-<li><code>src/updater/yourlanguage/manifests.rs</code> - Implement <code>ManifestTargets</code> trait</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>release_type_manifest_targets()</code>
-function</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code> -
+Implement <code>ManifestTargets</code> trait</li>
+<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<code>release_type_manifest_targets()</code> function</li>
 </ul>
 <p><strong>3. Create Updater Implementation</strong></p>
 <ul>
-<li><code>src/updater/yourlanguage.rs</code> - Module declaration file</li>
-<li><code>src/updater/yourlanguage/updater.rs</code> - Implement <code>PackageUpdater</code> trait</li>
-<li><code>src/updater/yourlanguage/your_file_type.rs</code> - File format parser(s)</li>
-<li><code>src/updater.rs</code> - Add module declaration</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>updater()</code> function</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage.rs</code> - Module
+declaration file</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code> -
+Implement <code>PackageUpdater</code> trait</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code> -
+File format parser(s)</li>
+<li><code>crates/releasaurus-core/src/updater.rs</code> - Add module declaration</li>
+<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<code>updater()</code> function</li>
 </ul>
 <p><strong>4. Add Tests</strong></p>
 <ul>
@@ -324,16 +330,19 @@ function</li>
 <p>Use existing language implementations as templates:</p>
 <p><strong>Simple Languages (Good starting points):</strong></p>
 <ul>
-<li><strong>PHP</strong>: <code>src/updater/php/</code> - Single manifest file, straightforward JSON
-parsing</li>
-<li><strong>Python</strong>: <code>src/updater/python/</code> - Multiple manifest formats (TOML, cfg, py)</li>
+<li><strong>PHP</strong>: <code>crates/releasaurus-core/src/updater/php/</code> - Single
+manifest file, straightforward JSON parsing</li>
+<li><strong>Python</strong>: <code>crates/releasaurus-core/src/updater/python/</code> -
+Multiple manifest formats (TOML, cfg, py)</li>
 </ul>
 <p><strong>Complex Languages (Advanced features):</strong></p>
 <ul>
-<li><strong>Node</strong>: <code>src/updater/node/</code> - Workspace support, multiple lock files</li>
-<li><strong>Rust</strong>: <code>src/updater/rust/</code> - Workspace detection, dependency updates</li>
-<li><strong>Java</strong>: <code>src/updater/java/</code> - Multiple build tools
-(Maven, Gradle, version catalogs), properties files</li>
+<li><strong>Node</strong>: <code>crates/releasaurus-core/src/updater/node/</code> - Workspace
+support, multiple lock files</li>
+<li><strong>Rust</strong>: <code>crates/releasaurus-core/src/updater/rust/</code> - Workspace
+detection, dependency updates</li>
+<li><strong>Java</strong>: <code>crates/releasaurus-core/src/updater/java/</code> - Multiple
+build tools (Maven, Gradle, version catalogs), properties files</li>
 </ul>
 <p><strong>Key Traits to Implement:</strong></p>
 <ul>
@@ -343,16 +352,21 @@ parsing</li>
 <h4 id="testing-guidelines"><a class="header" href="#testing-guidelines">Testing Guidelines</a></h4>
 <p>Follow the established testing patterns:</p>
 <ul>
-<li><strong>Test outcomes, not implementation</strong> - Verify behavior, not how it’s achieved</li>
+<li><strong>Test outcomes, not implementation</strong> - Verify behavior, not how
+it’s achieved</li>
 <li><strong>Minimal and concise</strong> - Only test what provides value</li>
 <li><strong>Use helper functions</strong> - Reduce duplication (see <code>test_helpers.rs</code>)</li>
-<li><strong>Descriptive names</strong> - e.g., <code>returns_all_manifest_targets</code> not <code>test_1</code></li>
+<li><strong>Descriptive names</strong> - e.g., <code>returns_all_manifest_targets</code> not
+<code>test_1</code></li>
 </ul>
 <p><strong>Example test files to reference:</strong></p>
 <ul>
-<li><code>src/updater/php/manifests.rs</code> - Simple manifest tests</li>
-<li><code>src/updater/node/manifests.rs</code> - Workspace-aware manifest tests</li>
-<li><code>src/updater/php/updater.rs</code> - Basic updater tests</li>
+<li><code>crates/releasaurus-core/src/updater/php/manifests.rs</code> - Simple
+manifest tests</li>
+<li><code>crates/releasaurus-core/src/updater/node/manifests.rs</code> -
+Workspace-aware manifest tests</li>
+<li><code>crates/releasaurus-core/src/updater/php/updater.rs</code> - Basic
+updater tests</li>
 </ul>
 <h4 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h4>
 <pre><code class="language-bash"># Run all tests for your language
@@ -378,7 +392,8 @@ releasaurus release-pr \
 </ul>
 <h4 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h4>
 <ul>
-<li>Review existing implementations in <code>src/updater/</code></li>
+<li>Review existing implementations in
+<code>crates/releasaurus-core/src/updater/</code></li>
 <li>Check test files for usage patterns</li>
 <li>Ask questions in GitHub Discussions</li>
 <li>Reference the <code>PackageUpdater</code> and <code>ManifestTargets</code> trait documentation</li>
@@ -408,7 +423,7 @@ variable for troubleshooting</li>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="environment-variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="library-api.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -419,7 +434,7 @@ variable for troubleshooting</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="environment-variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="library-api.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

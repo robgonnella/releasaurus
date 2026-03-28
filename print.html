@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-62cd7dfa.js";
+            window.path_to_searchindex_js = "searchindex-63ddf765.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f5e2ee4c.js"></script>
+        <script src="toc-c547b300.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -3056,6 +3056,191 @@ what would happen during the release process.</p>
 Resolving environment issues</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="using-releasaurus-core-as-a-library"><a class="header" href="#using-releasaurus-core-as-a-library">Using releasaurus-core as a Library</a></h1>
+<p>The <code>releasaurus-core</code> crate exposes the full release pipeline as a
+public Rust API. Use it when you want to embed release automation
+directly in your own tooling rather than shelling out to the CLI.</p>
+<h2 id="when-to-use-the-library-vs-the-cli"><a class="header" href="#when-to-use-the-library-vs-the-cli">When to use the library vs the CLI</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Situation</th><th>Recommendation</th></tr>
+</thead>
+<tbody>
+<tr><td>CI/CD pipeline, GitHub Actions</td><td>Use the CLI</td></tr>
+<tr><td>Custom Rust tooling or internal build system</td><td>Use the library</td></tr>
+<tr><td>Need to integrate release data into another workflow</td><td>Use the library</td></tr>
+<tr><td>Simple changelog + tag automation</td><td>Use the CLI</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="adding-the-dependency"><a class="header" href="#adding-the-dependency">Adding the dependency</a></h2>
+<pre><code class="language-toml">[dependencies]
+releasaurus-core = "0.14"
+</code></pre>
+<p>The crate is async-first and built on <a href="https://tokio.rs">Tokio</a>, so you will also need:</p>
+<pre><code class="language-toml">[dependencies]
+tokio = { version = "1", features = ["full"] }
+</code></pre>
+<h2 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture overview</a></h2>
+<pre><code class="language-text">Orchestrator        (pipeline entry point)
+  └─ OrchestratorConfig   (merged settings)
+  └─ ForgeManager         (caching + dry-run wrapper)
+       └─ Forge           (GitHub / GitLab / Gitea / Local)
+</code></pre>
+<p>All release operations go through <code>Orchestrator</code>. Building one
+requires three pieces:</p>
+<ol>
+<li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code> implementation</li>
+<li>An <strong><code>OrchestratorConfig</code></strong> built from the loaded TOML config plus
+any runtime overrides</li>
+<li>A <strong><code>ResolvedPackageHash</code></strong> — the set of packages parsed from
+<code>releasaurus.toml</code>, each merged with the orchestrator config</li>
+</ol>
+<p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full
+builder chain with inline comments for each step.</p>
+<h2 id="constructing-a-repourl"><a class="header" href="#constructing-a-repourl">Constructing a RepoUrl</a></h2>
+<p>The forge constructors (<code>Github::new</code>, <code>Gitlab::new</code>, <code>Gitea::new</code>)
+take a <code>RepoUrl</code> — an owned struct defined in this crate — instead of
+any third-party URL type. This keeps your dependency tree stable
+regardless of which URL parser you prefer.</p>
+<p>Construct it directly from the components of your parsed URL:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use releasaurus_core::forge::{RepoUrl, config::Scheme};
+
+let url = RepoUrl {
+    scheme: Scheme::Https,
+    host: "github.com".into(),
+    owner: "my-org".into(),
+    name: "my-repo".into(),
+    // Full project path — for nested GitLab groups this may be
+    // "group/subgroup/repo"
+    path: "my-org/my-repo".into(),
+    port: None,
+    token: None,
+};
+<span class="boring">}</span></code></pre>
+<p>Set <code>token</code> only if the credential is embedded directly in the URL
+(e.g. <code>https://TOKEN@host/...</code>); otherwise leave it <code>None</code> and pass
+the token as <code>Option&lt;secrecy::SecretString&gt;</code> directly to the forge
+constructor (<code>Github::new</code>, <code>Gitlab::new</code>, <code>Gitea::new</code>). You will
+need to add <a href="https://docs.rs/secrecy"><code>secrecy</code></a> to your own
+dependencies to construct a <code>SecretString</code>.</p>
+<h2 id="the-forge-trait"><a class="header" href="#the-forge-trait">The Forge trait</a></h2>
+<p><code>Forge</code> is the extension point for platform support. The crate ships
+four implementations:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Type</th><th>When to use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>forge::github::Github</code></td><td>GitHub (cloud or Enterprise)</td></tr>
+<tr><td><code>forge::gitlab::Gitlab</code></td><td>GitLab (cloud or self-hosted)</td></tr>
+<tr><td><code>forge::gitea::Gitea</code></td><td>Gitea self-hosted</td></tr>
+<tr><td><code>forge::local::LocalRepo</code></td><td>Local git2 operations (testing)</td></tr>
+</tbody>
+</table>
+</div>
+<p>To target a custom platform, implement the <code>Forge</code> trait from
+<code>releasaurus_core::forge::traits</code>:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use async_trait::async_trait;
+use releasaurus_core::{
+    analyzer::release::Tag,
+    config::Config,
+    error::Result,
+    forge::{
+        request::{
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
+            PullRequest, ReleaseByTagResponse, UpdatePrRequest,
+        },
+        traits::Forge,
+    },
+};
+use std::any::Any;
+use url::Url;
+
+pub struct MyForge { /* ... */ }
+
+#[async_trait]
+impl Forge for MyForge {
+    fn repo_name(&amp;self) -&gt; String { todo!() }
+    fn release_link_base_url(&amp;self) -&gt; Url { todo!() }
+    fn compare_link_base_url(&amp;self) -&gt; Url { todo!() }
+    fn default_branch(&amp;self) -&gt; String { todo!() }
+
+    async fn load_config(
+        &amp;self,
+        branch: Option&lt;String&gt;,
+    ) -&gt; Result&lt;Config&gt; { todo!() }
+
+    async fn get_file_content(
+        &amp;self,
+        req: GetFileContentRequest,
+    ) -&gt; Result&lt;Option&lt;String&gt;&gt; { todo!() }
+
+    // ... remaining trait methods
+<span class="boring">    async fn get_release_by_tag(&amp;self, _: &amp;str)
+</span><span class="boring">        -&gt; Result&lt;ReleaseByTagResponse&gt; { todo!() }
+</span><span class="boring">    async fn create_release_branch(&amp;self, _: CreateReleaseBranchRequest)
+</span><span class="boring">        -&gt; Result&lt;Commit&gt; { todo!() }
+</span><span class="boring">    async fn create_commit(&amp;self, _: CreateCommitRequest)
+</span><span class="boring">        -&gt; Result&lt;Commit&gt; { todo!() }
+</span><span class="boring">    async fn tag_commit(&amp;self, _: &amp;str, _: &amp;str)
+</span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
+</span><span class="boring">    async fn get_latest_tag_for_prefix(&amp;self, _: &amp;str, _: &amp;str)
+</span><span class="boring">        -&gt; Result&lt;Option&lt;Tag&gt;&gt; { todo!() }
+</span><span class="boring">    async fn get_commits(&amp;self, _: Option&lt;String&gt;, _: Option&lt;String&gt;)
+</span><span class="boring">        -&gt; Result&lt;Vec&lt;ForgeCommit&gt;&gt; { todo!() }
+</span><span class="boring">    async fn get_open_release_pr(&amp;self, _: GetPrRequest)
+</span><span class="boring">        -&gt; Result&lt;Option&lt;PullRequest&gt;&gt; { todo!() }
+</span><span class="boring">    async fn get_merged_release_pr(&amp;self, _: GetPrRequest)
+</span><span class="boring">        -&gt; Result&lt;Option&lt;PullRequest&gt;&gt; { todo!() }
+</span><span class="boring">    async fn create_pr(&amp;self, _: CreatePrRequest)
+</span><span class="boring">        -&gt; Result&lt;PullRequest&gt; { todo!() }
+</span><span class="boring">    async fn update_pr(&amp;self, _: UpdatePrRequest)
+</span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
+</span><span class="boring">    async fn replace_pr_labels(&amp;self, _: PrLabelsRequest)
+</span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
+</span><span class="boring">    async fn create_release(&amp;self, _: &amp;str, _: &amp;str, _: &amp;str)
+</span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
+</span>}
+<span class="boring">}</span></code></pre>
+<p>Pass your implementation to <code>ForgeManager::new(Box::new(my_forge), ...)</code>.</p>
+<h2 id="the-processing-pipeline"><a class="header" href="#the-processing-pipeline">The processing pipeline</a></h2>
+<p>Internally, each <code>Orchestrator</code> call drives packages through a
+sequence of typed stages:</p>
+<pre><code class="language-text">ResolvedPackage
+  → PreparedPackage    (commits fetched, filtered by path + timestamp)
+  → AnalyzedPackage    (conventional commits parsed, next version
+                        calculated, changelog generated)
+  → ReleasablePackage  (manifest files loaded, file changes prepared)
+  → ReleasePRPackage   (PR branch created or updated)
+</code></pre>
+<p><code>create_releases</code> runs a shorter path: it reads the merged PR body,
+extracts the embedded release metadata, tags the commit, and calls
+the forge’s <code>create_release</code>.</p>
+<p>Understanding the stages helps when reading error messages — the
+stage name appears in most error contexts.</p>
+<h2 id="dry-run-mode-2"><a class="header" href="#dry-run-mode-2">Dry-run mode</a></h2>
+<p>Pass <code>ForgeOptions { dry_run: true }</code> to <code>ForgeManager::new</code>. In
+dry-run mode all write operations (branch creation, PR creation,
+tagging, release publishing) are skipped and logged at <code>WARN</code> level.
+Read operations proceed normally, so you can safely preview what
+would happen.</p>
+<h2 id="testing-without-a-live-forge"><a class="header" href="#testing-without-a-live-forge">Testing without a live forge</a></h2>
+<p><code>LocalRepo</code> (from <code>releasaurus_core::forge::local</code>) runs all
+operations against a local git repository using <code>git2</code>. It is the
+fastest way to integration-test a custom pipeline without hitting any
+remote API.</p>
+<p>Alternatively, the <code>Forge</code> trait is annotated with <code>#[cfg_attr(test, automock)]</code>, so <code>MockForge</code> from <code>mockall</code> is available under
+<code>#[cfg(test)]</code> for unit tests.</p>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
 <p>We appreciate your interest in contributing to Releasaurus! This guide will
 help you get started with contributing to the project, whether you’re fixing
@@ -3159,34 +3344,40 @@ codebase.</p>
 <p>Each language updater consists of:</p>
 <ol>
 <li><strong>ReleaseType enum variant</strong> - Configuration option in
-<code>src/config/release_type.rs</code></li>
+<code>crates/releasaurus-core/src/config/release_type.rs</code></li>
 <li><strong>Manifests module</strong> - Defines manifest file targets in
-<code>src/updater/yourlanguage/manifests.rs</code></li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code></li>
 <li><strong>Updater module</strong> - Language-specific implementation in
-<code>src/updater/yourlanguage/updater.rs</code></li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code></li>
 <li><strong>File parsers</strong> - Version file format handlers (e.g.,
-<code>src/updater/yourlanguage/your_file_type.rs</code>)</li>
+<code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code>)</li>
 <li><strong>Tests</strong> - Comprehensive test coverage for all modules</li>
 <li><strong>Documentation</strong> - User-facing documentation updates</li>
 </ol>
 <h4 id="files-to-update"><a class="header" href="#files-to-update">Files to Update</a></h4>
 <p><strong>1. Add ReleaseType Variant</strong></p>
 <ul>
-<li><code>src/config/release_type.rs</code> - Add your language to the <code>ReleaseType</code> enum</li>
+<li><code>crates/releasaurus-core/src/config/release_type.rs</code> - Add your
+language to the <code>ReleaseType</code> enum</li>
 </ul>
 <p><strong>2. Create Manifests Module</strong></p>
 <ul>
-<li><code>src/updater/yourlanguage/manifests.rs</code> - Implement <code>ManifestTargets</code> trait</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>release_type_manifest_targets()</code>
-function</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code> -
+Implement <code>ManifestTargets</code> trait</li>
+<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<code>release_type_manifest_targets()</code> function</li>
 </ul>
 <p><strong>3. Create Updater Implementation</strong></p>
 <ul>
-<li><code>src/updater/yourlanguage.rs</code> - Module declaration file</li>
-<li><code>src/updater/yourlanguage/updater.rs</code> - Implement <code>PackageUpdater</code> trait</li>
-<li><code>src/updater/yourlanguage/your_file_type.rs</code> - File format parser(s)</li>
-<li><code>src/updater.rs</code> - Add module declaration</li>
-<li><code>src/updater/manager.rs</code> - Register in <code>updater()</code> function</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage.rs</code> - Module
+declaration file</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code> -
+Implement <code>PackageUpdater</code> trait</li>
+<li><code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code> -
+File format parser(s)</li>
+<li><code>crates/releasaurus-core/src/updater.rs</code> - Add module declaration</li>
+<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<code>updater()</code> function</li>
 </ul>
 <p><strong>4. Add Tests</strong></p>
 <ul>
@@ -3203,16 +3394,19 @@ function</li>
 <p>Use existing language implementations as templates:</p>
 <p><strong>Simple Languages (Good starting points):</strong></p>
 <ul>
-<li><strong>PHP</strong>: <code>src/updater/php/</code> - Single manifest file, straightforward JSON
-parsing</li>
-<li><strong>Python</strong>: <code>src/updater/python/</code> - Multiple manifest formats (TOML, cfg, py)</li>
+<li><strong>PHP</strong>: <code>crates/releasaurus-core/src/updater/php/</code> - Single
+manifest file, straightforward JSON parsing</li>
+<li><strong>Python</strong>: <code>crates/releasaurus-core/src/updater/python/</code> -
+Multiple manifest formats (TOML, cfg, py)</li>
 </ul>
 <p><strong>Complex Languages (Advanced features):</strong></p>
 <ul>
-<li><strong>Node</strong>: <code>src/updater/node/</code> - Workspace support, multiple lock files</li>
-<li><strong>Rust</strong>: <code>src/updater/rust/</code> - Workspace detection, dependency updates</li>
-<li><strong>Java</strong>: <code>src/updater/java/</code> - Multiple build tools
-(Maven, Gradle, version catalogs), properties files</li>
+<li><strong>Node</strong>: <code>crates/releasaurus-core/src/updater/node/</code> - Workspace
+support, multiple lock files</li>
+<li><strong>Rust</strong>: <code>crates/releasaurus-core/src/updater/rust/</code> - Workspace
+detection, dependency updates</li>
+<li><strong>Java</strong>: <code>crates/releasaurus-core/src/updater/java/</code> - Multiple
+build tools (Maven, Gradle, version catalogs), properties files</li>
 </ul>
 <p><strong>Key Traits to Implement:</strong></p>
 <ul>
@@ -3222,16 +3416,21 @@ parsing</li>
 <h4 id="testing-guidelines"><a class="header" href="#testing-guidelines">Testing Guidelines</a></h4>
 <p>Follow the established testing patterns:</p>
 <ul>
-<li><strong>Test outcomes, not implementation</strong> - Verify behavior, not how it’s achieved</li>
+<li><strong>Test outcomes, not implementation</strong> - Verify behavior, not how
+it’s achieved</li>
 <li><strong>Minimal and concise</strong> - Only test what provides value</li>
 <li><strong>Use helper functions</strong> - Reduce duplication (see <code>test_helpers.rs</code>)</li>
-<li><strong>Descriptive names</strong> - e.g., <code>returns_all_manifest_targets</code> not <code>test_1</code></li>
+<li><strong>Descriptive names</strong> - e.g., <code>returns_all_manifest_targets</code> not
+<code>test_1</code></li>
 </ul>
 <p><strong>Example test files to reference:</strong></p>
 <ul>
-<li><code>src/updater/php/manifests.rs</code> - Simple manifest tests</li>
-<li><code>src/updater/node/manifests.rs</code> - Workspace-aware manifest tests</li>
-<li><code>src/updater/php/updater.rs</code> - Basic updater tests</li>
+<li><code>crates/releasaurus-core/src/updater/php/manifests.rs</code> - Simple
+manifest tests</li>
+<li><code>crates/releasaurus-core/src/updater/node/manifests.rs</code> -
+Workspace-aware manifest tests</li>
+<li><code>crates/releasaurus-core/src/updater/php/updater.rs</code> - Basic
+updater tests</li>
 </ul>
 <h4 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h4>
 <pre><code class="language-bash"># Run all tests for your language
@@ -3257,7 +3456,8 @@ releasaurus release-pr \
 </ul>
 <h4 id="getting-help-1"><a class="header" href="#getting-help-1">Getting Help</a></h4>
 <ul>
-<li>Review existing implementations in <code>src/updater/</code></li>
+<li>Review existing implementations in
+<code>crates/releasaurus-core/src/updater/</code></li>
 <li>Check test files for usage patterns</li>
 <li>Ask questions in GitHub Discussions</li>
 <li>Reference the <code>PackageUpdater</code> and <code>ManifestTargets</code> trait documentation</li>
