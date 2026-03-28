@@ -1,11 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/releasaurus-core/", "crates/releasaurus/"]
+members = ["crates/releasaurus", "crates/releasaurus-core"]
 
 [workspace.package]
 edition = "2024"
 description = "A comprehensive release automation tool that streamlines the software release process across multiple programming languages and forge platforms"
-homepage = "https://github.com/robgonnella/releasaurus"
+homepage = "https://releasaurus.rgon.io"
 repository = "https://github.com/robgonnella/releasaurus"
 license = "MIT OR Apache-2.0"
 keywords = ["changelog", "commits", "conventional", "release", "semver"]
