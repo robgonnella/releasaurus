@@ -1,3 +1,35 @@
+# [0.16.0](https://github.com/robgonnella/releasaurus/compare/v0.15.0...v0.16.0) - 2026-03-25
+
+### 🚀 Features
+
+- creates separate releasaurus-core crate [_(aeb117c)_](https://github.com/robgonnella/releasaurus/commit/aeb117c9365610b0cfd206dbee1146c5cef788d9) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- _(github)_ fixes issue with setting commit date [_(2a42ef3)_](https://github.com/robgonnella/releasaurus/commit/2a42ef3ec38cf907f7b2061a645b67b9df9439a8) (Rob Gonnella)
+
+- _(github)_ fixes issue with setting commit author [_(dbd1f20)_](https://github.com/robgonnella/releasaurus/commit/dbd1f20cb7bb79a0739f6702ab761544f502bc2f) (Rob Gonnella)
+
+- _(local forge)_ adds test for create_release_branch [_(bf2958b)_](https://github.com/robgonnella/releasaurus/commit/bf2958be132c2351b4232feda252c7d0229df7dc) (Rob Gonnella)
+
+- _(local forge)_ adds missing get_release_by_tag implementation [_(077e26d)_](https://github.com/robgonnella/releasaurus/commit/077e26d5c0168f82f809aacedbf9af992cb7a4d0) (Rob Gonnella)
+
+- _(local forge)_ fixes issue with creating branches [_(c409573)_](https://github.com/robgonnella/releasaurus/commit/c409573435c4e249853fddaf6f3a4c21e02cdf88) (Rob Gonnella)
+
+- create parent directories before writing files in local_commit [_(305d743)_](https://github.com/robgonnella/releasaurus/commit/305d7430938cc75ed7eb0a6b2d712c4d79a66a6d) (Stephan Peijnik-Steinwender)
+
+- add debug logging to local forge operations for diagnosing path issues [_(042d597)_](https://github.com/robgonnella/releasaurus/commit/042d597e7a99ccff205bebe3c52a925d946753fb) (Stephan Peijnik-Steinwender)
+
+- restore HEAD to base branch after creating release branch [_(6e21cab)_](https://github.com/robgonnella/releasaurus/commit/6e21cab943aee46bf0620d7ed10a03d2b338b643) (Stephan Peijnik-Steinwender)
+
+- handle missing files on first release and resolve paths via repo_path [_(d50cc47)_](https://github.com/robgonnella/releasaurus/commit/d50cc47665fa83570e1bd13b0ae8fcaac552be2f) (Stephan Peijnik-Steinwender)
+
+- fixes issue in gitlab forge [_(b83f1d1)_](https://github.com/robgonnella/releasaurus/commit/b83f1d192972d4fb79bbdaa99dba0ec8cdb5a24e) (Rob Gonnella)
+
+### 📚 Documentation
+
+- updates README for viewing tip of main docs [_(990a30b)_](https://github.com/robgonnella/releasaurus/commit/990a30bd98d50ba0b48ec4810a6c0c8b2061862c) (Rob Gonnella)
+
 # [0.15.0](https://github.com/robgonnella/releasaurus/compare/v0.14.0...v0.15.0) - 2026-03-13
 
 ### 🚀 Features
