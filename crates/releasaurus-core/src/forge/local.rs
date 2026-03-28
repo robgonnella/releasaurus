@@ -120,9 +120,7 @@ impl LocalRepo {
             remote,
         })
     }
-}
 
-impl LocalRepo {
     async fn get_current_branch(&self) -> Result<String> {
         let repo = self.repo.lock().await;
         let head = repo.head()?;
@@ -394,9 +392,13 @@ impl Forge for LocalRepo {
 
     async fn get_release_by_tag(
         &self,
-        _tag: &str,
+        tag: &str,
     ) -> Result<ReleaseByTagResponse> {
-        Err(ReleasaurusError::forge("not implemented for local forge"))
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.get_release_by_tag(tag).await
+        } else {
+            Err(ReleasaurusError::forge("not implemented for local forge"))
+        }
     }
 
     async fn get_latest_tag_for_prefix(
