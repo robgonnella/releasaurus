@@ -1141,10 +1141,10 @@ mod tests {
     }
 
     #[tokio::test]
-    #[test_log::test]
     async fn create_release_branch_always_returns_to_starting_branch() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
         add_commit(&repo, "initial commit");
         add_commit(&repo, "feat: main branch feature");
         let base_branch = current_branch_name(&repo);
