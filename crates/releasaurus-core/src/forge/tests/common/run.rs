@@ -6,8 +6,7 @@ use crate::{
     config::Config,
     error::ReleasaurusError,
     forge::{
-        config::Scheme,
-        config::{PENDING_LABEL, RepoUrl},
+        config::{LEGACY_PENDING_LABEL, PENDING_LABEL, RepoUrl, Scheme},
         manager::ForgeManager,
         request::{
             CreateCommitRequest, CreatePrRequest, CreateReleaseBranchRequest,
@@ -184,9 +183,42 @@ pub async fn run_forge_test(
     sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
-    // replace_pr_labels -> succeeds
+    // replace_pr_labels(legacy) -> succeeds
     ////////////////////////////////////////////////////////////////////////////
-    log::info!("replacing PR labels");
+    log::info!(
+        "replacing PR labels with legacy pending label: {}",
+        LEGACY_PENDING_LABEL
+    );
+    let replace_labels_req = PrLabelsRequest {
+        labels: vec![LEGACY_PENDING_LABEL.into()],
+        pr_number: release_pr.number,
+    };
+    forge.replace_pr_labels(replace_labels_req).await.unwrap();
+    // extra padding here
+    sleep(LONG_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_open_release_pr(legacy label) -> Found
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking for newly created open PR with legacy label");
+    let get_pr_req = GetPrRequest {
+        base_branch: default_branch.to_string(),
+        head_branch: release_branch.to_string(),
+    };
+    let open_pr = forge.get_open_release_pr(get_pr_req).await.unwrap();
+    assert!(open_pr.is_some());
+    let open_pr = open_pr.unwrap();
+    assert_ne!(open_pr.number, 0);
+    assert!(!open_pr.body.is_empty());
+    assert!(!open_pr.sha.is_empty());
+
+    ////////////////////////////////////////////////////////////////////////////
+    // replace_pr_labels(new-scoped) -> succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!(
+        "replacing PR labels with new scoped pending label: {}",
+        PENDING_LABEL
+    );
     let replace_labels_req = PrLabelsRequest {
         labels: vec![PENDING_LABEL.into()],
         pr_number: release_pr.number,
@@ -196,9 +228,9 @@ pub async fn run_forge_test(
     sleep(LONG_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
-    // get_open_release_pr -> Found
+    // get_open_release_pr(new scoped label) -> Found
     ////////////////////////////////////////////////////////////////////////////
-    log::info!("looking for newly created open PR");
+    log::info!("looking for newly created open PR with new scoped label");
     let get_pr_req = GetPrRequest {
         base_branch: default_branch.to_string(),
         head_branch: release_branch.to_string(),

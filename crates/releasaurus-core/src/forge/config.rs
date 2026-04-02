@@ -96,9 +96,19 @@ pub const DEFAULT_PR_BRANCH_PREFIX: &str = "releasaurus-release";
 /// Default color for releasaurus labels in hex format.
 pub const DEFAULT_LABEL_COLOR: &str = "a47dab";
 /// Label applied to release PRs after tagging is complete.
-pub const TAGGED_LABEL: &str = "releasaurus:tagged";
+/// Uses the GitLab scoped-label separator `::` so that applying
+/// this label automatically removes `PENDING_LABEL` on GitLab.
+/// On GitHub and Gitea the `::` is treated as literal characters.
+pub const TAGGED_LABEL: &str = "releasaurus::tagged";
 /// Label applied to release PRs while waiting for merge.
-pub const PENDING_LABEL: &str = "releasaurus:pending";
+/// Uses the GitLab scoped-label separator `::` so that applying
+/// this label automatically removes `TAGGED_LABEL` on GitLab.
+/// On GitHub and Gitea the `::` is treated as literal characters.
+pub const PENDING_LABEL: &str = "releasaurus::pending";
+/// Legacy pending label used before the scoped-label migration.
+/// Retained so that existing release PRs created by an older
+/// version of releasaurus can still be found after an upgrade.
+pub const LEGACY_PENDING_LABEL: &str = "releasaurus:pending";
 
 /// Represents the default token variable names that are checked for
 /// authenticating each forge type

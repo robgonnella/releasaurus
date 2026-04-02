@@ -20,8 +20,8 @@ use crate::{
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RepoUrl, TokenVar, resolve_token,
+            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, LEGACY_PENDING_LABEL,
+            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
         },
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
@@ -603,52 +603,63 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        let mut has_more = true;
-        let mut page = 1;
-        let page_limit = DEFAULT_PAGE_SIZE.to_string();
         let mut found_prs = vec![];
 
-        while has_more {
-            // Search for open issues with the pending label
-            let mut issues_url = self.base_url.join(&format!(
-                "issues?state=open&type=pulls&labels={}",
-                PENDING_LABEL
-            ))?;
-
-            issues_url
-                .query_pairs_mut()
-                .append_pair("limit", &page_limit.to_string())
-                .append_pair("page", &page.to_string());
-
-            let request = self.client.get(issues_url).build()?;
-            let response = self.client.execute(request).await?;
-            let headers = response.headers();
-
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap() == "true")
-                .unwrap_or(false);
-
-            let result = response.error_for_status()?;
-            let issues: Vec<GiteaIssue> = result.json().await?;
-
-            for issue in issues.iter() {
-                let pr_url =
-                    self.base_url.join(&format!("pulls/{}", issue.number))?;
-                let request = self.client.get(pr_url).build()?;
-                let response = self.client.execute(request).await?;
-                let result = response.error_for_status()?;
-                let found_pr: GiteaPullRequest = result.json().await?;
-                if found_pr.head.label == req.head_branch {
-                    found_prs.push(PullRequest {
-                        number: found_pr.number,
-                        sha: found_pr.head.sha,
-                        body: found_pr.body,
-                    });
-                }
+        // Try the current label first, then fall back to the
+        // legacy single-colon label for users upgrading from an
+        // older version of releasaurus.
+        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+            if !found_prs.is_empty() {
+                break;
             }
 
-            page += 1;
+            let mut has_more = true;
+            let mut page = 1;
+            let page_limit = DEFAULT_PAGE_SIZE.to_string();
+
+            while has_more {
+                // Search for open issues with the pending label
+                let mut issues_url = self.base_url.join(&format!(
+                    "issues?state=open&type=pulls&labels={}",
+                    pending_label
+                ))?;
+
+                issues_url
+                    .query_pairs_mut()
+                    .append_pair("limit", &page_limit.to_string())
+                    .append_pair("page", &page.to_string());
+
+                let request = self.client.get(issues_url).build()?;
+                let response = self.client.execute(request).await?;
+                let headers = response.headers();
+
+                has_more = headers
+                    .get("x-hasmore")
+                    .map(|h| h.to_str().unwrap() == "true")
+                    .unwrap_or(false);
+
+                let result = response.error_for_status()?;
+                let issues: Vec<GiteaIssue> = result.json().await?;
+
+                for issue in issues.iter() {
+                    let pr_url = self
+                        .base_url
+                        .join(&format!("pulls/{}", issue.number))?;
+                    let request = self.client.get(pr_url).build()?;
+                    let response = self.client.execute(request).await?;
+                    let result = response.error_for_status()?;
+                    let found_pr: GiteaPullRequest = result.json().await?;
+                    if found_pr.head.label == req.head_branch {
+                        found_prs.push(PullRequest {
+                            number: found_pr.number,
+                            sha: found_pr.head.sha,
+                            body: found_pr.body,
+                        });
+                    }
+                }
+
+                page += 1;
+            }
         }
 
         if found_prs.is_empty() {
@@ -673,71 +684,83 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
-        let mut has_more = true;
-        let mut page = 1;
-        let page_limit = DEFAULT_PAGE_SIZE.to_string();
         let mut found_prs = vec![];
 
-        while has_more {
-            // Search for closed issues with the pending label
-            let mut issues_url = self.base_url.join(&format!(
-                "issues?state=closed&labels={} ",
-                PENDING_LABEL
-            ))?;
-
-            issues_url
-                .query_pairs_mut()
-                .append_pair("limit", &page_limit.to_string())
-                .append_pair("page", &page.to_string());
-
-            let request = self.client.get(issues_url).build()?;
-            let response = self.client.execute(request).await?;
-            let headers = response.headers();
-
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap() == "true")
-                .unwrap_or(false);
-
-            let result = response.error_for_status()?;
-            let issues: Vec<GiteaIssue> = result.json().await?;
-
-            for issue in issues.iter() {
-                let is_merged = issue
-                    .pull_request
-                    .as_ref()
-                    .map(|pr| pr.merged)
-                    .unwrap_or(false);
-                if !is_merged {
-                    log::warn!(
-                        "found unmerged closed pr {} with pending label: skipping",
-                        issue.number
-                    );
-                    continue;
-                }
-
-                let pr_url =
-                    self.base_url.join(&format!("pulls/{}", issue.number))?;
-                let request = self.client.get(pr_url).build()?;
-                let response = self.client.execute(request).await?;
-                let result = response.error_for_status()?;
-                let found_pr: GiteaPullRequest = result.json().await?;
-                if found_pr.head.label == req.head_branch {
-                    let sha = found_pr.merge_commit_sha.ok_or_else(|| {
-                        ReleasaurusError::forge(format!(
-                            "no merge_commit_sha found for pr {}",
-                            found_pr.number
-                        ))
-                    })?;
-                    found_prs.push(PullRequest {
-                        number: found_pr.number,
-                        sha,
-                        body: found_pr.body,
-                    });
-                }
+        // Try the current label first, then fall back to the
+        // legacy single-colon label for users upgrading from an
+        // older version of releasaurus.
+        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+            if !found_prs.is_empty() {
+                break;
             }
 
-            page += 1;
+            let mut has_more = true;
+            let mut page = 1;
+            let page_limit = DEFAULT_PAGE_SIZE.to_string();
+
+            while has_more {
+                // Search for closed issues with the pending label
+                let mut issues_url = self.base_url.join(&format!(
+                    "issues?state=closed&labels={}",
+                    pending_label
+                ))?;
+
+                issues_url
+                    .query_pairs_mut()
+                    .append_pair("limit", &page_limit.to_string())
+                    .append_pair("page", &page.to_string());
+
+                let request = self.client.get(issues_url).build()?;
+                let response = self.client.execute(request).await?;
+                let headers = response.headers();
+
+                has_more = headers
+                    .get("x-hasmore")
+                    .map(|h| h.to_str().unwrap() == "true")
+                    .unwrap_or(false);
+
+                let result = response.error_for_status()?;
+                let issues: Vec<GiteaIssue> = result.json().await?;
+
+                for issue in issues.iter() {
+                    let is_merged = issue
+                        .pull_request
+                        .as_ref()
+                        .map(|pr| pr.merged)
+                        .unwrap_or(false);
+                    if !is_merged {
+                        log::warn!(
+                            "found unmerged closed pr {} with pending label: skipping",
+                            issue.number
+                        );
+                        continue;
+                    }
+
+                    let pr_url = self
+                        .base_url
+                        .join(&format!("pulls/{}", issue.number))?;
+                    let request = self.client.get(pr_url).build()?;
+                    let response = self.client.execute(request).await?;
+                    let result = response.error_for_status()?;
+                    let found_pr: GiteaPullRequest = result.json().await?;
+                    if found_pr.head.label == req.head_branch {
+                        let sha =
+                            found_pr.merge_commit_sha.ok_or_else(|| {
+                                ReleasaurusError::forge(format!(
+                                    "no merge_commit_sha found for pr {}",
+                                    found_pr.number
+                                ))
+                            })?;
+                        found_prs.push(PullRequest {
+                            number: found_pr.number,
+                            sha,
+                            body: found_pr.body,
+                        });
+                    }
+                }
+
+                page += 1;
+            }
         }
 
         if found_prs.is_empty() {

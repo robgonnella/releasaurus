@@ -26,8 +26,8 @@ use crate::{
     forge::{
         config::{
             DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_LABEL_COLOR,
-            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, PENDING_LABEL,
-            RepoUrl, TokenVar, resolve_token,
+            DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH, LEGACY_PENDING_LABEL,
+            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
         },
         github::{
             graphql::{
@@ -723,8 +723,9 @@ impl Forge for Github {
 
         while let Some(pr) = stream.try_next().await? {
             if let Some(labels) = pr.labels
-                && let Some(_pending_label) =
-                    labels.iter().find(|l| l.name == PENDING_LABEL)
+                && labels.iter().any(|l| {
+                    l.name == PENDING_LABEL || l.name == LEGACY_PENDING_LABEL
+                })
             {
                 found_prs.push(PullRequest {
                     number: pr.number,
@@ -759,48 +760,60 @@ impl Forge for Github {
         let issues_handler =
             self.instance.issues(&self.url.owner, &self.url.name);
 
-        let stream = issues_handler
-            .list()
-            .direction(params::Direction::Descending)
-            .labels(&[PENDING_LABEL.into()])
-            .state(params::State::Closed)
-            .send()
-            .await?
-            .into_stream(&self.instance);
-
-        pin!(stream);
-
         let mut found_prs = vec![];
 
-        while let Some(issue) = stream.try_next().await? {
-            let pr = self
-                .instance
-                .pulls(&self.url.owner, &self.url.name)
-                .get(issue.number)
-                .await?;
+        // Try the current label first, then fall back to the
+        // legacy single-colon label for users upgrading from an
+        // older version of releasaurus.
+        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+            if !found_prs.is_empty() {
+                break;
+            }
 
-            if let Some(label) = pr.head.label
-                && label == format!("{}:{}", self.url.owner, req.head_branch)
-            {
-                if let Some(merged) = pr.merged
-                    && !merged
+            let stream = issues_handler
+                .list()
+                .direction(params::Direction::Descending)
+                .labels(&[pending_label.into()])
+                .state(params::State::Closed)
+                .send()
+                .await?
+                .into_stream(&self.instance);
+
+            pin!(stream);
+
+            while let Some(issue) = stream.try_next().await? {
+                let pr = self
+                    .instance
+                    .pulls(&self.url.owner, &self.url.name)
+                    .get(issue.number)
+                    .await?;
+
+                if let Some(head_label) = pr.head.label
+                    && head_label
+                        == format!("{}:{}", self.url.owner, req.head_branch)
                 {
-                    log::warn!(
-                        "found unmerged closed pr {} with pending label: skipping",
-                        pr.number
-                    );
-                    continue;
+                    if let Some(merged) = pr.merged
+                        && !merged
+                    {
+                        log::warn!(
+                            "found unmerged closed pr {} with pending label: skipping",
+                            pr.number
+                        );
+                        continue;
+                    }
+
+                    let sha = pr.merge_commit_sha.ok_or_else(|| {
+                        ReleasaurusError::forge(
+                            "no merge_commit_sha found for pr",
+                        )
+                    })?;
+
+                    found_prs.push(PullRequest {
+                        number: pr.number,
+                        sha,
+                        body: pr.body.unwrap_or_default(),
+                    });
                 }
-
-                let sha = pr.merge_commit_sha.ok_or_else(|| {
-                    ReleasaurusError::forge("no merge_commit_sha found for pr")
-                })?;
-
-                found_prs.push(PullRequest {
-                    number: pr.number,
-                    sha,
-                    body: pr.body.unwrap_or_default(),
-                });
             }
         }
 
