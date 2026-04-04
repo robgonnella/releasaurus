@@ -355,19 +355,19 @@ impl Forge for Github {
         })
     }
 
-    // Note: we use graphql query with tags sorted by commit date descending.
-    // We return the first tag that matches the prefix AND is an ancestor of
+    // We return only tags that matches the prefix AND are ancestors of
     // the target base branch.
-    async fn get_latest_tag_for_prefix(
+    async fn get_latest_tags_for_prefix(
         &self,
         prefix: &str,
         branch: &str,
-    ) -> Result<Option<Tag>> {
+    ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
         let mut cursor = None;
         let mut has_next_page = true;
         let mut count = 0;
+        let mut tags = vec![];
 
         while has_next_page {
             let vars = TagSearchQueryVariables {
@@ -386,7 +386,7 @@ impl Forge for Github {
             cursor = result.data.repository.refs.page_info.end_cursor;
             has_next_page = result.data.repository.refs.page_info.has_next_page;
 
-            for tag in result.data.repository.refs.nodes {
+            for tag in result.data.repository.refs.nodes.into_iter() {
                 if count >= DEFAULT_TAG_SEARCH_DEPTH {
                     has_next_page = false;
                     break;
@@ -404,17 +404,16 @@ impl Forge for Github {
                             .map(|t| t.oid.clone())
                             .unwrap_or(tag.target.oid.clone());
 
-                        let committed_date =
-                            tag.target.committed_date.unwrap_or(
-                                tag.target
-                                    .target
-                                    .as_ref()
-                                    .map(|t| t.committed_date.clone())
-                                    .unwrap_or_default(),
-                            );
-
                         if self.is_tag_ancestor_of_branch(&sha, branch).await? {
-                            return Ok(Some(Tag {
+                            let committed_date =
+                                tag.target.committed_date.unwrap_or(
+                                    tag.target
+                                        .target
+                                        .as_ref()
+                                        .map(|t| t.committed_date.clone())
+                                        .unwrap_or_default(),
+                                );
+                            tags.push(Tag {
                                 name: tag.name,
                                 semver: sver,
                                 sha,
@@ -423,14 +422,14 @@ impl Forge for Github {
                                 )
                                 .map(|t| t.timestamp())
                                 .ok(),
-                            }));
+                            });
                         }
                     }
                 }
             }
         }
 
-        Ok(None)
+        Ok(tags)
     }
 
     async fn get_commits(

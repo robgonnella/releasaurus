@@ -328,14 +328,13 @@ impl Forge for Gitlab {
         }
     }
 
-    // Note: Our query orders tags by semantic version descending. We return
-    // the first tag that matches the prefix AND is an ancestor of the target
-    // base branch.
-    async fn get_latest_tag_for_prefix(
+    // We return only tags that matches the prefix AND are ancestors of
+    // the target base branch.
+    async fn get_latest_tags_for_prefix(
         &self,
         prefix: &str,
         branch: &str,
-    ) -> Result<Option<Tag>> {
+    ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let endpoint = Tags::builder()
             .project(&self.project_id)
@@ -343,33 +342,36 @@ impl Forge for Gitlab {
             .sort(SortOrder::Descending)
             .build()?;
 
-        let tags: Vec<GitlabTag> =
+        let gitlab_tags: Vec<GitlabTag> =
             paged(endpoint, Pagination::Limit(DEFAULT_TAG_SEARCH_DEPTH.into()))
                 .query_async(&self.gl)
                 .await?;
 
-        for t in tags.into_iter() {
-            if re.is_match(&t.name) {
-                let stripped = re.replace_all(&t.name, "").to_string();
+        let mut tags = vec![];
+
+        for tag in gitlab_tags.into_iter() {
+            if re.is_match(&tag.name) {
+                let stripped = re.replace_all(&tag.name, "").to_string();
                 if let Ok(sver) = semver::Version::parse(&stripped)
                     && self
-                        .is_tag_ancestor_of_branch(&t.commit.id, branch)
+                        .is_tag_ancestor_of_branch(&tag.commit.id, branch)
                         .await?
                 {
-                    return Ok(Some(Tag {
-                        name: t.name,
+                    tags.push(Tag {
+                        name: tag.name,
                         semver: sver,
-                        sha: t.commit.id,
+                        sha: tag.commit.id,
                         timestamp: DateTime::parse_from_rfc3339(
-                            &t.commit.created_at,
+                            &tag.commit.created_at,
                         )
                         .map(|t| t.timestamp())
                         .ok(),
-                    }));
+                    });
                 }
             }
         }
-        Ok(None)
+
+        Ok(tags)
     }
 
     async fn get_commits(

@@ -286,21 +286,20 @@ impl Forge for Gitea {
         })
     }
 
-    // Note: Tags are returned in reverse chronological order. We return the
-    // first tag (by semver descending) that matches the prefix AND is an
-    // ancestor of the target base branch.
-    async fn get_latest_tag_for_prefix(
+    // We return only tags that matches the prefix AND are ancestors of
+    // the target base branch.
+    async fn get_latest_tags_for_prefix(
         &self,
         prefix: &str,
         branch: &str,
-    ) -> Result<Option<Tag>> {
+    ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
         let mut count = 0;
 
-        let mut tag_matches = vec![];
+        let mut tags = vec![];
 
         while has_more {
             let mut tags_url = self.base_url.join("tags")?;
@@ -321,9 +320,9 @@ impl Forge for Gitea {
                 .unwrap_or(false);
 
             let result = response.error_for_status()?;
-            let tags: Vec<GiteaTag> = result.json().await?;
+            let page_tags: Vec<GiteaTag> = result.json().await?;
 
-            for tag in tags.into_iter() {
+            for tag in page_tags.into_iter() {
                 if count >= DEFAULT_TAG_SEARCH_DEPTH {
                     has_more = false;
                     break;
@@ -331,8 +330,21 @@ impl Forge for Gitea {
                 count += 1;
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(sver) = semver::Version::parse(&stripped) {
-                        tag_matches.push((tag, sver))
+                    if let Ok(sver) = semver::Version::parse(&stripped)
+                        && self
+                            .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
+                            .await?
+                    {
+                        tags.push(Tag {
+                            name: tag.name,
+                            semver: sver,
+                            sha: tag.commit.sha,
+                            timestamp: DateTime::parse_from_rfc3339(
+                                &tag.commit.created,
+                            )
+                            .map(|t| t.timestamp())
+                            .ok(),
+                        });
                     }
                 }
             }
@@ -340,34 +352,7 @@ impl Forge for Gitea {
             page += 1;
         }
 
-        if tag_matches.is_empty() {
-            return Ok(None);
-        }
-
-        // tags are returned in reverse chronological order (newest first),
-        // which means they could be out of order, so here we sort by
-        // semantic version (descending) to get latest
-        tag_matches.sort_by(|a, b| b.1.cmp(&a.1));
-
-        for (tag, sver) in tag_matches.into_iter() {
-            if self
-                .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
-                .await?
-            {
-                return Ok(Some(Tag {
-                    name: tag.name.clone(),
-                    semver: sver.clone(),
-                    sha: tag.commit.sha.clone(),
-                    timestamp: DateTime::parse_from_rfc3339(
-                        &tag.commit.created,
-                    )
-                    .map(|t| t.timestamp())
-                    .ok(),
-                }));
-            }
-        }
-
-        Ok(None)
+        Ok(tags)
     }
 
     async fn get_commits(
