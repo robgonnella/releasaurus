@@ -533,23 +533,23 @@ mod tests {
 
         // One tag fetch per package (collected once, not re-fetched later)
         mock_forge
-            .expect_get_latest_tag_for_prefix()
+            .expect_get_latest_tags_for_prefix()
             .times(2)
             .returning(|prefix, _branch| {
                 if prefix.contains("pkg-a") {
                     // pkg-a has newer tag (timestamp 2000)
-                    Ok(Some(Tag {
+                    Ok(vec![Tag {
                         sha: "newer-sha".to_string(),
                         timestamp: Some(2000),
                         ..Default::default()
-                    }))
+                    }])
                 } else {
                     // pkg-b has older tag (timestamp 1000)
-                    Ok(Some(Tag {
+                    Ok(vec![Tag {
                         sha: "older-sha".to_string(),
                         timestamp: Some(1000),
                         ..Default::default()
-                    }))
+                    }])
                 }
             });
 
@@ -638,18 +638,18 @@ mod tests {
         // Tags are collected once in a single pass (2 calls total).
         // The fallback fetch reuses the already-collected tags.
         mock_forge
-            .expect_get_latest_tag_for_prefix()
+            .expect_get_latest_tags_for_prefix()
             .times(2)
             .returning(|prefix, _branch| {
                 if prefix.contains("pkg-a") {
-                    Ok(Some(Tag {
+                    Ok(vec![Tag {
                         sha: "some-sha".to_string(),
                         timestamp: Some(1000),
                         ..Default::default()
-                    }))
+                    }])
                 } else {
                     // pkg-b has no tag yet
-                    Ok(None)
+                    Ok(vec![])
                 }
             });
 

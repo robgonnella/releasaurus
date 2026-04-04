@@ -413,11 +413,11 @@ impl Forge for LocalRepo {
         }
     }
 
-    async fn get_latest_tag_for_prefix(
+    async fn get_latest_tags_for_prefix(
         &self,
         prefix: &str,
         branch: &str,
-    ) -> Result<Option<Tag>> {
+    ) -> Result<Vec<Tag>> {
         let regex_prefix = format!(r"^{}", prefix);
         let tag_prefix_regex = Regex::new(&regex_prefix)?;
 
@@ -453,7 +453,7 @@ impl Forge for LocalRepo {
         }
 
         if commits.is_empty() {
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         let branch_head_oid = repo
@@ -474,17 +474,7 @@ impl Forge for LocalRepo {
                     .unwrap_or(false)
         });
 
-        if commits.is_empty() {
-            return Ok(None);
-        }
-
-        // sort commits by time descending so the first one should contain
-        // the latest tag
-        commits.sort_by(|(c1, _), (c2, _)| c2.time().cmp(&c1.time()));
-
-        let (_, tag) = commits[0].clone();
-
-        Ok(Some(tag))
+        Ok(commits.into_iter().map(|(_, tag)| tag).collect())
     }
 
     async fn get_commits(
@@ -791,11 +781,14 @@ mod tests {
         let branch = current_branch_name(&repo);
 
         let forge = LocalRepo::new(dir.path(), None).unwrap();
-        let result =
-            forge.get_latest_tag_for_prefix("v", &branch).await.unwrap();
+        let mut result = forge
+            .get_latest_tags_for_prefix("v", &branch)
+            .await
+            .unwrap();
+        result.sort_by(|a, b| b.semver.cmp(&a.semver));
 
-        assert!(result.is_some(), "tag at branch head should be found");
-        assert_eq!(result.unwrap().name, "v1.0.0");
+        assert!(!result.is_empty(), "tag at branch head should be found");
+        assert_eq!(result[0].name, "v1.0.0");
     }
 
     /// `create_branch` must create a branch pointing to current HEAD.
@@ -1124,18 +1117,18 @@ mod tests {
 
         // Querying main_branch must return v1.0.0 only; v2.0.0 is
         // not in main_branch's history.
-        let result = forge
-            .get_latest_tag_for_prefix("v", &main_branch)
+        let mut result = forge
+            .get_latest_tags_for_prefix("v", &main_branch)
             .await
             .unwrap();
+        result.sort_by(|a, b| b.semver.cmp(&a.semver));
 
         assert!(
-            result.is_some(),
+            !result.is_empty(),
             "v1.0.0 (ancestor of main) should be found"
         );
         assert_eq!(
-            result.unwrap().name,
-            "v1.0.0",
+            result[0].name, "v1.0.0",
             "v2.0.0 (only on divergent branch) must be excluded"
         );
     }

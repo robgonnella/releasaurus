@@ -16,8 +16,8 @@ async fn generate_prepared_with_dummy_commit_skips_untagged_packages() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_latest_tag_for_prefix()
-        .returning(|_, _| Ok(None)); // No tags exist
+        .expect_get_latest_tags_for_prefix()
+        .returning(|_, _| Ok(vec![])); // No tags exist
 
     let orchestrator = create_core(mock_forge, None, None);
 
@@ -46,13 +46,13 @@ async fn generate_prepared_with_dummy_commit_filters_by_targets() {
 
     let mut mock_forge = MockForge::new();
 
-    mock_forge.expect_get_latest_tag_for_prefix().returning(
+    mock_forge.expect_get_latest_tags_for_prefix().returning(
         |prefix, _branch| {
-            Ok(Some(Tag {
+            Ok(vec![Tag {
                 name: format!("{prefix}1.0.0"),
                 timestamp: Some(1000),
                 ..Default::default()
-            }))
+            }])
         },
     );
 

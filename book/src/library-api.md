@@ -6,12 +6,12 @@ directly in your own tooling rather than shelling out to the CLI.
 
 ## When to use the library vs the CLI
 
-| Situation | Recommendation |
-|---|---|
-| CI/CD pipeline, GitHub Actions | Use the CLI |
-| Custom Rust tooling or internal build system | Use the library |
+| Situation                                            | Recommendation  |
+| ---------------------------------------------------- | --------------- |
+| CI/CD pipeline, GitHub Actions                       | Use the CLI     |
+| Custom Rust tooling or internal build system         | Use the library |
 | Need to integrate release data into another workflow | Use the library |
-| Simple changelog + tag automation | Use the CLI |
+| Simple changelog + tag automation                    | Use the CLI     |
 
 ## Adding the dependency
 
@@ -85,11 +85,11 @@ dependencies to construct a `SecretString`.
 `Forge` is the extension point for platform support. The crate ships
 four implementations:
 
-| Type | When to use |
-|---|---|
-| `forge::github::Github` | GitHub (cloud or Enterprise) |
-| `forge::gitlab::Gitlab` | GitLab (cloud or self-hosted) |
-| `forge::gitea::Gitea` | Gitea self-hosted |
+| Type                      | When to use                     |
+| ------------------------- | ------------------------------- |
+| `forge::github::Github`   | GitHub (cloud or Enterprise)    |
+| `forge::gitlab::Gitlab`   | GitLab (cloud or self-hosted)   |
+| `forge::gitea::Gitea`     | Gitea self-hosted               |
 | `forge::local::LocalRepo` | Local git2 operations (testing) |
 
 To target a custom platform, implement the `Forge` trait from
@@ -142,8 +142,8 @@ impl Forge for MyForge {
     #     -> Result<Commit> { todo!() }
     # async fn tag_commit(&self, _: &str, _: &str)
     #     -> Result<()> { todo!() }
-    # async fn get_latest_tag_for_prefix(&self, _: &str, _: &str)
-    #     -> Result<Option<Tag>> { todo!() }
+    # async fn get_latest_tags_for_prefix(&self, _: &str, _: &str)
+    #     -> Result<Vec<Tag>> { todo!() }
     # async fn get_commits(&self, _: Option<String>, _: Option<String>)
     #     -> Result<Vec<ForgeCommit>> { todo!() }
     # async fn get_open_release_pr(&self, _: GetPrRequest)
