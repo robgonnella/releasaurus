@@ -115,6 +115,14 @@ Result:   v1.0.0
 
 Remove the `[prerelease]` section or set `suffix = ""` to graduate.
 
+To include changelog entries from all prior prerelease versions in the
+stable release, enable `aggregate_prereleases`:
+
+```toml
+[changelog]
+aggregate_prereleases = true
+```
+
 ## Static Strategy
 
 Fixed suffix without counters, common in Java ecosystems.
@@ -146,6 +154,14 @@ Current:  v1.0.1-SNAPSHOT
 Commit:   fix: final fix
 Config:   (no prerelease section)
 Result:   v1.0.1
+```
+
+To include changelog entries from all prior prerelease versions in the
+stable release, enable `aggregate_prereleases`:
+
+```toml
+[changelog]
+aggregate_prereleases = true
 ```
 
 ## Practical Examples

@@ -78,7 +78,8 @@
         "skip_release_commits": true,
         "skip_shas": null,
         "reword": null,
-        "include_author": false
+        "include_author": false,
+        "aggregate_prereleases": false
       }
     },
     "package": {
@@ -200,6 +201,11 @@
         },
         "include_author": {
           "description": "Includes commit author name in default body template",
+          "type": "boolean",
+          "default": false
+        },
+        "aggregate_prereleases": {
+          "description": "Aggregates changelogs from prior prereleases when graduating",
           "type": "boolean",
           "default": false
         }

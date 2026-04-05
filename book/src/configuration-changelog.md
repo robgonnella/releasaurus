@@ -95,6 +95,20 @@ Include commit author names in changelog entries:
 include_author = true
 ```
 
+### `aggregate_prereleases` (default: false)
+
+When graduating from a prerelease to a stable release, aggregate
+changelog entries from all prior prerelease versions into the stable
+release notes:
+
+```toml
+[changelog]
+aggregate_prereleases = true
+```
+
+See [Prerelease Workflows](configuration-prerelease.md) for details
+on graduation.
+
 ### `skip_shas` (default: none)
 
 Skip specific commits by SHA prefix:

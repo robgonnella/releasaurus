@@ -114,13 +114,46 @@ impl ForgeManager {
         }
 
         // Sort by semantic version descending so the highest version is
-        // first. Tag ordering from forge APIs is unreliable — forges differ
-        // in whether they sort by date, name, or version, and none handle
+        // first. Tag ordering from forge APIs is unreliable and none handle
         // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
-        // Semver ordering is the single source of truth for "latest"
-        // across all forge backends.
+        // Semver ordering is the single source of truth for all forge backends.
         tags.sort_by(|a, b| b.semver.cmp(&a.semver));
         Ok(tags.into_iter().next())
+    }
+
+    pub async fn get_last_stable_release_tag(
+        &self,
+        prefix: &str,
+        branch: &str,
+    ) -> Result<Option<Tag>> {
+        let mut tags = self
+            .forge
+            .get_latest_tags_for_prefix(prefix, branch)
+            .await?;
+
+        if tags.is_empty() {
+            return Ok(None);
+        }
+
+        // Sort by semantic version descending so the highest version is first.
+        // Tag ordering from forge APIs is unreliable and none handle
+        // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
+        // Semver ordering is the single source of truth for all forge backends.
+        tags.sort_by(|a, b| b.semver.cmp(&a.semver));
+
+        // iterate to find where current prerelease series stops at last
+        // stable release
+        for tag in tags {
+            // skip prereleases until we get to last stable release
+            if !tag.semver.pre.is_empty() {
+                continue;
+            }
+
+            return Ok(Some(tag));
+        }
+
+        // No stable releases found
+        Ok(None)
     }
 
     pub async fn get_commits(
@@ -495,6 +528,59 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.name, "v2.0.0-beta.1");
+    }
+
+    #[tokio::test]
+    async fn get_last_stable_tag_returns_none_when_no_tags() {
+        let mock = mock_returning_tags(vec![]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_last_stable_release_tag("v", "main")
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_last_stable_tag_returns_none_when_only_prereleases() {
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0-rc.1"),
+            make_tag("v", "1.0.0-rc.2"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_last_stable_release_tag("v", "main")
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_last_stable_tag_returns_highest_stable_from_mixed_list() {
+        // Forge returns tags in arbitrary order; stable tags are interleaved
+        // with prerelease tags. The highest stable version must win.
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0-rc.1"),
+            make_tag("v", "1.0.0"),
+            make_tag("v", "2.0.0"),
+            make_tag("v", "0.9.0"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_last_stable_release_tag("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v2.0.0");
     }
 
     #[tokio::test]
