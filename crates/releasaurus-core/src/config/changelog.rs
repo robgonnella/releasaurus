@@ -44,6 +44,8 @@ pub struct ChangelogConfig {
     pub reword: Option<Vec<RewordedCommit>>,
     /// Includes commit author name in default body template
     pub include_author: bool,
+    /// Aggregates changelogs from prior prereleases when graduating
+    pub aggregate_prereleases: bool,
 }
 
 impl Default for ChangelogConfig {
@@ -58,6 +60,7 @@ impl Default for ChangelogConfig {
             skip_shas: None,
             reword: None,
             include_author: false,
+            aggregate_prereleases: false,
         }
     }
 }

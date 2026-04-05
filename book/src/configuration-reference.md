@@ -272,6 +272,21 @@ Include commit author names in changelog.
 include_author = true
 ```
 
+#### `aggregate_prereleases`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Aggregate changelog entries from all prior prerelease versions into
+the graduating stable release. Has no effect when the current version
+is already stable.
+
+```toml
+[changelog]
+aggregate_prereleases = true
+```
+
 #### `skip_shas`
 
 **Type**: Array of strings (optional)

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -139,6 +142,8 @@ impl Core {
             .get_commits_for_all_packages(target)
             .await?;
 
+        let commit_hash_set: HashSet<_> = commits.iter().collect();
+
         for (name, package) in self.package_configs.hash().iter() {
             if let Some(target) = target
                 && package.name != target
@@ -146,13 +151,33 @@ impl Core {
                 continue;
             }
 
-            let current_tag = tags.get(name).cloned().flatten();
+            let tag_info = tags.get(name);
+            let current_tag = tag_info.and_then(|i| i.tag.clone());
+            let is_graduating_to_stable =
+                tag_info.map(|i| i.graduating_to_stable).unwrap_or_default();
 
-            let commits = self.commits_core.filter_commits_for_package(
+            let mut commits = self.commits_core.filter_commits_for_package(
                 package,
                 current_tag.as_ref(),
                 &commits,
             );
+
+            if self.config.changelog.aggregate_prereleases
+                && is_graduating_to_stable
+            {
+                let additional = self
+                    .commits_core
+                    .fetch_additional_commits_for_prerelease_aggregation(
+                        package,
+                    )
+                    .await?;
+                commits.extend(
+                    additional
+                        .into_iter()
+                        .filter(|c| !commit_hash_set.contains(c)),
+                );
+                commits.sort_by_key(|c| c.timestamp);
+            }
 
             prepared_packages.push(PreparedPackage {
                 name: name.clone(),

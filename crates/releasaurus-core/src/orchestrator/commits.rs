@@ -14,6 +14,11 @@ use crate::{
     },
 };
 
+pub struct CurrentTagInfo {
+    pub tag: Option<Tag>,
+    pub graduating_to_stable: bool,
+}
+
 pub struct CommitsCore {
     orchestrator_config: Rc<OrchestratorConfig>,
     forge: Rc<ForgeManager>,
@@ -41,7 +46,7 @@ impl CommitsCore {
     pub async fn get_commits_for_all_packages(
         &self,
         target: Option<&str>,
-    ) -> Result<(Vec<ForgeCommit>, HashMap<String, Option<Tag>>)> {
+    ) -> Result<(Vec<ForgeCommit>, HashMap<String, CurrentTagInfo>)> {
         log::info!("attempting to get commits for all packages at once");
 
         let tags = self.collect_tags_for_packages(target).await?;
@@ -125,12 +130,42 @@ impl CommitsCore {
         package_commits
     }
 
+    pub async fn fetch_additional_commits_for_prerelease_aggregation(
+        &self,
+        pkg: &ResolvedPackage,
+    ) -> Result<Vec<ForgeCommit>> {
+        let mut commits = vec![];
+
+        let latest_stable_tag = self
+            .forge
+            .get_latest_stable_release_tag(
+                &pkg.tag_prefix,
+                &self.orchestrator_config.base_branch,
+            )
+            .await?;
+
+        if let Some(tag) = latest_stable_tag {
+            commits = self
+                .forge
+                .get_commits(
+                    Some(self.orchestrator_config.base_branch.clone()),
+                    Some(tag.sha.clone()),
+                )
+                .await?;
+
+            commits =
+                self.filter_commits_for_package(pkg, Some(&tag), &commits);
+        }
+
+        Ok(commits)
+    }
+
     /// Collects the latest tag for every (target-filtered) package in a
     /// single pass, returning a map keyed by package name.
     async fn collect_tags_for_packages(
         &self,
         target: Option<&str>,
-    ) -> Result<HashMap<String, Option<Tag>>> {
+    ) -> Result<HashMap<String, CurrentTagInfo>> {
         let mut tags = HashMap::new();
         for (name, package) in self.package_configs.hash().iter() {
             if let Some(target) = target
@@ -145,7 +180,44 @@ impl CommitsCore {
                     &self.orchestrator_config.base_branch,
                 )
                 .await?;
-            tags.insert(name.clone(), tag);
+
+            let graduating_to_stable = tag
+                .as_ref()
+                .map(|t| {
+                    // check if current tag has pre-release identifier and
+                    // pre-release configuration is empty, or suffix is empty,
+                    // indicating we are graduating from pre-release to stable
+                    // version
+                    if t.semver.pre.is_empty() {
+                        // current tag does not have pre-release identifier
+                        // so nothing to graduate from
+                        return false;
+                    }
+
+                    // current tag has a pre-release identifier - check config
+
+                    if let Some(prerelease_config) = package.prerelease.as_ref()
+                    {
+                        // suffix is empty = graduating
+                        prerelease_config
+                            .suffix
+                            .as_deref()
+                            .unwrap_or_default()
+                            .is_empty()
+                    } else {
+                        // prerelease config is none = graduating
+                        true
+                    }
+                })
+                .unwrap_or_default();
+
+            tags.insert(
+                name.clone(),
+                CurrentTagInfo {
+                    tag,
+                    graduating_to_stable,
+                },
+            );
         }
         Ok(tags)
     }
@@ -155,12 +227,12 @@ impl CommitsCore {
     /// (i.e. any package has no tag yet).
     async fn get_commits_for_packages_with_tags(
         &self,
-        tags: &HashMap<String, Option<Tag>>,
+        tags: &HashMap<String, CurrentTagInfo>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut cache: HashSet<ForgeCommit> = HashSet::new();
 
         for (name, tag) in tags.iter() {
-            let current_sha = tag.as_ref().map(|t| t.sha.clone());
+            let current_sha = tag.tag.as_ref().map(|t| t.sha.clone());
 
             log::info!(
                 "{name}: current tag sha: {:?} : fetching commits",
@@ -188,9 +260,9 @@ impl CommitsCore {
     /// determined).
     fn oldest_tag_sha_from_map(
         &self,
-        tags: &HashMap<String, Option<Tag>>,
+        tags: &HashMap<String, CurrentTagInfo>,
     ) -> Option<String> {
-        if tags.values().any(|t| t.is_none()) {
+        if tags.values().any(|t| t.tag.is_none()) {
             log::warn!("found package that hasn't been tagged yet");
             return None;
         }
@@ -198,7 +270,7 @@ impl CommitsCore {
         let mut oldest_timestamp = i64::MAX;
         let mut oldest_sha = None;
 
-        for tag in tags.values().flatten() {
+        for tag in tags.values().flat_map(|t| t.tag.iter()) {
             if let Some(ts) = tag.timestamp
                 && ts < oldest_timestamp
             {
@@ -219,7 +291,10 @@ mod tests {
     use crate::{
         analyzer::release::Tag,
         config::{
-            Config, package::PackageConfigBuilder, release_type::ReleaseType,
+            Config,
+            package::{PackageConfig, PackageConfigBuilder},
+            prerelease::{PrereleaseConfig, PrereleaseStrategy},
+            release_type::ReleaseType,
         },
         forge::{
             manager::{ForgeManager, ForgeOptions},
@@ -705,5 +780,387 @@ mod tests {
             .unwrap();
         assert_eq!(commits.len(), 0);
         assert_eq!(tags.len(), 2);
+    }
+
+    // Helper: build a CommitsCore wired to a single package with a custom
+    // mock. Used by graduating_to_stable and aggregation tests.
+    fn make_commits_core_with_package(
+        mock: MockForge,
+        pkg_config: PackageConfig,
+    ) -> CommitsCore {
+        let config = Rc::new(Config::default());
+        let orchestrator_config = Rc::new(
+            OrchestratorConfig::builder()
+                .toml_config(config)
+                .repo_name("test-repo")
+                .repo_default_branch("main")
+                .release_link_base_url(
+                    Url::parse("https://example.com/").unwrap(),
+                )
+                .compare_link_base_url(
+                    Url::parse("https://example.com/compare/").unwrap(),
+                )
+                .package_overrides(std::collections::HashMap::new())
+                .global_overrides(GlobalOverrides::default())
+                .commit_modifiers(CommitModifiers::default())
+                .build()
+                .unwrap(),
+        );
+
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(mock),
+            ForgeOptions { dry_run: false },
+        ));
+
+        let pkg = ResolvedPackage::builder()
+            .orchestrator_config(Rc::clone(&orchestrator_config))
+            .package_config(pkg_config)
+            .build()
+            .unwrap();
+
+        let package_configs =
+            Rc::new(ResolvedPackageHash::new(vec![pkg]).unwrap());
+
+        CommitsCore::new(orchestrator_config, forge, package_configs)
+    }
+
+    // --- graduating_to_stable detection ---
+
+    #[tokio::test]
+    async fn graduating_to_stable_true_when_prerelease_tag_and_no_config() {
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0-rc.1".to_string(),
+                semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                sha: "sha-rc1".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = true"
+        );
+    }
+
+    #[tokio::test]
+    async fn graduating_to_stable_false_when_stable_tag() {
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0".to_string(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "sha-1.0.0".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            !tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = false"
+        );
+    }
+
+    #[tokio::test]
+    async fn graduating_to_stable_false_when_prerelease_config_present() {
+        // Current tag is a prerelease, but the package config still declares
+        // a prerelease strategy — so we are NOT graduating to stable.
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0-rc.1".to_string(),
+                semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                sha: "sha-rc1".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .prerelease(PrereleaseConfig {
+                suffix: Some("rc".to_string()),
+                strategy: PrereleaseStrategy::Versioned,
+            })
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            !tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = false"
+        );
+    }
+
+    #[tokio::test]
+    async fn graduating_to_stable_false_when_no_tag() {
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix()
+            .returning(|_, _| Ok(vec![]));
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            !tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = false when no tag exists"
+        );
+    }
+
+    #[tokio::test]
+    async fn graduating_to_stable_true_when_prerelease_tag_and_empty_suffix() {
+        // Current tag is a prerelease and the package config has an empty
+        // suffix — the user has cleared the suffix to graduate to stable.
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0-rc.1".to_string(),
+                semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                sha: "sha-rc1".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .prerelease(PrereleaseConfig {
+                suffix: Some("".to_string()),
+                strategy: PrereleaseStrategy::Versioned,
+            })
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = true when suffix is empty string"
+        );
+    }
+
+    #[tokio::test]
+    async fn graduating_to_stable_true_when_prerelease_tag_and_none_suffix() {
+        // Current tag is a prerelease and the prerelease config has no suffix
+        // set at all — treated the same as empty, i.e. graduating to stable.
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0-rc.1".to_string(),
+                semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                sha: "sha-rc1".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+        let pkg = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path(".")
+            .release_type(ReleaseType::Node)
+            .prerelease(PrereleaseConfig {
+                suffix: None,
+                strategy: PrereleaseStrategy::Versioned,
+            })
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg);
+        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+
+        assert!(
+            tags.get("test-pkg").unwrap().graduating_to_stable,
+            "expected graduating_to_stable = true when suffix is None"
+        );
+    }
+
+    // --- fetch_additional_commits_for_prerelease_aggregation ---
+
+    #[tokio::test]
+    async fn fetch_additional_returns_empty_when_no_stable_tag() {
+        // Only prerelease tags exist — no stable tag to aggregate from.
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix().returning(|_, _| {
+            Ok(vec![
+                Tag {
+                    name: "v1.0.0-rc.1".to_string(),
+                    semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    sha: "sha-rc1".to_string(),
+                    timestamp: None,
+                },
+                Tag {
+                    name: "v1.0.0-rc.2".to_string(),
+                    semver: semver::Version::parse("1.0.0-rc.2").unwrap(),
+                    sha: "sha-rc2".to_string(),
+                    timestamp: None,
+                },
+            ])
+        });
+
+        let pkg_config = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path("packages/pkg-a")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+        let core = make_commits_core_with_package(mock, pkg_config);
+        let pkg = create_test_package("test-pkg", "packages/pkg-a");
+
+        let result = core
+            .fetch_additional_commits_for_prerelease_aggregation(&pkg)
+            .await
+            .unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn fetch_additional_returns_commits_from_stable_tag_sha() {
+        let stable_tag = Tag {
+            name: "v1.0.0".to_string(),
+            semver: semver::Version::parse("1.0.0").unwrap(),
+            sha: "sha-1.0.0".to_string(),
+            timestamp: Some(0),
+        };
+
+        let commit_a = ForgeCommitBuilder::default()
+            .id("commit-a")
+            .short_id("ca")
+            .message("feat: prerelease feature")
+            .timestamp(100i64)
+            .files(vec!["packages/pkg-a/src/lib.rs".to_string()])
+            .build()
+            .unwrap();
+
+        let commit_b = ForgeCommitBuilder::default()
+            .id("commit-b")
+            .short_id("cb")
+            .message("fix: prerelease fix")
+            .timestamp(200i64)
+            .files(vec!["packages/pkg-a/src/main.rs".to_string()])
+            .build()
+            .unwrap();
+
+        let commits = vec![commit_a, commit_b];
+
+        let mut mock = MockForge::new();
+
+        mock.expect_get_latest_tags_for_prefix()
+            .returning(move |_, _| Ok(vec![stable_tag.clone()]));
+        mock.expect_get_commits()
+            .returning(move |_, _| Ok(commits.clone()));
+
+        let pkg_config = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path("packages/pkg-a")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg_config);
+        // create resolved pkg
+        let pkg = create_test_package("test-pkg", "packages/pkg-a");
+
+        let result = core
+            .fetch_additional_commits_for_prerelease_aggregation(&pkg)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].id, "commit-a");
+        assert_eq!(result[1].id, "commit-b");
+    }
+
+    #[tokio::test]
+    async fn fetch_additional_filters_commits_by_package_path() {
+        let stable_tag = Tag {
+            name: "v1.0.0".to_string(),
+            semver: semver::Version::parse("1.0.0").unwrap(),
+            sha: "sha-1.0.0".to_string(),
+            timestamp: Some(0),
+        };
+
+        let pkg_commit = ForgeCommitBuilder::default()
+            .id("pkg-commit")
+            .short_id("pc")
+            .message("feat: change in pkg-a")
+            .timestamp(100i64)
+            .files(vec!["packages/pkg-a/src/lib.rs".to_string()])
+            .build()
+            .unwrap();
+
+        let other_commit = ForgeCommitBuilder::default()
+            .id("other-commit")
+            .short_id("oc")
+            .message("fix: change in other package")
+            .timestamp(200i64)
+            .files(vec!["packages/pkg-b/src/lib.rs".to_string()])
+            .build()
+            .unwrap();
+
+        let commits = vec![pkg_commit, other_commit];
+
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix()
+            .returning(move |_, _| Ok(vec![stable_tag.clone()]));
+        mock.expect_get_commits()
+            .returning(move |_, _| Ok(commits.clone()));
+
+        let pkg_config = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path("packages/pkg-a")
+            .release_type(ReleaseType::Node)
+            .build()
+            .unwrap();
+
+        let core = make_commits_core_with_package(mock, pkg_config);
+        // create resolved pkg
+        let pkg = create_test_package("test-pkg", "packages/pkg-a");
+
+        let result = core
+            .fetch_additional_commits_for_prerelease_aggregation(&pkg)
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "pkg-commit");
     }
 }
