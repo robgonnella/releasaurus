@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-63ddf765.js";
+            window.path_to_searchindex_js = "searchindex-451334cc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c547b300.js"></script>
@@ -264,6 +264,11 @@ Config:   (no prerelease section)
 Result:   v1.0.0
 </code></pre>
 <p>Remove the <code>[prerelease]</code> section or set <code>suffix = ""</code> to graduate.</p>
+<p>To include changelog entries from all prior prerelease versions in the
+stable release, enable <code>aggregate_prereleases</code>:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
+</code></pre>
 <h2 id="static-strategy"><a class="header" href="#static-strategy">Static Strategy</a></h2>
 <p>Fixed suffix without counters, common in Java ecosystems.</p>
 <h3 id="starting-a-prerelease-1"><a class="header" href="#starting-a-prerelease-1">Starting a Prerelease</a></h3>
@@ -284,6 +289,11 @@ Result:   v1.1.0-SNAPSHOT
 Commit:   fix: final fix
 Config:   (no prerelease section)
 Result:   v1.0.1
+</code></pre>
+<p>To include changelog entries from all prior prerelease versions in the
+stable release, enable <code>aggregate_prereleases</code>:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
 </code></pre>
 <h2 id="practical-examples"><a class="header" href="#practical-examples">Practical Examples</a></h2>
 <h3 id="monorepo-with-mixed-prerelease-states"><a class="header" href="#monorepo-with-mixed-prerelease-states">Monorepo with Mixed Prerelease States</a></h3>

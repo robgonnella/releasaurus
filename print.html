@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-63ddf765.js";
+            window.path_to_searchindex_js = "searchindex-451334cc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c547b300.js"></script>
@@ -1702,6 +1702,11 @@ Config:   (no prerelease section)
 Result:   v1.0.0
 </code></pre>
 <p>Remove the <code>[prerelease]</code> section or set <code>suffix = ""</code> to graduate.</p>
+<p>To include changelog entries from all prior prerelease versions in the
+stable release, enable <code>aggregate_prereleases</code>:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
+</code></pre>
 <h2 id="static-strategy"><a class="header" href="#static-strategy">Static Strategy</a></h2>
 <p>Fixed suffix without counters, common in Java ecosystems.</p>
 <h3 id="starting-a-prerelease-1"><a class="header" href="#starting-a-prerelease-1">Starting a Prerelease</a></h3>
@@ -1722,6 +1727,11 @@ Result:   v1.1.0-SNAPSHOT
 Commit:   fix: final fix
 Config:   (no prerelease section)
 Result:   v1.0.1
+</code></pre>
+<p>To include changelog entries from all prior prerelease versions in the
+stable release, enable <code>aggregate_prereleases</code>:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
 </code></pre>
 <h2 id="practical-examples"><a class="header" href="#practical-examples">Practical Examples</a></h2>
 <h3 id="monorepo-with-mixed-prerelease-states"><a class="header" href="#monorepo-with-mixed-prerelease-states">Monorepo with Mixed Prerelease States</a></h3>
@@ -1881,6 +1891,15 @@ skip_release_commits = false  # Include "chore(main): release v1.0.0"
 <pre><code class="language-toml">[changelog]
 include_author = true
 </code></pre>
+<h3 id="aggregate_prereleases-default-false"><a class="header" href="#aggregate_prereleases-default-false"><code>aggregate_prereleases</code> (default: false)</a></h3>
+<p>When graduating from a prerelease to a stable release, aggregate
+changelog entries from all prior prerelease versions into the stable
+release notes:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
+</code></pre>
+<p>See <a href="#prerelease-configuration">Prerelease Workflows</a> for details
+on graduation.</p>
 <h3 id="skip_shas-default-none"><a class="header" href="#skip_shas-default-none"><code>skip_shas</code> (default: none)</a></h3>
 <p>Skip specific commits by SHA prefix:</p>
 <pre><code class="language-toml">[changelog]
@@ -2587,6 +2606,15 @@ skip_release_commits = false
 <pre><code class="language-toml">[changelog]
 include_author = true
 </code></pre>
+<h4 id="aggregate_prereleases"><a class="header" href="#aggregate_prereleases"><code>aggregate_prereleases</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Aggregate changelog entries from all prior prerelease versions into
+the graduating stable release. Has no effect when the current version
+is already stable.</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
+</code></pre>
 <h4 id="skip_shas"><a class="header" href="#skip_shas"><code>skip_shas</code></a></h4>
 <p><strong>Type</strong>: Array of strings (optional)</p>
 <p><strong>Default</strong>: None</p>
@@ -3193,8 +3221,8 @@ impl Forge for MyForge {
 </span><span class="boring">        -&gt; Result&lt;Commit&gt; { todo!() }
 </span><span class="boring">    async fn tag_commit(&amp;self, _: &amp;str, _: &amp;str)
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
-</span><span class="boring">    async fn get_latest_tag_for_prefix(&amp;self, _: &amp;str, _: &amp;str)
-</span><span class="boring">        -&gt; Result&lt;Option&lt;Tag&gt;&gt; { todo!() }
+</span><span class="boring">    async fn get_latest_tags_for_prefix(&amp;self, _: &amp;str, _: &amp;str)
+</span><span class="boring">        -&gt; Result&lt;Vec&lt;Tag&gt;&gt; { todo!() }
 </span><span class="boring">    async fn get_commits(&amp;self, _: Option&lt;String&gt;, _: Option&lt;String&gt;)
 </span><span class="boring">        -&gt; Result&lt;Vec&lt;ForgeCommit&gt;&gt; { todo!() }
 </span><span class="boring">    async fn get_open_release_pr(&amp;self, _: GetPrRequest)

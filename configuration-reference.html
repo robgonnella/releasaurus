@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-63ddf765.js";
+            window.path_to_searchindex_js = "searchindex-451334cc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-c547b300.js"></script>
@@ -332,6 +332,15 @@ skip_release_commits = false
 <p>Include commit author names in changelog.</p>
 <pre><code class="language-toml">[changelog]
 include_author = true
+</code></pre>
+<h4 id="aggregate_prereleases"><a class="header" href="#aggregate_prereleases"><code>aggregate_prereleases</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Aggregate changelog entries from all prior prerelease versions into
+the graduating stable release. Has no effect when the current version
+is already stable.</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
 </code></pre>
 <h4 id="skip_shas"><a class="header" href="#skip_shas"><code>skip_shas</code></a></h4>
 <p><strong>Type</strong>: Array of strings (optional)</p>
