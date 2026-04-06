@@ -1,3 +1,15 @@
+# [0.17.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.16.1...v0.17.0-rc.1) - 2026-04-02
+
+### 🚀 Features
+
+- adds the ability to aggregate changelogs for prereleases [_(29d4829)_](https://github.com/robgonnella/releasaurus/commit/29d4829ce87751c97e6ddf79202da095ff0d9432) (Rob Gonnella)
+
+- adds support for gitlab scoped labels [_(4f334f8)_](https://github.com/robgonnella/releasaurus/commit/4f334f8a02e68aaa96c71907deddc0d394b01728) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- address issues with tag ordering when analyzing [_(1de730f)_](https://github.com/robgonnella/releasaurus/commit/1de730f836882bf344a5564667ed1a91f3da77c0) (Rob Gonnella)
+
 # [0.16.1](https://github.com/robgonnella/releasaurus/compare/v0.16.0...v0.16.1) - 2026-03-28
 
 ### 🐛 Bug Fixes
