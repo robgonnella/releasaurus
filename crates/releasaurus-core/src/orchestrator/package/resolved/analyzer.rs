@@ -54,7 +54,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
         ),
         skip_chore: params.config.changelog.skip_chore,
         skip_ci: params.config.changelog.skip_ci,
-        skip_docs: params.config.changelog.skip_docs,
+        skip_doc: params.config.changelog.skip_doc,
         skip_perf: params.config.changelog.skip_perf,
         skip_test: params.config.changelog.skip_test,
         skip_refactor: params.config.changelog.skip_refactor,

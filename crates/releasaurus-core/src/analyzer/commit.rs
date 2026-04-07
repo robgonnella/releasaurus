@@ -93,30 +93,26 @@ impl Commit {
                 };
                 commit.group = group_parser.parse(&commit);
 
-                // Each entry pairs a Group variant with its skip flag from
-                // config. Adding a new skippable type only requires adding
-                // one tuple here.
-                let skip_pairs: [(Group, bool); 9] = [
-                    (Group::Ci, config.skip_ci),
-                    (Group::Chore, config.skip_chore),
-                    (Group::Miscellaneous, config.skip_miscellaneous),
-                    (Group::Doc, config.skip_docs),
-                    (Group::Test, config.skip_test),
-                    (Group::Refactor, config.skip_refactor),
-                    (Group::Perf, config.skip_perf),
-                    (Group::Style, config.skip_style),
-                    (Group::Revert, config.skip_revert),
-                ];
-                for (group, should_skip) in skip_pairs {
-                    if commit.group == group && should_skip {
-                        log::debug!(
-                            "omitting {:?} commit: {} : {}",
-                            group,
-                            commit.short_id,
-                            commit.raw_title
-                        );
-                        return None;
-                    }
+                let should_skip = match commit.group {
+                    Group::Ci => config.skip_ci,
+                    Group::Chore => config.skip_chore,
+                    Group::Doc => config.skip_doc,
+                    Group::Test => config.skip_test,
+                    Group::Style => config.skip_style,
+                    Group::Refactor => config.skip_refactor,
+                    Group::Perf => config.skip_perf,
+                    Group::Revert => config.skip_revert,
+                    Group::Miscellaneous => config.skip_miscellaneous,
+                    _ => false,
+                };
+                if should_skip {
+                    log::debug!(
+                        "omitting {} commit: {} : {}",
+                        commit.group,
+                        commit.short_id,
+                        commit.raw_title
+                    );
+                    return None;
                 }
                 if commit.merge_commit && config.skip_merge_commits {
                     log::debug!(
@@ -1084,7 +1080,7 @@ mod tests {
     #[test]
     fn test_skip_docs_filters_docs_commits() {
         let analyzer_config = AnalyzerConfig {
-            skip_docs: true,
+            skip_doc: true,
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::default();
@@ -1109,7 +1105,7 @@ mod tests {
     #[test]
     fn test_skip_docs_false_includes_docs_commits() {
         let analyzer_config = AnalyzerConfig {
-            skip_docs: false,
+            skip_doc: false,
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::default();
@@ -1398,23 +1394,25 @@ mod tests {
         let analyzer_config = AnalyzerConfig {
             skip_chore: true,
             skip_ci: true,
+            skip_doc: true,
             skip_merge_commits: true,
             skip_miscellaneous: true,
+            skip_perf: true,
+            skip_refactor: true,
             skip_release_commits: true,
+            skip_revert: true,
+            skip_style: true,
+            skip_test: true,
             ..AnalyzerConfig::default()
         };
         let group_parser = GroupParser::default();
 
-        // Test that other commit types are not affected
+        // Test that other commit types are not affected when all skip configs
+        // set to true
         let test_cases = vec![
             ("feat: add feature", Group::Feat),
             ("fix: fix bug", Group::Fix),
-            ("docs: update docs", Group::Doc),
-            ("test: add tests", Group::Test),
-            ("refactor: refactor code", Group::Refactor),
-            ("perf: improve performance", Group::Perf),
-            ("style: format code", Group::Style),
-            ("revert: revert change", Group::Revert),
+            ("chore!: breaking chore change", Group::Breaking),
         ];
 
         for (message, expected_group) in test_cases {
