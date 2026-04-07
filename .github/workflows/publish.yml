@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   publish-gh-pages:
-    if: ${{ github.repository == 'robgonnella/releasaurus' }}
+    if: ${{ github.repository == 'robgonnella/releasaurus' && !contains(github.ref_name, '-rc.') }}
     concurrency: publish-gh-pages
     runs-on: ubuntu-latest
     steps:
