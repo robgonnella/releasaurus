@@ -132,7 +132,7 @@ mod tests {
             &analyzer_config,
         );
 
-        // Should have 2 commits
+        // Should have 1 commit (merge commit 2 is filtered by default skip_merge_commits: true)
         assert_eq!(release.commits.len(), 1);
 
         // SHA should be from the last commit
