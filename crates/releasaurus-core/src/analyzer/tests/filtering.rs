@@ -3,17 +3,33 @@
 //! Tests for:
 //! - skip_ci filtering behavior
 //! - skip_chore filtering behavior
+//! - skip_docs filtering behavior
+//! - skip_test filtering behavior
+//! - skip_style filtering behavior
+//! - skip_refactor filtering behavior
+//! - skip_perf filtering behavior
+//! - skip_revert filtering behavior
 //! - skip_miscellaneous filtering behavior
 //! - include_author flag
 //! - Combined filtering scenarios
 
 use crate::{
-    analyzer::{Analyzer, config::AnalyzerConfig, group, release},
+    analyzer::{config::AnalyzerConfig, group, release, Analyzer},
     config::changelog::RewordedCommit,
     forge::request::ForgeCommit,
     orchestrator::config::CommitModifiers,
 };
 use semver::Version as SemVer;
+
+/// Convenience constructor for test commits.
+fn make_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
+    ForgeCommit {
+        id: id.to_string(),
+        message: message.to_string(),
+        timestamp,
+        ..ForgeCommit::default()
+    }
+}
 
 #[test]
 fn test_skip_ci_filters_ci_commits() {
@@ -142,12 +158,10 @@ fn test_skip_chore_filters_chore_commits() {
     let release = result.unwrap();
     // Should only have 2 commits (feat and fix), chore commits filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != group::Group::Chore)
-    );
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Chore));
 }
 
 #[test]
@@ -227,12 +241,10 @@ fn test_skip_miscellaneous_filters_non_conventional_commits() {
     let release = result.unwrap();
     // Should only have 2 commits (feat and fix), miscellaneous filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != group::Group::Miscellaneous)
-    );
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Miscellaneous));
 }
 
 #[test]
@@ -253,6 +265,80 @@ fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
         ForgeCommit {
             id: "def456".to_string(),
             message: "random commit".to_string(),
+            timestamp: 2000,
+            ..ForgeCommit::default()
+        },
+    ];
+
+    let result = analyzer.analyze(commits, None).unwrap();
+
+    let release = result.unwrap();
+    // Both commits should be included
+    assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_skip_docs_filters_docs_commits() {
+    let config = AnalyzerConfig {
+        skip_docs: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        ForgeCommit {
+            id: "abc123".to_string(),
+            message: "feat: add new feature".to_string(),
+            timestamp: 1000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "def456".to_string(),
+            message: "docs: update readme".to_string(),
+            timestamp: 2000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "ghi789".to_string(),
+            message: "fix: bug fix".to_string(),
+            timestamp: 3000,
+            ..ForgeCommit::default()
+        },
+    ];
+
+    let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+    let release = result.unwrap();
+    // Should only have 2 commits (feat and fix), docs commit filtered out
+    assert_eq!(release.commits.len(), 2);
+    assert!(release.commits.iter().all(|c| c.group != group::Group::Doc));
+}
+
+#[test]
+fn test_skip_docs_false_includes_docs_commits() {
+    let config = AnalyzerConfig {
+        skip_docs: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        ForgeCommit {
+            id: "abc123".to_string(),
+            message: "feat: add feature".to_string(),
+            timestamp: 1000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "def456".to_string(),
+            message: "docs: update readme".to_string(),
             timestamp: 2000,
             ..ForgeCommit::default()
         },
@@ -327,18 +413,14 @@ fn test_skip_multiple_types_combined() {
     // Should only have 3 commits (feat, fix, docs)
     assert_eq!(release.commits.len(), 3);
     assert!(release.commits.iter().all(|c| c.group != group::Group::Ci));
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != group::Group::Chore)
-    );
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != group::Group::Miscellaneous)
-    );
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Chore));
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Miscellaneous));
 }
 
 #[test]
@@ -803,4 +885,260 @@ fn test_skip_shas_and_reword_combined() {
     assert_eq!(release.commits[1].id, "def456");
     // Second commit should be reworded
     assert_eq!(release.commits[1].title, "upgraded from fix");
+}
+
+#[test]
+fn test_skip_test_filters_test_commits() {
+    let config = AnalyzerConfig {
+        skip_test: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "test: add unit tests", 2000),
+        make_commit("ghi789", "test: add integration tests", 3000),
+        make_commit("jkl012", "fix: bug fix", 4000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Test));
+}
+
+#[test]
+fn test_skip_test_false_includes_test_commits() {
+    let config = AnalyzerConfig {
+        skip_test: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "test: add unit tests", 2000),
+    ];
+
+    let release = analyzer.analyze(commits, None).unwrap().unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_skip_style_filters_style_commits() {
+    let config = AnalyzerConfig {
+        skip_style: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "style: format code with prettier", 2000),
+        make_commit("ghi789", "fix: bug fix", 3000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Style));
+}
+
+#[test]
+fn test_skip_style_false_includes_style_commits() {
+    let config = AnalyzerConfig {
+        skip_style: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "style: format code", 2000),
+    ];
+
+    let release = analyzer.analyze(commits, None).unwrap().unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_skip_refactor_filters_refactor_commits() {
+    let config = AnalyzerConfig {
+        skip_refactor: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "refactor: simplify auth logic", 2000),
+        make_commit("ghi789", "fix: bug fix", 3000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Refactor));
+}
+
+#[test]
+fn test_skip_refactor_false_includes_refactor_commits() {
+    let config = AnalyzerConfig {
+        skip_refactor: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "refactor: clean up code", 2000),
+    ];
+
+    let release = analyzer.analyze(commits, None).unwrap().unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_skip_perf_filters_perf_commits() {
+    let config = AnalyzerConfig {
+        skip_perf: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "perf: optimize database queries", 2000),
+        make_commit("ghi789", "fix: bug fix", 3000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Perf));
+}
+
+#[test]
+fn test_skip_perf_false_includes_perf_commits() {
+    let config = AnalyzerConfig {
+        skip_perf: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "perf: cache results", 2000),
+    ];
+
+    let release = analyzer.analyze(commits, None).unwrap().unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_skip_revert_filters_revert_commits() {
+    let config = AnalyzerConfig {
+        skip_revert: true,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = release::Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..release::Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "revert: undo breaking changes", 2000),
+        make_commit("ghi789", "fix: bug fix", 3000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert!(release
+        .commits
+        .iter()
+        .all(|c| c.group != group::Group::Revert));
+}
+
+#[test]
+fn test_skip_revert_false_includes_revert_commits() {
+    let config = AnalyzerConfig {
+        skip_revert: false,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "revert: undo last commit", 2000),
+    ];
+
+    let release = analyzer.analyze(commits, None).unwrap().unwrap();
+
+    assert_eq!(release.commits.len(), 2);
 }

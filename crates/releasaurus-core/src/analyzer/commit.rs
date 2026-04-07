@@ -92,31 +92,31 @@ impl Commit {
                     author_email,
                 };
                 commit.group = group_parser.parse(&commit);
-                if commit.group == Group::Ci && config.skip_ci {
-                    log::debug!(
-                        "omitting ci commit: {} : {}",
-                        commit.short_id,
-                        commit.raw_title
-                    );
-                    return None;
-                }
-                if commit.group == Group::Chore && config.skip_chore {
-                    log::debug!(
-                        "omitting chore commit: {} : {}",
-                        commit.short_id,
-                        commit.raw_title
-                    );
-                    return None;
-                }
-                if commit.group == Group::Miscellaneous
-                    && config.skip_miscellaneous
-                {
-                    log::debug!(
-                        "omitting miscellaneous commit: {} : {}",
-                        commit.short_id,
-                        commit.raw_title
-                    );
-                    return None;
+
+                // Each entry pairs a Group variant with its skip flag from
+                // config. Adding a new skippable type only requires adding
+                // one tuple here.
+                let skip_pairs: [(Group, bool); 9] = [
+                    (Group::Ci, config.skip_ci),
+                    (Group::Chore, config.skip_chore),
+                    (Group::Miscellaneous, config.skip_miscellaneous),
+                    (Group::Doc, config.skip_docs),
+                    (Group::Test, config.skip_test),
+                    (Group::Refactor, config.skip_refactor),
+                    (Group::Perf, config.skip_perf),
+                    (Group::Style, config.skip_style),
+                    (Group::Revert, config.skip_revert),
+                ];
+                for (group, should_skip) in skip_pairs {
+                    if commit.group == group && should_skip {
+                        log::debug!(
+                            "omitting {:?} commit: {} : {}",
+                            group,
+                            commit.short_id,
+                            commit.raw_title
+                        );
+                        return None;
+                    }
                 }
                 if commit.merge_commit && config.skip_merge_commits {
                     log::debug!(
