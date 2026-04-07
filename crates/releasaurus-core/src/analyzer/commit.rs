@@ -1082,6 +1082,318 @@ mod tests {
     }
 
     #[test]
+    fn test_skip_docs_filters_docs_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_docs: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("docs123")
+            .message("docs: update README")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_docs_false_includes_docs_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_docs: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("docs123")
+            .message("docs: update README")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Doc);
+        assert_eq!(commit.title, "update README");
+    }
+
+    #[test]
+    fn test_skip_test_filters_test_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_test: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("test123")
+            .message("test: add unit tests for auth")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_test_false_includes_test_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_test: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("test123")
+            .message("test: add unit tests for auth")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Test);
+        assert_eq!(commit.title, "add unit tests for auth");
+    }
+
+    #[test]
+    fn test_skip_style_filters_style_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_style: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("style123")
+            .message("style: format code with prettier")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_style_false_includes_style_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_style: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("style123")
+            .message("style: format code with prettier")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Style);
+        assert_eq!(commit.title, "format code with prettier");
+    }
+
+    #[test]
+    fn test_skip_refactor_filters_refactor_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_refactor: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("refactor123")
+            .message("refactor: simplify authentication logic")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_refactor_false_includes_refactor_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_refactor: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("refactor123")
+            .message("refactor: simplify authentication logic")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Refactor);
+        assert_eq!(commit.title, "simplify authentication logic");
+    }
+
+    #[test]
+    fn test_skip_perf_filters_perf_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_perf: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("perf123")
+            .message("perf: optimize database queries")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_perf_false_includes_perf_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_perf: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("perf123")
+            .message("perf: optimize database queries")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Perf);
+        assert_eq!(commit.title, "optimize database queries");
+    }
+
+    #[test]
+    fn test_skip_revert_filters_revert_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_revert: true,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("revert123")
+            .message("revert: undo breaking changes")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_skip_revert_false_includes_revert_commits() {
+        let analyzer_config = AnalyzerConfig {
+            skip_revert: false,
+            ..AnalyzerConfig::default()
+        };
+        let group_parser = GroupParser::default();
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("revert123")
+            .message("revert: undo breaking changes")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let result = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        );
+
+        let commit = result.unwrap();
+        assert_eq!(commit.group, Group::Revert);
+        assert_eq!(commit.title, "undo breaking changes");
+    }
+
+    #[test]
     fn test_skip_options_do_not_affect_other_types() {
         let analyzer_config = AnalyzerConfig {
             skip_chore: true,
