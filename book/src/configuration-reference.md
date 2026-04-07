@@ -220,6 +220,84 @@ Exclude chore commits from changelog.
 skip_chore = true
 ```
 
+#### `skip_doc`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude documentation commits from changelog.
+
+```toml
+[changelog]
+skip_doc = true
+```
+
+#### `skip_perf`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude performance commits from changelog.
+
+```toml
+[changelog]
+skip_perf = true
+```
+
+#### `skip_refactor`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude refactor commits from changelog.
+
+```toml
+[changelog]
+skip_refactor = true
+```
+
+#### `skip_revert`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude revert commits from changelog.
+
+```toml
+[changelog]
+skip_revert = true
+```
+
+#### `skip_style`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude style commits from changelog.
+
+```toml
+[changelog]
+skip_style = true
+```
+
+#### `skip_test`
+
+**Type**: Boolean (optional)
+
+**Default**: false
+
+Exclude test commits from changelog.
+
+```toml
+[changelog]
+skip_test = true
+```
+
 #### `skip_miscellaneous`
 
 **Type**: Boolean (optional)

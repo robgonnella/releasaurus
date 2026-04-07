@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -45,6 +46,26 @@ pub enum Group {
     #[serde(rename = "<!-- 11 -->⚙️ Miscellaneous Tasks")]
     #[default]
     Miscellaneous,
+}
+
+impl fmt::Display for Group {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Group::Breaking => "breaking",
+            Group::Feat => "feat",
+            Group::Fix => "fix",
+            Group::Revert => "revert",
+            Group::Refactor => "refactor",
+            Group::Perf => "perf",
+            Group::Doc => "doc",
+            Group::Style => "style",
+            Group::Test => "test",
+            Group::Chore => "chore",
+            Group::Ci => "ci",
+            Group::Miscellaneous => "miscellaneous",
+        };
+        write!(f, "{s}")
+    }
 }
 
 // Parser data structure that can parse groups from commit message patterns

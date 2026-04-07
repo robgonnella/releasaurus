@@ -59,6 +59,60 @@ Exclude chore commits:
 skip_chore = true  # Excludes "chore: update deps"
 ```
 
+### `skip_doc` (default: false)
+
+Exclude documentation commits:
+
+```toml
+[changelog]
+skip_doc = true  # Excludes "docs: update README"
+```
+
+### `skip_test` (default: false)
+
+Exclude test commits:
+
+```toml
+[changelog]
+skip_test = true  # Excludes "test: add unit tests"
+```
+
+### `skip_style` (default: false)
+
+Exclude style commits:
+
+```toml
+[changelog]
+skip_style = true  # Excludes "style: format code"
+```
+
+### `skip_refactor` (default: false)
+
+Exclude refactor commits:
+
+```toml
+[changelog]
+skip_refactor = true  # Excludes "refactor: simplify logic"
+```
+
+### `skip_perf` (default: false)
+
+Exclude performance commits:
+
+```toml
+[changelog]
+skip_perf = true  # Excludes "perf: optimize queries"
+```
+
+### `skip_revert` (default: false)
+
+Exclude revert commits:
+
+```toml
+[changelog]
+skip_revert = true  # Excludes "revert: undo breaking changes"
+```
+
 ### `skip_miscellaneous` (default: false)
 
 Exclude non-conventional commits:

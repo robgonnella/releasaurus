@@ -73,6 +73,12 @@
         "body": "# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format=\"%Y-%m-%d\") }}\n{% for group, commits in commits | filter(attribute=\"merge_commit\", value=false) | sort(attribute=\"group\") | group_by(attribute=\"group\") %}\n### {{ group | striptags | trim }}\n{% for commit in commits %}\n{% if commit.breaking -%}\n{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% if commit.body -%}\n> {{ commit.body }}\n{% endif -%}\n{% if commit.breaking_description -%}\n> {{ commit.breaking_description }}\n{% endif -%}\n{% else -%}\n- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}\n{% endif -%}\n{% endfor %}\n{% endfor %}\n ",
         "skip_ci": false,
         "skip_chore": false,
+        "skip_doc": false,
+        "skip_test": false,
+        "skip_style": false,
+        "skip_refactor": false,
+        "skip_perf": false,
+        "skip_revert": false,
         "skip_miscellaneous": false,
         "skip_merge_commits": true,
         "skip_release_commits": true,
@@ -158,7 +164,37 @@
           "default": false
         },
         "skip_chore": {
-          "description": "Skips including ci commits in changelog",
+          "description": "Skips including chore commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_doc": {
+          "description": "Skips including doc commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_test": {
+          "description": "Skips including test commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_style": {
+          "description": "Skips including style commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_refactor": {
+          "description": "Skips including refactor commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_perf": {
+          "description": "Skips including perf commits in changelog",
+          "type": "boolean",
+          "default": false
+        },
+        "skip_revert": {
+          "description": "Skips including revert commits in changelog",
           "type": "boolean",
           "default": false
         },

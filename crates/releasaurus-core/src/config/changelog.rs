@@ -28,17 +28,17 @@ pub struct ChangelogConfig {
     pub skip_ci: bool,
     /// Skips including chore commits in changelog
     pub skip_chore: bool,
-    /// Skips including docs commits in changelog
-    pub skip_docs: bool,
+    /// Skips including doc commits in changelog
+    pub skip_doc: bool,
     /// Skips including test commits in changelog
     pub skip_test: bool,
-    /// skips including style commits in changelog
+    /// Skips including style commits in changelog
     pub skip_style: bool,
-    /// skips including refactor commits in changelog
+    /// Skips including refactor commits in changelog
     pub skip_refactor: bool,
-    /// skips including perf commits in changelog
+    /// Skips including perf commits in changelog
     pub skip_perf: bool,
-    /// skips including revert commits in changelog
+    /// Skips including revert commits in changelog
     pub skip_revert: bool,
     /// Skips including miscellaneous commits in changelog
     pub skip_miscellaneous: bool,
@@ -66,7 +66,7 @@ impl Default for ChangelogConfig {
             body: DEFAULT_BODY.into(),
             skip_ci: false,
             skip_chore: false,
-            skip_docs: false,
+            skip_doc: false,
             skip_test: false,
             skip_style: false,
             skip_refactor: false,
