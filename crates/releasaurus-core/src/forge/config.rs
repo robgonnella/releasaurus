@@ -68,7 +68,10 @@ pub struct RepoUrl {
 
 impl RepoUrl {
     pub fn link_base_url(&self) -> String {
-        format!("{}://{}", self.scheme, self.host)
+        match self.port {
+            Some(port) => format!("{}://{}:{}", self.scheme, self.host, port),
+            None => format!("{}://{}", self.scheme, self.host),
+        }
     }
 }
 
@@ -191,6 +194,34 @@ mod tests {
             let err = result.unwrap_err();
             assert!(matches!(err, ReleasaurusError::AuthenticationError(_)));
         });
+    }
+
+    #[test]
+    fn link_base_url_without_port() {
+        let url = RepoUrl {
+            scheme: Scheme::Https,
+            host: "gitea.example.com".to_string(),
+            owner: "org".to_string(),
+            name: "repo".to_string(),
+            path: "/org/repo".to_string(),
+            port: None,
+            token: None,
+        };
+        assert_eq!(url.link_base_url(), "https://gitea.example.com");
+    }
+
+    #[test]
+    fn link_base_url_with_port() {
+        let url = RepoUrl {
+            scheme: Scheme::Https,
+            host: "gitea.example.com".to_string(),
+            owner: "org".to_string(),
+            name: "repo".to_string(),
+            path: "/org/repo".to_string(),
+            port: Some(3000),
+            token: None,
+        };
+        assert_eq!(url.link_base_url(), "https://gitea.example.com:3000");
     }
 
     #[test]

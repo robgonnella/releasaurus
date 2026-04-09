@@ -86,15 +86,16 @@ impl Gitea {
             .default_headers(headers)
             .build()?;
 
-        let mut base_url =
-            format!("{}://{}/api/v1/repos/{}/", url.scheme, url.host, url.path);
-
-        if let Some(port) = url.port {
-            base_url = format!(
-                "{}://{}:{}/api/v1/repos/{}/",
-                url.scheme, url.host, port, url.path
-            );
-        }
+        let base_url = match url.port {
+            Some(port) => format!(
+                "{}://{}:{}/api/v1/repos/{}/{}/",
+                url.scheme, url.host, port, url.owner, url.name
+            ),
+            None => format!(
+                "{}://{}/api/v1/repos/{}/{}/",
+                url.scheme, url.host, url.owner, url.name
+            ),
+        };
 
         let base_url = Url::parse(&base_url)?;
 
