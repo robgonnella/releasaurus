@@ -91,18 +91,15 @@ impl Gitlab {
         let token = resolve_token(token, url.token.as_ref(), TokenVar::Gitlab)?;
 
         let link_base_url = url.link_base_url();
+        let path = url.path.trim_start_matches('/');
 
         let release_link_base_url =
-            Url::parse(&format!("{}/{}/-/releases/", link_base_url, url.path))?;
+            Url::parse(&format!("{}/{}/-/releases/", link_base_url, path))?;
 
         let compare_link_base_url =
-            Url::parse(&format!("{}/{}/-/compare/", link_base_url, url.path))?;
+            Url::parse(&format!("{}/{}/-/compare/", link_base_url, path))?;
 
-        let project_id = url
-            .path
-            .strip_prefix("/")
-            .map(|p| p.to_string())
-            .unwrap_or(url.path.clone());
+        let project_id = path.to_string();
 
         let gl =
             gitlab::GitlabBuilder::new(url.host.clone(), token.expose_secret())

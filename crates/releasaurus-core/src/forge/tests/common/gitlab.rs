@@ -122,7 +122,8 @@ pub struct GitlabForgeTestHelper {
 impl GitlabForgeTestHelper {
     pub async fn new(repo: &RepoUrl, token: &str, reset_sha: &str) -> Self {
         let host = repo.host.clone();
-        let project_id = repo.path.clone();
+        let path = repo.path.trim_start_matches("/");
+        let project_id = path.to_string();
 
         let gl = gitlab::GitlabBuilder::new(host, token)
             .build_async()

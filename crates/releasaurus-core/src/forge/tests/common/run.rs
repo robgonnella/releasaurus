@@ -33,7 +33,7 @@ pub fn parse_repo_url(raw: &str) -> RepoUrl {
         .unwrap_or_default();
     let owner = segments.first().copied().unwrap_or("").to_string();
     let name = segments.get(1).copied().unwrap_or("").to_string();
-    let path = format!("{}/{}", owner, name);
+    let path = format!("/{}/{}", owner, name);
     RepoUrl {
         scheme,
         host,
