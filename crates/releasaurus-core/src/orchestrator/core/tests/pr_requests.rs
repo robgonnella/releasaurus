@@ -11,9 +11,10 @@ use crate::{
     analyzer::release::Tag,
     config::{Config, package::PackageConfigBuilder},
     forge::{
-        request::{Commit, CreateReleaseBranchRequest},
+        request::{Commit, CreateReleaseBranchRequest, PullRequest},
         traits::MockForge,
     },
+    orchestrator::tests::common::{PrBodyInput, make_pr_body},
 };
 
 #[tokio::test]
@@ -22,6 +23,10 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     // Expect the branch to be created
@@ -55,13 +60,17 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
-    assert_eq!(pr_requests[0].base_branch, "main");
-    assert_eq!(pr_requests[0].head_branch, "releasaurus-release-main");
+    assert_eq!(pr_requests[0].request.base_branch, "main");
+    assert_eq!(
+        pr_requests[0].request.head_branch,
+        "releasaurus-release-main"
+    );
 }
 
 #[tokio::test]
@@ -70,6 +79,10 @@ async fn create_pr_branches_includes_metadata_in_body() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     mock_forge
@@ -96,6 +109,7 @@ async fn create_pr_branches_includes_metadata_in_body() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
@@ -104,13 +118,13 @@ async fn create_pr_branches_includes_metadata_in_body() {
 
     let request = &pr_requests[0];
     // Verify metadata is in PR body
-    assert!(request.body.contains("<!--"));
-    assert!(request.body.contains("test-pkg"));
-    assert!(request.body.contains("v1.2.3"));
-    assert!(request.body.contains("Test release notes"));
+    assert!(request.request.body.contains("<!--"));
+    assert!(request.request.body.contains("test-pkg"));
+    assert!(request.request.body.contains("v1.2.3"));
+    assert!(request.request.body.contains("Test release notes"));
     // Verify details tag is present and auto-opened for single package
-    assert!(request.body.contains("<details open>"));
-    assert!(request.body.contains("</details>"));
+    assert!(request.request.body.contains("<details open>"));
+    assert!(request.request.body.contains("</details>"));
 }
 
 #[tokio::test]
@@ -119,6 +133,10 @@ async fn create_pr_branches_uses_sha_compare_link() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     mock_forge
@@ -150,6 +168,7 @@ async fn create_pr_branches_uses_sha_compare_link() {
 
     let grouped = core
         .release_pr_packages_by_branch(vec![releasable])
+        .await
         .unwrap();
 
     let pr_requests = core.create_pr_branches(grouped).await.unwrap();
@@ -159,17 +178,17 @@ async fn create_pr_branches_uses_sha_compare_link() {
     let request = &pr_requests[0];
 
     // Verify metadata is in PR body
-    assert!(request.body.contains("<!--"));
-    assert!(request.body.contains("test-pkg"));
-    assert!(request.body.contains("v1.2.3"));
-    assert!(request.body.contains("Test release notes"));
+    assert!(request.request.body.contains("<!--"));
+    assert!(request.request.body.contains("test-pkg"));
+    assert!(request.request.body.contains("v1.2.3"));
+    assert!(request.request.body.contains("Test release notes"));
     // should have both version of compare links since we still need to
     // use tag_compare_link in PR metadata
-    assert!(request.body.contains(tag_compare_link));
-    assert!(request.body.contains(sha_compare_link));
+    assert!(request.request.body.contains(tag_compare_link));
+    assert!(request.request.body.contains(sha_compare_link));
     // Verify details tag is present and auto-opened for single package
-    assert!(request.body.contains("<details open>"));
-    assert!(request.body.contains("</details>"));
+    assert!(request.request.body.contains("<details open>"));
+    assert!(request.request.body.contains("</details>"));
 }
 
 #[tokio::test]
@@ -178,6 +197,10 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     // Should only create one branch for multiple packages
@@ -240,6 +263,7 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
@@ -249,13 +273,13 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
 
     let request = &pr_requests[0];
     // Both packages should be in the body
-    assert!(request.body.contains("pkg-a"));
-    assert!(request.body.contains("pkg-b"));
-    assert!(request.body.contains("v1.0.0"));
-    assert!(request.body.contains("v2.0.0"));
+    assert!(request.request.body.contains("pkg-a"));
+    assert!(request.request.body.contains("pkg-b"));
+    assert!(request.request.body.contains("v1.0.0"));
+    assert!(request.request.body.contains("v2.0.0"));
     // Details should NOT be auto-opened when multiple packages
-    assert!(request.body.contains("<details>"));
-    assert!(!request.body.contains("<details open>"));
+    assert!(request.request.body.contains("<details>"));
+    assert!(!request.request.body.contains("<details open>"));
 }
 
 #[tokio::test]
@@ -264,6 +288,10 @@ async fn create_pr_branches_handles_separate_branches() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     // Should create two separate branches
@@ -325,6 +353,7 @@ async fn create_pr_branches_handles_separate_branches() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
@@ -333,8 +362,10 @@ async fn create_pr_branches_handles_separate_branches() {
     assert_eq!(pr_requests.len(), 2);
 
     // Each PR should have its own branch
-    let branches: Vec<&String> =
-        pr_requests.iter().map(|pr| &pr.head_branch).collect();
+    let branches: Vec<&String> = pr_requests
+        .iter()
+        .map(|pr| &pr.request.head_branch)
+        .collect();
     assert!(branches.contains(&&"releasaurus-release-main-pkg-a".to_string()));
     assert!(branches.contains(&&"releasaurus-release-main-pkg-b".to_string()));
 }
@@ -345,6 +376,10 @@ async fn create_pr_branches_includes_file_changes() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     mock_forge
@@ -375,6 +410,7 @@ async fn create_pr_branches_includes_file_changes() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
@@ -388,6 +424,10 @@ async fn create_pr_branches_uses_correct_title_format() {
 
     mock_forge
         .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_open_release_pr()
         .returning(|_| Ok(None));
 
     mock_forge
@@ -414,6 +454,7 @@ async fn create_pr_branches_uses_correct_title_format() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable])
+        .await
         .unwrap();
 
     let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
@@ -422,7 +463,72 @@ async fn create_pr_branches_uses_correct_title_format() {
 
     let request = &pr_requests[0];
     // Single package should have specific title format
-    assert!(request.title.contains("chore(main): release"));
-    assert!(request.title.contains("test-pkg"));
-    assert!(request.title.contains("v1.2.3"));
+    assert!(request.request.title.contains("chore(main): release"));
+    assert!(request.request.title.contains("test-pkg"));
+    assert!(request.request.title.contains("v1.2.3"));
+}
+
+#[tokio::test]
+async fn create_pr_branches_handles_existing_pr_body_sections() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    let existing_body = make_pr_body(&PrBodyInput {
+        pkg: "test-pkg",
+        tag: "v1.2.2",
+        notes: "Old release notes must not appear",
+        tag_link: "old-tag-link",
+        sha_link: "old-sha-link",
+        header: "My custom header",
+        footer: "My custom footer",
+    });
+
+    mock_forge.expect_get_open_release_pr().returning(move |_| {
+        Ok(Some(PullRequest {
+            number: 42,
+            sha: "old-sha".to_string(),
+            body: existing_body.clone(),
+        }))
+    });
+
+    mock_forge
+        .expect_create_release_branch()
+        .times(1)
+        .returning(|_| {
+            Ok(Commit {
+                sha: "abc123".to_string(),
+            })
+        });
+
+    let orchestrator = create_core(mock_forge, None, None);
+
+    let releasable = ReleasablePackage {
+        name: "test-pkg".to_string(),
+        tag: Tag {
+            name: "v1.2.3".to_string(),
+            semver: Version::parse("1.2.3").unwrap(),
+            ..Default::default()
+        },
+        notes: "Freshly generated release notes".to_string(),
+        ..Default::default()
+    };
+
+    let grouped = orchestrator
+        .release_pr_packages_by_branch(vec![releasable])
+        .await
+        .unwrap();
+
+    let results = orchestrator.create_pr_branches(grouped).await.unwrap();
+
+    assert_eq!(results.len(), 1);
+    let body = &results[0].request.body;
+    // header and footer are preserved across re-runs
+    assert!(body.contains("My custom header"));
+    assert!(body.contains("My custom footer"));
+    // notes are regenerated; old notes must not bleed through
+    assert!(body.contains("Freshly generated release notes"));
+    assert!(!body.contains("Old release notes must not appear"));
 }

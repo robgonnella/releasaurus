@@ -349,3 +349,116 @@ async fn create_releases_returns_error_for_invalid_package_name() {
 
     assert!(matches!(err, ReleasaurusError::InvalidArgs(_)));
 }
+
+#[tokio::test]
+async fn create_releases_uses_edited_notes_from_pr_body() {
+    let edited_notes = "User-edited release notes for this version";
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.0.0",
+        notes: edited_notes,
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .times(1)
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "abc123".to_string(),
+                body: pr_body.clone(),
+            }))
+        });
+
+    mock_forge
+        .expect_tag_commit()
+        .times(1)
+        .withf(|tag, sha| tag == "v1.0.0" && sha == "abc123")
+        .returning(|_, _| Ok(()));
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .withf(|tag, sha, notes| {
+            tag == "v1.0.0"
+                && sha == "abc123"
+                && notes.contains("User-edited release notes")
+        })
+        .returning(|_, _, _| Ok(()));
+
+    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name(TEST_PKG_NAME)
+                .path(".")
+                .build()
+                .unwrap(),
+        ],
+        None,
+    );
+
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_includes_header_and_footer_in_release_notes() {
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.0.0",
+        notes: "Release notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "Custom header text",
+        footer: "Custom footer text",
+    });
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .times(1)
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "abc123".to_string(),
+                body: pr_body.clone(),
+            }))
+        });
+
+    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .withf(|_, _, notes| {
+            notes.contains("Custom header text")
+                && notes.contains("Release notes")
+                && notes.contains("Custom footer text")
+        })
+        .returning(|_, _, _| Ok(()));
+
+    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name(TEST_PKG_NAME)
+                .path(".")
+                .build()
+                .unwrap(),
+        ],
+        None,
+    );
+
+    orchestrator.create_releases(None).await.unwrap();
+}

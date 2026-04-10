@@ -77,9 +77,13 @@ async fn create_release_prs_returns_error_when_merged_pr_not_yet_released() {
         })
         .times(1);
 
-    // Should never reach branch creation or PR operations
+    // get_open_release_pr is called once from release_pr_packages_by_branch,
+    // but branch creation and PR operations should never be reached.
+    mock_forge
+        .expect_get_open_release_pr()
+        .times(1)
+        .returning(|_| Ok(None));
     mock_forge.expect_create_release_branch().times(0);
-    mock_forge.expect_get_open_release_pr().times(0);
     mock_forge.expect_create_pr().times(0);
     mock_forge.expect_update_pr().times(0);
     mock_forge.expect_replace_pr_labels().times(0);

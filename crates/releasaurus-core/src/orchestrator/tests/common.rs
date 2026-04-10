@@ -1,6 +1,6 @@
 //! Common test utilities for orchestrator tests.
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     config::{
@@ -21,6 +21,45 @@ pub use semver::Version;
 use url::Url;
 
 pub const TEST_PKG_NAME: &str = "test-pkg";
+
+/// Input for make_pr_body helper
+pub(crate) struct PrBodyInput<S: Display> {
+    pub(crate) pkg: S,
+    pub(crate) tag: S,
+    pub(crate) notes: S,
+    pub(crate) tag_link: S,
+    pub(crate) sha_link: S,
+    pub(crate) header: S,
+    pub(crate) footer: S,
+}
+
+/// Builds a PR body in the new HTML format
+pub(crate) fn make_pr_body<S: Display>(input: &PrBodyInput<S>) -> String {
+    let json = format!(
+        r#"{{"metadata":{{"sha_compare_link":"{}","tag_compare_link":"{}"}}}}"#,
+        input.sha_link, input.tag_link
+    );
+    format!(
+        r#"<details open>
+<summary>{}</summary>
+<div id="{}-header">{}</div>
+<div id="{}" data-tag="{}">
+<!--{json}-->
+
+{}
+</div>
+<div id="{}-footer">{}</div>
+</details>"#,
+        input.tag,
+        input.pkg,
+        input.header,
+        input.pkg,
+        input.tag,
+        input.notes,
+        input.pkg,
+        input.footer
+    )
+}
 
 /// Creates a test Orchestrator with the provided mock forge.
 /// This allows tests to set expectations on the mock before creating the manager.

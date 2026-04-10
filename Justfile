@@ -1,6 +1,12 @@
 all:
     @just -l
 
+fmt:
+    cargo fmt
+
+lint:
+    cargo clippy --all-targets --all-features
+
 test *args:
     cargo test {{ args }}
 

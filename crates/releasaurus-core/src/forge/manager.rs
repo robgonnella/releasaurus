@@ -216,7 +216,7 @@ impl ForgeManager {
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
         if self.options.dry_run {
-            log::warn!("dry_run: would create release branch: req: {:#?}", req);
+            log::warn!("dry_run: would create release branch: req: {:?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
 
@@ -243,7 +243,7 @@ impl ForgeManager {
         req: CreateCommitRequest,
     ) -> Result<Commit> {
         if self.options.dry_run {
-            log::warn!("dry_run: would create commit: req: {:#?}", req);
+            log::warn!("dry_run: would create commit: req: {:?}", req);
             return Ok(Commit { sha: "fff".into() });
         }
 
@@ -317,7 +317,7 @@ impl ForgeManager {
 
     pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
         if self.options.dry_run {
-            log::warn!("dry_run: would update PR: req: {:#?}", req);
+            log::warn!("dry_run: would update PR: req: {:?}", req);
             return Ok(());
         }
 
