@@ -11,9 +11,13 @@ use crate::{
     forge::traits::MockForge,
 };
 
-#[test]
-fn release_pr_packages_by_branch_groups_all_when_not_separate() {
-    let mock_forge = MockForge::new();
+#[tokio::test]
+async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None));
 
     let toml_config = Config {
         separate_pull_requests: false,
@@ -62,17 +66,22 @@ fn release_pr_packages_by_branch_groups_all_when_not_separate() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .await
         .unwrap();
     // Should have one branch with both packages
     assert_eq!(grouped.len(), 1);
 
-    let packages = grouped.values().next().unwrap();
-    assert_eq!(packages.len(), 2);
+    let bundle = grouped.values().next().unwrap();
+    assert_eq!(bundle.packages.len(), 2);
 }
 
-#[test]
-fn release_pr_packages_by_branch_separates_when_configured() {
-    let mock_forge = MockForge::new();
+#[tokio::test]
+async fn release_pr_packages_by_branch_separates_when_configured() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None));
 
     let toml_config = Config {
         separate_pull_requests: true,
@@ -121,11 +130,12 @@ fn release_pr_packages_by_branch_separates_when_configured() {
 
     let grouped = orchestrator
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .await
         .unwrap();
     // Should have separate branches
     assert_eq!(grouped.len(), 2);
 
-    for packages in grouped.values() {
-        assert_eq!(packages.len(), 1);
+    for bundle in grouped.values() {
+        assert_eq!(bundle.packages.len(), 1);
     }
 }

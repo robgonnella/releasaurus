@@ -42,6 +42,7 @@ serde_json = { version = "1.0.149", features = ["preserve_order"] }
 strum = { version = "0.28.0", features = ["derive"] }
 tera = "1.20.0"
 thiserror = "2.0.9"
+tl = "0.7.8"
 tokio = { version = "1.50.0", features = ["fs", "macros", "rt-multi-thread"] }
 toml = "0.9.5"
 toml_edit = "0.23.4"

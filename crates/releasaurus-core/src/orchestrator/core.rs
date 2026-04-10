@@ -14,7 +14,7 @@ use crate::{
         manager::ForgeManager,
         request::{
             CreatePrRequest, CreateReleaseBranchRequest, FileChange,
-            FileUpdateType, ForgeCommit, GetPrRequest,
+            FileUpdateType, ForgeCommit, GetPrRequest, PullRequest,
         },
     },
     orchestrator::{
@@ -28,23 +28,38 @@ use crate::{
                 SerializableReleasablePackage,
             },
             releasable_builder::ReleasablePackageBuilder,
-            release_pr::ReleasePRPackage,
+            release_pr::{PRBundle, ReleasePRPackage},
             resolved::{ResolvedPackage, ResolvedPackageHash},
         },
+        pr_body::{extract_preserved_section, normalize_html_id},
     },
     updater::manager::UpdateManager,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PRMetadataFields {
-    pub name: String,
-    pub tag: String,
-    pub notes: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag_compare_link: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha_compare_link: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PRMetadata {
     pub metadata: PRMetadataFields,
+}
+
+/// Result of `create_pr_branches`: the forge request paired with the existing
+/// open PR for that branch (if one was found during `release_pr_packages_by_branch`).
+pub struct PrBranchResult {
+    pub request: CreatePrRequest,
+    pub existing_pr: Option<PullRequest>,
 }
 
 pub struct Core {
@@ -278,10 +293,10 @@ impl Core {
         Ok(finalized)
     }
 
-    pub fn release_pr_packages_by_branch(
+    pub async fn release_pr_packages_by_branch(
         &self,
         packages: Vec<ReleasablePackage>,
-    ) -> Result<HashMap<String, Vec<ReleasePRPackage>>> {
+    ) -> Result<HashMap<String, PRBundle>> {
         let release_prs = self.release_pr_packages(packages)?;
 
         let mut map: HashMap<String, Vec<ReleasePRPackage>> = HashMap::new();
@@ -296,16 +311,36 @@ impl Core {
             };
         }
 
-        Ok(map)
+        let mut bundles: HashMap<String, PRBundle> = HashMap::new();
+
+        for (branch, packages) in map {
+            let existing_pr = self
+                .forge
+                .get_open_release_pr(GetPrRequest {
+                    head_branch: branch.clone(),
+                    base_branch: self.config.base_branch.clone(),
+                })
+                .await?;
+
+            bundles.insert(
+                branch,
+                PRBundle {
+                    existing_pr,
+                    packages,
+                },
+            );
+        }
+
+        Ok(bundles)
     }
 
     pub async fn create_pr_branches(
         &self,
-        packages: HashMap<String, Vec<ReleasePRPackage>>,
-    ) -> Result<Vec<CreatePrRequest>> {
-        let mut pr_requests = vec![];
+        bundles: HashMap<String, PRBundle>,
+    ) -> Result<Vec<PrBranchResult>> {
+        let mut pr_results = vec![];
 
-        for (release_branch, pr_packages) in packages.into_iter() {
+        for (release_branch, bundle) in bundles.into_iter() {
             if let Some(pending_release) = self
                 .forge
                 .get_merged_release_pr(GetPrRequest {
@@ -320,13 +355,14 @@ impl Core {
                 ));
             }
 
-            let file_changes: Vec<FileChange> = pr_packages
+            let file_changes: Vec<FileChange> = bundle
+                .packages
                 .iter()
                 .flat_map(|p| p.file_changes.clone())
                 .collect();
 
             let message =
-                self.release_message_for_pr_package_list(&pr_packages);
+                self.release_message_for_pr_package_list(&bundle.packages);
 
             self.forge
                 .create_release_branch(CreateReleaseBranchRequest {
@@ -337,15 +373,26 @@ impl Core {
                 })
                 .await?;
 
-            pr_requests.push(CreatePrRequest {
+            let existing_body =
+                bundle.existing_pr.as_ref().map(|pr| pr.body.as_str());
+
+            let request = CreatePrRequest {
                 base_branch: self.config.base_branch.clone(),
                 head_branch: release_branch.clone(),
                 title: message,
-                body: self.release_pr_body_for_pr_package_list(&pr_packages)?,
+                body: self.release_pr_body_for_pr_package_list(
+                    &bundle.packages,
+                    existing_body,
+                )?,
+            };
+
+            pr_results.push(PrBranchResult {
+                request,
+                existing_pr: bundle.existing_pr,
             });
         }
 
-        Ok(pr_requests)
+        Ok(pr_results)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -371,32 +418,28 @@ impl Core {
     fn release_pr_body_for_pr_package_list(
         &self,
         pr_packages: &[ReleasePRPackage],
+        existing_body: Option<&str>,
     ) -> Result<String> {
-        let mut body = "".to_string();
+        let mut body = String::new();
 
         for pkg in pr_packages.iter() {
-            let mut start_details = "<details>";
-
-            // auto-open dropdown if there's only one package
-            if pr_packages.len() == 1 {
-                start_details = "<details open>";
-            }
+            let start_details = if pr_packages.len() == 1 {
+                // auto-open dropdown if there's only one package
+                "<details open>"
+            } else {
+                "<details>"
+            };
 
             let metadata = PRMetadata {
                 metadata: PRMetadataFields {
-                    name: pkg.name.clone(),
-                    tag: pkg.tag.name.clone(),
-                    notes: pkg.notes.clone(),
+                    sha_compare_link: Some(pkg.sha_compare_link.clone()),
+                    tag_compare_link: Some(pkg.tag_compare_link.clone()),
+                    ..Default::default()
                 },
             };
 
             let json = serde_json::to_string(&metadata)?;
-
-            let metadata_str = format!(
-                r#"
-<!--{json}-->
-"#,
-            );
+            let metadata_str = format!(r#"<!--{json}-->"#);
 
             // in the PR body link to the comparison with sha instead
             // of tag since the tag doesn't exist yet
@@ -404,10 +447,33 @@ impl Core {
                 .notes
                 .replace(&pkg.tag_compare_link, &pkg.sha_compare_link);
 
+            let html_id = normalize_html_id(&pkg.name);
+
+            let header = existing_body
+                .map(|b| {
+                    extract_preserved_section(b, &format!("{html_id}-header"))
+                })
+                .unwrap_or_default();
+
+            let footer = existing_body
+                .map(|b| {
+                    extract_preserved_section(b, &format!("{html_id}-footer"))
+                })
+                .unwrap_or_default();
+
             // create the drop down
             let package_body = format!(
-                "{metadata_str}{start_details}<summary>{}</summary>\n\n{}</details>",
-                pkg.tag.name, notes
+                r#"{start_details}
+<summary>{}</summary>
+<div id="{html_id}-header">{header}</div>
+<div id="{html_id}" data-tag="{}">
+{metadata_str}
+
+{notes}
+</div>
+<div id="{html_id}-footer">{footer}</div>
+</details>"#,
+                pkg.tag.name, pkg.tag.name
             );
 
             if body.is_empty() {

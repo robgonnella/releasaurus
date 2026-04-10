@@ -10,6 +10,7 @@
 # User Guide
 
 - [Commands](./commands.md)
+- [Editing Release Notes](./release-notes-editing.md)
 - [CI/CD Integration](./ci-cd-integration.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Supported Languages & Frameworks](./supported-languages.md)

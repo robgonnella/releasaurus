@@ -1,8 +1,7 @@
-use color_eyre::eyre::{OptionExt, eyre};
+use color_eyre::eyre::eyre;
 use derive_builder::Builder;
-use regex::Regex;
 use serde::Serialize;
-use std::{path::Path, rc::Rc, sync::LazyLock};
+use std::{path::Path, rc::Rc};
 use tokio::fs;
 
 use crate::{
@@ -17,11 +16,12 @@ use crate::{
     },
     orchestrator::{
         config::OrchestratorConfig,
-        core::{Core, PRMetadata},
+        core::{Core, PrBranchResult},
         package::{
             releasable::SerializableReleasablePackage,
             resolved::{ResolvedPackage, ResolvedPackageHash},
         },
+        pr_body::{parse_legacy_pr_body, parse_pr_body},
     },
 };
 
@@ -29,10 +29,7 @@ pub mod commits;
 pub mod config;
 pub mod core;
 pub mod package;
-
-static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?ms)^<!--(?<metadata>.*?)-->\n*<details"#).unwrap()
-});
+pub mod pr_body;
 
 /// Information about a package's current release
 #[derive(Serialize)]
@@ -192,31 +189,28 @@ impl Orchestrator {
         log::info!("releasable packages: {:#?}", releasable);
 
         let pr_packages =
-            self.core.release_pr_packages_by_branch(releasable)?;
+            self.core.release_pr_packages_by_branch(releasable).await?;
 
         if pr_packages.is_empty() {
             return Ok(());
         }
 
-        let requests = self.core.create_pr_branches(pr_packages).await?;
+        let results = self.core.create_pr_branches(pr_packages).await?;
 
-        for request in requests {
-            let pr = if let Some(pr) = self
-                .forge
-                .get_open_release_pr(GetPrRequest {
-                    head_branch: request.head_branch.clone(),
-                    base_branch: request.base_branch.clone(),
-                })
-                .await?
-            {
+        for PrBranchResult {
+            request,
+            existing_pr,
+        } in results
+        {
+            let pr = if let Some(existing) = existing_pr {
                 self.forge
                     .update_pr(UpdatePrRequest {
-                        pr_number: pr.number,
+                        pr_number: existing.number,
                         title: request.title,
                         body: request.body,
                     })
                     .await?;
-                pr
+                existing
             } else {
                 self.forge.create_pr(request).await?
             };
@@ -404,60 +398,24 @@ impl Orchestrator {
         package: &ResolvedPackage,
         merged_pr: &PullRequest,
     ) -> Result<()> {
-        let meta_caps = METADATA_REGEX.captures_iter(&merged_pr.body);
-
-        let mut metadata = None;
-
-        for cap in meta_caps {
-            let metadata_str = cap
-                .name("metadata")
-                .ok_or_eyre("failed to parse metadata from PR body")?
-                .as_str();
-
-            log::debug!("parsing metadata string: {:#?}", metadata_str);
-
-            let json: PRMetadata = serde_json::from_str(metadata_str)?;
-            let pkg_meta = json.metadata;
-
-            if pkg_meta.name == package.name {
-                metadata = Some(pkg_meta);
-                break;
-            }
-        }
-
-        let metadata_err = format!(
-            "failed to find metadata for package {} in pr {}",
-            package.name, merged_pr.number,
-        );
-
-        let metadata = metadata.ok_or_eyre(metadata_err)?;
-
-        log::debug!(
-            "found package metadata from pr {}: {:#?}",
+        let (tag, notes) = if let Some((tag, notes)) = parse_legacy_pr_body(
+            &package.name,
             merged_pr.number,
-            metadata
-        );
+            &merged_pr.body,
+        )? {
+            (tag, notes)
+        } else {
+            parse_pr_body(&package.name, merged_pr.number, &merged_pr.body)?
+        };
 
-        log::info!(
-            "tagging commit: tag: {}, sha: {}",
-            metadata.tag,
-            merged_pr.sha
-        );
+        log::info!("tagging commit: tag: {}, sha: {}", tag, merged_pr.sha);
 
-        self.forge.tag_commit(&metadata.tag, &merged_pr.sha).await?;
+        self.forge.tag_commit(&tag, &merged_pr.sha).await?;
 
-        log::info!(
-            "creating release: tag: {}, sha: {}",
-            metadata.tag,
-            merged_pr.sha
-        );
+        log::info!("creating release: tag: {}, sha: {}", tag, merged_pr.sha);
 
         self.forge
-            .create_release(
-                &metadata.tag,
-                &merged_pr.sha,
-                metadata.notes.trim(),
-            )
+            .create_release(&tag, &merged_pr.sha, notes.trim())
             .await?;
 
         Ok(())

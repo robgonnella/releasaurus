@@ -1,4 +1,7 @@
-use crate::{analyzer::release::Tag, forge::request::FileChange};
+use crate::{
+    analyzer::release::Tag,
+    forge::request::{FileChange, PullRequest},
+};
 
 /// Represents a fully analyzed and updated package ready for PR creation.
 /// Includes next tag and list of file changes to include in PR
@@ -11,4 +14,11 @@ pub struct ReleasePRPackage {
     pub sha_compare_link: String,
     pub file_changes: Vec<FileChange>,
     pub release_branch: String,
+}
+
+/// Groups the packages sharing a release branch with the existing open PR
+/// for that branch, if one exists.
+pub struct PRBundle {
+    pub existing_pr: Option<PullRequest>,
+    pub packages: Vec<ReleasePRPackage>,
 }
