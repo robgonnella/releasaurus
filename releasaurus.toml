@@ -12,7 +12,9 @@ name = "workspace"
 tag_prefix = "v"
 release_type = "rust"
 prerelease = { strategy = "versioned", suffix = "rc" }
-additional_manifest_files = [{ path = "./action/action.yml" }]
+additional_manifest_files = [
+  { path = "./action/action.yml", version_regex = "v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
+]
 sub_packages = [
   { name = "releasaurus", path = "crates/releasaurus", release_type = "rust" },
   { name = "releasaurus-core", path = "crates/releasaurus-core", release_type = "rust" }
