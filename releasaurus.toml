@@ -13,7 +13,7 @@ tag_prefix = "v"
 release_type = "rust"
 prerelease = { strategy = "versioned", suffix = "rc" }
 additional_manifest_files = [
-  { path = "./action/action.yml", version_regex = "v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
+  { path = "./action/action.yml", version_regex = "(?m)v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
 ]
 sub_packages = [
   { name = "releasaurus", path = "crates/releasaurus", release_type = "rust" },
