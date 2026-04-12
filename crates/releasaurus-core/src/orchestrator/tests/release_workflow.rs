@@ -6,85 +6,24 @@
 //! - Auto-start next release behavior
 //! - Handling separate pull requests
 //! - Skipping packages without merged PRs
+//! - Edited notes and header/footer sections in release notes
+//!
+//! Legacy-format tests are in `release_workflow_legacy.rs`.
 
 use super::common::*;
 use crate::{
     config::{Config, package::PackageConfigBuilder},
     error::ReleasaurusError,
     forge::{
-        config::TAGGED_LABEL,
         request::{GetPrRequest, PullRequest},
         traits::MockForge,
     },
 };
 
 #[tokio::test]
-async fn create_releases_finds_merged_pr_and_creates_release() {
-    let pr_body = format!(
-        r#"
-<!--{{"metadata":{{"name":"{TEST_PKG_NAME}","tag":"v1.0.0","notes":"Release notes"}}}}-->
-<details><summary>v1.0.0</summary>
-Release notes
-</details>
-"#
-    );
-
-    // Set up mock forge expectations FIRST
-    let mut mock_forge = MockForge::new();
-
-    mock_forge
-        .expect_get_merged_release_pr()
-        .times(1)
-        .returning(move |_| {
-            Ok(Some(PullRequest {
-                number: 123,
-                sha: "abc123".to_string(),
-                body: pr_body.clone(),
-            }))
-        });
-
-    mock_forge
-        .expect_tag_commit()
-        .times(1)
-        .withf(|tag, sha| tag == "v1.0.0" && sha == "abc123")
-        .returning(|_, _| Ok(()));
-
-    mock_forge
-        .expect_create_release()
-        .times(1)
-        .withf(|tag, sha, _| tag == "v1.0.0" && sha == "abc123")
-        .returning(|_, _, _| Ok(()));
-
-    mock_forge
-        .expect_replace_pr_labels()
-        .times(1)
-        .withf(|req| {
-            req.pr_number == 123 && req.labels.contains(&TAGGED_LABEL.into())
-        })
-        .returning(|_| Ok(()));
-
-    // Create orchestrator with custom config for release link
-    let orchestrator = create_test_orchestrator_with_config(
-        mock_forge,
-        vec![
-            PackageConfigBuilder::default()
-                .name(TEST_PKG_NAME)
-                .path(".")
-                .build()
-                .unwrap(),
-        ],
-        None,
-    );
-
-    orchestrator.create_releases(None).await.unwrap();
-}
-
-#[tokio::test]
 async fn create_releases_skips_packages_without_merged_pr() {
-    // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
 
-    // Return None indicating no merged PR found
     mock_forge
         .expect_get_merged_release_pr()
         .times(1)
@@ -97,98 +36,61 @@ async fn create_releases_skips_packages_without_merged_pr() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    // Should complete without error even though no PR was found
     orchestrator.create_releases(None).await.unwrap();
 }
 
 #[tokio::test]
-async fn create_releases_triggers_auto_start_next() {
-    use crate::{analyzer::release::Tag, forge::request::Commit};
+async fn create_releases_returns_error_for_invalid_package_name() {
+    let mock_forge = MockForge::new();
 
-    let pr_body = format!(
-        r#"
-<!--{{"metadata":{{"name":"{TEST_PKG_NAME}","tag":"v1.0.0","notes":"Release notes"}}}}-->
-<details><summary>v1.0.0</summary>
-Release notes
-</details>
-"#
-    );
-
-    // Set up mock forge expectations FIRST
-    let mut mock_forge = MockForge::new();
-
-    // Expect normal release flow
-    mock_forge
-        .expect_get_merged_release_pr()
-        .times(1)
-        .returning(move |_| {
-            Ok(Some(PullRequest {
-                number: 123,
-                sha: "abc123".to_string(),
-                body: pr_body.clone(),
-            }))
-        });
-
-    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
-    mock_forge
-        .expect_create_release()
-        .returning(|_, _, _| Ok(()));
-    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
-
-    // Expect auto-start-next flow
-    mock_forge
-        .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| {
-            Ok(vec![Tag {
-                semver: Version::parse("1.0.0").unwrap(),
-                ..Default::default()
-            }])
-        });
-
-    mock_forge.expect_get_commits().returning(|_, _| Ok(vec![]));
-
-    mock_forge.expect_create_commit().times(1).returning(|_| {
-        Ok(Commit {
-            sha: "new-commit".to_string(),
-        })
-    });
-
-    // Create orchestrator with auto_start_next enabled
     let orchestrator = create_test_orchestrator_with_config(
         mock_forge,
         vec![
             PackageConfigBuilder::default()
-                .name(TEST_PKG_NAME)
-                .path(".")
-                .auto_start_next(true)
+                .name("pkg-a")
+                .path("packages/pkg-a")
+                .tag_prefix("pkg-a-v")
+                .build()
+                .unwrap(),
+            PackageConfigBuilder::default()
+                .name("pkg-b")
+                .path("packages/pkg-b")
+                .tag_prefix("pkg-b-v")
                 .build()
                 .unwrap(),
         ],
         None,
     );
 
-    orchestrator.create_releases(None).await.unwrap();
+    let err = orchestrator
+        .create_releases(Some("nope".into()))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, ReleasaurusError::InvalidArgs(_)));
 }
 
 #[tokio::test]
 async fn create_releases_handles_separate_pull_requests() {
-    let pr_body_a = r#"
-<!--{"metadata":{"name":"pkg-a","tag":"v1.0.0","notes":"Release A"}}-->
-<details><summary>v1.0.0</summary>
-Release A
-</details>
-"#
-    .to_string();
+    let pr_body_a = make_pr_body(&PrBodyInput {
+        pkg: "pkg-a",
+        tag: "v1.0.0",
+        notes: "Release A",
+        tag_link: "tag-link-a",
+        sha_link: "sha-link-a",
+        header: "",
+        footer: "",
+    });
+    let pr_body_b = make_pr_body(&PrBodyInput {
+        pkg: "pkg-b",
+        tag: "v2.0.0",
+        notes: "Release B",
+        tag_link: "tag-link-b",
+        sha_link: "sha-link-b",
+        header: "",
+        footer: "",
+    });
 
-    let pr_body_b = r#"
-<!--{"metadata":{"name":"pkg-b","tag":"v2.0.0","notes":"Release B"}}-->
-<details><summary>v2.0.0</summary>
-Release B
-</details>
-"#
-    .to_string();
-
-    // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -223,7 +125,6 @@ Release B
         .times(2)
         .returning(|_| Ok(()));
 
-    // Create orchestrator with separate_pull_requests enabled and multiple packages
     let config = Config {
         separate_pull_requests: true,
         ..Default::default()
@@ -251,15 +152,16 @@ Release B
 
 #[tokio::test]
 async fn create_releases_targets_specific_package() {
-    let pr_body_a = r#"
-<!--{"metadata":{"name":"pkg-a","tag":"pkg-a-v1.0.0","notes":"Release A"}}-->
-<details><summary>v1.0.0</summary>
-Release A
-</details>
-"#
-    .to_string();
+    let pr_body_a = make_pr_body(&PrBodyInput {
+        pkg: "pkg-a",
+        tag: "pkg-a-v1.0.0",
+        notes: "Release A",
+        tag_link: "tag-link-a",
+        sha_link: "sha-link-a",
+        header: "",
+        footer: "",
+    });
 
-    // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -275,7 +177,7 @@ Release A
 
     mock_forge
         .expect_tag_commit()
-        .withf(|tag_name, _| tag_name.contains("pkg-a"))
+        .withf(|tag, _| tag.contains("pkg-a"))
         .times(1)
         .returning(|_, _| Ok(()));
     mock_forge
@@ -288,7 +190,6 @@ Release A
         .times(1)
         .returning(|_| Ok(()));
 
-    // Create orchestrator with separate_pull_requests enabled and multiple packages
     let config = Config {
         separate_pull_requests: true,
         ..Default::default()
@@ -320,34 +221,69 @@ Release A
 }
 
 #[tokio::test]
-async fn create_releases_returns_error_for_invalid_package_name() {
-    let mock_forge = MockForge::new();
+async fn create_releases_triggers_auto_start_next() {
+    use crate::{analyzer::release::Tag, forge::request::Commit};
+
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.0.0",
+        notes: "Release notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .times(1)
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "abc123".to_string(),
+                body: pr_body.clone(),
+            }))
+        });
+
+    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .returning(|_, _, _| Ok(()));
+    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+    mock_forge
+        .expect_get_latest_tags_for_prefix()
+        .returning(|_, _| {
+            Ok(vec![Tag {
+                semver: Version::parse("1.0.0").unwrap(),
+                ..Default::default()
+            }])
+        });
+
+    mock_forge.expect_get_commits().returning(|_, _| Ok(vec![]));
+
+    mock_forge.expect_create_commit().times(1).returning(|_| {
+        Ok(Commit {
+            sha: "new-commit".to_string(),
+        })
+    });
 
     let orchestrator = create_test_orchestrator_with_config(
         mock_forge,
         vec![
             PackageConfigBuilder::default()
-                .name("pkg-a")
-                .path("packages/pkg-a")
-                .tag_prefix("pkg-a-v")
-                .build()
-                .unwrap(),
-            PackageConfigBuilder::default()
-                .name("pkg-b")
-                .path("packages/pkg-b")
-                .tag_prefix("pkg-b-v")
+                .name(TEST_PKG_NAME)
+                .path(".")
+                .auto_start_next(true)
                 .build()
                 .unwrap(),
         ],
         None,
     );
 
-    let err = orchestrator
-        .create_releases(Some("nope".into()))
-        .await
-        .unwrap_err();
-
-    assert!(matches!(err, ReleasaurusError::InvalidArgs(_)));
+    orchestrator.create_releases(None).await.unwrap();
 }
 
 #[tokio::test]

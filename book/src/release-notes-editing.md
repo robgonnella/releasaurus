@@ -120,6 +120,10 @@ PRs — no manual migration required.
 
 - The metadata comment (`<!--{...}-->`) inside the notes `<div>` must
   not be removed or modified.
+- Do not write a literal `</div>` anywhere inside the notes, header,
+  or footer sections. Releasaurus parses the PR body as HTML and a
+  bare `</div>` will close the section early, truncating any content
+  that follows.
 - Header and footer content is preserved verbatim. Markdown is
   supported by all major forge platforms.
 - Re-running `release-pr` regenerates the notes from commit history

@@ -61,6 +61,26 @@ pub fn extract_preserved_section(body: &str, id: &str) -> String {
     extract_section_from_dom(&dom, id)
 }
 
+/// Extracts both the header (`{html_id}-header`) and footer
+/// (`{html_id}-footer`) preserved sections from `body` in a single DOM
+/// parse. Returns `(header, footer)`; either is an empty string when the
+/// corresponding element is absent or empty.
+pub fn extract_preserved_header_footer(
+    body: &str,
+    html_id: &str,
+) -> (String, String) {
+    let Ok(dom) = tl::parse(body, tl::ParserOptions::default()) else {
+        log::debug!(
+            "extract_preserved_header_footer: \
+             failed to parse body for id={html_id}"
+        );
+        return (String::new(), String::new());
+    };
+    let header = extract_section_from_dom(&dom, &format!("{html_id}-header"));
+    let footer = extract_section_from_dom(&dom, &format!("{html_id}-footer"));
+    (header, footer)
+}
+
 pub fn parse_pr_body(
     package_name: &str,
     pr_number: u64,
