@@ -7,6 +7,7 @@
 //! - `package_releases`: Package release creation tests
 //! - `pr_workflow`: Pull request workflow tests
 //! - `release_workflow`: Release creation workflow tests
+//! - `release_workflow_legacy`: Legacy-format release workflow tests
 //! - `next_release`: Next release workflow tests
 //! - `current_releases`: Release data retrieval tests
 //! - `get_notes`: Get notes functionality tests
@@ -20,3 +21,4 @@ mod next_release;
 mod package_releases;
 mod pr_workflow;
 mod release_workflow;
+mod release_workflow_legacy;

@@ -31,7 +31,7 @@ use crate::{
             release_pr::{PRBundle, ReleasePRPackage},
             resolved::{ResolvedPackage, ResolvedPackageHash},
         },
-        pr_body::{extract_preserved_section, normalize_html_id},
+        pr_body::{extract_preserved_header_footer, normalize_html_id},
     },
     updater::manager::UpdateManager,
 };
@@ -449,16 +449,8 @@ impl Core {
 
             let html_id = normalize_html_id(&pkg.name);
 
-            let header = existing_body
-                .map(|b| {
-                    extract_preserved_section(b, &format!("{html_id}-header"))
-                })
-                .unwrap_or_default();
-
-            let footer = existing_body
-                .map(|b| {
-                    extract_preserved_section(b, &format!("{html_id}-footer"))
-                })
+            let (header, footer) = existing_body
+                .map(|b| extract_preserved_header_footer(b, &html_id))
                 .unwrap_or_default();
 
             // create the drop down
