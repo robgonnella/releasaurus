@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-451334cc.js";
+            window.path_to_searchindex_js = "searchindex-d8b463eb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c547b300.js"></script>
+        <script src="toc-5db85cea.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -215,6 +215,36 @@ skip_ci = true  # Excludes "ci: update workflow"
 <p>Exclude chore commits:</p>
 <pre><code class="language-toml">[changelog]
 skip_chore = true  # Excludes "chore: update deps"
+</code></pre>
+<h3 id="skip_doc-default-false"><a class="header" href="#skip_doc-default-false"><code>skip_doc</code> (default: false)</a></h3>
+<p>Exclude documentation commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_doc = true  # Excludes "docs: update README"
+</code></pre>
+<h3 id="skip_test-default-false"><a class="header" href="#skip_test-default-false"><code>skip_test</code> (default: false)</a></h3>
+<p>Exclude test commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_test = true  # Excludes "test: add unit tests"
+</code></pre>
+<h3 id="skip_style-default-false"><a class="header" href="#skip_style-default-false"><code>skip_style</code> (default: false)</a></h3>
+<p>Exclude style commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_style = true  # Excludes "style: format code"
+</code></pre>
+<h3 id="skip_refactor-default-false"><a class="header" href="#skip_refactor-default-false"><code>skip_refactor</code> (default: false)</a></h3>
+<p>Exclude refactor commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_refactor = true  # Excludes "refactor: simplify logic"
+</code></pre>
+<h3 id="skip_perf-default-false"><a class="header" href="#skip_perf-default-false"><code>skip_perf</code> (default: false)</a></h3>
+<p>Exclude performance commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_perf = true  # Excludes "perf: optimize queries"
+</code></pre>
+<h3 id="skip_revert-default-false"><a class="header" href="#skip_revert-default-false"><code>skip_revert</code> (default: false)</a></h3>
+<p>Exclude revert commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_revert = true  # Excludes "revert: undo breaking changes"
 </code></pre>
 <h3 id="skip_miscellaneous-default-false"><a class="header" href="#skip_miscellaneous-default-false"><code>skip_miscellaneous</code> (default: false)</a></h3>
 <p>Exclude non-conventional commits:</p>

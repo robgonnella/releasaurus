@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-451334cc.js";
+            window.path_to_searchindex_js = "searchindex-d8b463eb.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c547b300.js"></script>
+        <script src="toc-5db85cea.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1147,6 +1147,116 @@ releasaurus --version
 <li><strong><a href="#troubleshooting">Troubleshooting</a></strong> - Common issues and solutions</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="editing-release-notes"><a class="header" href="#editing-release-notes">Editing Release Notes</a></h1>
+<p>Releasaurus lets you customize the release notes for a specific release
+directly in the pull request body — without touching <code>releasaurus.toml</code>
+or the <code>CHANGELOG.md</code>.</p>
+<h2 id="how-it-works-1"><a class="header" href="#how-it-works-1">How It Works</a></h2>
+<p>When <code>release-pr</code> creates or updates a release PR, it renders the PR
+body with a structured layout per package:</p>
+<pre><code class="language-html">&lt;details open&gt;
+&lt;summary&gt;v1.2.3&lt;/summary&gt;
+&lt;div id="my-package-header"&gt;&lt;/div&gt;
+&lt;div id="my-package" data-tag="v1.2.3"&gt;
+&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
+
+## [v1.2.3](...) - 2026-04-10
+### Features
+- feat: some new feature (abc1234)
+&lt;/div&gt;
+&lt;div id="my-package-footer"&gt;&lt;/div&gt;
+&lt;/details&gt;
+</code></pre>
+<p>At release time, <code>releasaurus release</code> reads the notes directly from
+the PR body rather than regenerating them from commit history. This
+means any edits you make before merging are reflected in the published
+forge release.</p>
+<blockquote>
+<p><strong>Note</strong>: Edits to the PR body affect only the <strong>forge release
+notes</strong>. <code>CHANGELOG.md</code> is generated from commit history and is
+not affected.</p>
+</blockquote>
+<h2 id="editing-the-release-notes"><a class="header" href="#editing-the-release-notes">Editing the Release Notes</a></h2>
+<p>Open the PR body and edit the text inside the notes <code>&lt;div&gt;</code>. The
+metadata comment (<code>&lt;!--{...}--&gt;</code>) must be left intact — it carries
+the tag and link information needed at publish time.</p>
+<p><strong>Before editing:</strong></p>
+<pre><code class="language-html">&lt;div id="my-package" data-tag="v1.2.3"&gt;
+&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
+
+## [v1.2.3](...) - 2026-04-10
+### Features
+- feat: some new feature (abc1234)
+&lt;/div&gt;
+</code></pre>
+<p><strong>After editing:</strong></p>
+<pre><code class="language-html">&lt;div id="my-package" data-tag="v1.2.3"&gt;
+&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
+
+## [v1.2.3](...) - 2026-04-10
+
+This release improves startup performance and fixes a crash on
+empty input. See the [migration guide](https://example.com) for
+details.
+
+### Features
+- feat: some new feature (abc1234)
+&lt;/div&gt;
+</code></pre>
+<h2 id="persistent-header-and-footer"><a class="header" href="#persistent-header-and-footer">Persistent Header and Footer</a></h2>
+<p>For content that should survive re-runs of <code>release-pr</code> (for example,
+if you run the command again after new commits land), place it in the
+dedicated header and footer <code>&lt;div&gt;</code>s.</p>
+<pre><code class="language-html">&lt;div id="my-package-header"&gt;
+## Highlights
+
+This is a major stability release. All users on v1.x are encouraged
+to upgrade.
+&lt;/div&gt;
+
+&lt;div id="my-package-footer"&gt;
+Full migration guide: https://example.com/migrate
+&lt;/div&gt;
+</code></pre>
+<p>When <code>release-pr</code> regenerates the PR body, it reads back the content
+of these <code>&lt;div&gt;</code>s and re-embeds it. The header is prepended and the
+footer is appended to the final release notes at publish time.</p>
+<blockquote>
+<p><strong>Tip</strong>: Leave the header and footer <code>&lt;div&gt;</code>s empty (the default)
+if you have nothing to add. They will not appear in the published
+release notes.</p>
+</blockquote>
+<h2 id="monorepo-multiple-packages"><a class="header" href="#monorepo-multiple-packages">Monorepo: Multiple Packages</a></h2>
+<p>In a monorepo, each package gets its own set of sections. The <code>id</code>
+attributes are derived from the package name with any characters
+outside <code>[a-zA-Z0-9-_]</code> replaced by <code>-</code>.</p>
+<p>For example, a package named <code>@scope/my-pkg</code> gets:</p>
+<ul>
+<li><code>&lt;div id="-scope-my-pkg"&gt;</code> — notes</li>
+<li><code>&lt;div id="-scope-my-pkg-header"&gt;</code> — header</li>
+<li><code>&lt;div id="-scope-my-pkg-footer"&gt;</code> — footer</li>
+</ul>
+<p>Edit each package’s sections independently.</p>
+<h2 id="backward-compatibility"><a class="header" href="#backward-compatibility">Backward Compatibility</a></h2>
+<p>PRs created by an older version of Releasaurus use a different body
+format. The <code>release</code> command detects the format automatically and
+falls back to reading release notes from the hidden metadata for those
+PRs — no manual migration required.</p>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
+<ul>
+<li>The metadata comment (<code>&lt;!--{...}--&gt;</code>) inside the notes <code>&lt;div&gt;</code> must
+not be removed or modified.</li>
+<li>Do not write a literal <code>&lt;/div&gt;</code> anywhere inside the notes, header,
+or footer sections. Releasaurus parses the PR body as HTML and a
+bare <code>&lt;/div&gt;</code> will close the section early, truncating any content
+that follows.</li>
+<li>Header and footer content is preserved verbatim. Markdown is
+supported by all major forge platforms.</li>
+<li>Re-running <code>release-pr</code> regenerates the notes from commit history
+and overwrites any direct edits to the notes <code>&lt;div&gt;</code>. Use the
+header/footer sections for content you want to survive re-runs.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
 <p>Releasaurus provides official integrations for GitHub Actions and Gitea
 Actions. For GitLab CI, use the Docker image directly.</p>
@@ -1871,6 +1981,36 @@ skip_ci = true  # Excludes "ci: update workflow"
 <pre><code class="language-toml">[changelog]
 skip_chore = true  # Excludes "chore: update deps"
 </code></pre>
+<h3 id="skip_doc-default-false"><a class="header" href="#skip_doc-default-false"><code>skip_doc</code> (default: false)</a></h3>
+<p>Exclude documentation commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_doc = true  # Excludes "docs: update README"
+</code></pre>
+<h3 id="skip_test-default-false"><a class="header" href="#skip_test-default-false"><code>skip_test</code> (default: false)</a></h3>
+<p>Exclude test commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_test = true  # Excludes "test: add unit tests"
+</code></pre>
+<h3 id="skip_style-default-false"><a class="header" href="#skip_style-default-false"><code>skip_style</code> (default: false)</a></h3>
+<p>Exclude style commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_style = true  # Excludes "style: format code"
+</code></pre>
+<h3 id="skip_refactor-default-false"><a class="header" href="#skip_refactor-default-false"><code>skip_refactor</code> (default: false)</a></h3>
+<p>Exclude refactor commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_refactor = true  # Excludes "refactor: simplify logic"
+</code></pre>
+<h3 id="skip_perf-default-false"><a class="header" href="#skip_perf-default-false"><code>skip_perf</code> (default: false)</a></h3>
+<p>Exclude performance commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_perf = true  # Excludes "perf: optimize queries"
+</code></pre>
+<h3 id="skip_revert-default-false"><a class="header" href="#skip_revert-default-false"><code>skip_revert</code> (default: false)</a></h3>
+<p>Exclude revert commits:</p>
+<pre><code class="language-toml">[changelog]
+skip_revert = true  # Excludes "revert: undo breaking changes"
+</code></pre>
 <h3 id="skip_miscellaneous-default-false"><a class="header" href="#skip_miscellaneous-default-false"><code>skip_miscellaneous</code> (default: false)</a></h3>
 <p>Exclude non-conventional commits:</p>
 <pre><code class="language-toml">[changelog]
@@ -2577,6 +2717,48 @@ skip_ci = true
 <p>Exclude chore commits from changelog.</p>
 <pre><code class="language-toml">[changelog]
 skip_chore = true
+</code></pre>
+<h4 id="skip_doc"><a class="header" href="#skip_doc"><code>skip_doc</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude documentation commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_doc = true
+</code></pre>
+<h4 id="skip_perf"><a class="header" href="#skip_perf"><code>skip_perf</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude performance commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_perf = true
+</code></pre>
+<h4 id="skip_refactor"><a class="header" href="#skip_refactor"><code>skip_refactor</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude refactor commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_refactor = true
+</code></pre>
+<h4 id="skip_revert"><a class="header" href="#skip_revert"><code>skip_revert</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude revert commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_revert = true
+</code></pre>
+<h4 id="skip_style"><a class="header" href="#skip_style"><code>skip_style</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude style commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_style = true
+</code></pre>
+<h4 id="skip_test"><a class="header" href="#skip_test"><code>skip_test</code></a></h4>
+<p><strong>Type</strong>: Boolean (optional)</p>
+<p><strong>Default</strong>: false</p>
+<p>Exclude test commits from changelog.</p>
+<pre><code class="language-toml">[changelog]
+skip_test = true
 </code></pre>
 <h4 id="skip_miscellaneous"><a class="header" href="#skip_miscellaneous"><code>skip_miscellaneous</code></a></h4>
 <p><strong>Type</strong>: Boolean (optional)</p>
@@ -3314,9 +3496,18 @@ support.</p>
 <h2 id="development-environment-setup"><a class="header" href="#development-environment-setup">Development Environment Setup</a></h2>
 <h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
 <ul>
-<li><strong>Rust</strong>: 1.70 or higher (<a href="https://rustup.rs/">Install Rust</a>)</li>
+<li><strong>Rust</strong>: 1.92 or higher (<a href="https://rustup.rs/">Install Rust</a>)</li>
 <li><strong>Git</strong>: For version control</li>
 <li><strong>A supported platform</strong>: GitHub, GitLab, or Gitea account for testing</li>
+</ul>
+<p>See below section for managing rust version with mise.</p>
+<h3 id="install-mise"><a class="header" href="#install-mise">Install Mise</a></h3>
+<p>Mise is used to manage rust version for local development. Refer to
+<a href="https://github.com/robgonnella/releasaurus/blob/main/mise.toml">mise.toml</a> for
+the list of tools and versions managed by mise.</p>
+<ul>
+<li>Installing: https://mise.jdx.dev/installing-mise.html</li>
+<li>Activating: https://mise.jdx.dev/installing-mise.html#shells</li>
 </ul>
 <h3 id="getting-started-1"><a class="header" href="#getting-started-1">Getting Started</a></h3>
 <ol>
@@ -3329,33 +3520,115 @@ cd releasaurus
 </li>
 <li>
 <p><strong>Install Dependencies</strong></p>
-<pre><code class="language-bash"># Install Rust dependencies
-cargo build
-
-# Install development tools
-cargo install cargo-watch
-cargo install cargo-nextest  # Optional: faster test runner
-</code></pre>
-</li>
-<li>
-<p><strong>Set Up Testing Environment</strong></p>
-<pre><code class="language-bash"># Create test tokens (with minimal permissions)
-export GITHUB_TOKEN="ghp_test_token_here"
-export GITLAB_TOKEN="glpat_test_token_here"
-export GITEA_TOKEN="test_token_here"
-
-# Run tests
-cargo test
-</code></pre>
-</li>
-<li>
-<p><strong>Verify Installation</strong></p>
-<pre><code class="language-bash"># Build and test the binary
-cargo build --release
-./target/release/releasaurus --help
-</code></pre>
 </li>
 </ol>
+<p>Assuming mise is installed and activated, run the following from the root of
+this repo.</p>
+<pre><code class="language-bash">mise trust
+mise install
+</code></pre>
+<p>This will install the correct version of rust as well as other dependencies
+used for local development. It will also ensure any time you <code>cd</code> to this
+directory the proper versions of these tools are selected and added to the front
+of your PATH. It will also ensure that any environment variables you define in
+<code>.env</code> are automatically loaded into your environment, similar to <code>direnv</code>.</p>
+<ol start="3">
+<li><strong>Using just commands</strong></li>
+</ol>
+<p>A Justfile is provided for quick access to a number of commands for developing
+locally. This tool is automatically installed and managed via <code>mise</code>.</p>
+<pre><code class="language-bash">just build # builds the project
+just build --release # builds a release version
+just run # builds and run the releasaurus cli in one command
+# For example
+just run --help
+# Is equivalent to `cargo run -p releasaurus -- --help`
+just help # show all available just recipes and their descriptions
+</code></pre>
+<ol start="4">
+<li><strong>Running tests</strong></li>
+</ol>
+<p>There are two types of tests included in this repository, unit and integration.
+Unit tests use mocks without ever interacting with real forges. Integration
+tests run against real forges and require setting up proper environment
+variables to point at real repositories used for testing.</p>
+<p><strong>Unit tests</strong></p>
+<pre><code class="language-bash"># run unit tests
+just test
+# run unit tests with coverage
+just test-cov
+</code></pre>
+<p><strong>Integration tests</strong></p>
+<p>The following environment variables are used when running integration tests.</p>
+<ul>
+<li>
+<p><code>GITHUB_TEST_REPO</code></p>
+</li>
+<li>
+<p><code>GITHUB_TEST_TOKEN</code></p>
+</li>
+<li>
+<p><code>GITHUB_RESET_SHA</code></p>
+</li>
+<li>
+<p><code>GITLAB_TEST_REPO</code></p>
+</li>
+<li>
+<p><code>GITLAB_TEST_TOKEN</code></p>
+</li>
+<li>
+<p><code>GITLAB_RESET_SHA</code></p>
+</li>
+<li>
+<p><code>GITEA_TEST_REPO</code></p>
+</li>
+<li>
+<p><code>GITEA_TEST_TOKEN</code></p>
+</li>
+<li>
+<p><code>GITEA_RESET_SHA</code></p>
+</li>
+</ul>
+<p>⚠️ Whatever you configure for these repositories WILL have their histories
+overwritten. All PRs, tags, releases, and branches will be deleted and the
+repository will be hard reset back to the configured reset sha at the start
+of the test suite.</p>
+<pre><code class="language-bash"># Create test tokens (with minimal permissions)
+export GITHUB_TEST_REPO="https://github.com/your/test/repo"
+export GITHUB_TEST_TOKEN="gh_test_token"
+export GITHUB_RESET_SHA="abc123"
+
+export GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
+export GITLAB_TEST_TOKEN="gl_test_token"
+export GITLAB_RESET_SHA="abc123"
+
+export GITEA_TEST_REPO="https://gitea.com/your/test/repo"
+export GITEA_TEST_TOKEN="gt_test_token"
+export GITEA_RESET_SHA="abc123"
+
+# Or you can add these to a .env file and mise will automatically load them
+# .env
+# GITHUB_TEST_REPO="https://github.com/your/test/repo"
+# GITHUB_TEST_TOKEN="gh_test_token"
+# GITHUB_RESET_SHA="abc123"
+
+# GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
+# GITLAB_TEST_TOKEN="gl_test_token"
+# GITLAB_RESET_SHA="abc123"
+
+# GITEA_TEST_REPO="https://gitea.com/your/test/repo"
+# GITEA_TEST_TOKEN="gt_test_token"
+# GITEA_RESET_SHA="abc123"
+
+just test-all # run all tests including integration tests
+
+# target just github integration tests
+just test --features _integration_tests test_github_forge -- --nocapture
+# target just gitlab integration tests
+just test --features _integration_tests test_gitlab_forge -- --nocapture
+# target just gitea integration tests
+just test --features _integration_tests test_gitea_forge -- --nocapture
+</code></pre>
 <h2 id="code-contribution-guidelines"><a class="header" href="#code-contribution-guidelines">Code Contribution Guidelines</a></h2>
 <h3 id="coding-standards"><a class="header" href="#coding-standards">Coding Standards</a></h3>
 <h4 id="rust-style"><a class="header" href="#rust-style">Rust Style</a></h4>
@@ -3462,17 +3735,25 @@ updater tests</li>
 </ul>
 <h4 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h4>
 <pre><code class="language-bash"># Run all tests for your language
-cargo test yourlanguage
+just test yourlanguage
 
 # Run specific module tests
-cargo test updater::yourlanguage::manifests
-cargo test updater::yourlanguage::updater
+just test updater::yourlanguage::manifests
+just test updater::yourlanguage::updater
 
 # Test with real repository
-releasaurus release-pr \
+just run release-pr \
   --forge local \
   --repo "/path/to/test/project" \
   --debug
+
+# Test with real remote forge and local path to clone
+just run release-pr \
+  --forge github \
+  --repo "https://github.com/your/repo" \
+  --local-path "/path/to/your/repo" \
+  --debug \
+  --dry-run
 </code></pre>
 <h4 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h4>
 <ul>
