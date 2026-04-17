@@ -1,5 +1,19 @@
 [env]
-_.file = '.env'
+_.file = ".env"
 
 [tools]
 rust = "1.92.0"
+just = "1.49.0"
+
+[hooks]
+postinstall = """
+if ! cargo llvm-cov --help >/dev/null 2>&1; then
+  cargo install cargo-llvm-cov
+fi
+if ! cargo machete --help >/dev/null 2>&1; then
+  cargo install cargo-machete
+fi
+if ! command -v mdbook >/dev/null 2>&1; then
+  cargo install mdbook
+fi
+"""

@@ -47,9 +47,20 @@ support.
 
 ### Prerequisites
 
-- **Rust**: 1.70 or higher ([Install Rust](https://rustup.rs/))
+- **Rust**: 1.92 or higher ([Install Rust](https://rustup.rs/))
 - **Git**: For version control
 - **A supported platform**: GitHub, GitLab, or Gitea account for testing
+
+See below section for managing rust version with mise.
+
+### Install Mise
+
+Mise is used to manage rust version for local development. Refer to
+[mise.toml](https://github.com/robgonnella/releasaurus/blob/main/mise.toml) for
+the list of tools and versions managed by mise.
+
+- Installing: https://mise.jdx.dev/installing-mise.html
+- Activating: https://mise.jdx.dev/installing-mise.html#shells
 
 ### Getting Started
 
@@ -63,33 +74,109 @@ support.
 
 2. **Install Dependencies**
 
-   ```bash
-   # Install Rust dependencies
-   cargo build
+Assuming mise is installed and activated, run the following from the root of
+this repo.
 
-   # Install development tools
-   cargo install cargo-watch
-   cargo install cargo-nextest  # Optional: faster test runner
-   ```
+```bash
+mise trust
+mise install
+```
 
-3. **Set Up Testing Environment**
+This will install the correct version of rust as well as other dependencies
+used for local development. It will also ensure any time you `cd` to this
+directory the proper versions of these tools are selected and added to the front
+of your PATH. It will also ensure that any environment variables you define in
+`.env` are automatically loaded into your environment, similar to `direnv`.
 
-   ```bash
-   # Create test tokens (with minimal permissions)
-   export GITHUB_TOKEN="ghp_test_token_here"
-   export GITLAB_TOKEN="glpat_test_token_here"
-   export GITEA_TOKEN="test_token_here"
+3. **Using just commands**
 
-   # Run tests
-   cargo test
-   ```
+A Justfile is provided for quick access to a number of commands for developing
+locally. This tool is automatically installed and managed via `mise`.
 
-4. **Verify Installation**
-   ```bash
-   # Build and test the binary
-   cargo build --release
-   ./target/release/releasaurus --help
-   ```
+```bash
+just build # builds the project
+just build --release # builds a release version
+just run # builds and run the releasaurus cli in one command
+# For example
+just run --help
+# Is equivalent to `cargo run -p releasaurus -- --help`
+just help # show all available just recipes and their descriptions
+```
+
+4. **Running tests**
+
+There are two types of tests included in this repository, unit and integration.
+Unit tests use mocks without ever interacting with real forges. Integration
+tests run against real forges and require setting up proper environment
+variables to point at real repositories used for testing.
+
+**Unit tests**
+
+```bash
+# run unit tests
+just test
+# run unit tests with coverage
+just test-cov
+```
+
+**Integration tests**
+
+The following environment variables are used when running integration tests.
+
+- `GITHUB_TEST_REPO`
+- `GITHUB_TEST_TOKEN`
+- `GITHUB_RESET_SHA`
+
+- `GITLAB_TEST_REPO`
+- `GITLAB_TEST_TOKEN`
+- `GITLAB_RESET_SHA`
+
+- `GITEA_TEST_REPO`
+- `GITEA_TEST_TOKEN`
+- `GITEA_RESET_SHA`
+
+⚠️ Whatever you configure for these repositories WILL have their histories
+overwritten. All PRs, tags, releases, and branches will be deleted and the
+repository will be hard reset back to the configured reset sha at the start
+of the test suite.
+
+```bash
+# Create test tokens (with minimal permissions)
+export GITHUB_TEST_REPO="https://github.com/your/test/repo"
+export GITHUB_TEST_TOKEN="gh_test_token"
+export GITHUB_RESET_SHA="abc123"
+
+export GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
+export GITLAB_TEST_TOKEN="gl_test_token"
+export GITLAB_RESET_SHA="abc123"
+
+export GITEA_TEST_REPO="https://gitea.com/your/test/repo"
+export GITEA_TEST_TOKEN="gt_test_token"
+export GITEA_RESET_SHA="abc123"
+
+# Or you can add these to a .env file and mise will automatically load them
+# .env
+# GITHUB_TEST_REPO="https://github.com/your/test/repo"
+# GITHUB_TEST_TOKEN="gh_test_token"
+# GITHUB_RESET_SHA="abc123"
+
+# GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
+# GITLAB_TEST_TOKEN="gl_test_token"
+# GITLAB_RESET_SHA="abc123"
+
+# GITEA_TEST_REPO="https://gitea.com/your/test/repo"
+# GITEA_TEST_TOKEN="gt_test_token"
+# GITEA_RESET_SHA="abc123"
+
+just test-all # run all tests including integration tests
+
+# target just github integration tests
+just test --features _integration_tests test_github_forge -- --nocapture
+# target just gitlab integration tests
+just test --features _integration_tests test_gitlab_forge -- --nocapture
+# target just gitea integration tests
+just test --features _integration_tests test_gitea_forge -- --nocapture
+```
 
 ## Code Contribution Guidelines
 
@@ -208,17 +295,25 @@ Follow the established testing patterns:
 
 ```bash
 # Run all tests for your language
-cargo test yourlanguage
+just test yourlanguage
 
 # Run specific module tests
-cargo test updater::yourlanguage::manifests
-cargo test updater::yourlanguage::updater
+just test updater::yourlanguage::manifests
+just test updater::yourlanguage::updater
 
 # Test with real repository
-releasaurus release-pr \
+just run release-pr \
   --forge local \
   --repo "/path/to/test/project" \
   --debug
+
+# Test with real remote forge and local path to clone
+just run release-pr \
+  --forge github \
+  --repo "https://github.com/your/repo" \
+  --local-path "/path/to/your/repo" \
+  --debug \
+  --dry-run
 ```
 
 #### Best Practices
