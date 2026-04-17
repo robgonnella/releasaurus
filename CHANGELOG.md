@@ -1,3 +1,31 @@
+# [0.17.0](https://github.com/robgonnella/releasaurus/compare/v0.17.0-rc.2...v0.17.0) - 2026-04-17
+
+### 🚀 Features
+
+- adds support for gitlab scoped labels [_(4f334f8)_](https://github.com/robgonnella/releasaurus/commit/4f334f8a02e68aaa96c71907deddc0d394b01728) (Rob Gonnella)
+
+- adds the ability to aggregate changelogs for prereleases [_(29d4829)_](https://github.com/robgonnella/releasaurus/commit/29d4829ce87751c97e6ddf79202da095ff0d9432) (Rob Gonnella)
+
+- add missing commit type skips and use a lookup table instead of multiple if structures [_(b59c68d)_](https://github.com/robgonnella/releasaurus/commit/b59c68d02b439b821f36ae52df2a160245e00c0f) (Jasper Vaneessen)
+
+- PR body edits are reflected in release notes [_(3097131)_](https://github.com/robgonnella/releasaurus/commit/309713157986a50b74352b2ec41cdecf6e9fa8aa) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- address issues with tag ordering when analyzing [_(1de730f)_](https://github.com/robgonnella/releasaurus/commit/1de730f836882bf344a5564667ed1a91f3da77c0) (Rob Gonnella)
+
+- minor updates to new skip commit types [_(873dbe5)_](https://github.com/robgonnella/releasaurus/commit/873dbe58d0194f047ab764ea400fb850c1d363ab) (Rob Gonnella)
+
+- fixes issues resulting from refactor to RepoUrl [_(57d3523)_](https://github.com/robgonnella/releasaurus/commit/57d3523670a6592d33859c302fd550fe49e9e9ce) (Rob Gonnella)
+
+### 📚 Documentation
+
+- improves contributing docs [_(6176318)_](https://github.com/robgonnella/releasaurus/commit/6176318ed04fb2af37b7e7cc7344ff4713f2384b) (Rob Gonnella)
+
+### 🧪 Testing
+
+- add missing unit tests [_(ab9edaa)_](https://github.com/robgonnella/releasaurus/commit/ab9edaa357801d68edc204728cd052155b067fd1) (Jasper Vaneessen)
+
 # [0.17.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.17.0-rc.1...v0.17.0-rc.2) - 2026-04-07
 
 ### 🚀 Features
