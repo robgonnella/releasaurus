@@ -1018,6 +1018,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "git-conventional"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7079e0e98895b810e042ef90b667d8d0a28c172fb3212e777b2d279ec2b29f25"
+dependencies = [
+ "unicase",
+ "winnow 1.0.1",
+]
+
+[[package]]
 name = "git-url-parse"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1849,7 +1859,7 @@ version = "0.2.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc89399c10a3de3a18971b961e9fea788eb252d887c1c2f740f351a907088d0c"
 dependencies = [
- "git-conventional",
+ "git-conventional 0.12.9",
  "regex",
  "semver",
 ]
@@ -2610,7 +2620,7 @@ dependencies = [
  "color-eyre",
  "derive_builder",
  "futures-util",
- "git-conventional",
+ "git-conventional 1.1.0",
  "git2",
  "gitlab",
  "graphql_client",
@@ -3145,7 +3155,7 @@ version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -4305,6 +4315,9 @@ name = "winnow"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09dac053f1cd375980747450bfc7250c264eaae0583872e845c0c7cd578872b5"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen"
