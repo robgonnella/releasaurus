@@ -171,11 +171,11 @@ export GITEA_RESET_SHA="abc123"
 just test-all # run all tests including integration tests
 
 # target just github integration tests
-just test --features _integration_tests test_github_forge -- --nocapture
+just test-github-integration
 # target just gitlab integration tests
-just test --features _integration_tests test_gitlab_forge -- --nocapture
+just test-gitlab-integration
 # target just gitea integration tests
-just test --features _integration_tests test_gitea_forge -- --nocapture
+just test-gitea-integration
 ```
 
 ## Code Contribution Guidelines
