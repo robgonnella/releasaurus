@@ -12,5 +12,5 @@ keywords = ["changelog", "commits", "conventional", "release", "semver"]
 categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-git-url-parse = "0.4.5"
+git-url-parse = "0.4.6"
 secrecy = "0.10.3"
