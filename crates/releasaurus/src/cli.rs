@@ -1,7 +1,7 @@
 //! CLI top-level definition for release automation workflow.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use git_url_parse::GitUrl;
+use git_url_parse::{GitUrl, types::provider::GenericProvider};
 use merge::Merge;
 use releasaurus_core::{
     config::{changelog::RewordedCommit, prerelease::PrereleaseStrategy},
@@ -56,7 +56,7 @@ pub struct ForgeArgs {
 
     /// Repository URL
     #[arg(short, long, global = true)]
-    pub repo: Option<GitUrl>,
+    pub repo: Option<String>,
 
     /// Optional path to local repository. Performs local git operations for
     /// commit analysis, file updates, commits, tagging, pushing, and only uses
@@ -75,9 +75,9 @@ impl ForgeArgs {
         if let Some(forge_type) = self.forge.as_ref()
             && let Some(git_url) = self.repo.as_ref()
         {
-            let repo = git_url_to_repo_url(git_url)?;
             let forge: Box<dyn Forge> = match forge_type {
                 ForgeType::Github => {
+                    let repo = git_url_to_repo_url(git_url)?;
                     let github =
                         Github::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -92,6 +92,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Gitlab => {
+                    let repo = git_url_to_repo_url(git_url)?;
                     let gitlab =
                         Gitlab::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -106,6 +107,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Gitea => {
+                    let repo = git_url_to_repo_url(git_url)?;
                     let gitea =
                         Gitea::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -120,7 +122,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Local => {
-                    Box::new(LocalRepo::new(Path::new(&git_url.path), None)?)
+                    Box::new(LocalRepo::new(Path::new(git_url), None)?)
                 }
             };
 
@@ -153,25 +155,51 @@ impl ForgeArgs {
     }
 }
 
-fn git_url_to_repo_url(url: &GitUrl) -> Result<RepoUrl> {
-    let scheme = match url.scheme {
-        git_url_parse::Scheme::Http => Scheme::Http,
-        git_url_parse::Scheme::Https => Scheme::Https,
-        other => {
-            return Err(ReleasaurusError::GitUrlError(format!(
-                "unsupported URL scheme \"{other}\": \
-                 only http and https are supported"
-            )));
-        }
-    };
+fn git_url_to_repo_url(url: &str) -> Result<RepoUrl> {
+    let git_url = GitUrl::parse(url).map_err(|e| {
+        ReleasaurusError::InvalidArgs(format!(
+            "failed to parse repo url as git url: {}",
+            e
+        ))
+    })?;
+
+    let url_scheme = git_url.scheme().ok_or(ReleasaurusError::InvalidArgs(
+        "failed to parse scheme from repo url".into(),
+    ))?;
+
+    let scheme = match url_scheme {
+        "https" => Ok(Scheme::Https),
+        "http" => Ok(Scheme::Http),
+        _ => Err(ReleasaurusError::InvalidArgs(
+            "only https and http schemes are supported for repo urls".into(),
+        )),
+    }?;
+
+    let provider: GenericProvider = git_url.provider_info().map_err(|e| {
+        ReleasaurusError::InvalidArgs(format!(
+            "failed to parse provider info from repo url: {}",
+            e
+        ))
+    })?;
+
+    let host = git_url.host().ok_or(ReleasaurusError::InvalidArgs(
+        "failed to parse host from repo url".into(),
+    ))?;
+
+    let owner = provider.owner();
+    let name = provider.repo();
+    let path = git_url.path();
+    let port = git_url.port();
+    let token = git_url.password().map(SecretString::from);
+
     Ok(RepoUrl {
-        host: url.host.clone().unwrap_or_default(),
-        owner: url.owner.clone().unwrap_or_default(),
-        name: url.name.clone(),
-        path: url.path.clone(),
-        port: url.port,
+        host: host.to_string(),
+        owner: owner.to_string(),
+        name: name.to_string(),
+        path: path.to_string(),
+        port,
         scheme,
-        token: url.token.clone().map(SecretString::from),
+        token,
     })
 }
 
@@ -558,14 +586,13 @@ mod tests {
 
     #[tokio::test]
     async fn forge_args_errors_if_missing_forge_type() {
-        let repo = GitUrl::parse("https://github.com/github_owner/github_repo")
-            .unwrap();
+        let repo = "https://github.com/github_owner/github_repo";
 
         let token = SecretString::from("github_token");
 
         let forge_args = ForgeArgs {
             forge: None,
-            repo: Some(repo),
+            repo: Some(repo.to_string()),
             token: Some(token),
             local_path: None,
         };
@@ -603,6 +630,52 @@ mod tests {
                 assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
             }
         }
+    }
+
+    #[tokio::test]
+    async fn forge_args_local_forge_accepts_local_path_as_repo() {
+        use std::process::Command;
+        use tempfile::TempDir;
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path();
+
+        // Initialise a bare-minimum git repo so LocalRepo::new succeeds
+        Command::new("git")
+            .args(["init"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        std::fs::write(path.join("README"), "init").unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+
+        let forge_args = ForgeArgs {
+            forge: Some(ForgeType::Local),
+            repo: Some(path.to_string_lossy().to_string()),
+            token: None,
+            local_path: None,
+        };
+
+        forge_args.forge().await.unwrap();
     }
 
     #[test]

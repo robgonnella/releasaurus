@@ -35,3 +35,15 @@ test-all *args:
     cargo llvm-cov \
       --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
       --features _integration_tests {{ args }}
+
+_test_integration test:
+    @just test --features _integration_tests {{ test }} -- --nocapture
+
+# Runs only the github integration tests
+test-github-integration: (_test_integration "test_github_forge")
+
+# Runs only the gitlab integration tests
+test-gitlab-integration: (_test_integration "test_gitlab_forge")
+
+# Runs only the gitea integration tests
+test-gitea-integration: (_test_integration "test_gitea_forge")
