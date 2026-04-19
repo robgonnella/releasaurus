@@ -44,8 +44,8 @@ tera = "1.20.1"
 thiserror = "2.0.18"
 tl = "0.7.8"
 tokio = { version = "1.52.1", features = ["fs", "macros", "rt-multi-thread"] }
-toml = "0.9.12"
-toml_edit = "0.23.10"
+toml = "1.1.2"
+toml_edit = "0.25.11"
 url = "2.5"
 
 [dev-dependencies]
