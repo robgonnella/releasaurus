@@ -38,6 +38,10 @@ pub struct GiteaForgeTestHelper {
 
 impl GiteaForgeTestHelper {
     pub async fn new(repo: &RepoUrl, token: &str, reset_sha: &str) -> Self {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
         let mut headers = HeaderMap::new();
 
         let token_value =

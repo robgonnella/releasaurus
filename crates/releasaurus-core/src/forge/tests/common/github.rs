@@ -18,6 +18,10 @@ pub struct GithubForgeTestHelper {
 
 impl GithubForgeTestHelper {
     pub async fn new(repo: &RepoUrl, token: &str, reset_sha: &str) -> Self {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
         let host = repo.host.clone();
         let owner = repo.owner.clone();
         let repo_str = repo.name.clone();
