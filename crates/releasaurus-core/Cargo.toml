@@ -34,6 +34,7 @@ openssl = { version = "0.10.78", features = ["vendored"] }
 quick-xml = "0.39.2"
 regex = "1.12.3"
 reqwest = "0.13.2"
+rustls = { version = "0.23", default-features = false }
 schemars = "1.2.1"
 secrecy = { workspace = true }
 semver = "1.0.28"

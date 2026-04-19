@@ -60,6 +60,10 @@ impl Gitea {
         url: RepoUrl,
         token: Option<SecretString>,
     ) -> Result<Self> {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
         let token = resolve_token(token, url.token.as_ref(), TokenVar::Gitea)?;
 
         let link_base_url = url.link_base_url();

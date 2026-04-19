@@ -2646,6 +2646,7 @@ dependencies = [
  "quick-xml",
  "regex",
  "reqwest",
+ "rustls",
  "schemars",
  "secrecy",
  "semver",
