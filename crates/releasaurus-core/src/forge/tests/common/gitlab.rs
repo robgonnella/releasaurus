@@ -121,6 +121,10 @@ pub struct GitlabForgeTestHelper {
 
 impl GitlabForgeTestHelper {
     pub async fn new(repo: &RepoUrl, token: &str, reset_sha: &str) -> Self {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .ok();
+
         let host = repo.host.clone();
         let path = repo.path.trim_start_matches("/");
         let project_id = path.to_string();
