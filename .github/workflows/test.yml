@@ -15,9 +15,8 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-setup
+      - uses: ./.github/actions/rust-pull-cache
         with:
-          cache_name: test-unit
           include_llvm_cov: "true"
       - name: test
         run: |
@@ -28,9 +27,8 @@ jobs:
     if: github.repository == 'robgonnella/releasaurus' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-setup
+      - uses: ./.github/actions/rust-pull-cache
         with:
-          cache_name: test-integration
           include_llvm_cov: "true"
       - name: test
         env:
