@@ -1,3 +1,9 @@
+# [0.18.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.17.0...v0.18.0-rc.1) - 2026-04-19
+
+### 🚀 Features
+
+- _(gitea)_ force push release branch [_(18cb2a2)_](https://github.com/robgonnella/releasaurus/commit/18cb2a20296afd9858c6e6d31b36561d2043d0d9) (Rob Gonnella)
+
 # [0.17.0](https://github.com/robgonnella/releasaurus/compare/v0.17.0-rc.2...v0.17.0) - 2026-04-17
 
 ### 🚀 Features
