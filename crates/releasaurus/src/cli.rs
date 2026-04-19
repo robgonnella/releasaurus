@@ -167,17 +167,13 @@ fn git_url_to_repo_url(url: &str) -> Result<RepoUrl> {
         "failed to parse scheme from repo url".into(),
     ))?;
 
-    if url_scheme != "https" && url_scheme != "http" {
-        return Err(ReleasaurusError::InvalidArgs(
+    let scheme = match url_scheme {
+        "https" => Ok(Scheme::Https),
+        "http" => Ok(Scheme::Http),
+        _ => Err(ReleasaurusError::InvalidArgs(
             "only https and http schemes are supported for repo urls".into(),
-        ));
-    }
-
-    let scheme = if url_scheme == "https" {
-        Scheme::Https
-    } else {
-        Scheme::Http
-    };
+        )),
+    }?;
 
     let provider: GenericProvider = git_url.provider_info().map_err(|e| {
         ReleasaurusError::InvalidArgs(format!(
