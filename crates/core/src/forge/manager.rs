@@ -1,0 +1,734 @@
+//! Manager that wraps forge implementations
+use async_trait::async_trait;
+use std::sync::OnceLock;
+use url::Url;
+
+use crate::{
+    config::Config,
+    forge::{
+        request::{
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
+            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            Tag, UpdatePrRequest,
+        },
+        traits::{FileLoader, Forge},
+    },
+    result::Result,
+};
+
+/// Options for configuring [`ForgeManager`] behavior.
+pub struct ForgeOptions {
+    /// When `true`, all write operations (branch creation, PR
+    /// creation, tagging, releasing) are skipped and logged instead.
+    pub dry_run: bool,
+}
+
+/// Caching, logging, and dry-run wrapper around a [`Forge`]
+/// implementation.
+///
+/// Use [`ForgeManager::new`] to wrap any `Box<dyn Forge>`. All
+/// write operations respect the `dry_run` flag in [`ForgeOptions`].
+pub struct ForgeManager {
+    forge: Box<dyn Forge>,
+    repo_name: OnceLock<String>,
+    default_branch: OnceLock<String>,
+    release_link_base_url: OnceLock<Url>,
+    compare_link_base_url: OnceLock<Url>,
+    options: ForgeOptions,
+}
+
+impl ForgeManager {
+    /// Wrap a forge implementation with caching, logging, and
+    /// dry-run support.
+    pub fn new(forge: Box<dyn Forge>, options: ForgeOptions) -> Self {
+        Self {
+            forge,
+            repo_name: OnceLock::new(),
+            default_branch: OnceLock::new(),
+            release_link_base_url: OnceLock::new(),
+            compare_link_base_url: OnceLock::new(),
+            options,
+        }
+    }
+
+    pub fn repo_name(&self) -> &str {
+        self.repo_name.get_or_init(|| self.forge.repo_name())
+    }
+
+    pub fn release_link_base_url(&self) -> &Url {
+        self.release_link_base_url
+            .get_or_init(|| self.forge.release_link_base_url())
+    }
+
+    pub fn compare_link_base_url(&self) -> &Url {
+        self.compare_link_base_url
+            .get_or_init(|| self.forge.compare_link_base_url())
+    }
+
+    pub fn default_branch(&self) -> &str {
+        self.default_branch
+            .get_or_init(|| self.forge.default_branch())
+    }
+
+    pub async fn get_file_content(
+        &self,
+        req: GetFileContentRequest,
+    ) -> Result<Option<String>> {
+        log::debug!("Loading file: {} (branch: {:?})", req.path, req.branch);
+
+        let result = self.forge.get_file_content(req).await;
+
+        if let Err(e) = &result {
+            log::error!("Failed to load file: {}", e);
+        }
+
+        result
+    }
+
+    pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
+        log::info!("Loading configuration from forge (branch: {:?})", branch);
+
+        let result = self.forge.load_config(branch).await;
+
+        if let Err(e) = &result {
+            log::error!("Failed to load configuration: {}", e);
+        }
+
+        result
+    }
+
+    pub async fn get_release_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<ReleaseByTagResponse> {
+        self.forge.get_release_by_tag(tag).await
+    }
+
+    pub async fn get_latest_tag_for_prefix(
+        &self,
+        prefix: &str,
+        branch: &str,
+    ) -> Result<Option<Tag>> {
+        let mut tags = self
+            .forge
+            .get_latest_tags_for_prefix(prefix, branch)
+            .await?;
+
+        if tags.is_empty() {
+            return Ok(None);
+        }
+
+        // Sort by semantic version descending so the highest version is
+        // first. Tag ordering from forge APIs is unreliable and none handle
+        // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
+        // Semver ordering is the single source of truth for all forge backends.
+        tags.sort_by(|a, b| b.semver.cmp(&a.semver));
+        Ok(tags.into_iter().next())
+    }
+
+    pub async fn get_latest_stable_release_tag(
+        &self,
+        prefix: &str,
+        branch: &str,
+    ) -> Result<Option<Tag>> {
+        let mut tags = self
+            .forge
+            .get_latest_tags_for_prefix(prefix, branch)
+            .await?;
+
+        if tags.is_empty() {
+            return Ok(None);
+        }
+
+        // Sort by semantic version descending so the highest version is first.
+        // Tag ordering from forge APIs is unreliable and none handle
+        // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
+        // Semver ordering is the single source of truth for all forge backends.
+        tags.sort_by(|a, b| b.semver.cmp(&a.semver));
+
+        // iterate to find where current prerelease series stops at last
+        // stable release
+        for tag in tags {
+            // skip prereleases until we get to stable release
+            if !tag.semver.pre.is_empty() {
+                continue;
+            }
+
+            return Ok(Some(tag));
+        }
+
+        // No stable releases found
+        Ok(None)
+    }
+
+    pub async fn get_commits(
+        &self,
+        branch: Option<String>,
+        sha: Option<String>,
+    ) -> Result<Vec<ForgeCommit>> {
+        log::debug!(
+            "getting commits for branch [{:?}] starting from sha: {:?}",
+            branch,
+            sha
+        );
+        self.forge.get_commits(branch, sha).await
+    }
+
+    pub async fn get_open_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>> {
+        log::info!(
+            "Looking for open release PR: base={}, head={}",
+            req.base_branch,
+            req.head_branch
+        );
+
+        let result = self.forge.get_open_release_pr(req).await;
+
+        match &result {
+            Ok(Some(pr)) => log::info!("Found open PR #{}", pr.number),
+            Ok(None) => log::debug!("No open PR found"),
+            Err(e) => log::error!("Error searching for open PR: {}", e),
+        }
+
+        result
+    }
+
+    pub async fn get_merged_release_pr(
+        &self,
+        req: GetPrRequest,
+    ) -> Result<Option<PullRequest>> {
+        log::info!(
+            "Looking for merged release PR: base={}, head={}",
+            req.base_branch,
+            req.head_branch
+        );
+
+        let result = self.forge.get_merged_release_pr(req).await;
+
+        match &result {
+            Ok(Some(pr)) => log::info!("Found merged PR #{}", pr.number),
+            Ok(None) => log::warn!("No merged PR found"),
+            Err(e) => log::error!("Error searching for merged PR: {}", e),
+        }
+
+        result
+    }
+
+    pub async fn create_release_branch(
+        &self,
+        req: CreateReleaseBranchRequest,
+    ) -> Result<Commit> {
+        if self.options.dry_run {
+            log::warn!("dry_run: would create release branch: req: {:?}", req);
+            return Ok(Commit { sha: "fff".into() });
+        }
+
+        log::info!(
+            "Creating release branch: {} from {}",
+            req.release_branch,
+            req.base_branch
+        );
+
+        let result = self.forge.create_release_branch(req).await;
+
+        match &result {
+            Ok(commit) => {
+                log::info!("Created release branch with commit: {}", commit.sha)
+            }
+            Err(e) => log::error!("Failed to create release branch: {}", e),
+        }
+
+        result
+    }
+
+    pub async fn create_commit(
+        &self,
+        req: CreateCommitRequest,
+    ) -> Result<Commit> {
+        if self.options.dry_run {
+            log::warn!("dry_run: would create commit: req: {:?}", req);
+            return Ok(Commit { sha: "fff".into() });
+        }
+
+        log::info!(
+            "Creating commit on branch: {} ({} file changes)",
+            req.target_branch,
+            req.file_changes.len()
+        );
+
+        let result = self.forge.create_commit(req).await;
+
+        match &result {
+            Ok(commit) => log::info!("Created commit: {}", commit.sha),
+            Err(e) => log::error!("Failed to create commit: {}", e),
+        }
+
+        result
+    }
+
+    pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would tag commit: tag={}, sha={}",
+                tag_name,
+                sha
+            );
+            return Ok(());
+        }
+
+        log::info!("Tagging commit: tag={}, sha={}", tag_name, sha);
+
+        let result = self.forge.tag_commit(tag_name, sha).await;
+
+        match &result {
+            Ok(_) => log::info!("Successfully created tag: {}", tag_name),
+            Err(e) => log::error!("Failed to create tag {}: {}", tag_name, e),
+        }
+
+        result
+    }
+
+    pub async fn create_pr(&self, req: CreatePrRequest) -> Result<PullRequest> {
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would create PR: {} -> {}",
+                req.head_branch,
+                req.base_branch
+            );
+            return Ok(PullRequest {
+                number: 0,
+                sha: "fff".into(),
+                body: req.body,
+            });
+        }
+
+        log::info!(
+            "Creating pull request: {} -> {}",
+            req.head_branch,
+            req.base_branch
+        );
+
+        let result = self.forge.create_pr(req).await;
+
+        match &result {
+            Ok(pr) => log::info!("Created pull request #{}", pr.number),
+            Err(e) => log::error!("Failed to create pull request: {}", e),
+        }
+
+        result
+    }
+
+    pub async fn update_pr(&self, req: UpdatePrRequest) -> Result<()> {
+        if self.options.dry_run {
+            log::warn!("dry_run: would update PR: req: {:?}", req);
+            return Ok(());
+        }
+
+        log::info!("Updating pull request #{}", req.pr_number);
+
+        let result = self.forge.update_pr(req).await;
+
+        if let Err(e) = &result {
+            log::error!("Failed to update PR: {}", e);
+        }
+
+        result
+    }
+
+    pub async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would replace PR #{} labels with: {:?}",
+                req.pr_number,
+                req.labels
+            );
+            return Ok(());
+        }
+
+        log::info!(
+            "Replacing labels on PR #{} with: {:?}",
+            req.pr_number,
+            req.labels
+        );
+
+        let result = self.forge.replace_pr_labels(req).await;
+
+        if let Err(e) = &result {
+            log::error!("Failed to update labels on PR: {}", e);
+        }
+
+        result
+    }
+
+    pub async fn create_release(
+        &self,
+        tag: &str,
+        sha: &str,
+        notes: &str,
+    ) -> Result<()> {
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would create release: tag: {tag}, sha: {sha}, notes {notes}"
+            );
+            return Ok(());
+        }
+
+        log::info!("Creating release: tag={}, sha={}", tag, sha);
+
+        let result = self.forge.create_release(tag, sha, notes).await;
+
+        match &result {
+            Ok(_) => log::info!("Successfully created release: {}", tag),
+            Err(e) => log::error!("Failed to create release {}: {}", tag, e),
+        }
+
+        result
+    }
+}
+
+#[async_trait]
+impl FileLoader for ForgeManager {
+    async fn load_file(
+        &self,
+        branch: Option<String>,
+        path: String,
+    ) -> Result<Option<String>> {
+        self.get_file_content(GetFileContentRequest { branch, path })
+            .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::forge::traits::MockForge;
+
+    use super::*;
+
+    fn make_tag(prefix: &str, version: &str) -> Tag {
+        Tag {
+            name: format!("{prefix}{version}"),
+            semver: semver::Version::parse(version).unwrap(),
+            sha: format!("sha-{version}"),
+            timestamp: None,
+        }
+    }
+
+    fn mock_returning_tags(tags: Vec<Tag>) -> MockForge {
+        let mut mock = MockForge::new();
+        mock.expect_get_latest_tags_for_prefix()
+            .returning(move |_, _| Ok(tags.clone()));
+        mock
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_returns_none_when_no_tags() {
+        let mock = mock_returning_tags(vec![]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_returns_single_tag() {
+        let mock = mock_returning_tags(vec![make_tag("v", "1.0.0")]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_returns_highest_semver_regardless_of_input_order() {
+        // Tags arrive in arbitrary order (simulating an unreliable forge API).
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0"),
+            make_tag("v", "2.0.0"),
+            make_tag("v", "1.5.0"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v2.0.0");
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_prefers_stable_over_prerelease() {
+        // A pre-release tag may have a later commit date than the stable
+        // release it preceded, causing date-based sorting to pick it
+        // incorrectly. Semver ordering must place 1.0.0 above 1.0.0-rc.1.
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0-rc.1"),
+            make_tag("v", "1.0.0"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_orders_prereleases_by_semver() {
+        // When only pre-release tags exist the highest pre-release wins.
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "2.0.0-rc.1"),
+            make_tag("v", "2.0.0-beta.1"),
+            make_tag("v", "2.0.0-alpha.1"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v2.0.0-rc.1");
+    }
+
+    #[tokio::test]
+    async fn get_latest_tag_prefers_beta_over_alpha_prerelease() {
+        // Semver compares pre-release identifiers lexicographically, so
+        // "beta" > "alpha" and 2.0.0-beta.1 is the correct winner.
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "2.0.0-alpha.1"),
+            make_tag("v", "2.0.0-beta.1"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_tag_for_prefix("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v2.0.0-beta.1");
+    }
+
+    #[tokio::test]
+    async fn get_latest_stable_release_tag_returns_none_when_no_tags() {
+        let mock = mock_returning_tags(vec![]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_stable_release_tag("v", "main")
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_latest_stable_release_tag_returns_none_when_only_prereleases()
+    {
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0-rc.1"),
+            make_tag("v", "1.0.0-rc.2"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_stable_release_tag("v", "main")
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_latest_stable_release_tag_returns_highest_stable_from_mixed_list()
+     {
+        // Forge returns tags in arbitrary order; stable tags are interleaved
+        // with prerelease tags. The highest stable version must win.
+        let mock = mock_returning_tags(vec![
+            make_tag("v", "1.0.0-rc.1"),
+            make_tag("v", "1.0.0"),
+            make_tag("v", "2.0.0"),
+            make_tag("v", "0.9.0"),
+        ]);
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let result = manager
+            .get_latest_stable_release_tag("v", "main")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.name, "v2.0.0");
+    }
+
+    #[tokio::test]
+    async fn file_loader_returns_file_content() {
+        let mut mock_forge = MockForge::new();
+        mock_forge
+            .expect_get_file_content()
+            .with(mockall::predicate::eq(GetFileContentRequest {
+                branch: Some("main".to_string()),
+                path: "package.json".to_string(),
+            }))
+            .returning(|_| Ok(Some(r#"{"version":"1.0.0"}"#.to_string())));
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        );
+
+        let result = manager
+            .load_file(Some("main".to_string()), "package.json".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(result.contains("1.0.0"));
+    }
+
+    #[tokio::test]
+    async fn file_loader_returns_none_when_file_not_found() {
+        let mut mock_forge = MockForge::new();
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: false },
+        );
+
+        let result = manager
+            .load_file(None, "missing.txt".to_string())
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_create_release_branch() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        let req = CreateReleaseBranchRequest {
+            base_branch: "main".into(),
+            release_branch: "release-branch".into(),
+            message: "chore: release".into(),
+            file_changes: vec![],
+        };
+        let result = manager.create_release_branch(req).await.unwrap();
+
+        assert_eq!(result.sha, "fff");
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_tag_commit() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        manager.tag_commit("v1.0.0", "abc123").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_create_pr() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        let req = CreatePrRequest {
+            title: "test".to_string(),
+            body: "test body".to_string(),
+            head_branch: "branch".to_string(),
+            base_branch: "main".to_string(),
+        };
+        let result = manager.create_pr(req).await.unwrap();
+
+        assert_eq!(result.number, 0);
+        assert_eq!(result.sha, "fff");
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_update_pr() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        let req = UpdatePrRequest {
+            pr_number: 42,
+            title: "Updated title".to_string(),
+            body: "Updated body".to_string(),
+        };
+        manager.update_pr(req).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_replace_pr_labels() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        let req = PrLabelsRequest {
+            pr_number: 42,
+            labels: vec!["release".to_string()],
+        };
+        manager.replace_pr_labels(req).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_create_release() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        manager
+            .create_release("v1.0.0", "abc123", "Release notes")
+            .await
+            .unwrap();
+    }
+}

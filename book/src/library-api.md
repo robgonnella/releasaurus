@@ -30,20 +30,22 @@ tokio = { version = "1", features = ["full"] }
 ## Architecture overview
 
 ```text
-Orchestrator        (pipeline entry point)
-  └─ OrchestratorConfig   (merged settings)
-  └─ ForgeManager         (caching + dry-run wrapper)
-       └─ Forge           (GitHub / GitLab / Gitea / Local)
+Orchestrator            (pipeline entry point)
+  └─ ResolvedConfig     (merged settings)
+  └─ ResolvedPackageHash (resolved package configs)
+  └─ ForgeManager       (caching + dry-run wrapper)
+       └─ Forge         (GitHub / GitLab / Gitea / Local)
 ```
 
 All release operations go through `Orchestrator`. Building one
 requires three pieces:
 
 1. A **`ForgeManager`** wrapping a concrete `Forge` implementation
-2. An **`OrchestratorConfig`** built from the loaded TOML config plus
-   any runtime overrides
-3. A **`ResolvedPackageHash`** — the set of packages parsed from
-   `releasaurus.toml`, each merged with the orchestrator config
+2. A **`ResolvedConfig`** — built by `Resolver::builder()` from the
+   loaded TOML config plus any runtime overrides
+3. A **`ResolvedPackageHash`** — the set of packages resolved from
+   `releasaurus.toml`; produced alongside `ResolvedConfig` by
+   `Resolver::resolve()`
 
 See the [crate-level quick start on docs.rs][docs-rs] for the full
 builder chain with inline comments for each step.
@@ -98,10 +100,9 @@ To target a custom platform, implement the `Forge` trait from
 ```rust,no_run
 use async_trait::async_trait;
 use releasaurus_core::{
-    analyzer::release::Tag,
     config::Config,
-    error::Result,
     forge::{
+        request::Tag,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, ForgeCommit,
@@ -110,6 +111,7 @@ use releasaurus_core::{
         },
         traits::Forge,
     },
+    result::Result,
 };
 use std::any::Any;
 use url::Url;

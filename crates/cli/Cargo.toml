@@ -1,0 +1,40 @@
+[package]
+name = "releasaurus"
+version = "0.18.0-rc.1"
+edition.workspace = true
+description.workspace = true
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "target/{ target }/release/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+disabled-strategies = ["quick-install"]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "releasaurus"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+color-eyre.workspace = true
+git-url-parse = "0.6.0"
+log.workspace = true
+merge.workspace = true
+releasaurus-core = { path = "../core", version = "0.18.0-rc.1" }
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+simplelog = "0.12.2"
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"

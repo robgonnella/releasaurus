@@ -1,0 +1,169 @@
+use derive_builder::Builder;
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
+use std::{fmt::Display, hash::Hash};
+
+/// Release pull request information with PR number, sha, and body
+#[allow(unused)]
+#[derive(Debug)]
+pub struct PullRequest {
+    pub number: u64,
+    pub sha: String,
+    pub body: String,
+}
+
+/// Request to get content for a file path in the remote repo
+#[derive(Debug, PartialEq)]
+pub struct GetFileContentRequest {
+    pub branch: Option<String>,
+    pub path: String,
+}
+
+/// Request to find a pull request by comparing head and base branch names.
+#[derive(Debug)]
+pub struct GetPrRequest {
+    pub head_branch: String,
+    pub base_branch: String,
+}
+
+/// Request to create a new pull request with title and description.
+#[derive(Debug)]
+pub struct CreatePrRequest {
+    pub head_branch: String,
+    pub base_branch: String,
+    pub title: String,
+    pub body: String,
+}
+
+/// Request to update an existing pull request's title and body.
+#[derive(Debug)]
+pub struct UpdatePrRequest {
+    pub pr_number: u64,
+    pub title: String,
+    pub body: String,
+}
+
+/// Response data for retrieving release by tag.
+#[derive(Debug, Default, Serialize)]
+pub struct ReleaseByTagResponse {
+    pub tag: String,
+    pub sha: String,
+    pub notes: String,
+}
+
+/// Request to replace all labels on a pull request.
+#[derive(Debug)]
+pub struct PrLabelsRequest {
+    pub pr_number: u64,
+    pub labels: Vec<String>,
+}
+
+/// How to apply file content changes during branch creation.
+#[allow(unused)]
+#[derive(Debug, Copy, Clone, Serialize, PartialEq)]
+pub enum FileUpdateType {
+    Replace,
+    Prepend,
+}
+
+/// File modification for branch creation, supporting updates and new files.
+#[derive(Debug, Clone, Serialize)]
+pub struct FileChange {
+    pub path: String,
+    pub content: String,
+    pub update_type: FileUpdateType,
+}
+
+/// Request to create a branch using base_branch as starting point
+#[derive(Debug)]
+pub struct CreateReleaseBranchRequest {
+    pub base_branch: String,
+    pub release_branch: String,
+    pub message: String,
+    pub file_changes: Vec<FileChange>,
+}
+
+/// Request to create a new commit on a branch with file changes
+#[derive(Debug)]
+pub struct CreateCommitRequest {
+    pub target_branch: String,
+    pub message: String,
+    pub file_changes: Vec<FileChange>,
+}
+
+/// Minimal commit information returned from forge API responses.
+#[derive(Debug, Deserialize)]
+pub struct Commit {
+    pub sha: String,
+}
+
+/// Git tag that represents a release version, linking a semantic version to
+/// a specific commit SHA.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tag {
+    /// Git commit SHA of the tag.
+    pub sha: String,
+    /// Tag name.
+    pub name: String,
+    /// Semantic version parsed from tag name.
+    pub semver: semver::Version,
+    /// Timestamp of tag
+    pub timestamp: Option<i64>,
+}
+
+impl Default for Tag {
+    fn default() -> Self {
+        Self {
+            name: "".into(),
+            semver: semver::Version::new(0, 0, 0),
+            sha: "".into(),
+            timestamp: None,
+        }
+    }
+}
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)
+    }
+}
+
+impl Serialize for Tag {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("Tag", 3)?;
+        s.serialize_field("sha", &self.sha)?;
+        s.serialize_field("name", &self.name)?;
+        s.serialize_field("semver", &self.semver.to_string())?;
+        s.end()
+    }
+}
+
+/// Normalized commit data returned from any forge platform with metadata
+/// and links.
+#[derive(Debug, Clone, Default, Eq, Builder)]
+#[builder(setter(into, strip_option), default)]
+pub struct ForgeCommit {
+    pub id: String,
+    pub short_id: String,
+    pub link: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub merge_commit: bool,
+    pub message: String,
+    pub timestamp: i64,
+    pub files: Vec<String>,
+}
+
+impl PartialEq for ForgeCommit {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for ForgeCommit {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}

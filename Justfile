@@ -21,6 +21,9 @@ fmt:
 lint:
     cargo clippy --all-targets --all-features
 
+gen-schema:
+    cargo run -p releasaurus-core --bin gen_schema
+
 # Runs unit tests
 test *args:
     cargo test {{ args }}
@@ -34,7 +37,7 @@ test-cov *args:
 test-all *args:
     cargo llvm-cov \
       --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
-      --features _integration_tests {{ args }}
+      --features _integration_tests {{ args }} -- --nocapture
 
 _test_integration test:
     @just test --features _integration_tests {{ test }} -- --nocapture
