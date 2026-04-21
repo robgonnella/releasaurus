@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/releasaurus", "crates/releasaurus-core"]
+members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
@@ -12,5 +12,10 @@ keywords = ["changelog", "commits", "conventional", "release", "semver"]
 categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-git-url-parse = "0.6.0"
+color-eyre = "0.6.5"
+log = "0.4.29"
+merge = "0.2.0"
 secrecy = "0.10.3"
+serde = "1.0.228"
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
+tokio = { version = "1.52.1", features = ["fs", "macros", "rt-multi-thread"] }

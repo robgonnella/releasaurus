@@ -199,13 +199,13 @@ codebase.
 Each language updater consists of:
 
 1. **ReleaseType enum variant** - Configuration option in
-   `crates/releasaurus-core/src/config/release_type.rs`
+   `crates/core/src/config/release_type.rs`
 2. **Manifests module** - Defines manifest file targets in
-   `crates/releasaurus-core/src/updater/yourlanguage/manifests.rs`
+   `crates/core/src/updater/yourlanguage/manifests.rs`
 3. **Updater module** - Language-specific implementation in
-   `crates/releasaurus-core/src/updater/yourlanguage/updater.rs`
+   `crates/core/src/updater/yourlanguage/updater.rs`
 4. **File parsers** - Version file format handlers (e.g.,
-   `crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs`)
+   `crates/core/src/updater/yourlanguage/your_file_type.rs`)
 5. **Tests** - Comprehensive test coverage for all modules
 6. **Documentation** - User-facing documentation updates
 
@@ -213,26 +213,26 @@ Each language updater consists of:
 
 **1. Add ReleaseType Variant**
 
-- `crates/releasaurus-core/src/config/release_type.rs` - Add your
+- `crates/core/src/config/release_type.rs` - Add your
   language to the `ReleaseType` enum
 
 **2. Create Manifests Module**
 
-- `crates/releasaurus-core/src/updater/yourlanguage/manifests.rs` -
+- `crates/core/src/updater/yourlanguage/manifests.rs` -
   Implement `ManifestTargets` trait
-- `crates/releasaurus-core/src/updater/manager.rs` - Register in
+- `crates/core/src/updater/manager.rs` - Register in
   `release_type_manifest_targets()` function
 
 **3. Create Updater Implementation**
 
-- `crates/releasaurus-core/src/updater/yourlanguage.rs` - Module
+- `crates/core/src/updater/yourlanguage.rs` - Module
   declaration file
-- `crates/releasaurus-core/src/updater/yourlanguage/updater.rs` -
+- `crates/core/src/updater/yourlanguage/updater.rs` -
   Implement `PackageUpdater` trait
-- `crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs` -
+- `crates/core/src/updater/yourlanguage/your_file_type.rs` -
   File format parser(s)
-- `crates/releasaurus-core/src/updater.rs` - Add module declaration
-- `crates/releasaurus-core/src/updater/manager.rs` - Register in
+- `crates/core/src/updater.rs` - Add module declaration
+- `crates/core/src/updater/manager.rs` - Register in
   `updater()` function
 
 **4. Add Tests**
@@ -252,18 +252,18 @@ Use existing language implementations as templates:
 
 **Simple Languages (Good starting points):**
 
-- **PHP**: `crates/releasaurus-core/src/updater/php/` - Single
+- **PHP**: `crates/core/src/updater/php/` - Single
   manifest file, straightforward JSON parsing
-- **Python**: `crates/releasaurus-core/src/updater/python/` -
+- **Python**: `crates/core/src/updater/python/` -
   Multiple manifest formats (TOML, cfg, py)
 
 **Complex Languages (Advanced features):**
 
-- **Node**: `crates/releasaurus-core/src/updater/node/` - Workspace
+- **Node**: `crates/core/src/updater/node/` - Workspace
   support, multiple lock files
-- **Rust**: `crates/releasaurus-core/src/updater/rust/` - Workspace
+- **Rust**: `crates/core/src/updater/rust/` - Workspace
   detection, dependency updates
-- **Java**: `crates/releasaurus-core/src/updater/java/` - Multiple
+- **Java**: `crates/core/src/updater/java/` - Multiple
   build tools (Maven, Gradle, version catalogs), properties files
 
 **Key Traits to Implement:**
@@ -284,11 +284,11 @@ Follow the established testing patterns:
 
 **Example test files to reference:**
 
-- `crates/releasaurus-core/src/updater/php/manifests.rs` - Simple
+- `crates/core/src/updater/php/manifests.rs` - Simple
   manifest tests
-- `crates/releasaurus-core/src/updater/node/manifests.rs` -
+- `crates/core/src/updater/node/manifests.rs` -
   Workspace-aware manifest tests
-- `crates/releasaurus-core/src/updater/php/updater.rs` - Basic
+- `crates/core/src/updater/php/updater.rs` - Basic
   updater tests
 
 #### Running Tests
@@ -327,7 +327,7 @@ just run release-pr \
 #### Getting Help
 
 - Review existing implementations in
-  `crates/releasaurus-core/src/updater/`
+  `crates/core/src/updater/`
 - Check test files for usage patterns
 - Ask questions in GitHub Discussions
 - Reference the `PackageUpdater` and `ManifestTargets` trait documentation
