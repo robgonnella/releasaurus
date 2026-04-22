@@ -5,7 +5,9 @@
 //! - JSON parsing from legacy HTML comments
 //! - Multiple legacy metadata blocks handling
 
-use crate::orchestrator::{core::PRMetadata, pr_body::METADATA_REGEX_LEGACY};
+use crate::orchestrator::{
+    package_processor::PRMetadata, pr_body::METADATA_REGEX_LEGACY,
+};
 
 #[test]
 fn metadata_regex_matches_json_in_html_comment() {

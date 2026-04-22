@@ -13,18 +13,18 @@ use crate::{
         manager::{ForgeManager, ForgeOptions},
         traits::MockForge,
     },
-    orchestrator::core::Core,
+    orchestrator::package_processor::PackageProcessor,
     resolver::Resolver,
 };
 
-/// Creates a Core instance with the provided mock forge, optional package
-/// configs, and optional config. This allows tests to set expectations on the
-/// mock before creating the core.
-pub fn create_core(
+/// Creates a PackageProcessor instance with the provided mock forge, optional
+/// package configs, and optional config. This allows tests to set expectations
+/// on the mock before creating the core.
+pub fn create_package_processor(
     mock_forge: MockForge,
     pkg_configs: Option<Vec<PackageConfig>>,
     config: Option<Config>,
-) -> Core {
+) -> PackageProcessor {
     let config = Rc::new(config.unwrap_or_default());
 
     let resolver = Resolver::builder()
@@ -57,5 +57,5 @@ pub fn create_core(
     let (resolved_config, resolved_pkgs) =
         resolver.resolve(pkg_configs).unwrap();
 
-    Core::new(resolved_config, forge, Rc::new(resolved_pkgs))
+    PackageProcessor::new(resolved_config, forge, Rc::new(resolved_pkgs))
 }

@@ -28,9 +28,9 @@ async fn generate_prepared_with_dummy_commit_skips_untagged_packages() {
         .expect_get_latest_tags_for_prefix()
         .returning(|_, _| Ok(vec![])); // No tags exist
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
-    let prepared = orchestrator
+    let prepared = processor
         .generate_prepared_with_dummy_commit(None)
         .await
         .unwrap();
@@ -65,9 +65,10 @@ async fn generate_prepared_with_dummy_commit_filters_by_targets() {
         },
     );
 
-    let orchestrator = create_core(mock_forge, Some(pkg_configs), None);
+    let processor =
+        create_package_processor(mock_forge, Some(pkg_configs), None);
 
-    let prepared = orchestrator
+    let prepared = processor
         .generate_prepared_with_dummy_commit(Some(vec!["pkg-a".to_string()]))
         .await
         .unwrap();
@@ -145,9 +146,10 @@ async fn aggregate_prereleases_disabled_skips_extra_fetch() {
         .times(1)
         .returning(|_, _| Ok(vec![]));
 
-    let core = create_core(mock, Some(vec![graduating_pkg()]), None);
+    let processor =
+        create_package_processor(mock, Some(vec![graduating_pkg()]), None);
 
-    let prepared = core.prepare_packages(None).await.unwrap();
+    let prepared = processor.prepare_packages(None).await.unwrap();
     assert_eq!(prepared.len(), 1);
 }
 
@@ -165,13 +167,13 @@ async fn aggregate_prereleases_enabled_not_graduating_skips_extra_fetch() {
         .times(1)
         .returning(|_, _| Ok(vec![]));
 
-    let core = create_core(
+    let processor = create_package_processor(
         mock,
         Some(vec![graduating_pkg()]),
         Some(aggregate_config()),
     );
 
-    let prepared = core.prepare_packages(None).await.unwrap();
+    let prepared = processor.prepare_packages(None).await.unwrap();
     assert_eq!(prepared.len(), 1);
 }
 
@@ -214,13 +216,13 @@ async fn aggregate_prereleases_enabled_and_graduating_merges_commits() {
         .in_sequence(&mut seq)
         .returning(move |_, _| Ok(vec![historical_c.clone(), current.clone()]));
 
-    let core = create_core(
+    let processor = create_package_processor(
         mock,
         Some(vec![graduating_pkg()]),
         Some(aggregate_config()),
     );
 
-    let prepared = core.prepare_packages(None).await.unwrap();
+    let prepared = processor.prepare_packages(None).await.unwrap();
     assert_eq!(prepared.len(), 1);
     // historical (500) and current (2000); current already in window
     assert_eq!(prepared[0].commits.len(), 2);
@@ -263,13 +265,13 @@ async fn aggregate_prereleases_deduplicates_overlapping_commits() {
         .in_sequence(&mut seq)
         .returning(move |_, _| Ok(vec![current_c2.clone()]));
 
-    let core = create_core(
+    let processor = create_package_processor(
         mock,
         Some(vec![graduating_pkg()]),
         Some(aggregate_config()),
     );
 
-    let prepared = core.prepare_packages(None).await.unwrap();
+    let prepared = processor.prepare_packages(None).await.unwrap();
     assert_eq!(prepared.len(), 1);
     assert_eq!(
         prepared[0].commits.len(),

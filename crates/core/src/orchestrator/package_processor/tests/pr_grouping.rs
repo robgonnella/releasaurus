@@ -39,7 +39,7 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
         .build()
         .unwrap();
 
-    let orchestrator = create_core(
+    let processor = create_package_processor(
         mock_forge,
         Some(vec![pkg_a_config, pkg_b_config]),
         Some(toml_config),
@@ -67,7 +67,7 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
         .await
         .unwrap();
@@ -103,7 +103,7 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
         .build()
         .unwrap();
 
-    let orchestrator = create_core(
+    let processor = create_package_processor(
         mock_forge,
         Some(vec![pkg_a_config, pkg_b_config]),
         Some(toml_config),
@@ -131,7 +131,7 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
         .await
         .unwrap();

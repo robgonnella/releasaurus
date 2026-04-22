@@ -15,7 +15,7 @@ use crate::{
         },
     },
     orchestrator::{
-        core::{Core, PrBranchResult},
+        package_processor::{PackageProcessor, PrBranchResult},
         pr_body::{parse_legacy_pr_body, parse_pr_body},
     },
     packages::{
@@ -25,8 +25,8 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
-pub mod commits;
-pub mod core;
+pub mod commit_fetcher;
+pub mod package_processor;
 pub mod pr_body;
 
 /// Information about a package's current release
@@ -74,7 +74,7 @@ pub struct Orchestrator {
     config: Rc<ResolvedConfig>,
     package_configs: Rc<ResolvedPackageHash>,
     forge: Rc<ForgeManager>,
-    core: Core,
+    package_processor: PackageProcessor,
 }
 
 impl Orchestrator {
@@ -87,7 +87,7 @@ impl Orchestrator {
             config: Rc::clone(&params.config),
             package_configs: Rc::clone(&params.package_configs),
             forge: Rc::clone(&params.forge),
-            core: Core::new(
+            package_processor: PackageProcessor::new(
                 Rc::clone(&params.config),
                 Rc::clone(&params.forge),
                 Rc::clone(&params.package_configs),
@@ -145,22 +145,31 @@ impl Orchestrator {
             )));
         }
 
-        let prepared = self.core.prepare_packages(target.as_deref()).await?;
+        let prepared = self
+            .package_processor
+            .prepare_packages(target.as_deref())
+            .await?;
 
-        let analyzed = self.core.analyze_packages(prepared)?;
+        let analyzed = self.package_processor.analyze_packages(prepared)?;
 
-        let releasable = self.core.releasable_packages(analyzed).await?;
+        let releasable =
+            self.package_processor.releasable_packages(analyzed).await?;
 
         log::info!("releasable packages: {:#?}", releasable);
 
-        let pr_packages =
-            self.core.release_pr_packages_by_branch(releasable).await?;
+        let pr_packages = self
+            .package_processor
+            .release_pr_packages_by_branch(releasable)
+            .await?;
 
         if pr_packages.is_empty() {
             return Ok(());
         }
 
-        let results = self.core.create_pr_branches(pr_packages).await?;
+        let results = self
+            .package_processor
+            .create_pr_branches(pr_packages)
+            .await?;
 
         for PrBranchResult {
             request,
@@ -266,15 +275,17 @@ impl Orchestrator {
         targets: Option<Vec<String>>,
     ) -> Result<()> {
         let prepared = self
-            .core
+            .package_processor
             .generate_prepared_with_dummy_commit(targets)
             .await?;
 
-        let analyzed = self.core.analyze_packages(prepared)?;
+        let analyzed = self.package_processor.analyze_packages(prepared)?;
 
-        let releasable = self.core.releasable_packages(analyzed).await?;
+        let releasable =
+            self.package_processor.releasable_packages(analyzed).await?;
 
-        let pr_packages = self.core.release_pr_packages(releasable)?;
+        let pr_packages =
+            self.package_processor.release_pr_packages(releasable)?;
 
         for pkg in pr_packages {
             log::info!("updating manifest files for package: {}", pkg.name);
@@ -339,12 +350,12 @@ impl Orchestrator {
         &self,
         package: Option<&str>,
     ) -> Result<Vec<SerializableReleasablePackage>> {
-        let prepared = self.core.prepare_packages(package).await?;
+        let prepared = self.package_processor.prepare_packages(package).await?;
 
-        let analyzed = self.core.analyze_packages(prepared)?;
+        let analyzed = self.package_processor.analyze_packages(prepared)?;
 
         let mut releasable = self
-            .core
+            .package_processor
             .full_serializable_releasable_packages(analyzed)
             .await?;
 
