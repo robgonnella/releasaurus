@@ -1,3 +1,9 @@
+# [0.18.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.1...v0.18.0-rc.2) - 2026-04-21
+
+### 🚜 Refactor
+
+- improves separation of concerns across modules [_(1c02081)_](https://github.com/robgonnella/releasaurus/commit/1c02081625126cdd6bbcb8e9daf5888d05ef8cf5) (Rob Gonnella)
+
 # [0.18.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.17.0...v0.18.0-rc.1) - 2026-04-19
 
 ### 🚀 Features
