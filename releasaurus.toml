@@ -17,5 +17,5 @@ additional_manifest_files = [
 ]
 sub_packages = [
   { name = "releasaurus", path = "crates/releasaurus", release_type = "rust" },
-  { name = "releasaurus-core", path = "crates/releasaurus-core", release_type = "rust" }
+  { name = "releasaurus-core", path = "crates/core", release_type = "rust" }
 ]
