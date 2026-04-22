@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d8b463eb.js";
+            window.path_to_searchindex_js = "searchindex-8f3af27d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5db85cea.js"></script>
@@ -349,11 +349,11 @@ export GITEA_RESET_SHA="abc123"
 just test-all # run all tests including integration tests
 
 # target just github integration tests
-just test --features _integration_tests test_github_forge -- --nocapture
+just test-github-integration
 # target just gitlab integration tests
-just test --features _integration_tests test_gitlab_forge -- --nocapture
+just test-gitlab-integration
 # target just gitea integration tests
-just test --features _integration_tests test_gitea_forge -- --nocapture
+just test-gitea-integration
 </code></pre>
 <h2 id="code-contribution-guidelines"><a class="header" href="#code-contribution-guidelines">Code Contribution Guidelines</a></h2>
 <h3 id="coding-standards"><a class="header" href="#coding-standards">Coding Standards</a></h3>
@@ -371,39 +371,39 @@ codebase.</p>
 <p>Each language updater consists of:</p>
 <ol>
 <li><strong>ReleaseType enum variant</strong> - Configuration option in
-<code>crates/releasaurus-core/src/config/release_type.rs</code></li>
+<code>crates/core/src/config/release_type.rs</code></li>
 <li><strong>Manifests module</strong> - Defines manifest file targets in
-<code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code></li>
+<code>crates/core/src/updater/yourlanguage/manifests.rs</code></li>
 <li><strong>Updater module</strong> - Language-specific implementation in
-<code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code></li>
+<code>crates/core/src/updater/yourlanguage/updater.rs</code></li>
 <li><strong>File parsers</strong> - Version file format handlers (e.g.,
-<code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code>)</li>
+<code>crates/core/src/updater/yourlanguage/your_file_type.rs</code>)</li>
 <li><strong>Tests</strong> - Comprehensive test coverage for all modules</li>
 <li><strong>Documentation</strong> - User-facing documentation updates</li>
 </ol>
 <h4 id="files-to-update"><a class="header" href="#files-to-update">Files to Update</a></h4>
 <p><strong>1. Add ReleaseType Variant</strong></p>
 <ul>
-<li><code>crates/releasaurus-core/src/config/release_type.rs</code> - Add your
+<li><code>crates/core/src/config/release_type.rs</code> - Add your
 language to the <code>ReleaseType</code> enum</li>
 </ul>
 <p><strong>2. Create Manifests Module</strong></p>
 <ul>
-<li><code>crates/releasaurus-core/src/updater/yourlanguage/manifests.rs</code> -
+<li><code>crates/core/src/updater/yourlanguage/manifests.rs</code> -
 Implement <code>ManifestTargets</code> trait</li>
-<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<li><code>crates/core/src/updater/manager.rs</code> - Register in
 <code>release_type_manifest_targets()</code> function</li>
 </ul>
 <p><strong>3. Create Updater Implementation</strong></p>
 <ul>
-<li><code>crates/releasaurus-core/src/updater/yourlanguage.rs</code> - Module
+<li><code>crates/core/src/updater/yourlanguage.rs</code> - Module
 declaration file</li>
-<li><code>crates/releasaurus-core/src/updater/yourlanguage/updater.rs</code> -
+<li><code>crates/core/src/updater/yourlanguage/updater.rs</code> -
 Implement <code>PackageUpdater</code> trait</li>
-<li><code>crates/releasaurus-core/src/updater/yourlanguage/your_file_type.rs</code> -
+<li><code>crates/core/src/updater/yourlanguage/your_file_type.rs</code> -
 File format parser(s)</li>
-<li><code>crates/releasaurus-core/src/updater.rs</code> - Add module declaration</li>
-<li><code>crates/releasaurus-core/src/updater/manager.rs</code> - Register in
+<li><code>crates/core/src/updater.rs</code> - Add module declaration</li>
+<li><code>crates/core/src/updater/manager.rs</code> - Register in
 <code>updater()</code> function</li>
 </ul>
 <p><strong>4. Add Tests</strong></p>
@@ -421,18 +421,18 @@ File format parser(s)</li>
 <p>Use existing language implementations as templates:</p>
 <p><strong>Simple Languages (Good starting points):</strong></p>
 <ul>
-<li><strong>PHP</strong>: <code>crates/releasaurus-core/src/updater/php/</code> - Single
+<li><strong>PHP</strong>: <code>crates/core/src/updater/php/</code> - Single
 manifest file, straightforward JSON parsing</li>
-<li><strong>Python</strong>: <code>crates/releasaurus-core/src/updater/python/</code> -
+<li><strong>Python</strong>: <code>crates/core/src/updater/python/</code> -
 Multiple manifest formats (TOML, cfg, py)</li>
 </ul>
 <p><strong>Complex Languages (Advanced features):</strong></p>
 <ul>
-<li><strong>Node</strong>: <code>crates/releasaurus-core/src/updater/node/</code> - Workspace
+<li><strong>Node</strong>: <code>crates/core/src/updater/node/</code> - Workspace
 support, multiple lock files</li>
-<li><strong>Rust</strong>: <code>crates/releasaurus-core/src/updater/rust/</code> - Workspace
+<li><strong>Rust</strong>: <code>crates/core/src/updater/rust/</code> - Workspace
 detection, dependency updates</li>
-<li><strong>Java</strong>: <code>crates/releasaurus-core/src/updater/java/</code> - Multiple
+<li><strong>Java</strong>: <code>crates/core/src/updater/java/</code> - Multiple
 build tools (Maven, Gradle, version catalogs), properties files</li>
 </ul>
 <p><strong>Key Traits to Implement:</strong></p>
@@ -452,11 +452,11 @@ it’s achieved</li>
 </ul>
 <p><strong>Example test files to reference:</strong></p>
 <ul>
-<li><code>crates/releasaurus-core/src/updater/php/manifests.rs</code> - Simple
+<li><code>crates/core/src/updater/php/manifests.rs</code> - Simple
 manifest tests</li>
-<li><code>crates/releasaurus-core/src/updater/node/manifests.rs</code> -
+<li><code>crates/core/src/updater/node/manifests.rs</code> -
 Workspace-aware manifest tests</li>
-<li><code>crates/releasaurus-core/src/updater/php/updater.rs</code> - Basic
+<li><code>crates/core/src/updater/php/updater.rs</code> - Basic
 updater tests</li>
 </ul>
 <h4 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h4>
@@ -492,7 +492,7 @@ just run release-pr \
 <h4 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h4>
 <ul>
 <li>Review existing implementations in
-<code>crates/releasaurus-core/src/updater/</code></li>
+<code>crates/core/src/updater/</code></li>
 <li>Check test files for usage patterns</li>
 <li>Ask questions in GitHub Discussions</li>
 <li>Reference the <code>PackageUpdater</code> and <code>ManifestTargets</code> trait documentation</li>

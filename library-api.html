@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d8b463eb.js";
+            window.path_to_searchindex_js = "searchindex-8f3af27d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5db85cea.js"></script>
@@ -204,19 +204,21 @@ releasaurus-core = "0.14"
 tokio = { version = "1", features = ["full"] }
 </code></pre>
 <h2 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture overview</a></h2>
-<pre><code class="language-text">Orchestrator        (pipeline entry point)
-  └─ OrchestratorConfig   (merged settings)
-  └─ ForgeManager         (caching + dry-run wrapper)
-       └─ Forge           (GitHub / GitLab / Gitea / Local)
+<pre><code class="language-text">Orchestrator            (pipeline entry point)
+  └─ ResolvedConfig     (merged settings)
+  └─ ResolvedPackageHash (resolved package configs)
+  └─ ForgeManager       (caching + dry-run wrapper)
+       └─ Forge         (GitHub / GitLab / Gitea / Local)
 </code></pre>
 <p>All release operations go through <code>Orchestrator</code>. Building one
 requires three pieces:</p>
 <ol>
 <li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code> implementation</li>
-<li>An <strong><code>OrchestratorConfig</code></strong> built from the loaded TOML config plus
-any runtime overrides</li>
-<li>A <strong><code>ResolvedPackageHash</code></strong> — the set of packages parsed from
-<code>releasaurus.toml</code>, each merged with the orchestrator config</li>
+<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the
+loaded TOML config plus any runtime overrides</li>
+<li>A <strong><code>ResolvedPackageHash</code></strong> — the set of packages resolved from
+<code>releasaurus.toml</code>; produced alongside <code>ResolvedConfig</code> by
+<code>Resolver::resolve()</code></li>
 </ol>
 <p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full
 builder chain with inline comments for each step.</p>
@@ -270,10 +272,9 @@ four implementations:</p>
 </span><span class="boring">fn main() {
 </span>use async_trait::async_trait;
 use releasaurus_core::{
-    analyzer::release::Tag,
     config::Config,
-    error::Result,
     forge::{
+        request::Tag,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, ForgeCommit,
@@ -282,6 +283,7 @@ use releasaurus_core::{
         },
         traits::Forge,
     },
+    result::Result,
 };
 use std::any::Any;
 use url::Url;
