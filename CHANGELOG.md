@@ -1,3 +1,9 @@
+# [0.18.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.2...v0.18.0-rc.3) - 2026-04-22
+
+### 🐛 Bug Fixes
+
+- adds missing readme for releasaurus-core crate [_(b8be218)_](https://github.com/robgonnella/releasaurus/commit/b8be218640475271dd8f8f45b12c38f6249900ab) (Rob Gonnella)
+
 # [0.18.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.1...v0.18.0-rc.2) - 2026-04-21
 
 ### 🚜 Refactor
