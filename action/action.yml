@@ -9,7 +9,7 @@ inputs:
 outputs: {}
 runs:
   using: docker
-  image: docker://rgonnella/releasaurus:v0.18.0-rc.3
+  image: docker://rgonnella/releasaurus:v0.18.0
   entrypoint: sh
   args:
     - -c

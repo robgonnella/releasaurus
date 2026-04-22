@@ -1,3 +1,17 @@
+# [0.18.0](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.3...v0.18.0) - 2026-04-22
+
+### 🚀 Features
+
+- _(gitea)_ force push release branch [_(18cb2a2)_](https://github.com/robgonnella/releasaurus/commit/18cb2a20296afd9858c6e6d31b36561d2043d0d9) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- adds missing readme for releasaurus-core crate [_(b8be218)_](https://github.com/robgonnella/releasaurus/commit/b8be218640475271dd8f8f45b12c38f6249900ab) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- improves separation of concerns across modules [_(1c02081)_](https://github.com/robgonnella/releasaurus/commit/1c02081625126cdd6bbcb8e9daf5888d05ef8cf5) (Rob Gonnella)
+
 # [0.18.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.2...v0.18.0-rc.3) - 2026-04-22
 
 ### 🐛 Bug Fixes
