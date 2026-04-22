@@ -16,6 +16,6 @@ additional_manifest_files = [
   { path = "./action/action.yml", version_regex = "(?m)v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
 ]
 sub_packages = [
-  { name = "releasaurus", path = "crates/releasaurus", release_type = "rust" },
+  { name = "releasaurus", path = "crates/cli", release_type = "rust" },
   { name = "releasaurus-core", path = "crates/core", release_type = "rust" }
 ]
