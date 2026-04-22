@@ -5,7 +5,9 @@
 //! - JSON extraction from new-format HTML comments
 //! - Regex behaviour within a div (embedded context)
 
-use crate::orchestrator::{core::PRMetadata, pr_body::METADATA_REGEX};
+use crate::orchestrator::{
+    package_processor::PRMetadata, pr_body::METADATA_REGEX,
+};
 
 #[test]
 fn metadata_regex_matches_new_format_comment() {

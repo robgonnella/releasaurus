@@ -20,7 +20,7 @@ use super::common::*;
 #[test]
 fn analyze_packages_produces_analyzed_packages() {
     let mock_forge = MockForge::new();
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let commits = vec![
         ForgeCommitBuilder::default()
@@ -47,7 +47,7 @@ fn analyze_packages_produces_analyzed_packages() {
         commits,
     }];
 
-    let analyzed = orchestrator.analyze_packages(prepared).unwrap();
+    let analyzed = processor.analyze_packages(prepared).unwrap();
     assert_eq!(analyzed.len(), 1);
     assert_eq!(analyzed[0].name, "test-pkg");
     analyzed[0].release.as_ref().unwrap();
@@ -56,7 +56,7 @@ fn analyze_packages_produces_analyzed_packages() {
 #[test]
 fn analyze_packages_with_existing_tag() {
     let mock_forge = MockForge::new();
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let commits = vec![
         ForgeCommitBuilder::default()
@@ -81,7 +81,7 @@ fn analyze_packages_with_existing_tag() {
         commits,
     }];
 
-    let analyzed = orchestrator.analyze_packages(prepared).unwrap();
+    let analyzed = processor.analyze_packages(prepared).unwrap();
     assert_eq!(analyzed.len(), 1);
 
     if let Some(release) = &analyzed[0].release {
@@ -95,7 +95,7 @@ fn analyze_packages_with_existing_tag() {
 #[test]
 fn analyze_packages_returns_none_when_no_commits() {
     let mock_forge = MockForge::new();
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let prepared = vec![PreparedPackage {
         name: "test-pkg".to_string(),
@@ -103,7 +103,7 @@ fn analyze_packages_returns_none_when_no_commits() {
         commits: vec![],
     }];
 
-    let analyzed = orchestrator.analyze_packages(prepared).unwrap();
+    let analyzed = processor.analyze_packages(prepared).unwrap();
     assert_eq!(analyzed.len(), 1);
     assert!(analyzed[0].release.is_none());
 }

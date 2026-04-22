@@ -17,7 +17,7 @@ use crate::{
         },
     },
     orchestrator::{
-        commits::CommitsCore,
+        commit_fetcher::CommitFetcher,
         pr_body::{extract_preserved_header_footer, normalize_html_id},
     },
     packages::{
@@ -62,14 +62,14 @@ pub struct PrBranchResult {
     pub existing_pr: Option<PullRequest>,
 }
 
-pub struct Core {
+pub struct PackageProcessor {
     config: Rc<ResolvedConfig>,
     forge: Rc<ForgeManager>,
     package_configs: Rc<ResolvedPackageHash>,
-    commits_core: CommitsCore,
+    commit_fetcher: CommitFetcher,
 }
 
-impl Core {
+impl PackageProcessor {
     pub fn new(
         config: Rc<ResolvedConfig>,
         forge: Rc<ForgeManager>,
@@ -77,7 +77,7 @@ impl Core {
     ) -> Self {
         Self {
             config: Rc::clone(&config),
-            commits_core: CommitsCore::new(
+            commit_fetcher: CommitFetcher::new(
                 config.base_branch.clone(),
                 Rc::clone(&forge),
                 Rc::clone(&package_configs),
@@ -153,7 +153,7 @@ impl Core {
         let mut prepared_packages = vec![];
 
         let (commits, tags) = self
-            .commits_core
+            .commit_fetcher
             .get_commits_for_all_packages(target)
             .await?;
 
@@ -171,7 +171,7 @@ impl Core {
             let is_graduating_to_stable =
                 tag_info.map(|i| i.graduating_to_stable).unwrap_or_default();
 
-            let mut commits = self.commits_core.filter_commits_for_package(
+            let mut commits = self.commit_fetcher.filter_commits_for_package(
                 package,
                 current_tag.as_ref(),
                 &commits,
@@ -181,7 +181,7 @@ impl Core {
                 && is_graduating_to_stable
             {
                 let additional = self
-                    .commits_core
+                    .commit_fetcher
                     .fetch_additional_commits_for_prerelease_aggregation(
                         package,
                     )

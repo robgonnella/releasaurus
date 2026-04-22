@@ -18,13 +18,13 @@ pub struct CurrentTagInfo {
     pub graduating_to_stable: bool,
 }
 
-pub struct CommitsCore {
+pub struct CommitFetcher {
     base_branch: String,
     forge: Rc<ForgeManager>,
     package_configs: Rc<ResolvedPackageHash>,
 }
 
-impl CommitsCore {
+impl CommitFetcher {
     pub fn new(
         base_branch: String,
         forge: Rc<ForgeManager>,
@@ -326,7 +326,7 @@ mod tests {
         resolved.get(name).cloned().unwrap()
     }
 
-    fn create_test_commits_core() -> CommitsCore {
+    fn create_test_commit_fetcher() -> CommitFetcher {
         let base_branch = "main".to_string();
 
         let forge = Rc::new(ForgeManager::new(
@@ -337,7 +337,7 @@ mod tests {
         let package_configs =
             Rc::new(ResolvedPackageHash::new(vec![]).unwrap());
 
-        CommitsCore::new(base_branch, forge, package_configs)
+        CommitFetcher::new(base_branch, forge, package_configs)
     }
 
     #[test]
@@ -370,7 +370,7 @@ mod tests {
         ];
 
         let package = create_test_package("pkg-a", "packages/pkg-a");
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, None, &commits);
@@ -409,7 +409,7 @@ mod tests {
             ..Default::default()
         };
 
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, Some(&tag), &commits);
@@ -437,7 +437,7 @@ mod tests {
         ];
 
         let package = create_test_package("pkg-a", "packages/pkg-a");
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, None, &commits);
@@ -469,7 +469,7 @@ mod tests {
         ];
 
         let package = create_test_package("pkg-a", "packages/pkg-a");
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, None, &commits);
@@ -499,7 +499,7 @@ mod tests {
         ];
 
         let package = create_test_package("root-pkg", ".");
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, None, &commits);
@@ -542,7 +542,7 @@ mod tests {
         package.normalized_additional_paths =
             vec![PathBuf::from("shared/common"), PathBuf::from("docs")];
 
-        let core = create_test_commits_core();
+        let core = create_test_commit_fetcher();
 
         let filtered =
             core.filter_commits_for_package(&package, None, &commits);
@@ -628,10 +628,10 @@ mod tests {
         let (_, package_configs) =
             resolver.resolve(vec![pkg_a_config, pkg_b_config]).unwrap();
 
-        let commits_core =
-            CommitsCore::new("main".into(), forge, Rc::new(package_configs));
+        let commit_fetcher =
+            CommitFetcher::new("main".into(), forge, Rc::new(package_configs));
 
-        let (commits, tags) = commits_core
+        let (commits, tags) = commit_fetcher
             .get_commits_for_all_packages(None)
             .await
             .unwrap();
@@ -706,10 +706,10 @@ mod tests {
         let (_, package_configs) =
             resolver.resolve(vec![pkg_a_config, pkg_b_config]).unwrap();
 
-        let commits_core =
-            CommitsCore::new("main".into(), forge, Rc::new(package_configs));
+        let commit_fetcher =
+            CommitFetcher::new("main".into(), forge, Rc::new(package_configs));
 
-        let (commits, tags) = commits_core
+        let (commits, tags) = commit_fetcher
             .get_commits_for_all_packages(None)
             .await
             .unwrap();
@@ -718,12 +718,12 @@ mod tests {
         assert_eq!(tags.len(), 2);
     }
 
-    // Helper: build a CommitsCore wired to a single package with a custom
+    // Helper: build a CommitFetcher wired to a single package with a custom
     // mock. Used by graduating_to_stable and aggregation tests.
-    fn make_commits_core_with_package(
+    fn make_commit_fetcher_with_package(
         mock: MockForge,
         pkg_config: PackageConfig,
-    ) -> CommitsCore {
+    ) -> CommitFetcher {
         let config = Rc::new(Config::default());
 
         let resolver = ResolverBuilder::default()
@@ -747,7 +747,7 @@ mod tests {
 
         let (_, resolved) = resolver.resolve(vec![pkg_config]).unwrap();
 
-        CommitsCore::new("main".into(), forge, Rc::new(resolved))
+        CommitFetcher::new("main".into(), forge, Rc::new(resolved))
     }
 
     // --- graduating_to_stable detection ---
@@ -772,8 +772,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -801,8 +804,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             !tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -836,8 +842,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             !tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -859,8 +868,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             !tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -894,8 +906,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -929,8 +944,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg);
-        let (_, tags) = core.get_commits_for_all_packages(None).await.unwrap();
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+        let (_, tags) = commit_fetcher
+            .get_commits_for_all_packages(None)
+            .await
+            .unwrap();
 
         assert!(
             tags.get("test-pkg").unwrap().graduating_to_stable,
@@ -967,10 +985,10 @@ mod tests {
             .release_type(ReleaseType::Node)
             .build()
             .unwrap();
-        let core = make_commits_core_with_package(mock, pkg_config);
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg_config);
         let pkg = create_test_package("test-pkg", "packages/pkg-a");
 
-        let result = core
+        let result = commit_fetcher
             .fetch_additional_commits_for_prerelease_aggregation(&pkg)
             .await
             .unwrap();
@@ -1021,11 +1039,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg_config);
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg_config);
         // create resolved pkg
         let pkg = create_test_package("test-pkg", "packages/pkg-a");
 
-        let result = core
+        let result = commit_fetcher
             .fetch_additional_commits_for_prerelease_aggregation(&pkg)
             .await
             .unwrap();
@@ -1077,11 +1095,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let core = make_commits_core_with_package(mock, pkg_config);
+        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg_config);
         // create resolved pkg
         let pkg = create_test_package("test-pkg", "packages/pkg-a");
 
-        let result = core
+        let result = commit_fetcher
             .fetch_additional_commits_for_prerelease_aggregation(&pkg)
             .await
             .unwrap();

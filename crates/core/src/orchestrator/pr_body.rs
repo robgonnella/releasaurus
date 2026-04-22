@@ -3,7 +3,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use crate::{
-    orchestrator::core::PRMetadata,
+    orchestrator::package_processor::PRMetadata,
     result::{ReleasaurusError, Result},
 };
 

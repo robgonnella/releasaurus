@@ -48,7 +48,7 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
             })
         });
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
         name: "test-pkg".to_string(),
@@ -61,12 +61,12 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
     assert_eq!(pr_requests[0].request.base_branch, "main");
@@ -97,7 +97,7 @@ async fn create_pr_branches_includes_metadata_in_body() {
             })
         });
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
         name: "test-pkg".to_string(),
@@ -110,12 +110,12 @@ async fn create_pr_branches_includes_metadata_in_body() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
 
@@ -151,7 +151,7 @@ async fn create_pr_branches_uses_sha_compare_link() {
             })
         });
 
-    let core = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let tag_compare_link = "tag_compare_link";
     let sha_compare_link = "sha_compare_link";
@@ -169,12 +169,12 @@ async fn create_pr_branches_uses_sha_compare_link() {
         ..Default::default()
     };
 
-    let grouped = core
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let pr_requests = core.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
 
@@ -240,7 +240,8 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         ..Default::default()
     };
 
-    let orchestrator = create_core(mock_forge, Some(pkg_configs), Some(config));
+    let processor =
+        create_package_processor(mock_forge, Some(pkg_configs), Some(config));
 
     let releasable_a = ReleasablePackage {
         name: "pkg-a".to_string(),
@@ -264,12 +265,12 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     // Should create one PR for both packages
     assert_eq!(pr_requests.len(), 1);
@@ -330,7 +331,8 @@ async fn create_pr_branches_handles_separate_branches() {
         ..Default::default()
     };
 
-    let orchestrator = create_core(mock_forge, Some(pkg_configs), Some(config));
+    let processor =
+        create_package_processor(mock_forge, Some(pkg_configs), Some(config));
 
     let releasable_a = ReleasablePackage {
         name: "pkg-a".to_string(),
@@ -354,12 +356,12 @@ async fn create_pr_branches_handles_separate_branches() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     // Should create two separate PRs
     assert_eq!(pr_requests.len(), 2);
@@ -398,7 +400,7 @@ async fn create_pr_branches_includes_file_changes() {
             })
         });
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
         name: "test-pkg".to_string(),
@@ -411,12 +413,12 @@ async fn create_pr_branches_includes_file_changes() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
 }
@@ -442,7 +444,7 @@ async fn create_pr_branches_uses_correct_title_format() {
             })
         });
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
         name: "test-pkg".to_string(),
@@ -455,12 +457,12 @@ async fn create_pr_branches_uses_correct_title_format() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let pr_requests = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(pr_requests.len(), 1);
 
@@ -506,7 +508,7 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
             })
         });
 
-    let orchestrator = create_core(mock_forge, None, None);
+    let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
         name: "test-pkg".to_string(),
@@ -519,12 +521,12 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
         ..Default::default()
     };
 
-    let grouped = orchestrator
+    let grouped = processor
         .release_pr_packages_by_branch(vec![releasable])
         .await
         .unwrap();
 
-    let results = orchestrator.create_pr_branches(grouped).await.unwrap();
+    let results = processor.create_pr_branches(grouped).await.unwrap();
 
     assert_eq!(results.len(), 1);
     let body = &results[0].request.body;
