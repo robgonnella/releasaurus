@@ -15,8 +15,10 @@ use crate::{
 
 /// Default configuration filename
 pub const DEFAULT_CONFIG_FILE: &str = "releasaurus.toml";
-/// Default number of commits to search when finding releases.
-pub const DEFAULT_COMMIT_SEARCH_DEPTH: u64 = 400;
+/// Default number of commits to search when processing first release
+pub const DEFAULT_COMMIT_SEARCH_DEPTH: usize = 400;
+/// Default number of tags to search when looking for previous releases
+pub const DEFAULT_TAG_SEARCH_DEPTH: usize = 100;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[schemars(rename = "Releasaurus TOML Configuration Schema")]
@@ -29,7 +31,10 @@ pub struct Config {
     pub base_branch: Option<String>,
     /// Maximum number of commits to search for the first release when no
     /// tags exist
-    pub first_release_search_depth: u64,
+    pub first_release_search_depth: usize,
+    /// Maximum number of tags to pull when searching for previous releases.
+    /// Set to 0 to search all tags
+    pub tag_search_depth: usize,
     /// Generates different release PRs for each package defined in config
     pub separate_pull_requests: bool,
     /// Global prerelease configuration (suffix + strategy). Packages can
@@ -65,6 +70,7 @@ impl Default for Config {
         Self {
             base_branch: None,
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             separate_pull_requests: false,
             prerelease: PrereleaseConfig::default(),
             auto_start_next: None,

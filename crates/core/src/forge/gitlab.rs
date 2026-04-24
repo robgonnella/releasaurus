@@ -42,12 +42,14 @@ mod graphql;
 mod types;
 
 use crate::{
-    config::{Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE},
+    config::{
+        Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE,
+        DEFAULT_TAG_SEARCH_DEPTH,
+    },
     forge::{
         config::{
-            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH,
-            LEGACY_PENDING_LABEL, PENDING_LABEL, RepoUrl, TokenVar,
-            resolve_token,
+            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL,
+            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
         },
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
@@ -71,7 +73,8 @@ use crate::{
 /// commit history, tags, merge requests, and releases.
 pub struct Gitlab {
     url: RepoUrl,
-    commit_search_depth: Arc<Mutex<u64>>,
+    commit_search_depth: Arc<Mutex<usize>>,
+    tag_search_depth: Arc<Mutex<usize>>,
     gl: AsyncGitlab,
     project_id: String,
     default_branch: String,
@@ -121,6 +124,7 @@ impl Gitlab {
             commit_search_depth: Arc::new(Mutex::new(
                 DEFAULT_COMMIT_SEARCH_DEPTH,
             )),
+            tag_search_depth: Arc::new(Mutex::new(DEFAULT_TAG_SEARCH_DEPTH)),
             gl,
             project_id,
             default_branch,
@@ -200,13 +204,26 @@ impl Forge for Gitlab {
         {
             let config: Config = toml::from_str(&content)?;
 
-            let mut config_search_depth = config.first_release_search_depth;
-            if config_search_depth == 0 {
-                config_search_depth = u64::MAX;
+            let mut config_commit_search_depth =
+                config.first_release_search_depth;
+
+            if config_commit_search_depth == 0 {
+                config_commit_search_depth = usize::MAX;
             }
 
-            let mut search_depth = self.commit_search_depth.lock().await;
-            *search_depth = config_search_depth;
+            let mut config_tag_search_depth = config.tag_search_depth;
+
+            if config_tag_search_depth == 0 {
+                config_tag_search_depth = usize::MAX;
+            }
+
+            // set instance search depths based on config read from repo
+
+            let mut commit_search_depth = self.commit_search_depth.lock().await;
+            *commit_search_depth = config_commit_search_depth;
+
+            let mut tag_search_depth = self.tag_search_depth.lock().await;
+            *tag_search_depth = config_tag_search_depth;
 
             Ok(config)
         } else {
@@ -334,7 +351,10 @@ impl Forge for Gitlab {
         prefix: &str,
         branch: &str,
     ) -> Result<Vec<Tag>> {
+        let tag_search_depth = *self.tag_search_depth.lock().await;
+
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
+
         let endpoint = Tags::builder()
             .project(&self.project_id)
             .order_by(TagsOrderBy::Version)
@@ -342,7 +362,7 @@ impl Forge for Gitlab {
             .build()?;
 
         let gitlab_tags: Vec<GitlabTag> =
-            paged(endpoint, Pagination::Limit(DEFAULT_TAG_SEARCH_DEPTH.into()))
+            paged(endpoint, Pagination::Limit(tag_search_depth))
                 .query_async(&self.gl)
                 .await?;
 
@@ -380,7 +400,7 @@ impl Forge for Gitlab {
     ) -> Result<Vec<ForgeCommit>> {
         let branch = branch.unwrap_or_else(|| self.default_branch());
 
-        let search_depth = self.commit_search_depth.lock().await;
+        let search_depth = *self.commit_search_depth.lock().await;
 
         let mut builder = Commits::builder();
 
@@ -396,9 +416,7 @@ impl Forge for Gitlab {
         }
 
         let endpoint = builder.build()?;
-        let page_limit =
-            cmp::min(DEFAULT_PAGE_SIZE.into(), *search_depth) as usize;
-        let search_depth = *search_depth as usize;
+        let page_limit = cmp::min(DEFAULT_PAGE_SIZE.into(), search_depth);
 
         let mut pagination = Pagination::AllPerPageLimit(page_limit);
         if sha.is_none() {

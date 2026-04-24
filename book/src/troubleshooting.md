@@ -59,9 +59,9 @@ path = "."
 **Use case**: You want faster first release creation and don't need extensive
 commit history in the initial changelog.
 
-**Note**: This setting does NOT affect tag discovery. Releasaurus searches
-all tags regardless of this setting. This only limits how many commits are
-analyzed when no matching tags exist.
+**Note**: This setting does NOT affect tag discovery. It only limits how
+many commits are analyzed when no matching tags exist. To control how many
+tags are fetched, use `tag_search_depth`.
 
 #### Issue: Releasaurus doesn't find existing tags
 

@@ -44,4 +44,4 @@ jobs:
         run: |
           cargo llvm-cov \
             --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
-            --features _integration_tests
+            --features _integration_tests -- --nocapture
