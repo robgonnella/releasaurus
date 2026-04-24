@@ -13,5 +13,5 @@ mod toml;
 
 pub use toml::{
     Config, ConfigBuilder, ConfigBuilderError, DEFAULT_COMMIT_SEARCH_DEPTH,
-    DEFAULT_CONFIG_FILE,
+    DEFAULT_CONFIG_FILE, DEFAULT_TAG_SEARCH_DEPTH,
 };

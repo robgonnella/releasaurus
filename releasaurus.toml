@@ -1,5 +1,7 @@
 #:schema ./schema/schema.json
 
+tag_search_depth = 25
+
 [changelog]
 skip_ci = true
 skip_chore = true

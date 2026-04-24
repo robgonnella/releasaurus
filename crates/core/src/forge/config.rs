@@ -71,8 +71,6 @@ impl std::fmt::Display for RepoUrl {
     }
 }
 
-/// Default number of tag to search when looking for starting tags
-pub const DEFAULT_TAG_SEARCH_DEPTH: u8 = 100;
 /// Default page size for paginated commit queries
 pub const DEFAULT_PAGE_SIZE: u8 = 50;
 /// Default branch name prefix for release PRs.

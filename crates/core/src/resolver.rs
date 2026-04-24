@@ -86,6 +86,7 @@ impl Resolver {
             first_release_search_depth: self
                 .toml_config
                 .first_release_search_depth,
+            tag_search_depth: self.toml_config.tag_search_depth,
             global_overrides: self.global_overrides.clone(),
             package_overrides: self.package_overrides.clone(),
             prerelease: self.toml_config.prerelease.clone(),

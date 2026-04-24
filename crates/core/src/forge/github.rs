@@ -19,12 +19,14 @@ mod graphql;
 mod types;
 
 use crate::{
-    config::{Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE},
+    config::{
+        Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE,
+        DEFAULT_TAG_SEARCH_DEPTH,
+    },
     forge::{
         config::{
-            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, DEFAULT_TAG_SEARCH_DEPTH,
-            LEGACY_PENDING_LABEL, PENDING_LABEL, RepoUrl, TokenVar,
-            resolve_token,
+            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL,
+            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
         },
         github::{
             graphql::{
@@ -51,7 +53,8 @@ use crate::{
 /// commit history, tags, PRs, and releases.
 pub struct Github {
     url: RepoUrl,
-    commit_search_depth: Arc<Mutex<u64>>,
+    commit_search_depth: Arc<Mutex<usize>>,
+    tag_search_depth: Arc<Mutex<usize>>,
     base_uri: String,
     instance: Octocrab,
     default_branch: String,
@@ -104,6 +107,7 @@ impl Github {
             commit_search_depth: Arc::new(Mutex::new(
                 DEFAULT_COMMIT_SEARCH_DEPTH,
             )),
+            tag_search_depth: Arc::new(Mutex::new(DEFAULT_TAG_SEARCH_DEPTH)),
             base_uri,
             instance,
             default_branch,
@@ -251,14 +255,26 @@ impl Forge for Github {
         {
             let config: Config = toml::from_str(&content)?;
 
-            let mut config_search_depth = config.first_release_search_depth;
+            let mut config_commit_search_depth =
+                config.first_release_search_depth;
 
-            if config_search_depth == 0 {
-                config_search_depth = u64::MAX;
+            if config_commit_search_depth == 0 {
+                config_commit_search_depth = usize::MAX;
             }
 
-            let mut search_depth = self.commit_search_depth.lock().await;
-            *search_depth = config_search_depth;
+            let mut config_tag_search_depth = config.tag_search_depth;
+
+            if config_tag_search_depth == 0 {
+                config_tag_search_depth = usize::MAX;
+            }
+
+            // set instance search depths based on config read from repo
+
+            let mut commit_search_depth = self.commit_search_depth.lock().await;
+            *commit_search_depth = config_commit_search_depth;
+
+            let mut tag_search_depth = self.tag_search_depth.lock().await;
+            *tag_search_depth = config_tag_search_depth;
 
             Ok(config)
         } else {
@@ -364,6 +380,8 @@ impl Forge for Github {
         prefix: &str,
         branch: &str,
     ) -> Result<Vec<Tag>> {
+        let tag_search_depth = *self.tag_search_depth.lock().await;
+
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
         let mut cursor = None;
@@ -389,7 +407,7 @@ impl Forge for Github {
             has_next_page = result.data.repository.refs.page_info.has_next_page;
 
             for tag in result.data.repository.refs.nodes.into_iter() {
-                if count >= DEFAULT_TAG_SEARCH_DEPTH {
+                if count >= tag_search_depth {
                     has_next_page = false;
                     break;
                 }
@@ -440,7 +458,7 @@ impl Forge for Github {
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let branch = branch.unwrap_or_else(|| self.default_branch());
-        let search_depth = self.commit_search_depth.lock().await;
+        let search_depth = *self.commit_search_depth.lock().await;
 
         let stream = if let Some(sha) = sha.clone() {
             let vars = ShaDateQueryVariables {
@@ -486,7 +504,7 @@ impl Forge for Github {
         let mut commits = vec![];
 
         while let Some(thin_commit) = stream.try_next().await? {
-            if sha.is_none() && count >= *search_depth as usize {
+            if sha.is_none() && count >= search_depth {
                 return Ok(commits);
             }
 

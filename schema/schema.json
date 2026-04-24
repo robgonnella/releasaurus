@@ -15,9 +15,16 @@
     "first_release_search_depth": {
       "description": "Maximum number of commits to search for the first release when no\ntags exist",
       "type": "integer",
-      "format": "uint64",
+      "format": "uint",
       "minimum": 0,
       "default": 400
+    },
+    "tag_search_depth": {
+      "description": "Maximum number of tags to pull when searching for previous releases.\nSet to 0 to search all tags",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0,
+      "default": 100
     },
     "separate_pull_requests": {
       "description": "Generates different release PRs for each package defined in config",

@@ -71,6 +71,7 @@ mod tests {
     use url::Url;
 
     use crate::config::{
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
         changelog::ChangelogConfig,
         package::{PackageConfigBuilder, SubPackage},
         resolved::{CommitModifiers, GlobalOverrides},
@@ -88,7 +89,8 @@ mod tests {
             package_overrides: HashMap::default(),
             global_overrides: GlobalOverrides::default(),
             commit_modifiers: CommitModifiers::default(),
-            first_release_search_depth: 100,
+            first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             separate_pull_requests: true,
             prerelease: PrereleaseConfig::default(),
             auto_start_next: None,

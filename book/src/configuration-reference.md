@@ -37,6 +37,25 @@ first_release_search_depth = 400
 - Need more history: increase to 1000+
 - CI/CD: use smaller values for speed
 
+### `tag_search_depth`
+
+**Type**: Integer (optional)
+
+**Default**: 100
+
+Maximum number of tags fetched from the forge when searching for a
+previous release. Set to `0` to fetch all tags.
+
+```toml
+tag_search_depth = 100
+```
+
+**When to adjust:**
+
+- Repos with many tags: decrease to reduce API calls
+- Previous release tag is beyond the default window: increase or
+  set to `0`
+
 ### `separate_pull_requests`
 
 **Type**: Boolean (optional)
