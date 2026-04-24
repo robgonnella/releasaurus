@@ -10,10 +10,32 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-release:
-    runs-on: ubuntu-latest
+  build:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os-name: MacOS-aarch64
+            runs-on: macOS-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.platform.runs-on }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-push-pull-cache
-      - name: build
-        run: cargo build --release
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Build with cross
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          toolchain: 1.92.0
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
