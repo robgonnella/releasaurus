@@ -1,3 +1,13 @@
+# [0.19.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.18.0...v0.19.0-rc.1) - 2026-04-24
+
+### 🚀 Features
+
+- adds config option for tag search depth [_(2fd6156)_](https://github.com/robgonnella/releasaurus/commit/2fd6156b282f3c743b27ed4f8a0d462e622031e3) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- applies search depth features to local repo [_(d89d1e3)_](https://github.com/robgonnella/releasaurus/commit/d89d1e3718a407af0849f9d422c305ccdbb0feff) (Rob Gonnella)
+
 # [0.18.0](https://github.com/robgonnella/releasaurus/compare/v0.18.0-rc.3...v0.18.0) - 2026-04-22
 
 ### 🚀 Features
