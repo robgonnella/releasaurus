@@ -99,23 +99,26 @@ fn get_dry_run_value(cli: &Cli) -> bool {
 }
 
 async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
-    let forge = cli.forge_args.forge().await?;
-
-    let forge_manager = ForgeManager::new(forge, ForgeOptions { dry_run });
+    let mut forge = cli.forge_args.forge().await?;
 
     let global_overrides = cli.get_global_overrides();
     let package_overrides = cli.get_package_overrides()?;
     let commit_modifiers = cli.get_commit_modifiers();
 
-    log::debug!("global overrides: {:#?}", global_overrides);
-    log::debug!("package overrides: {:#?}", package_overrides);
-    log::debug!("commit modifiers: {:#?}", commit_modifiers);
-
     let config = Rc::new(
-        forge_manager
+        forge
             .load_config(global_overrides.base_branch.clone())
             .await?,
     );
+
+    forge.set_commit_search_depth(config.first_release_search_depth);
+    forge.set_tag_search_depth(config.tag_search_depth);
+
+    let forge_manager = ForgeManager::new(forge, ForgeOptions { dry_run });
+
+    log::debug!("global overrides: {:#?}", global_overrides);
+    log::debug!("package overrides: {:#?}", package_overrides);
+    log::debug!("commit modifiers: {:#?}", commit_modifiers);
 
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch();

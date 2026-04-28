@@ -9,8 +9,7 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::{ExposeSecret, SecretString};
-use std::{cmp, sync::Arc};
-use tokio::sync::Mutex;
+use std::cmp;
 use url::Url;
 
 use crate::{
@@ -46,8 +45,8 @@ mod types;
 /// commit history, tags, pull requests, and releases.
 pub struct Gitea {
     url: RepoUrl,
-    commit_search_depth: Arc<Mutex<usize>>,
-    tag_search_depth: Arc<Mutex<usize>>,
+    commit_search_depth: usize,
+    tag_search_depth: usize,
     base_url: Url,
     client: Client,
     default_branch: String,
@@ -115,10 +114,8 @@ impl Gitea {
 
         Ok(Self {
             url,
-            commit_search_depth: Arc::new(Mutex::new(
-                DEFAULT_COMMIT_SEARCH_DEPTH,
-            )),
-            tag_search_depth: Arc::new(Mutex::new(DEFAULT_TAG_SEARCH_DEPTH)),
+            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             client,
             base_url,
             release_link_base_url,
@@ -204,6 +201,14 @@ impl Forge for Gitea {
         self.default_branch.clone()
     }
 
+    fn set_commit_search_depth(&mut self, depth: usize) {
+        self.commit_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_tag_search_depth(&mut self, depth: usize) {
+        self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
     async fn get_file_content(
         &self,
         req: GetFileContentRequest,
@@ -233,27 +238,6 @@ impl Forge for Gitea {
             .await?
         {
             let config: Config = toml::from_str(&content)?;
-
-            let mut config_commit_search_depth =
-                config.first_release_search_depth;
-
-            if config_commit_search_depth == 0 {
-                config_commit_search_depth = usize::MAX;
-            }
-
-            let mut config_tag_search_depth = config.tag_search_depth;
-
-            if config_tag_search_depth == 0 {
-                config_tag_search_depth = usize::MAX;
-            }
-
-            // set instance search depths based on config read from repo
-
-            let mut commit_search_depth = self.commit_search_depth.lock().await;
-            *commit_search_depth = config_commit_search_depth;
-
-            let mut tag_search_depth = self.tag_search_depth.lock().await;
-            *tag_search_depth = config_tag_search_depth;
 
             Ok(config)
         } else {
@@ -303,8 +287,6 @@ impl Forge for Gitea {
         prefix: &str,
         branch: &str,
     ) -> Result<Vec<Tag>> {
-        let tag_search_depth = *self.tag_search_depth.lock().await;
-
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut has_more = true;
         let mut page = 1;
@@ -335,7 +317,7 @@ impl Forge for Gitea {
             let page_tags: Vec<GiteaTag> = result.json().await?;
 
             for tag in page_tags.into_iter() {
-                if count >= tag_search_depth {
+                if count >= self.tag_search_depth {
                     has_more = false;
                     break;
                 }
@@ -373,8 +355,8 @@ impl Forge for Gitea {
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let mut page = 1;
-        let search_depth = *self.commit_search_depth.lock().await;
-        let page_limit = cmp::min(DEFAULT_PAGE_SIZE.into(), search_depth);
+        let page_limit =
+            cmp::min(DEFAULT_PAGE_SIZE.into(), self.commit_search_depth);
         let mut has_more = true;
         let mut count = 0;
         let mut commits: Vec<ForgeCommit> = vec![];
@@ -421,7 +403,7 @@ impl Forge for Gitea {
 
             for result in results.iter() {
                 // only apply search depth if this is the first release
-                if sha.is_none() && count >= search_depth {
+                if sha.is_none() && count >= self.commit_search_depth {
                     return Ok(commits);
                 }
 

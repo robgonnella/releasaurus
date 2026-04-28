@@ -15,7 +15,10 @@ use tokio::{fs, sync::Mutex};
 use url::Url;
 
 use crate::{
-    config::{Config, DEFAULT_CONFIG_FILE},
+    config::{
+        Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE,
+        DEFAULT_TAG_SEARCH_DEPTH,
+    },
     forge::{
         config::RepoUrl,
         request::{
@@ -55,6 +58,8 @@ pub struct LocalRepo {
     default_branch: String,
     link_base_url: Url,
     remote: Option<Remote>,
+    commit_search_depth: usize,
+    tag_search_depth: usize,
     // only used in testing
     push_targets_disabled: bool,
 }
@@ -119,6 +124,8 @@ impl LocalRepo {
             default_branch,
             link_base_url,
             remote,
+            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             push_targets_disabled: false,
         })
     }
@@ -373,6 +380,14 @@ impl Forge for LocalRepo {
         }
     }
 
+    fn set_commit_search_depth(&mut self, depth: usize) {
+        self.commit_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_tag_search_depth(&mut self, depth: usize) {
+        self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
     async fn get_file_content(
         &self,
         req: GetFileContentRequest,
@@ -428,26 +443,32 @@ impl Forge for LocalRepo {
             .collect::<Vec<git2::Reference>>();
 
         let mut commits: Vec<(git2::Commit, Tag)> = vec![];
+        let mut count = 0;
 
         for reference in references.iter() {
-            if reference.is_tag()
-                && let Some(name) = reference.name()
-                && let Some(stripped) = name.strip_prefix("refs/tags/")
-                && tag_prefix_regex.is_match(stripped)
-            {
-                let commit = reference.peel_to_commit()?;
-                let semver = semver::Version::parse(
-                    tag_prefix_regex.replace_all(stripped, "").as_ref(),
-                )?;
+            if reference.is_tag() {
+                if count >= self.tag_search_depth {
+                    break;
+                }
+                count += 1;
+                if let Some(name) = reference.name()
+                    && let Some(stripped) = name.strip_prefix("refs/tags/")
+                    && tag_prefix_regex.is_match(stripped)
+                {
+                    let commit = reference.peel_to_commit()?;
+                    let semver = semver::Version::parse(
+                        tag_prefix_regex.replace_all(stripped, "").as_ref(),
+                    )?;
 
-                let tag = Tag {
-                    sha: commit.id().to_string(),
-                    name: stripped.to_string(),
-                    semver,
-                    timestamp: Some(commit.time().seconds()),
-                };
+                    let tag = Tag {
+                        sha: commit.id().to_string(),
+                        name: stripped.to_string(),
+                        semver,
+                        timestamp: Some(commit.time().seconds()),
+                    };
 
-                commits.push((commit, tag));
+                    commits.push((commit, tag));
+                }
             }
         }
 
@@ -487,15 +508,22 @@ impl Forge for LocalRepo {
 
         revwalk.set_sorting(Sort::TIME)?;
 
-        if let Some(sha) = sha {
+        if let Some(sha) = sha.as_ref() {
             revwalk.push_range(&format!("{sha}..HEAD"))?;
         } else {
             revwalk.push_head()?;
         }
 
+        let limit = if sha.is_some() {
+            usize::MAX
+        } else {
+            self.commit_search_depth
+        };
+
         let commits: Vec<Git2Commit> = revwalk
             .filter_map(|id| id.ok())
             .filter_map(|id| repo.find_commit(id).ok())
+            .take(limit)
             .collect();
 
         let mut forge_commits = vec![];

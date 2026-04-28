@@ -11,8 +11,7 @@ use octocrab::{
 use regex::Regex;
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, SecretString};
-use std::sync::Arc;
-use tokio::{pin, sync::Mutex};
+use tokio::pin;
 use url::Url;
 
 mod graphql;
@@ -53,8 +52,8 @@ use crate::{
 /// commit history, tags, PRs, and releases.
 pub struct Github {
     url: RepoUrl,
-    commit_search_depth: Arc<Mutex<usize>>,
-    tag_search_depth: Arc<Mutex<usize>>,
+    commit_search_depth: usize,
+    tag_search_depth: usize,
     base_uri: String,
     instance: Octocrab,
     default_branch: String,
@@ -104,10 +103,8 @@ impl Github {
 
         Ok(Self {
             url,
-            commit_search_depth: Arc::new(Mutex::new(
-                DEFAULT_COMMIT_SEARCH_DEPTH,
-            )),
-            tag_search_depth: Arc::new(Mutex::new(DEFAULT_TAG_SEARCH_DEPTH)),
+            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             base_uri,
             instance,
             default_branch,
@@ -245,6 +242,14 @@ impl Forge for Github {
         self.default_branch.clone()
     }
 
+    fn set_commit_search_depth(&mut self, depth: usize) {
+        self.commit_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_tag_search_depth(&mut self, depth: usize) {
+        self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
     async fn load_config(&self, branch: Option<String>) -> Result<Config> {
         if let Some(content) = self
             .get_file_content(GetFileContentRequest {
@@ -254,27 +259,6 @@ impl Forge for Github {
             .await?
         {
             let config: Config = toml::from_str(&content)?;
-
-            let mut config_commit_search_depth =
-                config.first_release_search_depth;
-
-            if config_commit_search_depth == 0 {
-                config_commit_search_depth = usize::MAX;
-            }
-
-            let mut config_tag_search_depth = config.tag_search_depth;
-
-            if config_tag_search_depth == 0 {
-                config_tag_search_depth = usize::MAX;
-            }
-
-            // set instance search depths based on config read from repo
-
-            let mut commit_search_depth = self.commit_search_depth.lock().await;
-            *commit_search_depth = config_commit_search_depth;
-
-            let mut tag_search_depth = self.tag_search_depth.lock().await;
-            *tag_search_depth = config_tag_search_depth;
 
             Ok(config)
         } else {
@@ -380,8 +364,6 @@ impl Forge for Github {
         prefix: &str,
         branch: &str,
     ) -> Result<Vec<Tag>> {
-        let tag_search_depth = *self.tag_search_depth.lock().await;
-
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
         let mut cursor = None;
@@ -407,7 +389,7 @@ impl Forge for Github {
             has_next_page = result.data.repository.refs.page_info.has_next_page;
 
             for tag in result.data.repository.refs.nodes.into_iter() {
-                if count >= tag_search_depth {
+                if count >= self.tag_search_depth {
                     has_next_page = false;
                     break;
                 }
@@ -458,7 +440,6 @@ impl Forge for Github {
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
         let branch = branch.unwrap_or_else(|| self.default_branch());
-        let search_depth = *self.commit_search_depth.lock().await;
 
         let stream = if let Some(sha) = sha.clone() {
             let vars = ShaDateQueryVariables {
@@ -504,7 +485,7 @@ impl Forge for Github {
         let mut commits = vec![];
 
         while let Some(thin_commit) = stream.try_next().await? {
-            if sha.is_none() && count >= search_depth {
+            if sha.is_none() && count >= self.commit_search_depth {
                 return Ok(commits);
             }
 

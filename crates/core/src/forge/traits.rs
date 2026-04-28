@@ -30,6 +30,12 @@ pub trait Forge: Any + Send + Sync {
     fn compare_link_base_url(&self) -> Url;
     /// Fetch the default branch name (e.g., "main" or "master").
     fn default_branch(&self) -> String;
+    /// Sets the commit search depth when fetching commit for the first release.
+    /// This only applies to the first release, or when no tag is found.
+    fn set_commit_search_depth(&mut self, depth: usize);
+    /// Sets the tag search depth when searching for tags. Previous tags are
+    /// used as markers for commits to include in next release
+    fn set_tag_search_depth(&mut self, depth: usize);
     /// Load releasaurus.toml configuration from repository root.
     async fn load_config(&self, branch: Option<String>) -> Result<Config>;
     /// Fetch file content from repository by path, returning None if file
