@@ -866,20 +866,26 @@ impl Forge for Github {
     }
 
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()> {
-        let all_labels = self
+        let stream = self
             .instance
             .issues(&self.url.owner, &self.url.name)
             .list_labels_for_repo()
-            .per_page(100)
+            .per_page(DEFAULT_PAGE_SIZE)
             .send()
-            .await?;
+            .await?
+            .into_stream(&self.instance);
 
+        pin!(stream);
+
+        let mut all_labels = vec![];
         let mut labels = vec![];
 
+        while let Some(label) = stream.try_next().await? {
+            all_labels.push(label);
+        }
+
         for name in req.labels {
-            if let Some(label) =
-                all_labels.items.iter().find(|l| l.name == name)
-            {
+            if let Some(label) = all_labels.iter().find(|l| l.name == name) {
                 labels.push(label.name.clone())
             } else {
                 let label = self
