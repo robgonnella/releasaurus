@@ -136,11 +136,32 @@ impl Gitea {
     }
 
     async fn get_all_labels(&self) -> Result<Vec<Label>> {
-        let labels_url = self.base_url.join("labels")?;
-        let request = self.client.get(labels_url).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let labels: Vec<Label> = result.json().await?;
+        let mut has_more = true;
+        let mut page = 1;
+        let page_limit = DEFAULT_PAGE_SIZE.to_string();
+        let mut labels = vec![];
+
+        while has_more {
+            let mut labels_url = self.base_url.join("labels")?;
+
+            labels_url
+                .query_pairs_mut()
+                .append_pair("limit", &page_limit)
+                .append_pair("page", &page.to_string());
+
+            let request = self.client.get(labels_url).build()?;
+            let response = self.client.execute(request).await?;
+            let headers = response.headers();
+            has_more = headers
+                .get("x-hasmore")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
+                .unwrap_or(false);
+            let result = response.error_for_status()?;
+            let batch: Vec<Label> = result.json().await?;
+            labels.extend(batch);
+            page += 1;
+        }
+
         Ok(labels)
     }
 
@@ -310,7 +331,7 @@ impl Forge for Gitea {
 
             has_more = headers
                 .get("x-hasmore")
-                .map(|h| h.to_str().unwrap() == "true")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
                 .unwrap_or(false);
 
             let result = response.error_for_status()?;
@@ -395,7 +416,7 @@ impl Forge for Gitea {
 
             has_more = headers
                 .get("x-hasmore")
-                .map(|h| h.to_str().unwrap() == "true")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
                 .unwrap_or(false);
 
             let result = response.error_for_status()?;
@@ -605,7 +626,7 @@ impl Forge for Gitea {
 
                 has_more = headers
                     .get("x-hasmore")
-                    .map(|h| h.to_str().unwrap() == "true")
+                    .map(|h| h.to_str().unwrap_or_default() == "true")
                     .unwrap_or(false);
 
                 let result = response.error_for_status()?;
@@ -686,7 +707,7 @@ impl Forge for Gitea {
 
                 has_more = headers
                     .get("x-hasmore")
-                    .map(|h| h.to_str().unwrap() == "true")
+                    .map(|h| h.to_str().unwrap_or_default() == "true")
                     .unwrap_or(false);
 
                 let result = response.error_for_status()?;

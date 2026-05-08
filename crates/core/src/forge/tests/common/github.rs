@@ -48,6 +48,8 @@ impl GithubForgeTestHelper {
     }
 
     async fn close_all_prs(&self) -> Result<()> {
+        log::info!("closing all prs");
+
         let pulls = self
             .instance
             .pulls(&self.owner, &self.repo)
@@ -74,6 +76,8 @@ impl GithubForgeTestHelper {
     }
 
     async fn delete_all_releases(&self) -> Result<()> {
+        log::info!("deleting all releases");
+
         let releases = self
             .instance
             .repos(&self.owner, &self.repo)
@@ -94,6 +98,8 @@ impl GithubForgeTestHelper {
     }
 
     async fn delete_all_tags(&self) -> Result<()> {
+        log::info!("deleting all tags");
+
         let tags = self
             .instance
             .repos(&self.owner, &self.repo)
@@ -112,6 +118,8 @@ impl GithubForgeTestHelper {
     }
 
     async fn delete_all_branches(&self) -> Result<()> {
+        log::info!("deleting all branches");
+
         let branches = self
             .instance
             .repos(&self.owner, &self.repo)
@@ -134,6 +142,8 @@ impl GithubForgeTestHelper {
     }
 
     async fn force_reset_history(&self) -> Result<()> {
+        log::info!("force resetting history");
+
         let route = format!(
             "{}/repos/{}/{}/git/refs/heads/{}",
             self.base_uri, self.owner, self.repo, self.default_branch

@@ -85,6 +85,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn close_all_prs(&self) -> Result<()> {
+        log::info!("closing all prs");
+
         let issues_url = self
             .base_url
             .join("issues?state=open&type=pulls&limit=9999")?;
@@ -116,6 +118,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn delete_all_prs(&self) -> Result<()> {
+        log::info!("deleting all prs");
+
         let issues_url = self
             .base_url
             .join("issues?state=closed&type=pulls&limit=9999")?;
@@ -141,6 +145,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn delete_all_releases(&self) -> Result<()> {
+        log::info!("deleting all releases");
+
         let releases_url = self.base_url.join("releases?limit=9999")?;
         let request = self.client.get(releases_url).build()?;
         let response = self.client.execute(request).await?;
@@ -163,6 +169,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn delete_all_tags(&self) -> Result<()> {
+        log::info!("deleting all tags");
+
         let tags_url = self.base_url.join("tags?limit=9999")?;
         let request = self.client.get(tags_url).build()?;
         let response = self.client.execute(request).await?;
@@ -184,6 +192,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn delete_all_branches(&self) -> Result<()> {
+        log::info!("deleting all branches");
+
         let branches_url = self.base_url.join("branches?limit=9999")?;
         let request = self.client.get(branches_url).build()?;
         let response = self.client.execute(request).await?;
@@ -210,6 +220,8 @@ impl GiteaForgeTestHelper {
     }
 
     async fn force_reset_history(&self) -> Result<()> {
+        log::info!("force resetting history");
+
         let default_renamed = format!("{}-old", self.default_branch);
 
         // rename original default branch -> main -> main-old

@@ -134,9 +134,12 @@ impl Gitlab {
     async fn get_repo_labels(&self) -> Result<Vec<LabelInfo>> {
         let endpoint = Labels::builder().project(&self.project_id).build()?;
 
-        let labels: Vec<LabelInfo> = paged(endpoint, Pagination::All)
-            .query_async(&self.gl)
-            .await?;
+        let labels: Vec<LabelInfo> = paged(
+            endpoint,
+            Pagination::AllPerPageLimit(DEFAULT_PAGE_SIZE.into()),
+        )
+        .query_async(&self.gl)
+        .await?;
 
         Ok(labels)
     }

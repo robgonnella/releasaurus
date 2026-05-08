@@ -150,6 +150,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn close_all_prs(&self) -> Result<()> {
+        log::info!("closing all prs");
+
         let endpoint = MergeRequests::builder()
             .project(&self.project_id)
             .state(MergeRequestState::Opened)
@@ -172,6 +174,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn delete_all_prs(&self) -> Result<()> {
+        log::info!("deleting all prs");
+
         let endpoint =
             MergeRequests::builder().project(&self.project_id).build()?;
 
@@ -190,6 +194,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn delete_all_releases(&self) -> Result<()> {
+        log::info!("deleting all releases");
+
         let endpoint = ProjectReleases::builder()
             .project(&self.project_id)
             .build()?;
@@ -210,6 +216,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn delete_all_tags(&self) -> Result<()> {
+        log::info!("deleting all tags");
+
         let endpoint = Tags::builder()
             .project(&self.project_id)
             .order_by(TagsOrderBy::Updated)
@@ -229,6 +237,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn delete_all_branches(&self) -> Result<()> {
+        log::info!("deleting all branches");
+
         let endpoint = Branches::builder().project(&self.project_id).build()?;
 
         let branches: Vec<GitlabBranch> =
@@ -251,6 +261,8 @@ impl GitlabForgeTestHelper {
     }
 
     async fn force_reset_history(&self) -> Result<()> {
+        log::info!("force resetting history");
+
         let default_renamed = format!("{}-old", self.default_branch);
 
         // rename main -> main-old
