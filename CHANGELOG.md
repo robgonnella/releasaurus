@@ -1,3 +1,21 @@
+# [0.19.0](https://github.com/robgonnella/releasaurus/compare/v0.19.0-rc.1...v0.19.0) - 2026-05-08
+
+### 🚀 Features
+
+- adds config option for tag search depth [_(2fd6156)_](https://github.com/robgonnella/releasaurus/commit/2fd6156b282f3c743b27ed4f8a0d462e622031e3) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- applies search depth features to local repo [_(d89d1e3)_](https://github.com/robgonnella/releasaurus/commit/d89d1e3718a407af0849f9d422c305ccdbb0feff) (Rob Gonnella)
+
+- minor update to prerelease docs [_(4ab12a3)_](https://github.com/robgonnella/releasaurus/commit/4ab12a3da47df91b76fa66e89cc1b32d1bd3c219) (Rob Gonnella)
+
+- _(gitlab)_ tag to squash commit [_(36ab4e3)_](https://github.com/robgonnella/releasaurus/commit/36ab4e3e05ef445394598f83ee709bfde30209f0) (nblair2)
+
+- _(gitlab)_ paginate labels [_(c12c92e)_](https://github.com/robgonnella/releasaurus/commit/c12c92ea6f25e438954f06f9ebd7515401f5428d) (nblair2)
+
+- addresses issues with getting labels in github and gitea [_(c7d3acc)_](https://github.com/robgonnella/releasaurus/commit/c7d3acc566372c46d6b828b838c223f64ca14ec6) (Rob Gonnella)
+
 # [0.19.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.18.0...v0.19.0-rc.1) - 2026-04-24
 
 ### 🚀 Features
