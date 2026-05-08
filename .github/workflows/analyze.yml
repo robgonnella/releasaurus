@@ -49,7 +49,7 @@ jobs:
         with:
           components: clippy
       - name: lint
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
