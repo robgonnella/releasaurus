@@ -102,12 +102,16 @@ impl VersionStrategy for StableVersionStrategy {
 /// Strategy for versioned prerelease versions (e.g., alpha.1, alpha.2).
 pub struct VersionedPrereleaseStrategy {
     identifier: String,
+    build_metadata: Option<String>,
 }
 
 impl VersionedPrereleaseStrategy {
     /// Create a new versioned prerelease strategy with the given identifier.
-    pub fn new(identifier: String) -> Self {
-        Self { identifier }
+    pub fn new(identifier: String, build_metadata: Option<String>) -> Self {
+        Self {
+            identifier,
+            build_metadata,
+        }
     }
 }
 
@@ -130,6 +134,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                     next_stable,
                     &self.identifier,
                     PrereleaseStrategy::Versioned,
+                    self.build_metadata.as_deref(),
                 )
             } else {
                 // Currently in a prerelease
@@ -143,8 +148,13 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                         current.semver
                     );
                     let version_updater = context.create_version_updater()?;
-                    Ok(version_updater
-                        .increment(&current.semver, context.commits.to_vec()))
+                    let mut next = version_updater
+                        .increment(&current.semver, context.commits.to_vec());
+                    if let Some(ref build) = self.build_metadata {
+                        next.build =
+                            semver::BuildMetadata::new(build.as_str())?;
+                    }
+                    Ok(next)
                 } else {
                     // Different prerelease identifier - switch to new one
                     log::info!(
@@ -161,6 +171,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                         stable_next,
                         &self.identifier,
                         PrereleaseStrategy::Versioned,
+                        self.build_metadata.as_deref(),
                     )
                 }
             }
@@ -174,6 +185,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                 version,
                 &self.identifier,
                 PrereleaseStrategy::Versioned,
+                self.build_metadata.as_deref(),
             )
         }
     }
@@ -182,12 +194,16 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
 /// Strategy for static prerelease versions (e.g., SNAPSHOT, dev).
 pub struct StaticPrereleaseStrategy {
     identifier: String,
+    build_metadata: Option<String>,
 }
 
 impl StaticPrereleaseStrategy {
     /// Create a new static prerelease strategy with the given identifier.
-    pub fn new(identifier: String) -> Self {
-        Self { identifier }
+    pub fn new(identifier: String, build_metadata: Option<String>) -> Self {
+        Self {
+            identifier,
+            build_metadata,
+        }
     }
 }
 
@@ -210,6 +226,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                     next_stable,
                     &self.identifier,
                     PrereleaseStrategy::Static,
+                    self.build_metadata.as_deref(),
                 )
             } else {
                 // Currently in a prerelease
@@ -231,6 +248,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                         version,
                         &self.identifier,
                         PrereleaseStrategy::Static,
+                        self.build_metadata.as_deref(),
                     )
                 } else {
                     // Different prerelease identifier - switch to new one
@@ -248,6 +266,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                         stable_next,
                         &self.identifier,
                         PrereleaseStrategy::Static,
+                        self.build_metadata.as_deref(),
                     )
                 }
             }
@@ -261,6 +280,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                 version,
                 &self.identifier,
                 PrereleaseStrategy::Static,
+                self.build_metadata.as_deref(),
             )
         }
     }
@@ -276,14 +296,18 @@ impl VersionStrategyFactory {
     ) -> Result<Box<dyn VersionStrategy>> {
         if let Some(config) = prerelease {
             let identifier = config.suffix()?.to_string();
+            let build_metadata = config.build_metadata.clone();
 
             match config.strategy {
                 PrereleaseStrategy::Versioned => {
-                    Ok(Box::new(VersionedPrereleaseStrategy::new(identifier)))
+                    Ok(Box::new(VersionedPrereleaseStrategy::new(
+                        identifier,
+                        build_metadata,
+                    )))
                 }
-                PrereleaseStrategy::Static => {
-                    Ok(Box::new(StaticPrereleaseStrategy::new(identifier)))
-                }
+                PrereleaseStrategy::Static => Ok(Box::new(
+                    StaticPrereleaseStrategy::new(identifier, build_metadata),
+                )),
             }
         } else {
             Ok(Box::new(StableVersionStrategy))
@@ -352,7 +376,8 @@ mod tests {
 
     #[test]
     fn test_versioned_prerelease_first_release() {
-        let strategy = VersionedPrereleaseStrategy::new("alpha".to_string());
+        let strategy =
+            VersionedPrereleaseStrategy::new("alpha".to_string(), None);
         let commits = vec![];
         let context = create_basic_context(None, &commits);
 
@@ -362,7 +387,8 @@ mod tests {
 
     #[test]
     fn test_versioned_prerelease_from_stable() {
-        let strategy = VersionedPrereleaseStrategy::new("alpha".to_string());
+        let strategy =
+            VersionedPrereleaseStrategy::new("alpha".to_string(), None);
         let tag = create_test_tag("1.0.0");
         let commits = vec!["feat: new feature".to_string()];
         let context = create_basic_context(Some(&tag), &commits);
@@ -373,7 +399,8 @@ mod tests {
 
     #[test]
     fn test_versioned_prerelease_increment() {
-        let strategy = VersionedPrereleaseStrategy::new("alpha".to_string());
+        let strategy =
+            VersionedPrereleaseStrategy::new("alpha".to_string(), None);
         let tag = create_test_tag("1.0.0-alpha.1");
         let commits = vec!["fix: bug fix".to_string()];
         let context = create_basic_context(Some(&tag), &commits);
@@ -384,7 +411,8 @@ mod tests {
 
     #[test]
     fn test_versioned_prerelease_switch_identifier() {
-        let strategy = VersionedPrereleaseStrategy::new("beta".to_string());
+        let strategy =
+            VersionedPrereleaseStrategy::new("beta".to_string(), None);
         let tag = create_test_tag("1.0.0-alpha.3");
         let commits = vec!["feat: new feature".to_string()];
         let context = create_basic_context(Some(&tag), &commits);
@@ -395,7 +423,8 @@ mod tests {
 
     #[test]
     fn test_static_prerelease_first_release() {
-        let strategy = StaticPrereleaseStrategy::new("SNAPSHOT".to_string());
+        let strategy =
+            StaticPrereleaseStrategy::new("SNAPSHOT".to_string(), None);
         let commits = vec![];
         let context = create_basic_context(None, &commits);
 
@@ -405,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_static_prerelease_from_stable() {
-        let strategy = StaticPrereleaseStrategy::new("dev".to_string());
+        let strategy = StaticPrereleaseStrategy::new("dev".to_string(), None);
         let tag = create_test_tag("1.0.0");
         let commits = vec!["feat: new feature".to_string()];
         let context = create_basic_context(Some(&tag), &commits);
@@ -416,13 +445,68 @@ mod tests {
 
     #[test]
     fn test_static_prerelease_increment() {
-        let strategy = StaticPrereleaseStrategy::new("SNAPSHOT".to_string());
+        let strategy =
+            StaticPrereleaseStrategy::new("SNAPSHOT".to_string(), None);
         let tag = create_test_tag("1.0.0-SNAPSHOT");
         let commits = vec!["fix: bug fix".to_string()];
         let context = create_basic_context(Some(&tag), &commits);
 
         let result = strategy.calculate_next_version(&context).unwrap();
         assert_eq!(result, Version::parse("1.0.1-SNAPSHOT").unwrap());
+    }
+
+    #[test]
+    fn test_versioned_prerelease_with_build_metadata_first_release() {
+        let strategy = VersionedPrereleaseStrategy::new(
+            "alpha".to_string(),
+            Some("nightly".to_string()),
+        );
+        let commits = vec![];
+        let context = create_basic_context(None, &commits);
+
+        let result = strategy.calculate_next_version(&context).unwrap();
+        assert_eq!(result, Version::parse("0.1.0-alpha.1+nightly").unwrap());
+    }
+
+    #[test]
+    fn test_versioned_prerelease_with_build_metadata_increment() {
+        let strategy = VersionedPrereleaseStrategy::new(
+            "alpha".to_string(),
+            Some("nightly".to_string()),
+        );
+        let tag = create_test_tag("1.0.0-alpha.1");
+        let commits = vec!["fix: bug fix".to_string()];
+        let context = create_basic_context(Some(&tag), &commits);
+
+        let result = strategy.calculate_next_version(&context).unwrap();
+        assert_eq!(result, Version::parse("1.0.0-alpha.2+nightly").unwrap());
+    }
+
+    #[test]
+    fn test_static_prerelease_with_build_metadata_first_release() {
+        let strategy = StaticPrereleaseStrategy::new(
+            "SNAPSHOT".to_string(),
+            Some("nightly".to_string()),
+        );
+        let commits = vec![];
+        let context = create_basic_context(None, &commits);
+
+        let result = strategy.calculate_next_version(&context).unwrap();
+        assert_eq!(result, Version::parse("0.1.0-SNAPSHOT+nightly").unwrap());
+    }
+
+    #[test]
+    fn test_static_prerelease_with_build_metadata_increment() {
+        let strategy = StaticPrereleaseStrategy::new(
+            "SNAPSHOT".to_string(),
+            Some("nightly".to_string()),
+        );
+        let tag = create_test_tag("1.0.0-SNAPSHOT");
+        let commits = vec!["fix: bug fix".to_string()];
+        let context = create_basic_context(Some(&tag), &commits);
+
+        let result = strategy.calculate_next_version(&context).unwrap();
+        assert_eq!(result, Version::parse("1.0.1-SNAPSHOT+nightly").unwrap());
     }
 
     #[test]
@@ -439,6 +523,7 @@ mod tests {
     fn test_factory_creates_versioned_prerelease_strategy() {
         let config = PrereleaseConfig {
             suffix: Some("alpha".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         };
         let strategy = VersionStrategyFactory::create(Some(&config)).unwrap();
@@ -453,6 +538,7 @@ mod tests {
     fn test_factory_creates_static_prerelease_strategy() {
         let config = PrereleaseConfig {
             suffix: Some("SNAPSHOT".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Static,
         };
         let strategy = VersionStrategyFactory::create(Some(&config)).unwrap();

@@ -565,6 +565,9 @@ CI/CD pipelines.
   all packages unless overridden per-package
 - `--prerelease-suffix <suffix>` - Set or override global prerelease
   suffix. Applied to all packages unless overridden per-package
+- `--prerelease-build-metadata <value>` - Set global prerelease build
+  metadata appended after `+` (e.g., `"nightly"`, `"sha.5114f85"`).
+  Applied to all packages unless overridden per-package
 - `--prerelease-strategy <strategy>` - Set global prerelease strategy
   (`versioned` or `static`). Applied to all packages unless overridden
   per-package
@@ -579,6 +582,7 @@ CI/CD pipelines.
   Currently supported:
   - `--set-package <pkg_name>.tag_prefix=<prefix>`
   - `--set-package <pkg_name>.prerelease.suffix=<suffix>`
+  - `--set-package <pkg_name>.prerelease.build_metadata=<value>`
   - `--set-package <pkg_name>.prerelease.strategy=<strategy>`
 
 **Override precedence (highest to lowest):**

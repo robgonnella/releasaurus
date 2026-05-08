@@ -185,6 +185,24 @@ suffix = "alpha"
 
 **Override**: `--prerelease-suffix` CLI flag
 
+#### `build_metadata`
+
+**Type**: String (optional)
+
+**Default**: None
+
+Semver build metadata appended after `+` in the version string
+(e.g., `"nightly"`, `"sha.5114f85"`). Works with both strategies.
+Do not embed `+` in the `suffix` field — use this field instead.
+
+```toml
+[prerelease]
+suffix = "alpha"
+build_metadata = "nightly"
+```
+
+**Override**: `--prerelease-build-metadata` CLI flag
+
 #### `strategy`
 
 **Type**: String (optional)

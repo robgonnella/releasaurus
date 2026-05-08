@@ -205,7 +205,7 @@ tag_prefix = "api-v"
 path = "./experimental-features"
 release_type = "rust"
 tag_prefix = "exp-v"
-prerelease = { suffix = "beta", strategy = "versioned" }
+prerelease = { suffix = "beta", strategy = "versioned", build_metadata = "nightly" }
 ```
 
 ## Shared Code Patterns

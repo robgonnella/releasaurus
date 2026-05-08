@@ -23,6 +23,7 @@ fn test_prerelease_start_from_stable() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("alpha".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -54,6 +55,7 @@ fn test_prerelease_continue_same_identifier() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("alpha".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -113,6 +115,7 @@ fn test_prerelease_switch_identifier() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("beta".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -145,6 +148,7 @@ fn test_prerelease_first_release() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("alpha".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -169,6 +173,7 @@ fn test_prerelease_breaking_change() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("alpha".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -201,6 +206,7 @@ fn test_new_prerelease_with_static_strategy() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("dev".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Static,
         }),
         ..AnalyzerConfig::default()
@@ -233,6 +239,7 @@ fn test_continuing_prerelease_with_static_strategy() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
             suffix: Some("dev".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Static,
         }),
         ..AnalyzerConfig::default()
@@ -266,6 +273,7 @@ fn test_prerelease_with_tag_prefix() {
         tag_prefix: Some("v".to_string()),
         prerelease: Some(PrereleaseConfig {
             suffix: Some("rc".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -291,4 +299,60 @@ fn test_prerelease_with_tag_prefix() {
     let release = result.unwrap();
     assert_eq!(release.tag.semver, SemVer::parse("1.1.0-rc.1").unwrap());
     assert_eq!(release.tag.name, "v1.1.0-rc.1");
+}
+
+#[test]
+fn test_versioned_prerelease_with_build_metadata() {
+    let config = AnalyzerConfig {
+        prerelease: Some(PrereleaseConfig {
+            suffix: Some("alpha".to_string()),
+            build_metadata: Some("nightly".to_string()),
+            strategy: PrereleaseStrategy::Versioned,
+        }),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![ForgeCommit {
+        id: "abc123".to_string(),
+        message: "feat: initial".to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    let result = analyzer.analyze(commits, None).unwrap();
+
+    let release = result.unwrap();
+    assert_eq!(
+        release.tag.semver,
+        SemVer::parse("0.1.0-alpha.1+nightly").unwrap()
+    );
+}
+
+#[test]
+fn test_static_prerelease_with_build_metadata() {
+    let config = AnalyzerConfig {
+        prerelease: Some(PrereleaseConfig {
+            suffix: Some("SNAPSHOT".to_string()),
+            build_metadata: Some("nightly".to_string()),
+            strategy: PrereleaseStrategy::Static,
+        }),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![ForgeCommit {
+        id: "abc123".to_string(),
+        message: "feat: initial".to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    let result = analyzer.analyze(commits, None).unwrap();
+
+    let release = result.unwrap();
+    assert_eq!(
+        release.tag.semver,
+        SemVer::parse("0.1.0-SNAPSHOT+nightly").unwrap()
+    );
 }

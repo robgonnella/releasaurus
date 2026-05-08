@@ -1,5 +1,5 @@
 use regex::Regex;
-use semver::{Prerelease, Version};
+use semver::{BuildMetadata, Prerelease, Version};
 use std::{borrow::Cow, sync::LazyLock};
 
 use crate::{
@@ -59,6 +59,7 @@ pub fn add_prerelease(
     mut version: Version,
     identifier: &str,
     strategy: PrereleaseStrategy,
+    build_metadata: Option<&str>,
 ) -> Result<Version> {
     // Use Cow to avoid allocation for Static strategy
     let pre_str: Cow<str> = if matches!(strategy, PrereleaseStrategy::Versioned)
@@ -68,6 +69,9 @@ pub fn add_prerelease(
         Cow::Borrowed(identifier)
     };
     version.pre = Prerelease::new(&pre_str)?;
+    if let Some(build) = build_metadata {
+        version.build = BuildMetadata::new(build)?;
+    }
     Ok(version)
 }
 
@@ -644,18 +648,26 @@ mod tests {
     #[test]
     fn test_add_versioned_prerelease() {
         let version = Version::parse("1.0.0").unwrap();
-        let result =
-            add_prerelease(version, "alpha", PrereleaseStrategy::Versioned)
-                .unwrap();
+        let result = add_prerelease(
+            version,
+            "alpha",
+            PrereleaseStrategy::Versioned,
+            None,
+        )
+        .unwrap();
         assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
     }
 
     #[test]
     fn test_add_static_prerelease() {
         let version = Version::parse("0.1.0").unwrap();
-        let result =
-            add_prerelease(version, "SNAPSHOT", PrereleaseStrategy::Static)
-                .unwrap();
+        let result = add_prerelease(
+            version,
+            "SNAPSHOT",
+            PrereleaseStrategy::Static,
+            None,
+        )
+        .unwrap();
         assert_eq!(result, Version::parse("0.1.0-SNAPSHOT").unwrap());
     }
 
@@ -663,10 +675,40 @@ mod tests {
     fn test_change_prerelease_suffix() {
         // Changing prerelease suffix to an existing prerelease replaces it
         let version = Version::parse("1.0.0-alpha.5").unwrap();
-        let result =
-            add_prerelease(version, "beta", PrereleaseStrategy::Versioned)
-                .unwrap();
+        let result = add_prerelease(
+            version,
+            "beta",
+            PrereleaseStrategy::Versioned,
+            None,
+        )
+        .unwrap();
         assert_eq!(result, Version::parse("1.0.0-beta.1").unwrap());
+    }
+
+    #[test]
+    fn test_add_versioned_prerelease_with_build_metadata() {
+        let version = Version::parse("1.0.0").unwrap();
+        let result = add_prerelease(
+            version,
+            "alpha",
+            PrereleaseStrategy::Versioned,
+            Some("nightly"),
+        )
+        .unwrap();
+        assert_eq!(result, Version::parse("1.0.0-alpha.1+nightly").unwrap());
+    }
+
+    #[test]
+    fn test_add_static_prerelease_with_build_metadata() {
+        let version = Version::parse("0.1.0").unwrap();
+        let result = add_prerelease(
+            version,
+            "SNAPSHOT",
+            PrereleaseStrategy::Static,
+            Some("nightly"),
+        )
+        .unwrap();
+        assert_eq!(result, Version::parse("0.1.0-SNAPSHOT+nightly").unwrap());
     }
 
     #[test]

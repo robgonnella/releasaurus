@@ -35,6 +35,10 @@ pub fn resolve_prerelease(
     if let Some(ref suffix) = global_overrides.prerelease_suffix {
         prerelease.suffix = Some(suffix.clone());
     }
+    if let Some(ref build_metadata) = global_overrides.prerelease_build_metadata
+    {
+        prerelease.build_metadata = Some(build_metadata.clone());
+    }
     if let Some(strategy) = global_overrides.prerelease_strategy {
         prerelease.strategy = strategy;
     }
@@ -44,6 +48,9 @@ pub fn resolve_prerelease(
         if let Some(ref suffix) = overrides.prerelease_suffix {
             prerelease.suffix = Some(suffix.clone());
         }
+        if let Some(ref build_metadata) = overrides.prerelease_build_metadata {
+            prerelease.build_metadata = Some(build_metadata.clone());
+        }
         if let Some(strategy) = overrides.prerelease_strategy {
             prerelease.strategy = strategy;
         }
@@ -52,6 +59,22 @@ pub fn resolve_prerelease(
     // Clean and validate suffix
     prerelease.suffix = prerelease
         .suffix
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    if let Some(ref s) = prerelease.suffix
+        && s.contains('+')
+    {
+        return Err(crate::result::ReleasaurusError::invalid_config(
+            "prerelease suffix must not contain '+'; \
+                 use the build_metadata field for build identifiers",
+        ));
+    }
+
+    // Clean build_metadata
+    prerelease.build_metadata = prerelease
+        .build_metadata
         .as_ref()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
@@ -95,6 +118,7 @@ mod tests {
         let pkg = create_test_package("test");
         let global = PrereleaseConfig {
             suffix: Some("beta".to_string()),
+            build_metadata: None,
             strategy: PrereleaseStrategy::Versioned,
         };
         let global_overrides = GlobalOverrides::default();
@@ -110,5 +134,75 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.suffix, Some("beta".to_string()));
+    }
+
+    #[test]
+    fn resolve_prerelease_with_global_build_metadata() {
+        let pkg = create_test_package("test");
+        let global = PrereleaseConfig {
+            suffix: Some("alpha".to_string()),
+            build_metadata: Some("nightly".to_string()),
+            strategy: PrereleaseStrategy::Versioned,
+        };
+        let global_overrides = GlobalOverrides::default();
+        let package_overrides = HashMap::new();
+
+        let result = resolve_prerelease(
+            &pkg,
+            &global,
+            &global_overrides,
+            &package_overrides,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(result.build_metadata, Some("nightly".to_string()));
+    }
+
+    #[test]
+    fn resolve_prerelease_build_metadata_cli_overrides_config() {
+        let pkg = create_test_package("test");
+        let global = PrereleaseConfig {
+            suffix: Some("alpha".to_string()),
+            build_metadata: Some("from-config".to_string()),
+            strategy: PrereleaseStrategy::Versioned,
+        };
+        let global_overrides = GlobalOverrides {
+            prerelease_build_metadata: Some("from-cli".to_string()),
+            ..GlobalOverrides::default()
+        };
+        let package_overrides = HashMap::new();
+
+        let result = resolve_prerelease(
+            &pkg,
+            &global,
+            &global_overrides,
+            &package_overrides,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(result.build_metadata, Some("from-cli".to_string()));
+    }
+
+    #[test]
+    fn resolve_prerelease_suffix_with_plus_returns_error() {
+        let pkg = create_test_package("test");
+        let global = PrereleaseConfig {
+            suffix: Some("alpha+nightly".to_string()),
+            build_metadata: None,
+            strategy: PrereleaseStrategy::Versioned,
+        };
+        let global_overrides = GlobalOverrides::default();
+        let package_overrides = HashMap::new();
+
+        let result = resolve_prerelease(
+            &pkg,
+            &global,
+            &global_overrides,
+            &package_overrides,
+        );
+
+        assert!(result.is_err());
     }
 }

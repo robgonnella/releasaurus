@@ -36,6 +36,7 @@
       "$ref": "#/$defs/PrereleaseConfig",
       "default": {
         "suffix": null,
+        "build_metadata": null,
         "strategy": "versioned"
       }
     },
@@ -128,6 +129,14 @@
       "properties": {
         "suffix": {
           "description": "Prerelease identifier (e.g., \"alpha\", \"beta\", \"rc\", \"SNAPSHOT\")",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "build_metadata": {
+          "description": "Semver build metadata appended after `+`\n(e.g., \"nightly\", \"sha.5114f85\"). Valid for both strategies.",
           "type": [
             "string",
             "null"

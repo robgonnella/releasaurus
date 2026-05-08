@@ -21,6 +21,8 @@ pub struct PackageOverrides {
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_build_metadata: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
 }
 
@@ -36,6 +38,8 @@ pub struct GlobalOverrides {
     pub tag_prefix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_build_metadata: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
 }

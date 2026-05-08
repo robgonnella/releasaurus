@@ -19,7 +19,7 @@ fmt:
 
 # Lints all rust code
 lint:
-    cargo clippy --all-targets --all-features
+    cargo clippy --all-targets --all-features -- -D warnings
 
 gen-schema:
     cargo run -p releasaurus-core --bin gen_schema

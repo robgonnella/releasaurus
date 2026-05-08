@@ -61,6 +61,22 @@ The identifier to append to version numbers.
 
 **Omit or set to empty string to disable prereleases.**
 
+### `build_metadata`
+
+Semver build metadata appended after `+` in the version string.
+This is separate from the prerelease identifier and works with
+both strategies.
+
+**Examples:**
+- `"nightly"` → `1.0.0-alpha.1+nightly`
+- `"sha.5114f85"` → `1.0.0-alpha.1+sha.5114f85`
+
+The value is appended to every version the strategy produces.
+It is not persisted in tags and does not affect version ordering.
+
+**Note:** Do not embed `+` in the `suffix` field — use this
+field instead.
+
 ### `strategy`
 
 Controls how version numbers are generated.
@@ -232,10 +248,18 @@ releasaurus release-pr \
   --forge github \
   --repo "https://github.com/org/repo"
 
+# Attach build metadata (e.g., a CI run identifier)
+releasaurus release-pr \
+  --prerelease-suffix alpha \
+  --prerelease-build-metadata nightly \
+  --forge github \
+  --repo "https://github.com/org/repo"
+
 # Override specific package
 releasaurus release-pr \
   --set-package my-pkg.prerelease.suffix=rc \
   --set-package my-pkg.prerelease.strategy=versioned \
+  --set-package my-pkg.prerelease.build_metadata=sha.5114f85 \
   --forge github \
   --repo "https://github.com/org/repo"
 

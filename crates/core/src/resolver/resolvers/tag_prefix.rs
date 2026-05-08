@@ -108,6 +108,7 @@ mod tests {
             PackageOverrides {
                 tag_prefix: Some("cli-v".to_string()),
                 prerelease_suffix: None,
+                prerelease_build_metadata: None,
                 prerelease_strategy: None,
             },
         );

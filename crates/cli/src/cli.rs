@@ -233,6 +233,9 @@ pub struct CliPackageOverrides {
     #[serde(rename = "prerelease.suffix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
+    #[serde(rename = "prerelease.build_metadata")]
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub prerelease_build_metadata: Option<String>,
     #[serde(rename = "prerelease.strategy")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
@@ -243,6 +246,7 @@ impl From<CliPackageOverrides> for PackageOverrides {
         Self {
             prerelease_strategy: value.prerelease_strategy,
             prerelease_suffix: value.prerelease_suffix,
+            prerelease_build_metadata: value.prerelease_build_metadata,
             tag_prefix: value.tag_prefix,
         }
     }
@@ -273,6 +277,11 @@ pub struct SharedCommandOverrides {
     /// --set-package my-pkg.prerelease.suffix=""
     #[arg(long)]
     prerelease_suffix: Option<String>,
+
+    /// Global override for prerelease build metadata. Appended after `+` in
+    /// the version (e.g., "nightly", "sha.5114f85"). Overrides package config.
+    #[arg(long)]
+    prerelease_build_metadata: Option<String>,
 
     /// Global override for prerelease strategy. Overrides package config. Can
     /// be overridden via explicit "--set-package" override
@@ -579,6 +588,8 @@ impl Cli {
             global_overrides.tag_prefix = overrides.tag_prefix.clone();
             global_overrides.prerelease_suffix =
                 overrides.prerelease_suffix.clone();
+            global_overrides.prerelease_build_metadata =
+                overrides.prerelease_build_metadata.clone();
             global_overrides.prerelease_strategy =
                 overrides.prerelease_strategy;
         }

@@ -34,6 +34,9 @@ pub enum PrereleaseStrategy {
 pub struct PrereleaseConfig {
     /// Prerelease identifier (e.g., "alpha", "beta", "rc", "SNAPSHOT")
     pub suffix: Option<String>,
+    /// Semver build metadata appended after `+`
+    /// (e.g., "nightly", "sha.5114f85"). Valid for both strategies.
+    pub build_metadata: Option<String>,
     /// How prerelease suffixes should be applied to versions
     pub strategy: PrereleaseStrategy,
 }

@@ -837,6 +837,7 @@ mod tests {
             .release_type(ReleaseType::Node)
             .prerelease(PrereleaseConfig {
                 suffix: Some("rc".to_string()),
+                build_metadata: None,
                 strategy: PrereleaseStrategy::Versioned,
             })
             .build()
@@ -901,6 +902,7 @@ mod tests {
             .release_type(ReleaseType::Node)
             .prerelease(PrereleaseConfig {
                 suffix: Some("".to_string()),
+                build_metadata: None,
                 strategy: PrereleaseStrategy::Versioned,
             })
             .build()
@@ -939,6 +941,7 @@ mod tests {
             .release_type(ReleaseType::Node)
             .prerelease(PrereleaseConfig {
                 suffix: None,
+                build_metadata: None,
                 strategy: PrereleaseStrategy::Versioned,
             })
             .build()
