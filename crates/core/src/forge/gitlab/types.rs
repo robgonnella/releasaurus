@@ -9,6 +9,7 @@ pub struct FileInfo {
 pub struct MergeRequestInfo {
     pub iid: u64,
     pub merge_commit_sha: Option<String>,
+    pub squash_commit_sha: Option<String>,
     pub sha: String,
     pub merged_at: Option<String>,
     pub description: String,

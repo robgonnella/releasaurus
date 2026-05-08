@@ -702,6 +702,7 @@ impl Forge for Gitlab {
         let sha = merge_request
             .merge_commit_sha
             .clone()
+            .or(merge_request.squash_commit_sha.clone())
             .unwrap_or(merge_request.sha.clone());
 
         Ok(Some(PullRequest {
