@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8f3af27d.js";
+            window.path_to_searchindex_js = "searchindex-951f73fa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5db85cea.js"></script>
@@ -623,11 +623,11 @@ to fetch the complete history:</p>
 <pre><code class="language-yaml"># GitHub Actions / Gitea Actions
 - uses: actions/checkout@v5
   with:
-    fetch-depth: 0  # full history + all tags
+    fetch-depth: 0 # full history + all tags
 </code></pre>
 <pre><code class="language-yaml"># GitLab CI (fresh clone)
 variables:
-  GIT_DEPTH: 0  # full history + all tags
+  GIT_DEPTH: 0 # full history + all tags
 </code></pre>
 <p>If the runner reuses an existing workspace (<code>GIT_STRATEGY: fetch</code>),
 add an explicit unshallow step instead:</p>
@@ -694,9 +694,22 @@ releasaurus release-pr \
   --forge github \
   --repo "https://github.com/owner/repo"
 
+# Override global disable prerelease for all packages
+releasaurus release-pr \
+  --prerelease-suffix="" \
+  --prerelease-strategy versioned \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
 # Override package-specific prerelease suffix
 releasaurus release-pr \
   --set-package my-pkg.prerelease.suffix=rc \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package-specific disable prerelease for target package
+releasaurus release-pr \
+  --set-package my-pkg.prerelease.suffix="" \
   --forge github \
   --repo "https://github.com/owner/repo"
 

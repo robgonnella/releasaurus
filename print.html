@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8f3af27d.js";
+            window.path_to_searchindex_js = "searchindex-951f73fa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5db85cea.js"></script>
@@ -892,11 +892,11 @@ to fetch the complete history:</p>
 <pre><code class="language-yaml"># GitHub Actions / Gitea Actions
 - uses: actions/checkout@v5
   with:
-    fetch-depth: 0  # full history + all tags
+    fetch-depth: 0 # full history + all tags
 </code></pre>
 <pre><code class="language-yaml"># GitLab CI (fresh clone)
 variables:
-  GIT_DEPTH: 0  # full history + all tags
+  GIT_DEPTH: 0 # full history + all tags
 </code></pre>
 <p>If the runner reuses an existing workspace (<code>GIT_STRATEGY: fetch</code>),
 add an explicit unshallow step instead:</p>
@@ -963,9 +963,22 @@ releasaurus release-pr \
   --forge github \
   --repo "https://github.com/owner/repo"
 
+# Override global disable prerelease for all packages
+releasaurus release-pr \
+  --prerelease-suffix="" \
+  --prerelease-strategy versioned \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
 # Override package-specific prerelease suffix
 releasaurus release-pr \
   --set-package my-pkg.prerelease.suffix=rc \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package-specific disable prerelease for target package
+releasaurus release-pr \
+  --set-package my-pkg.prerelease.suffix="" \
   --forge github \
   --repo "https://github.com/owner/repo"
 
@@ -1365,9 +1378,9 @@ path = "."
 </code></pre>
 <p><strong>Use case</strong>: You want faster first release creation and don’t need extensive
 commit history in the initial changelog.</p>
-<p><strong>Note</strong>: This setting does NOT affect tag discovery. Releasaurus searches
-all tags regardless of this setting. This only limits how many commits are
-analyzed when no matching tags exist.</p>
+<p><strong>Note</strong>: This setting does NOT affect tag discovery. It only limits how
+many commits are analyzed when no matching tags exist. To control how many
+tags are fetched, use <code>tag_search_depth</code>.</p>
 <h4 id="issue-releasaurus-doesnt-find-existing-tags"><a class="header" href="#issue-releasaurus-doesnt-find-existing-tags">Issue: Releasaurus doesn’t find existing tags</a></h4>
 <p><strong>Possible causes:</strong></p>
 <ol>
@@ -2612,6 +2625,19 @@ exist).</p>
 <li>Large repos: decrease to 100-200 for faster analysis</li>
 <li>Need more history: increase to 1000+</li>
 <li>CI/CD: use smaller values for speed</li>
+</ul>
+<h3 id="tag_search_depth"><a class="header" href="#tag_search_depth"><code>tag_search_depth</code></a></h3>
+<p><strong>Type</strong>: Integer (optional)</p>
+<p><strong>Default</strong>: 100</p>
+<p>Maximum number of tags fetched from the forge when searching for a
+previous release. Set to <code>0</code> to fetch all tags.</p>
+<pre><code class="language-toml">tag_search_depth = 100
+</code></pre>
+<p><strong>When to adjust:</strong></p>
+<ul>
+<li>Repos with many tags: decrease to reduce API calls</li>
+<li>Previous release tag is beyond the default window: increase or
+set to <code>0</code></li>
 </ul>
 <h3 id="separate_pull_requests"><a class="header" href="#separate_pull_requests"><code>separate_pull_requests</code></a></h3>
 <p><strong>Type</strong>: Boolean (optional)</p>

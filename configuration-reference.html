@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8f3af27d.js";
+            window.path_to_searchindex_js = "searchindex-951f73fa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-5db85cea.js"></script>
@@ -199,6 +199,19 @@ exist).</p>
 <li>Large repos: decrease to 100-200 for faster analysis</li>
 <li>Need more history: increase to 1000+</li>
 <li>CI/CD: use smaller values for speed</li>
+</ul>
+<h3 id="tag_search_depth"><a class="header" href="#tag_search_depth"><code>tag_search_depth</code></a></h3>
+<p><strong>Type</strong>: Integer (optional)</p>
+<p><strong>Default</strong>: 100</p>
+<p>Maximum number of tags fetched from the forge when searching for a
+previous release. Set to <code>0</code> to fetch all tags.</p>
+<pre><code class="language-toml">tag_search_depth = 100
+</code></pre>
+<p><strong>When to adjust:</strong></p>
+<ul>
+<li>Repos with many tags: decrease to reduce API calls</li>
+<li>Previous release tag is beyond the default window: increase or
+set to <code>0</code></li>
 </ul>
 <h3 id="separate_pull_requests"><a class="header" href="#separate_pull_requests"><code>separate_pull_requests</code></a></h3>
 <p><strong>Type</strong>: Boolean (optional)</p>
