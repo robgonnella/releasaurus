@@ -41,6 +41,9 @@ jobs:
           GITEA_TEST_REPO: https://gitea.com/rgon/test-repo
           GITEA_TEST_TOKEN: ${{ secrets.GT_TEST_TOKEN }}
           GITEA_RESET_SHA: b353e2f4128a9436540e4f2ddefd9989a9633372
+          FORGEJO_TEST_REPO: https://codeberg.org/rgon/test-repo
+          FORGEJO_TEST_TOKEN: ${{ secrets.FJ_TEST_TOKEN }}
+          FORGEJO_RESET_SHA: 855e0ddc6ddd00d880d0a99638a2f6c678e4109c
         run: |
           cargo llvm-cov \
             --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \

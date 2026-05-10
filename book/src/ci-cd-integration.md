@@ -1,7 +1,8 @@
 # CI/CD Integration
 
-Releasaurus provides official integrations for GitHub Actions and Gitea
-Actions. For GitLab CI, use the Docker image directly.
+Releasaurus provides official integrations for GitHub Actions, Gitea
+Actions, and Forgejo Actions. For GitLab CI, use the Docker image
+directly.
 
 > **Note on fetch depth:** When using `--local-path` (hybrid mode),
 > Releasaurus reads commit history and tags directly from the local
@@ -10,10 +11,10 @@ Actions. For GitLab CI, use the Docker image directly.
 > when using `--local-path`. Platform-specific instructions are in
 > each section below.
 
-## GitHub Actions & Gitea Actions
+## GitHub Actions, Gitea Actions & Forgejo Actions
 
-A single action works for both GitHub Actions and Gitea Actions
-workflows. See the
+A single action works for GitHub Actions, Gitea Actions, and Forgejo
+Actions workflows. See the
 [action README](https://github.com/robgonnella/releasaurus/tree/main/action)
 for inputs, usage examples, and fetch depth configuration for
 `--local-path`.

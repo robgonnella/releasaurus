@@ -50,3 +50,6 @@ test-gitlab-integration: (_test_integration "test_gitlab_forge")
 
 # Runs only the gitea integration tests
 test-gitea-integration: (_test_integration "test_gitea_forge")
+
+# Runs only the forgejo integration tests
+test-forgejo-integration: (_test_integration "test_forgejo_forge")

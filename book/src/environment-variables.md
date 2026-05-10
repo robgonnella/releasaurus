@@ -97,7 +97,7 @@ releasaurus release-pr \
 
 #### `GITEA_TOKEN`
 
-**Purpose**: Authentication token for Gitea/Forgejo API access
+**Purpose**: Authentication token for Gitea API access
 
 **Required Permissions**:
 
@@ -117,10 +117,29 @@ export GITEA_TOKEN="xxxxxxxxxxxxxxxxxx"
 releasaurus release-pr \
   --forge gitea \
   --repo "https://git.company.com/org/repo"
+```
 
-# Forgejo instance
+#### `FORGEJO_TOKEN`
+
+**Purpose**: Authentication token for Forgejo API access
+
+**Required Permissions**:
+
+- Repository read/write access
+- Issue/PR management permissions
+
+**Example**:
+
+```bash
+export FORGEJO_TOKEN="xxxxxxxxxxxxxxxxxx"
+```
+
+**Usage**:
+
+```bash
+# Self-hosted Forgejo instance
 releasaurus release-pr \
-  --forge gitea \
+  --forge forgejo \
   --repo "https://forgejo.example.com/user/project"
 ```
 

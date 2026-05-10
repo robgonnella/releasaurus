@@ -102,6 +102,8 @@ pub enum TokenVar {
     Gitlab,
     #[strum(to_string = "GITEA_TOKEN")]
     Gitea,
+    #[strum(to_string = "FORGEJO_TOKEN")]
+    Forgejo,
 }
 
 /// Resolve authentication token from multiple sources in priority order:
