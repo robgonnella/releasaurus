@@ -11,6 +11,7 @@ use releasaurus_core::{
     },
     forge::{
         config::{RepoUrl, Scheme, TokenVar, resolve_token},
+        forgejo::Forgejo,
         gitea::Gitea,
         github::Github,
         gitlab::Gitlab,
@@ -111,7 +112,8 @@ impl ForgeArgs {
                 ForgeType::Gitea => {
                     let repo = git_url_to_repo_url(git_url)?;
                     let gitea =
-                        Gitea::new(repo.clone(), self.token.clone()).await?;
+                        Gitea::new(repo.clone(), self.token.clone(), None)
+                            .await?;
                     if let Some(local_path) = self.local_path.as_ref() {
                         self.resolve_hybrid_forge(
                             Arc::new(gitea),
@@ -121,6 +123,21 @@ impl ForgeArgs {
                         )?
                     } else {
                         Box::new(gitea)
+                    }
+                }
+                ForgeType::Forgejo => {
+                    let repo = git_url_to_repo_url(git_url)?;
+                    let forgejo =
+                        Forgejo::new(repo.clone(), self.token.clone()).await?;
+                    if let Some(local_path) = self.local_path.as_ref() {
+                        self.resolve_hybrid_forge(
+                            Arc::new(forgejo),
+                            local_path,
+                            &repo,
+                            TokenVar::Forgejo,
+                        )?
+                    } else {
+                        Box::new(forgejo)
                     }
                 }
                 ForgeType::Local => {
@@ -213,6 +230,8 @@ pub enum ForgeType {
     Gitlab,
     /// Targets Gitea as the remote forge
     Gitea,
+    /// Targets Forgejo as the remote forge
+    Forgejo,
     /// Targets a local repo for testing / debugging
     Local,
 }

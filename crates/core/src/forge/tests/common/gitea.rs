@@ -55,14 +55,14 @@ impl GiteaForgeTestHelper {
             .unwrap();
 
         let mut base_url = format!(
-            "{}://{}/api/v1/repos/{}/",
-            repo.scheme, repo.host, repo.path
+            "{}://{}/api/v1/repos/{}/{}/",
+            repo.scheme, repo.host, repo.owner, repo.name
         );
 
         if let Some(port) = repo.port {
             base_url = format!(
-                "{}://{}:{}/api/v1/repos/{}/",
-                repo.scheme, repo.host, port, repo.path
+                "{}://{}:{}/api/v1/repos/{}/{}/",
+                repo.scheme, repo.host, port, repo.owner, repo.name
             );
         }
 

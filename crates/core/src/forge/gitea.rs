@@ -60,12 +60,17 @@ impl Gitea {
     pub async fn new(
         url: RepoUrl,
         token: Option<SecretString>,
+        token_var: Option<TokenVar>,
     ) -> Result<Self> {
         rustls::crypto::aws_lc_rs::default_provider()
             .install_default()
             .ok();
 
-        let token = resolve_token(token, url.token.as_ref(), TokenVar::Gitea)?;
+        let token = resolve_token(
+            token,
+            url.token.as_ref(),
+            token_var.unwrap_or(TokenVar::Gitea),
+        )?;
 
         let link_base_url = url.link_base_url();
 

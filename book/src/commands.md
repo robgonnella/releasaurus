@@ -336,8 +336,11 @@ URL:
 # GitLab
 --forge gitlab --repo "https://gitlab.com/group/project"
 
-# Gitea (or Forgejo)
+# Gitea
 --forge gitea --repo "https://git.example.com/owner/repo"
+
+# Forgejo
+--forge forgejo --repo "https://forgejo.example.com/owner/repo"
 
 # Local repository (for testing)
 --forge local --repo "."
@@ -348,6 +351,7 @@ URL:
 - `github` - For github.com and GitHub Enterprise
 - `gitlab` - For gitlab.com and self-hosted GitLab instances
 - `gitea` - For gitea.com and self-hosted Gitea instances
+- `forgejo` - For codeberg.org and self-hosted Forgejo instances
 - `local` - For testing against local repositories
 
 ### Dry Run Mode
@@ -796,7 +800,7 @@ releasaurus release-pr \
 # Self-hosted GitLab
 releasaurus release-pr \
   --forge gitlab \
-  --repo "https://gitlab.company.com/team/project" \
+  --repo "https://gitlab.company.com/team/group/project" \
   --token "glpat_xxxxxxxxxxxxxxxxxxxx"
 ```
 
@@ -809,9 +813,9 @@ releasaurus release-pr \
   --repo "https://git.company.com/team/project" \
   --token "xxxxxxxxxxxxxxxxxx"
 
-# Works with Forgejo too
+# Self-hosted Forgejo
 releasaurus release-pr \
-  --forge gitea \
+  --forge forgejo \
   --repo "https://forgejo.example.com/org/repo" \
   --token "xxxxxxxxxxxxxxxxxx"
 ```
