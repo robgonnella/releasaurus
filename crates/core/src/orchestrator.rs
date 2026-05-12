@@ -394,7 +394,15 @@ impl Orchestrator {
         )? {
             (tag, notes)
         } else {
-            parse_pr_body(&package.name, merged_pr.number, &merged_pr.body)?
+            parse_pr_body(&package.name, merged_pr.number, &merged_pr.body)
+                .inspect_err(|_e| {
+                    log::debug!(
+                        "parse_pr_body failed for PR #{} ({} chars body): {:?}",
+                        merged_pr.number,
+                        merged_pr.body.len(),
+                        merged_pr.body
+                    );
+                })?
         };
 
         log::info!("tagging commit: tag: {}, sha: {}", tag, merged_pr.sha);

@@ -10,7 +10,9 @@ use crate::{
     config::{Config, package::PackageConfigBuilder},
     forge::{
         config::PENDING_LABEL,
-        request::{Commit, ForgeCommitBuilder, PullRequest, Tag},
+        request::{
+            Commit, ForgeCommitBuilder, PrMetadataBlock, PullRequest, Tag,
+        },
         traits::MockForge,
     },
     result::ReleasaurusError,
@@ -137,6 +139,14 @@ async fn create_release_prs_creates_new_prs() {
         .times(2);
 
     mock_forge
+        .expect_encode_pr_metadata()
+        .times(2)
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
+
+    mock_forge
         .expect_create_pr()
         .returning(|req| {
             let mut pr_number = 1;
@@ -226,6 +236,14 @@ async fn create_release_prs_targets_specific_package() {
             })
         })
         .times(1);
+
+    mock_forge
+        .expect_encode_pr_metadata()
+        .times(1)
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
 
     mock_forge
         .expect_create_pr()
@@ -357,6 +375,14 @@ async fn create_release_prs_updates_existing_prs() {
         .times(1);
 
     mock_forge.expect_create_pr().times(0);
+
+    mock_forge
+        .expect_encode_pr_metadata()
+        .times(1)
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
 
     mock_forge.expect_update_pr().returning(|_| Ok(())).times(1);
 

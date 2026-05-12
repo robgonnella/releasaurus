@@ -1,8 +1,8 @@
 # CI/CD Integration
 
 Releasaurus provides official integrations for GitHub Actions, Gitea
-Actions, and Forgejo Actions. For GitLab CI, use the Docker image
-directly.
+Actions, and Forgejo Actions. For GitLab CI and Azure Pipelines, use
+the Docker image directly.
 
 > **Note on fetch depth:** When using `--local-path` (hybrid mode),
 > Releasaurus reads commit history and tags directly from the local
@@ -78,3 +78,46 @@ before_script:
 ```
 
 Using both together is safe and covers all runner states.
+
+## Azure Pipelines (EXPERIMENTAL)
+
+Azure DevOps support is experimental. No first-party Azure Pipelines
+task is provided — use the Releasaurus Docker image directly in your
+pipeline. Note that the `release` command only pushes the git tag
+(the changelog commit lands when the release PR is merged); Azure
+DevOps Git has no native release object, so no release notes page is
+created.
+
+Provide a PAT via the `AZURE_DEVOPS_TOKEN` pipeline secret variable.
+The PAT needs `Code: Read & Write` and `Pull Request Threads: Read &
+Write` scopes.
+
+```yaml
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+container: rgonnella/releasaurus:vX.X.X
+
+steps:
+  - checkout: self
+    fetchDepth: 0  # required if you also pass --local-path
+
+  - script: |
+      releasaurus release-pr \
+        --forge azure-devops \
+        --repo "$(Build.Repository.Uri)"
+    env:
+      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+
+  - script: |
+      releasaurus release \
+        --forge azure-devops \
+        --repo "$(Build.Repository.Uri)"
+    env:
+      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+```

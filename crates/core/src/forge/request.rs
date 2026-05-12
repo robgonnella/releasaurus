@@ -2,6 +2,18 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use std::{fmt::Display, hash::Hash};
 
+/// Forge-specific encoding of PR metadata: content to embed inside the div
+/// and an optional extra HTML attribute on the div tag.
+#[derive(Debug)]
+pub struct PrMetadataBlock {
+    /// Content to embed inside the metadata div (e.g. an HTML comment).
+    /// Empty when the forge strips HTML comments.
+    pub inline_content: String,
+    /// Extra HTML attribute to add to the div tag (e.g. `data-meta="..."`).
+    /// Empty for forges that preserve inline HTML.
+    pub div_attribute: String,
+}
+
 /// Release pull request information with PR number, sha, and body
 #[allow(unused)]
 #[derive(Debug)]

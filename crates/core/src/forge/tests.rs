@@ -1,3 +1,4 @@
+mod azure_devops;
 mod common;
 mod forgejo;
 mod gitea;

@@ -10,6 +10,7 @@ use releasaurus_core::{
         resolved::{CommitModifiers, GlobalOverrides, PackageOverrides},
     },
     forge::{
+        azure_devops::{AzureDevops, url_parse::azure_git_url_to_repo_url},
         config::{RepoUrl, Scheme, TokenVar, resolve_token},
         forgejo::Forgejo,
         gitea::Gitea,
@@ -53,7 +54,8 @@ pub struct Cli {
 
 #[derive(Debug, Clone, Args)]
 pub struct ForgeArgs {
-    /// Targets a specific forge: github, gitlab, gitea, or local
+    /// Targets a specific forge: github, gitlab, gitea, forgejo,
+    /// azure-devops, or local
     #[arg(short, long, value_enum, global = true)]
     pub forge: Option<ForgeType>,
 
@@ -68,7 +70,8 @@ pub struct ForgeArgs {
     pub local_path: Option<PathBuf>,
 
     /// Authentication token. Falls back to env vars:
-    /// GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN
+    /// GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN, FORGEJO_TOKEN,
+    /// AZURE_DEVOPS_TOKEN
     #[arg(short, long, global = true)]
     pub token: Option<SecretString>,
 }
@@ -138,6 +141,22 @@ impl ForgeArgs {
                         )?
                     } else {
                         Box::new(forgejo)
+                    }
+                }
+                ForgeType::AzureDevops => {
+                    let repo = azure_git_url_to_repo_url(git_url)?;
+                    let azure =
+                        AzureDevops::new(repo.clone(), self.token.clone())
+                            .await?;
+                    if let Some(local_path) = self.local_path.as_ref() {
+                        self.resolve_hybrid_forge(
+                            Arc::new(azure),
+                            local_path,
+                            &repo,
+                            TokenVar::AzureDevops,
+                        )?
+                    } else {
+                        Box::new(azure)
                     }
                 }
                 ForgeType::Local => {
@@ -232,6 +251,10 @@ pub enum ForgeType {
     Gitea,
     /// Targets Forgejo as the remote forge
     Forgejo,
+    /// Targets Azure DevOps as the remote forge (EXPERIMENTAL —
+    /// release step only pushes the git tag; Azure DevOps has no
+    /// native release object)
+    AzureDevops,
     /// Targets a local repo for testing / debugging
     Local,
 }

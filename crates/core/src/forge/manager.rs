@@ -9,8 +9,8 @@ use crate::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-            GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse,
-            Tag, UpdatePrRequest,
+            GetPrRequest, PrLabelsRequest, PrMetadataBlock, PullRequest,
+            ReleaseByTagResponse, Tag, UpdatePrRequest,
         },
         traits::{FileLoader, Forge},
     },
@@ -386,6 +386,10 @@ impl ForgeManager {
         }
 
         result
+    }
+
+    pub fn encode_pr_metadata(&self, json: &str) -> PrMetadataBlock {
+        self.forge.encode_pr_metadata(json)
     }
 }
 
