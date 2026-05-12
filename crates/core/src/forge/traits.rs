@@ -11,8 +11,8 @@ use crate::{
     forge::request::{
         Commit, CreateCommitRequest, CreatePrRequest,
         CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-        GetPrRequest, PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
-        UpdatePrRequest,
+        GetPrRequest, PrLabelsRequest, PrMetadataBlock, PullRequest,
+        ReleaseByTagResponse, Tag, UpdatePrRequest,
     },
     result::Result,
 };
@@ -96,6 +96,17 @@ pub trait Forge: Any + Send + Sync {
         sha: &str,
         notes: &str,
     ) -> Result<()>;
+    /// Encode metadata JSON for embedding in the PR body.
+    ///
+    /// The default writes metadata as an HTML comment inside the div. Forges
+    /// that strip HTML comments should override this to use an attribute
+    /// instead (e.g. `data-meta` with a base64-encoded payload).
+    fn encode_pr_metadata(&self, json: &str) -> PrMetadataBlock {
+        PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        }
+    }
 }
 
 /// Abstraction for loading file content from a source.

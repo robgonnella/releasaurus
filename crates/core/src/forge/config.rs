@@ -104,6 +104,8 @@ pub enum TokenVar {
     Gitea,
     #[strum(to_string = "FORGEJO_TOKEN")]
     Forgejo,
+    #[strum(to_string = "AZURE_DEVOPS_TOKEN")]
+    AzureDevops,
 }
 
 /// Resolve authentication token from multiple sources in priority order:

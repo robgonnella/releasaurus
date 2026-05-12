@@ -135,6 +135,15 @@ The following environment variables are used when running integration tests.
 - `GITEA_TEST_TOKEN`
 - `GITEA_RESET_SHA`
 
+- `FORGEJO_TEST_REPO`
+- `FORGEJO_TEST_TOKEN`
+- `FORGEJO_RESET_SHA`
+
+- `AZURE_DEVOPS_TEST_REPO` (form: `https://dev.azure.com/{org}/{project}/_git/{repo}`)
+- `AZURE_DEVOPS_TEST_TOKEN` (PAT with `Code: Read & Write` and
+  `Pull Request Threads: Read & Write` scopes)
+- `AZURE_DEVOPS_RESET_SHA`
+
 ⚠️ Whatever you configure for these repositories WILL have their histories
 overwritten. All PRs, tags, releases, and branches will be deleted and the
 repository will be hard reset back to the configured reset sha at the start
@@ -153,6 +162,10 @@ export GITLAB_RESET_SHA="abc123"
 export GITEA_TEST_REPO="https://gitea.com/your/test/repo"
 export GITEA_TEST_TOKEN="gt_test_token"
 export GITEA_RESET_SHA="abc123"
+
+export AZURE_DEVOPS_TEST_REPO="https://dev.azure.com/your-org/your-project/_git/test-repo"
+export AZURE_DEVOPS_TEST_TOKEN="azdo_test_pat"
+export AZURE_DEVOPS_RESET_SHA="abc123"
 
 # Or you can add these to a .env file and mise will automatically load them
 # .env
@@ -176,7 +189,18 @@ just test-github-integration
 just test-gitlab-integration
 # target just gitea integration tests
 just test-gitea-integration
+# target just forgejo integration tests
+just test-forgejo-integration
+# target just azure devops integration tests
+just test-azure-devops-integration
 ```
+
+> **Azure DevOps test setup**: the test repo must not have any branch
+> policies on its default branch — the reset routine force-resets
+> history via a temporary branch swap and would fail against a
+> policy-protected branch. Create a dedicated empty project and grant
+> the test PAT `Code: Read & Write` and `Pull Request Threads: Read &
+> Write` scopes.
 
 ## Code Contribution Guidelines
 

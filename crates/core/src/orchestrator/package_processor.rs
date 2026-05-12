@@ -439,7 +439,18 @@ impl PackageProcessor {
             };
 
             let json = serde_json::to_string(&metadata)?;
-            let metadata_str = format!(r#"<!--{json}-->"#);
+            let block = self.forge.encode_pr_metadata(&json);
+
+            let div_attr = if block.div_attribute.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", block.div_attribute)
+            };
+            let inline_section = if block.inline_content.is_empty() {
+                "\n".to_string()
+            } else {
+                format!("{}\n\n", block.inline_content)
+            };
 
             // in the PR body link to the comparison with sha instead
             // of tag since the tag doesn't exist yet
@@ -458,10 +469,8 @@ impl PackageProcessor {
                 r#"{start_details}
 <summary>{}</summary>
 <div id="{html_id}-header">{header}</div>
-<div id="{html_id}" data-tag="{}">
-{metadata_str}
-
-{notes}
+<div id="{html_id}" data-tag="{}"{div_attr}>
+{inline_section}{notes}
 </div>
 <div id="{html_id}-footer">{footer}</div>
 </details>"#,

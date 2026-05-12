@@ -342,6 +342,9 @@ URL:
 # Forgejo
 --forge forgejo --repo "https://forgejo.example.com/owner/repo"
 
+# Azure DevOps (EXPERIMENTAL)
+--forge azure-devops --repo "https://dev.azure.com/org/project/_git/repo"
+
 # Local repository (for testing)
 --forge local --repo "."
 ```
@@ -352,6 +355,12 @@ URL:
 - `gitlab` - For gitlab.com and self-hosted GitLab instances
 - `gitea` - For gitea.com and self-hosted Gitea instances
 - `forgejo` - For codeberg.org and self-hosted Forgejo instances
+- `azure-devops` - **EXPERIMENTAL.** For Azure DevOps Services
+  (`dev.azure.com`). Azure DevOps Git has no native release object,
+  so the `release` step only pushes the git tag — the changelog
+  commit lands when the release PR is merged, and no release notes
+  are published to a release page. Azure DevOps Server (on-prem) is
+  not supported.
 - `local` - For testing against local repositories
 
 ### Known Limitations

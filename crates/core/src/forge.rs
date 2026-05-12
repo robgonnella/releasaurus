@@ -1,10 +1,12 @@
 //! Forge platform abstractions and implementations.
 //!
 //! The [`traits::Forge`] trait defines the common interface.
-//! Implementations: [`github`], [`gitlab`], [`gitea`], [`forgejo`], [`local`].
+//! Implementations: [`github`], [`gitlab`], [`gitea`], [`forgejo`],
+//! [`azure_devops`], [`local`].
 //! [`manager::ForgeManager`] wraps any `Forge` with caching,
 //! logging, and dry-run support.
 
+pub mod azure_devops;
 pub mod config;
 pub mod forgejo;
 pub mod gitea;

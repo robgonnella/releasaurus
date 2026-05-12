@@ -13,12 +13,23 @@ use super::common::*;
 use crate::{
     config::{Config, package::PackageConfigBuilder},
     forge::{
-        request::{Commit, CreateReleaseBranchRequest, PullRequest, Tag},
+        request::{
+            Commit, CreateReleaseBranchRequest, PrMetadataBlock, PullRequest,
+            Tag,
+        },
         traits::MockForge,
     },
     orchestrator::tests::common::{PrBodyInput, make_pr_body},
     packages::releasable::ReleasablePackage,
 };
+
+fn expect_html_comment_encoding(mock: &mut MockForge) {
+    mock.expect_encode_pr_metadata()
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
+}
 
 #[tokio::test]
 async fn create_pr_branches_creates_branch_before_pr_request() {
@@ -47,6 +58,8 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
                 sha: "abc123".to_string(),
             })
         });
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
 
@@ -96,6 +109,8 @@ async fn create_pr_branches_includes_metadata_in_body() {
                 sha: "abc123".to_string(),
             })
         });
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
 
@@ -150,6 +165,8 @@ async fn create_pr_branches_uses_sha_compare_link() {
                 sha: "abc123".to_string(),
             })
         });
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
 
@@ -239,6 +256,8 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         separate_pull_requests: false,
         ..Default::default()
     };
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor =
         create_package_processor(mock_forge, Some(pkg_configs), Some(config));
@@ -331,6 +350,8 @@ async fn create_pr_branches_handles_separate_branches() {
         ..Default::default()
     };
 
+    expect_html_comment_encoding(&mut mock_forge);
+
     let processor =
         create_package_processor(mock_forge, Some(pkg_configs), Some(config));
 
@@ -400,6 +421,8 @@ async fn create_pr_branches_includes_file_changes() {
             })
         });
 
+    expect_html_comment_encoding(&mut mock_forge);
+
     let processor = create_package_processor(mock_forge, None, None);
 
     let releasable = ReleasablePackage {
@@ -443,6 +466,8 @@ async fn create_pr_branches_uses_correct_title_format() {
                 sha: "abc123".to_string(),
             })
         });
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
 
@@ -507,6 +532,8 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
                 sha: "abc123".to_string(),
             })
         });
+
+    expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
 

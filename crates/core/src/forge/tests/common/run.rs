@@ -154,6 +154,25 @@ pub async fn run_forge_test(
     sleep(SHORT_WAIT).await;
 
     ////////////////////////////////////////////////////////////////////////////
+    // create_release_branch on existing branch -> force-resets, succeeds
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("re-creating release-branch (force-reset scenario)");
+    let re_create_req = CreateReleaseBranchRequest {
+        base_branch: default_branch.to_string(),
+        message: "chore(main): release (re-run)".into(),
+        release_branch: release_branch.to_string(),
+        file_changes: vec![FileChange {
+            content: format!("# Changelog - {} (updated)", created_commit.sha),
+            path: "CHANGELOG.md".into(),
+            update_type: FileUpdateType::Prepend,
+        }],
+    };
+    let re_create_commit =
+        forge.create_release_branch(re_create_req).await.unwrap();
+    assert!(!re_create_commit.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
     // get_open_release_pr: expect -> None
     ////////////////////////////////////////////////////////////////////////////
     log::info!("getting non-existent open PR");
@@ -308,6 +327,10 @@ pub async fn run_forge_test(
     assert_eq!(current_tag.name, tag);
     assert_eq!(current_tag.semver, Version::parse(semver).unwrap());
     assert_eq!(current_tag.sha, merged_pr.sha);
+    assert!(
+        current_tag.timestamp.is_some(),
+        "tag must carry a timestamp so multi-package repos filter commits correctly"
+    );
 
     ////////////////////////////////////////////////////////////////////////////
     // get_latest_tag_for_prefix on pre-tag-branch -> None
@@ -326,15 +349,17 @@ pub async fn run_forge_test(
          was created"
     );
 
-    ////////////////////////////////////////////////////////////////////////////
-    // get_release_by_tag -> Err Not Found
-    ////////////////////////////////////////////////////////////////////////////
-    log::info!("getting non-existent release by tag name");
-    let err = forge
-        .get_release_by_tag(&current_tag.name)
-        .await
-        .unwrap_err();
-    assert!(matches!(err, ReleasaurusError::ForgeError(_)));
+    if helper.supports_native_releases() {
+        ////////////////////////////////////////////////////////////////////////////
+        // get_release_by_tag -> Err Not Found
+        ////////////////////////////////////////////////////////////////////////////
+        log::info!("getting non-existent release by tag name");
+        let err = forge
+            .get_release_by_tag(&current_tag.name)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ReleasaurusError::ForgeError(_)));
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // create_release -> succeeds
@@ -346,12 +371,15 @@ pub async fn run_forge_test(
         .unwrap();
     sleep(SHORT_WAIT).await;
 
-    ////////////////////////////////////////////////////////////////////////////
-    // get_release_by_tag -> Found
-    ////////////////////////////////////////////////////////////////////////////
-    log::info!("getting newly created release by tag name");
-    let release = forge.get_release_by_tag(&current_tag.name).await.unwrap();
-    assert_eq!(release.tag, current_tag.name);
+    if helper.supports_native_releases() {
+        ////////////////////////////////////////////////////////////////////////////
+        // get_release_by_tag -> Found
+        ////////////////////////////////////////////////////////////////////////////
+        log::info!("getting newly created release by tag name");
+        let release =
+            forge.get_release_by_tag(&current_tag.name).await.unwrap();
+        assert_eq!(release.tag, current_tag.name);
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // load_config -> Default::default()
@@ -398,4 +426,25 @@ pub async fn run_forge_test(
     assert_eq!(config.packages[0].name, "test-package");
     assert_eq!(config.packages[0].workspace_root, "packages");
     assert_eq!(config.packages[0].path, "test-package");
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_commits(sha) -> exactly the one commit made after the tag
+    //
+    // This exercises the SHA-based history walk used by the orchestrator.
+    // The releasaurus.toml commit above is the only commit on the default
+    // branch that post-dates the release tag.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("getting commits since release tag");
+    let commits_since_tag = forge
+        .get_commits(
+            Some(default_branch.to_string()),
+            Some(current_tag.sha.clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        commits_since_tag.len(),
+        1,
+        "expected exactly one commit after the release tag"
+    );
 }

@@ -1,3 +1,4 @@
+use base64::{Engine, prelude::BASE64_STANDARD};
 use color_eyre::eyre::eyre;
 use regex::Regex;
 use std::sync::LazyLock;
@@ -130,27 +131,49 @@ pub fn parse_pr_body(
 
     let notes = div.inner_html(parser);
 
-    let cap =
-        METADATA_REGEX
-            .captures(&notes)
-            .ok_or(ReleasaurusError::Other(eyre!(
-                "failed to find metadata for package: pkg={} pr={}",
+    // Try data-meta attribute first (base64 JSON); fall back to the inline HTML comment
+    let json: PRMetadata = if let Some(b64) = div_tag
+        .attributes()
+        .get("data-meta")
+        .flatten()
+        .map(|b| b.as_utf8_str().to_string())
+    {
+        let decoded = BASE64_STANDARD.decode(b64.as_bytes()).map_err(|e| {
+            ReleasaurusError::Other(eyre!(
+                "failed to decode data-meta for package: pkg={} pr={} - {e}",
                 package_name,
                 pr_number
-            )))?;
-
-    let metadata_str = cap
-        .name("metadata")
-        .ok_or(ReleasaurusError::Other(eyre!(
-            "failed to parse metadata from PR body: pkg={} pr={}",
-            package_name,
-            pr_number,
-        )))?
-        .as_str();
-
-    log::debug!("parsing metadata string: {:#?}", metadata_str);
-
-    let json: PRMetadata = serde_json::from_str(metadata_str)?;
+            ))
+        })?;
+        let s = String::from_utf8(decoded).map_err(|e| {
+            ReleasaurusError::Other(eyre!(
+                "data-meta is not valid UTF-8: pkg={} pr={} - {e}",
+                package_name,
+                pr_number
+            ))
+        })?;
+        log::debug!("parsing metadata from data-meta attribute: {s:?}");
+        serde_json::from_str(&s)?
+    } else {
+        let cap =
+            METADATA_REGEX
+                .captures(&notes)
+                .ok_or(ReleasaurusError::Other(eyre!(
+                    "failed to find metadata for package: pkg={} pr={}",
+                    package_name,
+                    pr_number
+                )))?;
+        let metadata_str = cap
+            .name("metadata")
+            .ok_or(ReleasaurusError::Other(eyre!(
+                "failed to parse metadata from PR body: pkg={} pr={}",
+                package_name,
+                pr_number,
+            )))?
+            .as_str();
+        log::debug!("parsing metadata from HTML comment: {metadata_str:?}");
+        serde_json::from_str(metadata_str)?
+    };
 
     let tag_compare_link =
         json.metadata

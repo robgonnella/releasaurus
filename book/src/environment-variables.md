@@ -143,6 +143,36 @@ releasaurus release-pr \
   --repo "https://forgejo.example.com/user/project"
 ```
 
+#### `AZURE_DEVOPS_TOKEN`
+
+**Purpose**: Authentication token (Personal Access Token) for Azure
+DevOps API access. **EXPERIMENTAL** — Azure DevOps has no native
+release object, so the `release` step only pushes the git tag (the
+changelog commit lands when the release PR is merged).
+
+**Required PAT Scopes**:
+
+- `Code` — Read & Write (read repo, push commits, create tags and
+  branches)
+- `Pull Request Threads` — Read & Write (create / update release PRs
+  and manage labels)
+
+**Example**:
+
+```bash
+export AZURE_DEVOPS_TOKEN="xxxxxxxxxxxxxxxxxx"
+```
+
+**Usage**:
+
+```bash
+# Azure DevOps Services (dev.azure.com only — on-prem Azure DevOps
+# Server is not supported)
+releasaurus release-pr \
+  --forge azure-devops \
+  --repo "https://dev.azure.com/org/project/_git/repo"
+```
+
 **Token Selection**: Releasaurus automatically selects the appropriate
 environment variable based on the `--forge` flag. Use `--token` to override
 or when the environment variable is not set.

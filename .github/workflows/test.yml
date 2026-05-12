@@ -44,6 +44,9 @@ jobs:
           FORGEJO_TEST_REPO: https://codeberg.org/rgon/test-repo
           FORGEJO_TEST_TOKEN: ${{ secrets.FJ_TEST_TOKEN }}
           FORGEJO_RESET_SHA: 855e0ddc6ddd00d880d0a99638a2f6c678e4109c
+          AZURE_DEVOPS_TEST_REPO: ${{ vars.AZDO_TEST_REPO }}
+          AZURE_DEVOPS_TEST_TOKEN: ${{ secrets.AZDO_TEST_TOKEN }}
+          AZURE_DEVOPS_RESET_SHA: ${{ vars.AZDO_RESET_SHA }}
         run: |
           cargo llvm-cov \
             --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
