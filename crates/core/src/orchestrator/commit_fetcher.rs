@@ -247,7 +247,7 @@ impl CommitFetcher {
         }
 
         let mut commits = cache.iter().cloned().collect::<Vec<ForgeCommit>>();
-        commits.sort_by(|c1, c2| c1.timestamp.cmp(&c2.timestamp));
+        commits.sort_by_key(|c| c.timestamp);
         Ok(commits)
     }
 
