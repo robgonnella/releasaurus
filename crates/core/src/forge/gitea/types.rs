@@ -139,7 +139,7 @@ pub struct GiteaFileChange {
 
 #[derive(Debug, Serialize)]
 pub struct GiteaModifyFiles {
-    pub old_ref_name: String,
+    pub branch: String,
     pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<GiteaFileChange>,

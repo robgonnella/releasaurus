@@ -503,7 +503,7 @@ impl Forge for Gitea {
         }
 
         let body = GiteaModifyFiles {
-            old_ref_name: req.base_branch,
+            branch: req.base_branch,
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
@@ -568,7 +568,7 @@ impl Forge for Gitea {
 
         let body = GiteaModifyFiles {
             new_branch: None,
-            old_ref_name: req.target_branch,
+            branch: req.target_branch,
             message: req.message,
             files: file_changes,
             force_push: false,
