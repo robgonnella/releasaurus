@@ -131,15 +131,6 @@ Exclude merge commits:
 skip_merge_commits = false  # Include "Merge pull request #123"
 ```
 
-### `skip_release_commits` (default: true)
-
-Exclude release commits created by Releasaurus:
-
-```toml
-[changelog]
-skip_release_commits = false  # Include "chore(main): release v1.0.0"
-```
-
 ### `include_author` (default: false)
 
 Include commit author names in changelog entries:
@@ -308,7 +299,6 @@ skip_ci = true
 skip_chore = true
 skip_miscellaneous = true
 skip_merge_commits = true
-skip_release_commits = true
 
 [[package]]
 path = "."

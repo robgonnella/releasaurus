@@ -343,19 +343,6 @@ Exclude merge commits from changelog.
 skip_merge_commits = false
 ```
 
-#### `skip_release_commits`
-
-**Type**: Boolean (optional)
-
-**Default**: true
-
-Exclude release commits created by Releasaurus.
-
-```toml
-[changelog]
-skip_release_commits = false
-```
-
 #### `include_author`
 
 **Type**: Boolean (optional)

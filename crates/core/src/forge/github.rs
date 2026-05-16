@@ -489,6 +489,13 @@ impl Forge for Github {
                 return Ok(commits);
             }
 
+            // stop if we've reached target sha
+            if let Some(target_sha) = sha.as_deref()
+                && thin_commit.sha == target_sha
+            {
+                return Ok(commits);
+            }
+
             count += 1;
 
             log::debug!(

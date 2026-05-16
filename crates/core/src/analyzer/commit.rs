@@ -122,9 +122,7 @@ impl Commit {
                     );
                     return None;
                 }
-                if config.skip_release_commits
-                    && let Some(matcher) =
-                        config.release_commit_matcher.as_ref()
+                if let Some(matcher) = config.release_commit_matcher.as_ref()
                     && matcher.is_match(&commit.raw_title)
                 {
                     log::debug!(
@@ -466,7 +464,6 @@ mod tests {
     fn test_parses_and_omits_release_commit() {
         let analyzer_config = AnalyzerConfig {
             skip_chore: false,
-            skip_release_commits: true,
             release_commit_matcher: Some(
                 Regex::new(r#"^chore\(main\):\srelease.+"#).unwrap(),
             ),
@@ -491,36 +488,6 @@ mod tests {
         );
 
         assert!(commit.is_none());
-    }
-
-    #[test]
-    fn test_parses_and_includes_release_commit() {
-        let analyzer_config = AnalyzerConfig {
-            skip_release_commits: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
-        let forge_commit = ForgeCommitBuilder::default()
-            .id("vwx234")
-            .message("chore(main): release test-package test-package-v1.0.0")
-            .author_name("GitHub")
-            .author_email("noreply@github.com")
-            .timestamp(1640995900)
-            .merge_commit(false)
-            .build()
-            .unwrap();
-        let commit = Commit::parse_forge_commit(
-            &group_parser,
-            &forge_commit,
-            &analyzer_config,
-        )
-        .unwrap();
-
-        assert_eq!(commit.group, Group::Chore);
-        assert!(!commit.merge_commit);
-        assert_eq!(commit.title, "release test-package test-package-v1.0.0");
-        assert_eq!(commit.author_name, "GitHub");
-        assert_eq!(commit.author_email, "noreply@github.com");
     }
 
     #[test]
@@ -1398,7 +1365,6 @@ mod tests {
             skip_miscellaneous: true,
             skip_perf: true,
             skip_refactor: true,
-            skip_release_commits: true,
             skip_revert: true,
             skip_style: true,
             skip_test: true,

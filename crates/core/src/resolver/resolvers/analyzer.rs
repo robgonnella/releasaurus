@@ -62,7 +62,6 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
         skip_style: params.config.changelog.skip_style,
         skip_merge_commits: params.config.changelog.skip_merge_commits,
         skip_miscellaneous: params.config.changelog.skip_miscellaneous,
-        skip_release_commits: params.config.changelog.skip_release_commits,
         tag_prefix: Some(params.tag_prefix),
         commit_modifiers: params.config.commit_modifiers.clone(),
     }

@@ -32,8 +32,6 @@ pub struct AnalyzerConfig {
     pub skip_miscellaneous: bool,
     /// Skips including merge commits in changelog (default: true)
     pub skip_merge_commits: bool,
-    /// Skips including release commits in changelog (default: true)
-    pub skip_release_commits: bool,
     /// Includes commit author in default body template (default: false)
     pub include_author: bool,
     /// Optional prefix for package tags.
@@ -73,7 +71,6 @@ impl Default for AnalyzerConfig {
             skip_revert: false,
             skip_miscellaneous: false,
             skip_merge_commits: true,
-            skip_release_commits: true,
             include_author: false,
             tag_prefix: None,
             release_link_base_url: None,
