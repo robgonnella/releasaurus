@@ -354,6 +354,23 @@ URL:
 - `forgejo` - For codeberg.org and self-hosted Forgejo instances
 - `local` - For testing against local repositories
 
+### Known Limitations
+
+#### Forgejo: Closed Release PRs on Repeated Runs
+
+Forgejo currently does not support force-pushing a branch via
+the API. As a workaround, releasaurus deletes the release branch and
+re-creates it on each run. Forgejo automatically closes any open pull request
+targeting a deleted branch, so each run produces a new PR and leaves a
+closed one behind.
+
+**Workaround**: Use `--local-path` (hybrid mode) to perform git operations
+locally. This bypasses the branch-deletion workaround and avoids accumulating
+closed PRs. See the [Using `--local-path`](#using---local-path-hybrid-mode)
+example below, substituting `--forge gitea` and your Forgejo repository URL.
+
+We are working on submitting a patch to Forgejo to remove this limitation.
+
 ### Dry Run Mode
 
 Test your release workflow without making any actual changes to your

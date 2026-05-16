@@ -6,6 +6,8 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::{ExposeSecret, SecretString};
+use std::time::Duration;
+use tokio::time::sleep;
 use url::Url;
 
 use crate::{
@@ -82,6 +84,18 @@ impl Forgejo {
             base_url,
             gitea,
         })
+    }
+
+    // TODO: Right now forgejo does not support force updating a branch
+    async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
+        let url = self.base_url.join(&format!("branches/{branch}"))?;
+        let request = self.client.delete(url).build()?;
+        let response = self.client.execute(request).await?;
+        let status = response.status();
+        if !status.is_success() && status != reqwest::StatusCode::NOT_FOUND {
+            response.error_for_status()?;
+        }
+        Ok(())
     }
 
     async fn get_file_sha(&self, path: &str) -> Result<String> {
@@ -162,6 +176,13 @@ impl Forge for Forgejo {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
+        // TODO: When forgejo supports force pushing on /contents
+        // delete this call
+        self.delete_branch_if_exists(&req.release_branch).await?;
+        // pause execution to wait for any PRs that might have been closed as
+        // a result to fully register as closed
+        sleep(Duration::from_millis(3000)).await;
+
         let mut file_changes: Vec<ForgejoFileChange> = vec![];
 
         for change in req.file_changes.iter() {
@@ -182,11 +203,15 @@ impl Forge for Forgejo {
             } else {
                 op = ForgejoFileChangeOperation::Create;
             }
+
             file_changes.push(ForgejoFileChange {
                 path: change.path.clone(),
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
+                // TODO: Currently forgejo does not support the force option,
+                // when it does we'll add the below line
+                // force_push: true,
             })
         }
 
@@ -241,6 +266,9 @@ impl Forge for Forgejo {
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
+                // TODO: below line will be needed when forgejo supports
+                // force pushing on /contents
+                // force_push: false
             })
         }
 

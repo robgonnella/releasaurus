@@ -23,6 +23,8 @@ pub struct ForgejoModifyFiles {
     pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<ForgejoFileChange>,
+    // TODO: add this once forgejo supports force pushing on /contents route
+    // pub force_push: bool,
 }
 
 #[derive(Debug, Deserialize)]
