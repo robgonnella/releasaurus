@@ -415,6 +415,13 @@ impl Forge for Gitlab {
         let mut forge_commits = vec![];
 
         for commit in result.iter() {
+            // stop if we've reached target sha
+            if let Some(target_sha) = sha.as_deref()
+                && commit.id == target_sha
+            {
+                break;
+            }
+
             log::debug!("backfilling file list for commit: {}", commit.id);
 
             let vars = CommitDiffQueryVars {

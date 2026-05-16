@@ -324,7 +324,7 @@ async fn create_release_prs_updates_existing_prs() {
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
             ForgeCommitBuilder::default()
-                .id("abc123")
+                .id("def456")
                 .files(vec!["dummy.txt".into()])
                 .timestamp(200)
                 .build()

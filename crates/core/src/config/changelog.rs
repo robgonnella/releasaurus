@@ -62,8 +62,6 @@ pub struct ChangelogConfig {
     pub skip_miscellaneous: bool,
     /// Skips including merge commits in changelog
     pub skip_merge_commits: bool,
-    /// Skips including release commits in changelog
-    pub skip_release_commits: bool,
     /// Skips targeted commit shas (or prefixes) when generating next version
     /// and changelog. Each value matches any commit whose SHA starts with the
     /// provided value
@@ -92,7 +90,6 @@ impl Default for ChangelogConfig {
             skip_revert: false,
             skip_miscellaneous: false,
             skip_merge_commits: true,
-            skip_release_commits: true,
             skip_shas: None,
             reword: None,
             include_author: false,

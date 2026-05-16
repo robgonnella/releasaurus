@@ -79,12 +79,18 @@ impl CommitFetcher {
         let mut package_commits: Vec<ForgeCommit> = vec![];
 
         for commit in commits.iter() {
-            if let Some(tag) = tag
-                && let Some(tag_timestamp) = tag.timestamp
-                && commit.timestamp < tag_timestamp
-            {
-                // commit is older than package's previous release starting point
-                continue;
+            if let Some(tag) = tag {
+                if let Some(tag_timestamp) = tag.timestamp
+                    && commit.timestamp < tag_timestamp
+                {
+                    // omit: commit is older than last release tag
+                    continue;
+                }
+
+                if commit.id == tag.sha {
+                    // omit: commit is previous release tag
+                    continue;
+                }
             }
             'file_loop: for file in commit.files.iter() {
                 let file_path = Path::new(file);
@@ -415,6 +421,44 @@ mod tests {
             core.filter_commits_for_package(&package, Some(&tag), &commits);
 
         // Should only include commits newer than tag timestamp
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "new-commit");
+    }
+
+    #[test]
+    fn omits_commit_matching_tag_sha() {
+        let commits = vec![
+            ForgeCommitBuilder::default()
+                .id("release-sha")
+                .short_id("rel")
+                .message("chore(main): release v1.0.0")
+                .timestamp(200)
+                .files(vec!["packages/pkg-a/src/lib.rs".to_string()])
+                .build()
+                .unwrap(),
+            ForgeCommitBuilder::default()
+                .id("new-commit")
+                .short_id("new")
+                .message("feat: new feature")
+                .timestamp(300)
+                .files(vec!["packages/pkg-a/src/main.rs".to_string()])
+                .build()
+                .unwrap(),
+        ];
+
+        let package = create_test_package("pkg-a", "packages/pkg-a");
+        let tag = Tag {
+            name: "v1.0.0".to_string(),
+            sha: "release-sha".to_string(),
+            timestamp: Some(100),
+            ..Default::default()
+        };
+
+        let core = create_test_commit_fetcher();
+
+        let filtered =
+            core.filter_commits_for_package(&package, Some(&tag), &commits);
+
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, "new-commit");
     }

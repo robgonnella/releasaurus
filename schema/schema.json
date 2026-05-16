@@ -88,7 +88,6 @@
         "skip_revert": false,
         "skip_miscellaneous": false,
         "skip_merge_commits": true,
-        "skip_release_commits": true,
         "skip_shas": null,
         "reword": null,
         "include_author": false,
@@ -212,11 +211,6 @@
         },
         "skip_merge_commits": {
           "description": "Skips including merge commits in changelog",
-          "type": "boolean",
-          "default": true
-        },
-        "skip_release_commits": {
-          "description": "Skips including release commits in changelog",
           "type": "boolean",
           "default": true
         },
