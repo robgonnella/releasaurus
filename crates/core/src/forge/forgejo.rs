@@ -90,11 +90,9 @@ impl Forgejo {
     async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
         let url = self.base_url.join(&format!("branches/{branch}"))?;
         let request = self.client.delete(url).build()?;
-        let response = self.client.execute(request).await?;
-        let status = response.status();
-        if !status.is_success() && status != reqwest::StatusCode::NOT_FOUND {
-            response.error_for_status()?;
-        }
+        // ignore errors here: forgejo seems to return 500 response for
+        // non-existent branches ¯\_(ツ)_/¯
+        self.client.execute(request).await?;
         Ok(())
     }
 
