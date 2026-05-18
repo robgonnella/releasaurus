@@ -283,6 +283,13 @@ export RELEASAURUS_FORGE=github
 releasaurus release-pr --repo "https://github.com/owner/repo"
 ```
 
+**Note**: When `--repo` (or `RELEASAURUS_REPO`) points at a recognized
+cloud host — `github.com`, `gitlab.com`, `gitea.com`, `codeberg.org`,
+or `dev.azure.com` — the forge is inferred from the URL and neither
+the flag nor the variable is required. Self-hosted instances still
+need an explicit forge. See
+[Automatic forge inference](./commands.md#automatic-forge-inference).
+
 ### `RELEASAURUS_REPO`
 
 **Purpose**: Default value for `--repo`. The repository URL releasaurus
