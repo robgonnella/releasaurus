@@ -1,3 +1,23 @@
+# [0.20.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.19.0...v0.20.0-rc.1) - 2026-05-10
+
+### 🚀 Features
+
+- _(azure)_ adds experimental support for azure devops [_(1a27e65)_](https://github.com/robgonnella/releasaurus/commit/1a27e6559efa0ac49ebc1b65ee75cf336265df48) (Michal Dvořák)
+
+- adds explicit support for forgejo [_(12438cd)_](https://github.com/robgonnella/releasaurus/commit/12438cd74662a362809a212e42a5b3de3d7ddb52) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- _(forgejo)_ fixes issue with deleting release branch in forgejo [_(99ceb60)_](https://github.com/robgonnella/releasaurus/commit/99ceb60735ad76daeb8fbc28a94d6b2e15b2fb3c) (Rob Gonnella)
+
+- fixes issue with creating release branch in forgejo [_(ebb6dc8)_](https://github.com/robgonnella/releasaurus/commit/ebb6dc815a5984850c3c41d5d6d40d4851d3c882) (Rob Gonnella)
+
+- removes option to skip release commits [_(09a3006)_](https://github.com/robgonnella/releasaurus/commit/09a3006801dd58e5800c6144ae39557700d7af4c) (Rob Gonnella)
+
+- fixes forgejo implementations [_(5d81b3a)_](https://github.com/robgonnella/releasaurus/commit/5d81b3acead37cddc2b31984dd247469cbb52fdf) (Rob Gonnella)
+
+- _(gitea)_ updates gitea types to match latest api [_(a6a2b5e)_](https://github.com/robgonnella/releasaurus/commit/a6a2b5ead4638c601dec147795b91c78d415c5fa) (Rob Gonnella)
+
 # [0.19.0](https://github.com/robgonnella/releasaurus/compare/v0.19.0-rc.1...v0.19.0) - 2026-05-08
 
 ### 🚀 Features
