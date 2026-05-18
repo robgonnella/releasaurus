@@ -92,6 +92,14 @@ Provide a PAT via the `AZURE_DEVOPS_TOKEN` pipeline secret variable.
 The PAT needs `Code: Read & Write` and `Pull Request Threads: Read &
 Write` scopes.
 
+The release branch (typically `releasaurus-release-*`) must have 
+**Allow rewriting history** 
+enabled for the build service identity — releasaurus performs
+a non-fast-forward reset to the base branch when updating an existing
+release PR. See the [Azure DevOps known
+limitation](./commands.md#azure-devops-release-branch-requires-allow-rewriting-history)
+for the exact setting.
+
 ```yaml
 trigger:
   branches:
