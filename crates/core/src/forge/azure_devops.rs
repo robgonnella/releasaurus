@@ -5,7 +5,10 @@
 //! `create_release` method below is a deliberate no-op that logs at
 //! info level; tags and the changelog commit are pushed normally.
 use async_trait::async_trait;
-use base64::{Engine, prelude::BASE64_STANDARD};
+use base64::{
+    Engine,
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD},
+};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
 use log::{info, warn};
@@ -113,11 +116,16 @@ impl AzureDevops {
 
         let mut headers = HeaderMap::new();
 
-        // Azure DevOps PAT auth: Basic base64(":{PAT}") with an empty username.
-        let basic = BASE64_STANDARD
-            .encode(format!(":{}", token.expose_secret()).as_bytes());
-        let token_value =
-            HeaderValue::from_str(format!("Basic {}", basic).as_str())?;
+        // Azure DevOps accepts either a PAT (Basic base64(":{PAT}")) or an
+        // OAuth bearer (typically a pipeline System.AccessToken, which is a
+        // signed JWT). Detect the JWT shape to pick the scheme.
+        let token_value = if looks_like_jwt(token.expose_secret()) {
+            HeaderValue::from_str(&format!("Bearer {}", token.expose_secret()))?
+        } else {
+            let basic = BASE64_STANDARD
+                .encode(format!(":{}", token.expose_secret()).as_bytes());
+            HeaderValue::from_str(&format!("Basic {}", basic))?
+        };
         headers.append("Authorization", token_value);
         headers.append("Accept", HeaderValue::from_static("application/json"));
 
@@ -449,6 +457,34 @@ fn normalize_path(path: &str) -> String {
     } else {
         format!("/{trimmed}")
     }
+}
+
+/// Returns `true` if `token` has the structural shape of a JWT (RFC 7519):
+/// three base64url segments separated by dots, where the first segment
+/// decodes to a JSON object containing an `alg` field. Used to distinguish
+/// an Azure DevOps OAuth bearer (e.g. pipeline `System.AccessToken`) from a
+/// PAT, which is an opaque base32-style string.
+fn looks_like_jwt(token: &str) -> bool {
+    // Fast path: every JWT header begins with `{"`, which base64url-encodes
+    // to `eyJ`. Skip the parse work for anything that can't be one.
+    if !token.starts_with("eyJ") {
+        return false;
+    }
+    let mut parts = token.split('.');
+    let (Some(header), Some(_), Some(_), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let Ok(header_bytes) = BASE64_URL_SAFE_NO_PAD.decode(header) else {
+        return false;
+    };
+    let Ok(header_json) =
+        serde_json::from_slice::<serde_json::Value>(&header_bytes)
+    else {
+        return false;
+    };
+    header_json.get("alg").is_some()
 }
 
 #[async_trait]
@@ -947,5 +983,53 @@ mod tests {
     fn strip_refs_tags_removes_prefix() {
         assert_eq!(strip_refs_tags("refs/tags/v1.0.0"), "v1.0.0");
         assert_eq!(strip_refs_tags("v1.0.0"), "v1.0.0");
+    }
+
+    fn make_jwt(header_json: &str, payload_json: &str) -> String {
+        let h = BASE64_URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        let p = BASE64_URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        format!("{h}.{p}.signature")
+    }
+
+    #[test]
+    fn looks_like_jwt_accepts_signed_token() {
+        let token =
+            make_jwt(r#"{"alg":"RS256","typ":"JWT"}"#, r#"{"sub":"x"}"#);
+        assert!(looks_like_jwt(&token));
+    }
+
+    #[test]
+    fn looks_like_jwt_rejects_pat() {
+        // Azure DevOps PATs are ~52 alphanumeric chars, no dots.
+        assert!(!looks_like_jwt(
+            "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
+        ));
+    }
+
+    #[test]
+    fn looks_like_jwt_rejects_wrong_segment_count() {
+        let two_parts = "eyJhbGciOiJIUzI1NiJ9.payload";
+        assert!(!looks_like_jwt(two_parts));
+        let four_parts = "eyJhbGciOiJIUzI1NiJ9.a.b.c";
+        assert!(!looks_like_jwt(four_parts));
+    }
+
+    #[test]
+    fn looks_like_jwt_rejects_header_without_alg() {
+        let token = make_jwt(r#"{"typ":"JWT"}"#, r#"{}"#);
+        assert!(!looks_like_jwt(&token));
+    }
+
+    #[test]
+    fn looks_like_jwt_rejects_non_eyj_prefix() {
+        // Three dot-separated parts but header doesn't base64url-decode to
+        // a JSON object — fast-path rejection.
+        assert!(!looks_like_jwt("foo.bar.baz"));
+    }
+
+    #[test]
+    fn looks_like_jwt_rejects_invalid_base64_header() {
+        // Starts with "eyJ" but contains an illegal base64url character.
+        assert!(!looks_like_jwt("eyJ!!!.payload.sig"));
     }
 }
