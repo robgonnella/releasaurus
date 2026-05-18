@@ -183,10 +183,15 @@ impl AzureDevops {
             .append_pair("targetVersion", branch)
             .append_pair("targetVersionType", "branch");
         let response = self.client.get(url).send().await?;
-        if !response.status().is_success() {
+        // 404 means the base commit isn't reachable from the target branch
+        // (or doesn't exist) — a legitimate "not an ancestor". Any other
+        // non-2xx (401, 429, 5xx) would silently drop reachable tags if
+        // coerced to false, so propagate it.
+        if response.status() == StatusCode::NOT_FOUND {
             return Ok(false);
         }
-        let body: serde_json::Value = response.json().await?;
+        let body: serde_json::Value =
+            response.error_for_status()?.json().await?;
         let base = body.get("baseCommit").and_then(|v| v.as_str());
         let common = body.get("commonCommit").and_then(|v| v.as_str());
         match (base, common) {
@@ -406,10 +411,14 @@ impl AzureDevops {
         url.query_pairs_mut()
             .append_pair("api-version", API_VERSION);
         let response = self.client.get(url).send().await?;
-        if !response.status().is_success() {
+        // 404 is legitimate (commit has no recorded change list); other
+        // non-2xx codes (401/429/5xx) would silently produce empty file
+        // lists and mask auth or transport problems, so propagate.
+        if response.status() == StatusCode::NOT_FOUND {
             return Ok(vec![]);
         }
-        let changes: AzureCommitChanges = response.json().await?;
+        let changes: AzureCommitChanges =
+            response.error_for_status()?.json().await?;
         Ok(changes
             .changes
             .into_iter()
@@ -628,7 +637,13 @@ impl Forge for AzureDevops {
                     return Ok(commits);
                 }
 
-                // Fetch file list for this commit (best effort).
+                // Fetch file list for this commit (best effort). Azure
+                // DevOps' commits list endpoint doesn't include change
+                // info, so this is one extra request per commit.
+                log::debug!(
+                    "backfilling file list for commit: {}",
+                    c.commit_id
+                );
                 let files = self
                     .get_commit_files(&c.commit_id)
                     .await

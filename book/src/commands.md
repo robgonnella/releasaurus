@@ -410,6 +410,18 @@ example below, substituting `--forge gitea` and your Forgejo repository URL.
 
 We are working on submitting a patch to Forgejo to remove this limitation.
 
+#### Azure DevOps: Release Branch Requires "Allow rewriting history"
+
+When a release PR is updated, releasaurus resets the release branch to the
+tip of the base branch and replays the changelog commit on top. If the
+existing release branch has diverged from the base, this is a non-fast-forward
+update and Azure DevOps will reject it unless the **Allow rewriting history**
+permission is granted on the release branch (typically `releasaurus-release-*`).
+
+In Azure DevOps: **Project Settings → Repositories → {repo} → Security → Branches
+→ {release branch}**, set **Allow rewriting history** to *Allow* for the build
+service account (or whichever identity holds the PAT releasaurus uses).
+
 ### Dry Run Mode
 
 Test your release workflow without making any actual changes to your
