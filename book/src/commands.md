@@ -363,6 +363,36 @@ URL:
   not supported.
 - `local` - For testing against local repositories
 
+#### Automatic forge inference
+
+When `--repo` points at a recognized cloud host, `--forge` can be
+omitted — Releasaurus infers it from the URL host:
+
+| Host             | Inferred forge |
+| ---------------- | -------------- |
+| `github.com`     | `github`       |
+| `gitlab.com`     | `gitlab`       |
+| `gitea.com`      | `gitea`        |
+| `codeberg.org`   | `forgejo`      |
+| `dev.azure.com`  | `azure-devops` |
+
+```bash
+# --forge omitted — inferred as github
+releasaurus release-pr --repo "https://github.com/owner/repo"
+```
+
+Self-hosted instances (e.g. `https://gitlab.company.com/...`) still
+require `--forge` explicitly, since the host alone can't identify the
+forge software. `--forge local` also still requires the flag.
+
+#### Environment-variable defaults
+
+`--forge`, `--repo`, and `--local-path` each fall back to an
+environment variable when the flag is omitted: `RELEASAURUS_FORGE`,
+`RELEASAURUS_REPO`, and `RELEASAURUS_LOCAL_PATH`. See
+[Environment Variables](./environment-variables.md#forge-selection)
+for details.
+
 ### Known Limitations
 
 #### Forgejo: Closed Release PRs on Repeated Runs
