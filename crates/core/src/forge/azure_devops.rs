@@ -146,8 +146,7 @@ impl AzureDevops {
             .query_pairs_mut()
             .append_pair("api-version", API_VERSION);
         let response = client.get(repo_url).send().await?;
-        let result = response.error_for_status()?;
-        let repo: AzureRepo = result.json().await?;
+        let repo: AzureRepo = read_json(response).await?;
         let default_branch = repo
             .default_branch
             .as_deref()
@@ -198,8 +197,7 @@ impl AzureDevops {
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(false);
         }
-        let body: serde_json::Value =
-            response.error_for_status()?.json().await?;
+        let body: serde_json::Value = read_json(response).await?;
         let base = body.get("baseCommit").and_then(|v| v.as_str());
         let common = body.get("commonCommit").and_then(|v| v.as_str());
         match (base, common) {
@@ -215,8 +213,7 @@ impl AzureDevops {
             .append_pair("api-version", API_VERSION)
             .append_pair("filter", &format!("heads/{branch}"));
         let response = self.client.get(refs_url).send().await?;
-        let result = response.error_for_status()?;
-        let refs: AzureList<AzureRef> = result.json().await?;
+        let refs: AzureList<AzureRef> = read_json(response).await?;
         let want = format!("refs/heads/{branch}");
         refs.value
             .into_iter()
@@ -296,8 +293,7 @@ impl AzureDevops {
             }],
         };
         let response = self.client.post(url).json(&body).send().await?;
-        let result = response.error_for_status()?;
-        let push: PushResponse = result.json().await?;
+        let push: PushResponse = read_json(response).await?;
         push.commits
             .into_iter()
             .next()
@@ -312,7 +308,7 @@ impl AzureDevops {
     async fn get_pr_by_id(&self, pr_id: u64) -> Result<AzurePullRequest> {
         let url = self.endpoint(&format!("pullrequests/{pr_id}"))?;
         let response = self.client.get(url).send().await?;
-        let pr: AzurePullRequest = response.error_for_status()?.json().await?;
+        let pr: AzurePullRequest = read_json(response).await?;
         Ok(pr)
     }
 
@@ -336,8 +332,7 @@ impl AzureDevops {
                 .append_pair("$top", &page_size.to_string())
                 .append_pair("$skip", &skip.to_string());
             let response = self.client.get(url).send().await?;
-            let result = response.error_for_status()?;
-            let list: AzureList<AzurePullRequest> = result.json().await?;
+            let list: AzureList<AzurePullRequest> = read_json(response).await?;
             let count = list.value.len() as u64;
             found.extend(list.value);
             if count < page_size {
@@ -366,9 +361,8 @@ impl AzureDevops {
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(vec![]);
         }
-        let result = response.error_for_status()?;
         let list: AzureList<crate::forge::azure_devops::types::AzureLabel> =
-            result.json().await?;
+            read_json(response).await?;
         Ok(list.value)
     }
 
@@ -406,7 +400,7 @@ impl AzureDevops {
         url.query_pairs_mut()
             .append_pair("api-version", API_VERSION);
         let response = self.client.get(url).send().await?;
-        let commit: AzureCommit = response.error_for_status()?.json().await?;
+        let commit: AzureCommit = read_json(response).await?;
         Ok(DateTime::parse_from_rfc3339(&commit.author.date)
             .map(|t| t.timestamp())
             .unwrap_or(0))
@@ -425,8 +419,7 @@ impl AzureDevops {
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(vec![]);
         }
-        let changes: AzureCommitChanges =
-            response.error_for_status()?.json().await?;
+        let changes: AzureCommitChanges = read_json(response).await?;
         Ok(changes
             .changes
             .into_iter()
@@ -457,6 +450,26 @@ fn normalize_path(path: &str) -> String {
     } else {
         format!("/{trimmed}")
     }
+}
+
+/// Parses a JSON body from `response`, wrapping parse failures with an
+/// actionable hint. Azure DevOps responds to invalid or under-privileged
+/// tokens with an HTML sign-in page (HTTP 203 + `text/html`), which slips
+/// past `error_for_status` and then fails JSON parsing — the hint points
+/// users at the likely auth issue rather than a bare serde error.
+async fn read_json<T: serde::de::DeserializeOwned>(
+    response: reqwest::Response,
+) -> Result<T> {
+    let response = response.error_for_status()?;
+    let status = response.status();
+    let url = response.url().clone();
+    response.json::<T>().await.map_err(|err| {
+        ReleasaurusError::forge(format!(
+            "failed to parse Azure DevOps response from {url} \
+             (HTTP {status}): {err} — the configured token might be \
+             invalid or lack access to this repository"
+        ))
+    })
 }
 
 /// Returns `true` if `token` has the structural shape of a JWT (RFC 7519):
@@ -570,8 +583,7 @@ impl Forge for AzureDevops {
             .append_pair("api-version", API_VERSION)
             .append_pair("filter", &format!("tags/{tag}"));
         let response = self.client.get(url).send().await?;
-        let result = response.error_for_status()?;
-        let refs: AzureList<AzureRef> = result.json().await?;
+        let refs: AzureList<AzureRef> = read_json(response).await?;
         let want = format!("refs/tags/{tag}");
         let r = refs.value.into_iter().find(|r| r.name == want).ok_or_else(
             || ReleasaurusError::forge(format!("tag not found: {tag}")),
@@ -594,8 +606,7 @@ impl Forge for AzureDevops {
             .append_pair("api-version", API_VERSION)
             .append_pair("filter", "tags/");
         let response = self.client.get(url).send().await?;
-        let result = response.error_for_status()?;
-        let refs: AzureList<AzureRef> = result.json().await?;
+        let refs: AzureList<AzureRef> = read_json(response).await?;
         let mut tags = vec![];
         for (count, r) in refs.value.into_iter().enumerate() {
             if count >= self.tag_search_depth {
@@ -659,8 +670,7 @@ impl Forge for AzureDevops {
                 );
 
             let response = self.client.get(url).send().await?;
-            let result = response.error_for_status()?;
-            let list: AzureList<AzureCommit> = result.json().await?;
+            let list: AzureList<AzureCommit> = read_json(response).await?;
             let returned = list.value.len() as u64;
 
             for c in list.value.into_iter() {
@@ -890,8 +900,7 @@ impl Forge for AzureDevops {
         };
         let url = self.endpoint("pullrequests")?;
         let response = self.client.post(url).json(&body).send().await?;
-        let result = response.error_for_status()?;
-        let pr: AzurePullRequest = result.json().await?;
+        let pr: AzurePullRequest = read_json(response).await?;
         Ok(PullRequest {
             number: pr.pull_request_id,
             sha: pr
