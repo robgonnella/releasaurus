@@ -268,6 +268,41 @@ numbers, file changes, and release notes.
 `RELEASAURUS_DEBUG` setting. This ensures you have maximum visibility into
 what would happen during the release process.
 
+## Forge Selection
+
+The following variables act as fallbacks for their matching CLI flags.
+Command-line flags always win when both are provided.
+
+### `RELEASAURUS_FORGE`
+
+**Purpose**: Default value for `--forge`. Accepts the same values as the
+flag: `github`, `gitlab`, `gitea`, `forgejo`, `azure-devops`, or `local`.
+
+```bash
+export RELEASAURUS_FORGE=github
+releasaurus release-pr --repo "https://github.com/owner/repo"
+```
+
+### `RELEASAURUS_REPO`
+
+**Purpose**: Default value for `--repo`. The repository URL releasaurus
+should operate against.
+
+```bash
+export RELEASAURUS_REPO="https://github.com/owner/repo"
+releasaurus release-pr --forge github
+```
+
+### `RELEASAURUS_LOCAL_PATH`
+
+**Purpose**: Default value for `--local-path`. Path to a local clone used
+in hybrid mode (local git operations + remote PR/release creation).
+
+```bash
+export RELEASAURUS_LOCAL_PATH=.
+releasaurus release-pr --forge github --repo "https://github.com/owner/repo"
+```
+
 ## Next Steps
 
 - **[Commands](./commands.md)** - Command-line options and usage patterns

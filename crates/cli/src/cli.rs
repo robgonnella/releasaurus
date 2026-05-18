@@ -55,18 +55,19 @@ pub struct Cli {
 #[derive(Debug, Clone, Args)]
 pub struct ForgeArgs {
     /// Targets a specific forge: github, gitlab, gitea, forgejo,
-    /// azure-devops, or local
-    #[arg(short, long, value_enum, global = true)]
+    /// azure-devops, or local. Falls back to env var: RELEASAURUS_FORGE
+    #[arg(short, long, value_enum, global = true, env = "RELEASAURUS_FORGE")]
     pub forge: Option<ForgeType>,
 
-    /// Repository URL
-    #[arg(short, long, global = true)]
+    /// Repository URL. Falls back to env var: RELEASAURUS_REPO
+    #[arg(short, long, global = true, env = "RELEASAURUS_REPO")]
     pub repo: Option<String>,
 
     /// Optional path to local repository. Performs local git operations for
     /// commit analysis, file updates, commits, tagging, pushing, and only uses
-    /// remote forge for PR and release creation
-    #[arg(long, global = true)]
+    /// remote forge for PR and release creation.
+    /// Falls back to env var: RELEASAURUS_LOCAL_PATH
+    #[arg(long, global = true, env = "RELEASAURUS_LOCAL_PATH")]
     pub local_path: Option<PathBuf>,
 
     /// Authentication token. Falls back to env vars:
