@@ -55,18 +55,19 @@ pub struct Cli {
 #[derive(Debug, Clone, Args)]
 pub struct ForgeArgs {
     /// Targets a specific forge: github, gitlab, gitea, forgejo,
-    /// azure-devops, or local
-    #[arg(short, long, value_enum, global = true)]
+    /// azure-devops, or local. Falls back to env var: RELEASAURUS_FORGE
+    #[arg(short, long, value_enum, global = true, env = "RELEASAURUS_FORGE")]
     pub forge: Option<ForgeType>,
 
-    /// Repository URL
-    #[arg(short, long, global = true)]
+    /// Repository URL. Falls back to env var: RELEASAURUS_REPO
+    #[arg(short, long, global = true, env = "RELEASAURUS_REPO")]
     pub repo: Option<String>,
 
     /// Optional path to local repository. Performs local git operations for
     /// commit analysis, file updates, commits, tagging, pushing, and only uses
-    /// remote forge for PR and release creation
-    #[arg(long, global = true)]
+    /// remote forge for PR and release creation.
+    /// Falls back to env var: RELEASAURUS_LOCAL_PATH
+    #[arg(long, global = true, env = "RELEASAURUS_LOCAL_PATH")]
     pub local_path: Option<PathBuf>,
 
     /// Authentication token. Falls back to env vars:
@@ -78,7 +79,10 @@ pub struct ForgeArgs {
 
 impl ForgeArgs {
     pub async fn forge(&self) -> Result<Box<dyn Forge>> {
-        if let Some(forge_type) = self.forge.as_ref()
+        let inferred_forge = self
+            .forge
+            .or_else(|| self.repo.as_deref().and_then(infer_forge_from_url));
+        if let Some(forge_type) = inferred_forge.as_ref()
             && let Some(git_url) = self.repo.as_ref()
         {
             let forge: Box<dyn Forge> = match forge_type {
@@ -165,9 +169,15 @@ impl ForgeArgs {
             };
 
             Ok(forge)
+        } else if self.repo.is_none() {
+            Err(ReleasaurusError::InvalidArgs(
+                "--repo is required (or set RELEASAURUS_REPO)".into(),
+            ))
         } else {
             Err(ReleasaurusError::InvalidArgs(
-                "both --forge and --repo are required".into(),
+                "could not infer --forge from repo URL; \
+                 pass --forge explicitly (or set RELEASAURUS_FORGE)."
+                    .into(),
             ))
         }
     }
@@ -190,6 +200,21 @@ impl ForgeArgs {
                 url: repo.clone(),
             }),
         )?))
+    }
+}
+
+/// Infer the forge type from a cloud-hosted repository URL. Returns
+/// `None` for self-hosted instances or unparseable URLs — those require
+/// `--forge` to be passed explicitly.
+fn infer_forge_from_url(url: &str) -> Option<ForgeType> {
+    let host = GitUrl::parse(url).ok()?.host()?.to_lowercase();
+    match host.as_str() {
+        "github.com" => Some(ForgeType::Github),
+        "gitlab.com" => Some(ForgeType::Gitlab),
+        "gitea.com" => Some(ForgeType::Gitea),
+        "codeberg.org" => Some(ForgeType::Forgejo),
+        "dev.azure.com" => Some(ForgeType::AzureDevops),
+        _ => None,
     }
 }
 
@@ -634,10 +659,11 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn forge_args_errors_if_missing_forge_type() {
-        let repo = "https://github.com/github_owner/github_repo";
+    async fn forge_args_errors_if_missing_forge_type_and_url_unrecognized() {
+        // Self-hosted URLs can't be auto-detected; --forge must be explicit.
+        let repo = "https://git.self-hosted.example/owner/repo";
 
-        let token = SecretString::from("github_token");
+        let token = SecretString::from("token");
 
         let forge_args = ForgeArgs {
             forge: None,
@@ -656,6 +682,39 @@ mod tests {
                 assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
             }
         }
+    }
+
+    #[test]
+    fn infer_forge_recognizes_cloud_hosts() {
+        assert_eq!(
+            infer_forge_from_url("https://github.com/o/r"),
+            Some(ForgeType::Github),
+        );
+        assert_eq!(
+            infer_forge_from_url("https://gitlab.com/o/r"),
+            Some(ForgeType::Gitlab),
+        );
+        assert_eq!(
+            infer_forge_from_url("https://gitea.com/o/r"),
+            Some(ForgeType::Gitea),
+        );
+        assert_eq!(
+            infer_forge_from_url("https://codeberg.org/o/r"),
+            Some(ForgeType::Forgejo),
+        );
+        assert_eq!(
+            infer_forge_from_url("https://dev.azure.com/org/proj/_git/r"),
+            Some(ForgeType::AzureDevops),
+        );
+    }
+
+    #[test]
+    fn infer_forge_returns_none_for_self_hosted() {
+        assert_eq!(infer_forge_from_url("https://git.example.com/o/r"), None,);
+        assert_eq!(
+            infer_forge_from_url("https://gitlab.self-hosted.io/o/r"),
+            None,
+        );
     }
 
     #[tokio::test]
