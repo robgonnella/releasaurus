@@ -1,3 +1,19 @@
+# [0.20.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.1...v0.20.0-rc.2) - 2026-05-18
+
+### 🚀 Features
+
+- _(azure)_ support OAuth bearer tokens alongside PATs [_(4753a37)_](https://github.com/robgonnella/releasaurus/commit/4753a37d737a10e9c23ed24f15ebea672331504f) (Michal Dvořák)
+
+- _(cli)_ auto-infer forge from repo URL for cloud hosts [_(246652a)_](https://github.com/robgonnella/releasaurus/commit/246652af4b38de40d352e6bed15bb1daa34c0c14) (Michal Dvořák)
+
+- _(cli)_ support env vars for forge, repo, and local-path flags [_(d3207f7)_](https://github.com/robgonnella/releasaurus/commit/d3207f77d8488ed9a067fed227807e0181dcb72d) (Michal Dvořák)
+
+### 🐛 Bug Fixes
+
+- _(azure)_ surface actionable error on non-JSON responses [_(e1f1258)_](https://github.com/robgonnella/releasaurus/commit/e1f1258600cfd4c343b6529f21cbee610bdc6976) (Michal Dvořák)
+
+- _(azure)_ surface API errors and document release branch permission [_(c846151)_](https://github.com/robgonnella/releasaurus/commit/c846151b1787a01220d6cbe5024b26112492807b) (Michal Dvořák)
+
 # [0.20.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.19.0...v0.20.0-rc.1) - 2026-05-10
 
 ### 🚀 Features
