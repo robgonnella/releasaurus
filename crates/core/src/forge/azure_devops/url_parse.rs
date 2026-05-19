@@ -29,21 +29,16 @@ pub fn azure_git_url_to_repo_url(input: &str) -> Result<RepoUrl> {
         }
     };
 
-    // Prefer the password component as the PAT; fall back to the
-    // username for `https://{PAT}@dev.azure.com/...` style URLs.
-    let token = match url.password() {
-        Some(pat) if !pat.is_empty() => {
-            Some(SecretString::from(pat.to_string()))
-        }
-        _ => {
-            let user = url.username();
-            if user.is_empty() {
-                None
-            } else {
-                Some(SecretString::from(user.to_string()))
-            }
-        }
-    };
+    // Azure DevOps PAT URLs are of the form
+    // `https://{anyusername}:{PAT}@dev.azure.com/...`. The username
+    // is a placeholder for credential helpers, not a credential —
+    // unlike GitHub/GitLab, ADO does not support username-as-token.
+    // Only treat a non-empty password component as the token; a bare
+    // username is ignored so the env var fallback can kick in.
+    let token = url
+        .password()
+        .filter(|p| !p.is_empty())
+        .map(|p| SecretString::from(p.to_string()));
 
     let host = url
         .host_str()
@@ -136,12 +131,16 @@ mod tests {
     }
 
     #[test]
-    fn extracts_pat_as_username() {
+    fn ignores_bare_username_as_token() {
+        // ADO clone URLs commonly carry a placeholder username
+        // (`https://user@dev.azure.com/...`) for credential helpers.
+        // Treat it as no token so the env var fallback applies — the
+        // PAT must be in the password component.
         let repo = azure_git_url_to_repo_url(
-            "https://mypat@dev.azure.com/myorg/myproject/_git/myrepo",
+            "https://user@dev.azure.com/myorg/myproject/_git/myrepo",
         )
         .unwrap();
-        assert_eq!(repo.token.unwrap().expose_secret(), "mypat");
+        assert!(repo.token.is_none());
     }
 
     #[test]
