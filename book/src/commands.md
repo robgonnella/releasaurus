@@ -261,16 +261,19 @@ See [Configuration](./configuration.md) for what these settings mean.
 
 ## Known Limitations
 
-### Forgejo: Closed Release PRs on Repeated Runs
+### Gitea < v1.26 / Forgejo < v16: Force Push Not Supported
 
-Forgejo's API does not support force-pushing a branch. As a workaround,
-Releasaurus deletes and re-creates the release branch on each run;
-Forgejo auto-closes the PR targeting the deleted branch, so each run
-leaves a closed PR behind. Use
-[hybrid mode](#hybrid-mode-local-git--remote-forge) (`--local-path`) to
-avoid this. A patch to Forgejo to allow force pushing the release branch has
-been accepted and will be available in v16.
-<https://codeberg.org/forgejo/forgejo/pulls/12663>
+Releasaurus force-pushes the release branch on each run so repeated
+runs update the existing release PR in place rather than piling up new
+ones. On Gitea and Forgejo this relies on a force-overwrite option on
+the `/contents` API route that was only added in **Gitea v1.26** and
+**Forgejo v16**.
+
+**Fix (recommended):** upgrade your Gitea/Forgejo instance to v1.26 /
+v16 or later. **Alternative:** use
+[hybrid mode](#hybrid-mode-local-git--remote-forge) (`--local-path`),
+which pushes the release branch over git and avoids the API limitation
+entirely.
 
 ### Gitea and Forgejo Actions: Injected Token Shadows Your PAT
 

@@ -20,11 +20,12 @@ pub struct ForgejoFileChange {
 #[derive(Debug, Serialize)]
 pub struct ForgejoModifyFiles {
     pub branch: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub new_branch: Option<String>,
     pub message: String,
     pub files: Vec<ForgejoFileChange>,
-    // TODO: add this once forgejo supports force pushing on /contents route
-    // pub force_push: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force_overwrite_new_branch: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -132,7 +132,11 @@ impl Gitea {
         })
     }
 
-    async fn get_file_sha(&self, branch: &str, path: &str) -> Result<String> {
+    pub(crate) async fn get_file_sha(
+        &self,
+        branch: &str,
+        path: &str,
+    ) -> Result<String> {
         let path = path.strip_prefix("./").unwrap_or(path);
         let file_url = self
             .base_url
@@ -543,12 +547,12 @@ impl Forge for Gitea {
                     path: change.path.to_string(),
                 })
                 .await?;
-            if let Some(existing_content) = existing_content {
+            if let Some(ec) = existing_content.as_deref() {
                 sha = Some(
                     self.get_file_sha(&req.base_branch, &change.path).await?,
                 );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}\n{existing_content}");
+                    content = format!("{content}\n{ec}");
                 }
             } else {
                 op = GiteaFileChangeOperation::Create;
@@ -566,7 +570,7 @@ impl Forge for Gitea {
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
-            force_push: true,
+            force_push: Some(true),
         };
 
         let contents_url = self.base_url.join("contents")?;
@@ -591,12 +595,12 @@ impl Forge for Gitea {
                     path: change.path.to_string(),
                 })
                 .await?;
-            if let Some(existing_content) = existing_content.clone() {
+            if let Some(ec) = existing_content.as_deref() {
                 sha = Some(
                     self.get_file_sha(&req.target_branch, &change.path).await?,
                 );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{existing_content}");
+                    content = format!("{content}{ec}");
                 }
             } else {
                 op = GiteaFileChangeOperation::Create;
@@ -632,7 +636,7 @@ impl Forge for Gitea {
             branch: req.target_branch,
             message: req.message,
             files: file_changes,
-            force_push: false,
+            force_push: None,
         };
 
         let contents_url = self.base_url.join("contents")?;
