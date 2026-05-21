@@ -368,13 +368,13 @@ URL:
 When `--repo` points at a recognized cloud host, `--forge` can be
 omitted — Releasaurus infers it from the URL host:
 
-| Host             | Inferred forge |
-| ---------------- | -------------- |
-| `github.com`     | `github`       |
-| `gitlab.com`     | `gitlab`       |
-| `gitea.com`      | `gitea`        |
-| `codeberg.org`   | `forgejo`      |
-| `dev.azure.com`  | `azure-devops` |
+| Host            | Inferred forge |
+| --------------- | -------------- |
+| `github.com`    | `github`       |
+| `gitlab.com`    | `gitlab`       |
+| `gitea.com`     | `gitea`        |
+| `codeberg.org`  | `forgejo`      |
+| `dev.azure.com` | `azure-devops` |
 
 ```bash
 # --forge omitted — inferred as github
@@ -419,7 +419,7 @@ update and Azure DevOps will reject it unless the **Allow rewriting history**
 permission is granted on the release branch (typically `releasaurus-release-*`).
 
 In Azure DevOps: **Project Settings → Repositories → {repo} → Security → Branches
-→ {release branch}**, set **Allow rewriting history** to *Allow* for the build
+→ {release branch}**, set **Allow rewriting history** to _Allow_ for the build
 service account (or whichever identity holds the PAT releasaurus uses).
 
 ### Dry Run Mode

@@ -1,13 +1,10 @@
 use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
-use color_eyre::eyre::ContextCompat;
 use reqwest::{
     Client,
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::{ExposeSecret, SecretString};
-use std::time::Duration;
-use tokio::time::sleep;
 use url::Url;
 
 use crate::{
@@ -85,27 +82,6 @@ impl Forgejo {
             gitea,
         })
     }
-
-    // TODO: Right now forgejo does not support force updating a branch
-    async fn delete_branch_if_exists(&self, branch: &str) -> Result<()> {
-        let url = self.base_url.join(&format!("branches/{branch}"))?;
-        let request = self.client.delete(url).build()?;
-        // ignore errors here: forgejo seems to return 500 response for
-        // non-existent branches ¯\_(ツ)_/¯
-        self.client.execute(request).await?;
-        Ok(())
-    }
-
-    async fn get_file_sha(&self, path: &str) -> Result<String> {
-        let path = path.strip_prefix("./").unwrap_or(path);
-        let file_url = self.base_url.join(&format!("contents/{path}"))?;
-        let request = self.client.get(file_url).build()?;
-        let response = self.client.execute(request).await?;
-        let result = response.error_for_status()?;
-        let file: serde_json::Value = result.json().await?;
-        let sha = file["sha"].as_str().wrap_err("failed to get file sha")?;
-        Ok(sha.into())
-    }
 }
 
 #[async_trait]
@@ -174,13 +150,6 @@ impl Forge for Forgejo {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Commit> {
-        // TODO: When forgejo supports force pushing on /contents
-        // delete this call
-        self.delete_branch_if_exists(&req.release_branch).await?;
-        // pause execution to wait for any PRs that might have been closed as
-        // a result to fully register as closed
-        sleep(Duration::from_millis(3000)).await;
-
         let mut file_changes: Vec<ForgejoFileChange> = vec![];
 
         for change in req.file_changes.iter() {
@@ -193,10 +162,14 @@ impl Forge for Forgejo {
                     path: change.path.to_string(),
                 })
                 .await?;
-            if let Some(existing_content) = existing_content {
-                sha = Some(self.get_file_sha(&change.path).await?);
+            if let Some(ec) = existing_content.as_deref() {
+                sha = Some(
+                    self.gitea
+                        .get_file_sha(&req.base_branch, &change.path)
+                        .await?,
+                );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{existing_content}");
+                    content = format!("{content}{ec}");
                 }
             } else {
                 op = ForgejoFileChangeOperation::Create;
@@ -207,9 +180,6 @@ impl Forge for Forgejo {
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
-                // TODO: Currently forgejo does not support the force option,
-                // when it does we'll add the below line
-                // force_push: true,
             })
         }
 
@@ -218,6 +188,7 @@ impl Forge for Forgejo {
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
+            force_overwrite_new_branch: Some(true),
         };
 
         let contents_url = self.base_url.join("contents")?;
@@ -242,10 +213,14 @@ impl Forge for Forgejo {
                     path: change.path.to_string(),
                 })
                 .await?;
-            if let Some(existing_content) = existing_content.clone() {
-                sha = Some(self.get_file_sha(&change.path).await?);
+            if let Some(ec) = existing_content.as_deref() {
+                sha = Some(
+                    self.gitea
+                        .get_file_sha(&req.target_branch, &change.path)
+                        .await?,
+                );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{existing_content}");
+                    content = format!("{content}{ec}");
                 }
             } else {
                 op = ForgejoFileChangeOperation::Create;
@@ -264,9 +239,6 @@ impl Forge for Forgejo {
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
-                // TODO: below line will be needed when forgejo supports
-                // force pushing on /contents
-                // force_push: false
             })
         }
 
@@ -284,6 +256,7 @@ impl Forge for Forgejo {
             branch: req.target_branch,
             message: req.message,
             files: file_changes,
+            force_overwrite_new_branch: None,
         };
 
         let contents_url = self.base_url.join("contents")?;
