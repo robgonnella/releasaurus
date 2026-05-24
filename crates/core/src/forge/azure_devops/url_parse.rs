@@ -30,15 +30,8 @@ pub fn azure_git_url_to_repo_url(input: &str) -> Result<RepoUrl> {
     };
 
     // Azure DevOps PAT URLs are of the form
-    // `https://{anyusername}:{PAT}@dev.azure.com/...`. The username
-    // is a placeholder for credential helpers, not a credential —
-    // unlike GitHub/GitLab, ADO does not support username-as-token.
-    // Only treat a non-empty password component as the token; a bare
-    // username is ignored so the env var fallback can kick in.
-    let token = url
-        .password()
-        .filter(|p| !p.is_empty())
-        .map(|p| SecretString::from(p.to_string()));
+    // `https://{anyusername}:{PAT}@dev.azure.com/...`
+    let token = url.password().map(SecretString::from);
 
     let host = url
         .host_str()
