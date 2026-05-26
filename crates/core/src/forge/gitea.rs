@@ -129,9 +129,11 @@ impl Gitea {
         })
     }
 
-    async fn get_file_sha(&self, path: &str) -> Result<String> {
+    async fn get_file_sha(&self, branch: &str, path: &str) -> Result<String> {
         let path = path.strip_prefix("./").unwrap_or(path);
-        let file_url = self.base_url.join(&format!("contents/{path}"))?;
+        let file_url = self
+            .base_url
+            .join(&format!("contents/{path}?ref={branch}"))?;
         let request = self.client.get(file_url).build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
@@ -487,7 +489,9 @@ impl Forge for Gitea {
                 })
                 .await?;
             if let Some(existing_content) = existing_content {
-                sha = Some(self.get_file_sha(&change.path).await?);
+                sha = Some(
+                    self.get_file_sha(&req.base_branch, &change.path).await?,
+                );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
                     content = format!("{content}{existing_content}");
                 }
@@ -533,7 +537,9 @@ impl Forge for Gitea {
                 })
                 .await?;
             if let Some(existing_content) = existing_content.clone() {
-                sha = Some(self.get_file_sha(&change.path).await?);
+                sha = Some(
+                    self.get_file_sha(&req.target_branch, &change.path).await?,
+                );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
                     content = format!("{content}{existing_content}");
                 }
