@@ -1,3 +1,11 @@
+# [0.20.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.2...v0.20.0-rc.3) - 2026-05-24
+
+### 🐛 Bug Fixes
+
+- _(gitea)_ fixes issue with getting existing file shas [_(0bc85f0)_](https://github.com/robgonnella/releasaurus/commit/0bc85f01b00c2d608bcb490f10074b0ea8765934) (Rob Gonnella)
+
+- _(azure)_ never treat URL username as a token [_(729e8d9)_](https://github.com/robgonnella/releasaurus/commit/729e8d9d61e1a1af8e13c2a32301068205d2bb4d) (Michal Dvořák)
+
 # [0.20.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.1...v0.20.0-rc.2) - 2026-05-18
 
 ### 🚀 Features
