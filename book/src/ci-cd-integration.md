@@ -32,27 +32,33 @@ option with a reference to your defined variable, e.g.
 - `api` (full API access)
 - `write_repository` (repository write access)
 
+Run both commands in a **single job** so they execute sequentially:
+`release` first (it tags any merged release PR), then `release-pr` (it
+opens or updates the next one). This matches the order used by the
+GitHub, Gitea, and Forgejo action. Defining them as two separate jobs
+with the same `rules:` lets GitLab schedule them in the same stage
+concurrently, which races: `release-pr` may observe a merged but
+not-yet-tagged release PR and abort with
+`must finish previous release first`.
+
 ### Example
 
 ```yaml
-publish-release:
+releasaurus:
   image:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
-    # Assumes use of $GITLAB_TOKEN var for token authentication
+    # Assumes a CI/CD variable named $GITLAB_TOKEN for authentication.
+    # Alternatively, pass `--token $RELEASE_TOKEN` to each command.
+    #
+    # Run `release` BEFORE `release-pr`: `release` tags any merged
+    # release PR, then `release-pr` opens/updates the next one. The
+    # reverse order (or two parallel jobs) lets `release-pr` see a
+    # merged-but-untagged release PR and abort with
+    # "must finish previous release first".
     - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-release-pr:
-  image:
-    name: rgonnella/releasaurus:vX.X.X
-    entrypoint: [""]
-  script:
-    # Uses custom var for token authentication
-    - releasaurus release-pr --forge gitlab \
-        --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
