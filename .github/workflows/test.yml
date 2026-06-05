@@ -32,18 +32,18 @@ jobs:
           include_llvm_cov: "true"
       - name: test
         env:
-          GITHUB_TEST_REPO: https://github.com/robgonnella/test-repo
+          GITHUB_TEST_REPO: ${{ vars.GH_TEST_REPO }}
           GITHUB_TEST_TOKEN: ${{ secrets.GH_TEST_TOKEN }}
-          GITHUB_RESET_SHA: 54d2a06b1c60f63001dc20d5977dbb1e288572df
-          GITLAB_TEST_REPO: https://gitlab.com/rgon/test-repo
+          GITHUB_RESET_SHA: ${{ vars.GH_RESET_SHA }}
+          GITLAB_TEST_REPO: ${{ vars.GITLAB_TEST_REPO }}
           GITLAB_TEST_TOKEN: ${{ secrets.GL_TEST_TOKEN }}
-          GITLAB_RESET_SHA: dad21fa1cdfb5a3ac2624de4ae8c055668139dc1
-          GITEA_TEST_REPO: https://gitea.com/rgon/test-repo
+          GITLAB_RESET_SHA: ${{ vars.GITLAB_RESET_SHA }}
+          GITEA_TEST_REPO: ${{ vars.GITEA_TEST_REPO }}
           GITEA_TEST_TOKEN: ${{ secrets.GT_TEST_TOKEN }}
-          GITEA_RESET_SHA: b353e2f4128a9436540e4f2ddefd9989a9633372
-          FORGEJO_TEST_REPO: https://codeberg.org/rgon/test-repo
+          GITEA_RESET_SHA: ${{ vars.GITEA_RESET_SHA }}
+          FORGEJO_TEST_REPO: ${{ vars.FORGEJO_TEST_REPO }}
           FORGEJO_TEST_TOKEN: ${{ secrets.FJ_TEST_TOKEN }}
-          FORGEJO_RESET_SHA: 855e0ddc6ddd00d880d0a99638a2f6c678e4109c
+          FORGEJO_RESET_SHA: ${{ vars.FORGEJO_RESET_SHA }}
           AZURE_DEVOPS_TEST_REPO: ${{ vars.AZDO_TEST_REPO }}
           AZURE_DEVOPS_TEST_TOKEN: ${{ secrets.AZDO_TEST_TOKEN }}
           AZURE_DEVOPS_RESET_SHA: ${{ vars.AZDO_RESET_SHA }}
