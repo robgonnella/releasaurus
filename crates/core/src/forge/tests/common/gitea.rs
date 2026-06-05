@@ -7,7 +7,10 @@ use reqwest::{
 use serde::Deserialize;
 use url::Url;
 
-use crate::forge::{config::RepoUrl, tests::common::traits::ForgeTestHelper};
+use crate::forge::{
+    config::{RepoUrl, USER_AGENT},
+    tests::common::traits::ForgeTestHelper,
+};
 
 #[derive(Debug, Deserialize)]
 struct GiteaIssue {
@@ -48,6 +51,10 @@ impl GiteaForgeTestHelper {
             HeaderValue::from_str(format!("token {}", token).as_str()).unwrap();
 
         headers.append("Authorization", token_value);
+        headers.append(
+            "User-Agent",
+            HeaderValue::from_str(USER_AGENT.as_str()).unwrap(),
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
