@@ -1,8 +1,11 @@
 //! Configuration and URL types for Git forge platform connections.
 use secrecy::SecretString;
-use std::env;
+use std::{env, sync::LazyLock};
 
 use crate::result::{ReleasaurusError, Result};
+
+pub(crate) static USER_AGENT: LazyLock<String> =
+    LazyLock::new(|| format!("Releasaurus/{}", env!("CARGO_PKG_VERSION")));
 
 /// URL scheme for a remote repository.
 #[derive(Debug, Clone, PartialEq, Eq)]

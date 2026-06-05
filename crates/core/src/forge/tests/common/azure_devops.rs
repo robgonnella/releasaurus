@@ -9,7 +9,10 @@ use serde::Deserialize;
 use serde_json::json;
 use url::Url;
 
-use crate::forge::{config::RepoUrl, tests::common::traits::ForgeTestHelper};
+use crate::forge::{
+    config::{RepoUrl, USER_AGENT},
+    tests::common::traits::ForgeTestHelper,
+};
 
 const API_VERSION: &str = "7.1";
 const LABELS_API_VERSION: &str = "7.1-preview.1";
@@ -76,6 +79,10 @@ impl AzureDevopsForgeTestHelper {
             HeaderValue::from_str(&format!("Basic {}", basic)).unwrap(),
         );
         headers.append("Accept", HeaderValue::from_static("application/json"));
+        headers.append(
+            "User-Agent",
+            HeaderValue::from_str(USER_AGENT.as_str()).unwrap(),
+        );
 
         let client =
             Client::builder().default_headers(headers).build().unwrap();

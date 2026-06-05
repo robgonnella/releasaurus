@@ -36,7 +36,7 @@ use crate::{
         },
         config::{
             DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL, PENDING_LABEL, RepoUrl,
-            TokenVar, resolve_token,
+            TokenVar, USER_AGENT, resolve_token,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -128,6 +128,8 @@ impl AzureDevops {
         };
         headers.append("Authorization", token_value);
         headers.append("Accept", HeaderValue::from_static("application/json"));
+        headers
+            .append("User-Agent", HeaderValue::from_str(USER_AGENT.as_str())?);
 
         let client = reqwest::Client::builder()
             .default_headers(headers)

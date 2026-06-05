@@ -20,7 +20,7 @@ use crate::{
     forge::{
         config::{
             DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL,
-            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
+            PENDING_LABEL, RepoUrl, TokenVar, USER_AGENT, resolve_token,
         },
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
@@ -91,6 +91,8 @@ impl Gitea {
         )?;
 
         headers.append("Authorization", token_value);
+        headers
+            .append("User-Agent", HeaderValue::from_str(USER_AGENT.as_str())?);
 
         let client = reqwest::Client::builder()
             .default_headers(headers)

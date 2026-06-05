@@ -13,7 +13,7 @@ use url::Url;
 use crate::{
     config::Config,
     forge::{
-        config::{RepoUrl, TokenVar, resolve_token},
+        config::{RepoUrl, TokenVar, USER_AGENT, resolve_token},
         forgejo::types::{
             ForgejoCreatedCommit, ForgejoFileChange,
             ForgejoFileChangeOperation, ForgejoModifyFiles,
@@ -57,6 +57,8 @@ impl Forgejo {
         )?;
 
         headers.append("Authorization", token_value);
+        headers
+            .append("User-Agent", HeaderValue::from_str(USER_AGENT.as_str())?);
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
