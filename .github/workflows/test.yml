@@ -24,7 +24,7 @@ jobs:
 
   test_all:
     runs-on: ubuntu-latest
-    if: github.repository == 'robgonnella/releasaurus' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/rust-pull-cache

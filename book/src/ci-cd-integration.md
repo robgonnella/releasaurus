@@ -80,7 +80,7 @@ already-shallow repository. Unshallow explicitly in `before_script`:
 
 ```yaml
 before_script:
-  - git fetch --unshallow || true  # no-op if already full-depth
+  - git fetch --unshallow || true # no-op if already full-depth
 ```
 
 Using both together is safe and covers all runner states.
@@ -98,13 +98,19 @@ Provide a PAT via the `AZURE_DEVOPS_TOKEN` pipeline secret variable.
 The PAT needs `Code: Read & Write` and `Pull Request Threads: Read &
 Write` scopes.
 
-The release branch (typically `releasaurus-release-*`) must have 
-**Allow rewriting history** 
+The release branch (typically `releasaurus-release-*`) must have
+**Allow rewriting history**
 enabled for the build service identity — releasaurus performs
 a non-fast-forward reset to the base branch when updating an existing
 release PR. See the [Azure DevOps known
 limitation](./commands.md#azure-devops-release-branch-requires-allow-rewriting-history)
 for the exact setting.
+
+Run `release` first (it tags any merged release PR), then `release-pr` (it
+opens or updates the next one). This matches the order used by the
+GitHub, Gitea, and Forgejo action. Running `release-pr` first may observe a
+merged but not-yet-tagged release PR and abort with
+`must finish previous release first`.
 
 ```yaml
 trigger:
@@ -119,17 +125,17 @@ container: rgonnella/releasaurus:vX.X.X
 
 steps:
   - checkout: self
-    fetchDepth: 0  # required if you also pass --local-path
+    fetchDepth: 0 # required if you also pass --local-path
 
   - script: |
-      releasaurus release-pr \
+      releasaurus release \
         --forge azure-devops \
         --repo "$(Build.Repository.Uri)"
     env:
       AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
 
   - script: |
-      releasaurus release \
+      releasaurus release-pr \
         --forge azure-devops \
         --repo "$(Build.Repository.Uri)"
     env:
