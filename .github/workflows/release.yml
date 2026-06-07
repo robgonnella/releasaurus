@@ -10,7 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache_policy: pull
       - name: release
         run: |
           cargo run --bin releasaurus -- \

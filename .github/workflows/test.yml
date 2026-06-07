@@ -15,9 +15,10 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
         with:
           include_llvm_cov: "true"
+          cache_policy: pull-push
       - name: test
         run: |
           cargo llvm-cov --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
@@ -27,9 +28,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
         with:
           include_llvm_cov: "true"
+          cache_policy: pull-push
       - name: test
         env:
           GITHUB_TEST_REPO: ${{ vars.GH_TEST_REPO }}
