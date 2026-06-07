@@ -267,7 +267,9 @@ Releasaurus deletes and re-creates the release branch on each run;
 Forgejo auto-closes the PR targeting the deleted branch, so each run
 leaves a closed PR behind. Use
 [hybrid mode](#hybrid-mode-local-git--remote-forge) (`--local-path`) to
-avoid this. A patch to Forgejo is in progress.
+avoid this. A patch to Forgejo to allow force pushing the release branch has
+been accepted and will be available in v16.
+https://codeberg.org/forgejo/forgejo/pulls/12663
 
 ### Azure DevOps: Release Branch Requires "Allow rewriting history"
 
