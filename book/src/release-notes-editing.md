@@ -11,16 +11,15 @@ body with a structured layout per package:
 
 ```html
 <details open>
-<summary>v1.2.3</summary>
-<div id="my-package-header"></div>
-<div id="my-package" data-tag="v1.2.3">
-<!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}-->
+  <summary>v1.2.3</summary>
+  <div id="my-package-header"></div>
+  <div id="my-package" data-tag="v1.2.3">
+    <!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}-->
 
-## [v1.2.3](...) - 2026-04-10
-### Features
-- feat: some new feature (abc1234)
-</div>
-<div id="my-package-footer"></div>
+    ## [v1.2.3](...) - 2026-04-10 ### Features - feat: some new feature
+    (abc1234)
+  </div>
+  <div id="my-package-footer"></div>
 </details>
 ```
 
@@ -42,16 +41,11 @@ a summary paragraph above the generated entries:
 
 ```html
 <div id="my-package" data-tag="v1.2.3">
-<!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}-->
+  <!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}-->
 
-## [v1.2.3](...) - 2026-04-10
-
-This release improves startup performance and fixes a crash on
-empty input. See the [migration guide](https://example.com) for
-details.
-
-### Features
-- feat: some new feature (abc1234)
+  ## [v1.2.3](...) - 2026-04-10 This release improves startup performance and
+  fixes a crash on empty input. See the [migration guide](https://example.com)
+  for details. ### Features - feat: some new feature (abc1234)
 </div>
 ```
 
@@ -63,14 +57,12 @@ dedicated header and footer `<div>`s.
 
 ```html
 <div id="my-package-header">
-## Highlights
-
-This is a major stability release. All users on v1.x are encouraged
-to upgrade.
+  ## Highlights This is a major stability release. All users on v1.x are
+  encouraged to upgrade.
 </div>
 
 <div id="my-package-footer">
-Full migration guide: https://example.com/migrate
+  Full migration guide: https://example.com/migrate
 </div>
 ```
 

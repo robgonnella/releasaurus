@@ -180,12 +180,12 @@ release_type = "node"
 
 Change behavior by editing the config and opening a new release PR:
 
-| From | Config change | Result |
-| ---- | ------------- | ------ |
-| `v1.0.0` | `suffix = "alpha"` (+ feature commit) | `v1.1.0-alpha.1` |
-| `v1.1.0-alpha.1` | unchanged (+ fix commit) | `v1.1.0-alpha.2` |
-| `v1.0.0-alpha.3` | `suffix = "beta"` (+ feature) | `v1.1.0-beta.1` |
-| `v1.0.0-alpha.5` | remove `[prerelease]` (or `suffix = ""`) | `v1.0.0` |
+| From             | Config change                            | Result           |
+| ---------------- | ---------------------------------------- | ---------------- |
+| `v1.0.0`         | `suffix = "alpha"` (+ feature commit)    | `v1.1.0-alpha.1` |
+| `v1.1.0-alpha.1` | unchanged (+ fix commit)                 | `v1.1.0-alpha.2` |
+| `v1.0.0-alpha.3` | `suffix = "beta"` (+ feature)            | `v1.1.0-beta.1`  |
+| `v1.0.0-alpha.5` | remove `[prerelease]` (or `suffix = ""`) | `v1.0.0`         |
 
 Switching the suffix recalculates the base version and resets the
 counter. Removing the prerelease config graduates to a stable release.

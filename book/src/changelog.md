@@ -21,19 +21,19 @@ path = "."
 release_type = "node"
 ```
 
-| Option | Default | Effect |
-| ------ | ------- | ------ |
-| `skip_ci` | `false` | Excludes `ci:` commits (e.g. *ci: update workflow*) |
-| `skip_chore` | `false` | Excludes `chore:` commits (e.g. *chore: update deps*) |
-| `skip_doc` | `false` | Excludes `docs:` commits |
-| `skip_test` | `false` | Excludes `test:` commits |
-| `skip_style` | `false` | Excludes `style:` commits |
-| `skip_refactor` | `false` | Excludes `refactor:` commits |
-| `skip_perf` | `false` | Excludes `perf:` commits |
-| `skip_revert` | `false` | Excludes `revert:` commits |
-| `skip_miscellaneous` | `false` | Excludes non-conventional commits (no recognized type prefix) |
-| `skip_merge_commits` | `true` | Excludes merge commits |
-| `include_author` | `false` | Adds the commit author's name to each entry |
+| Option                  | Default | Effect                                                                                                                                                |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skip_ci`               | `false` | Excludes `ci:` commits (e.g. _ci: update workflow_)                                                                                                   |
+| `skip_chore`            | `false` | Excludes `chore:` commits (e.g. _chore: update deps_)                                                                                                 |
+| `skip_doc`              | `false` | Excludes `docs:` commits                                                                                                                              |
+| `skip_test`             | `false` | Excludes `test:` commits                                                                                                                              |
+| `skip_style`            | `false` | Excludes `style:` commits                                                                                                                             |
+| `skip_refactor`         | `false` | Excludes `refactor:` commits                                                                                                                          |
+| `skip_perf`             | `false` | Excludes `perf:` commits                                                                                                                              |
+| `skip_revert`           | `false` | Excludes `revert:` commits                                                                                                                            |
+| `skip_miscellaneous`    | `false` | Excludes non-conventional commits (no recognized type prefix)                                                                                         |
+| `skip_merge_commits`    | `true`  | Excludes merge commits                                                                                                                                |
+| `include_author`        | `false` | Adds the commit author's name to each entry                                                                                                           |
 | `aggregate_prereleases` | `false` | When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see [Prereleases](./configuration.md#prereleases)) |
 
 ### Dropping or rewriting individual commits
@@ -107,32 +107,32 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 
 ### Release
 
-| Variable | Description |
-| -------- | ----------- |
-| `version` | Semantic version (e.g. `1.2.3`) |
-| `tag_name` | Full tag including prefix/suffix |
-| `link` | URL to the release |
-| `tag_compare_link` | Diff vs. previous tag (empty for first release) |
+| Variable           | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `version`          | Semantic version (e.g. `1.2.3`)                                |
+| `tag_name`         | Full tag including prefix/suffix                               |
+| `link`             | URL to the release                                             |
+| `tag_compare_link` | Diff vs. previous tag (empty for first release)                |
 | `sha_compare_link` | Diff vs. previous tag, by commit SHA (empty for first release) |
-| `sha` | Release commit SHA |
-| `timestamp` | Unix timestamp |
-| `include_author` | Whether author display is enabled |
+| `sha`              | Release commit SHA                                             |
+| `timestamp`        | Unix timestamp                                                 |
+| `include_author`   | Whether author display is enabled                              |
 
 ### Commit (each item in `commits`)
 
-| Variable | Description |
-| -------- | ----------- |
-| `id` / `short_id` | Full / abbreviated SHA |
-| `group` | Category (Features, Bug Fixes, …) |
-| `scope` | Optional conventional-commit scope |
-| `title` | Message without type/scope |
-| `body` | Optional extended description |
-| `link` | URL to the commit |
-| `breaking` / `breaking_description` | Breaking-change flag and details |
-| `merge_commit` | Whether it's a merge commit |
-| `timestamp` | Commit timestamp |
-| `author_name` / `author_email` | Commit author |
-| `raw_title` / `raw_message` | Original unprocessed title / message |
+| Variable                            | Description                          |
+| ----------------------------------- | ------------------------------------ |
+| `id` / `short_id`                   | Full / abbreviated SHA               |
+| `group`                             | Category (Features, Bug Fixes, …)    |
+| `scope`                             | Optional conventional-commit scope   |
+| `title`                             | Message without type/scope           |
+| `body`                              | Optional extended description        |
+| `link`                              | URL to the commit                    |
+| `breaking` / `breaking_description` | Breaking-change flag and details     |
+| `merge_commit`                      | Whether it's a merge commit          |
+| `timestamp`                         | Commit timestamp                     |
+| `author_name` / `author_email`      | Commit author                        |
+| `raw_title` / `raw_message`         | Original unprocessed title / message |
 
 ## Tips
 

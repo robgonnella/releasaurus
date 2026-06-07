@@ -71,11 +71,11 @@ as `Option<secrecy::SecretString>` to the forge constructor (add
 `Forge` is the extension point for platform support. The crate ships four
 implementations:
 
-| Type | When to use |
-| ---- | ----------- |
-| `forge::github::Github` | GitHub (cloud or Enterprise) |
-| `forge::gitlab::Gitlab` | GitLab (cloud or self-hosted) |
-| `forge::gitea::Gitea` | Gitea self-hosted |
+| Type                      | When to use                     |
+| ------------------------- | ------------------------------- |
+| `forge::github::Github`   | GitHub (cloud or Enterprise)    |
+| `forge::gitlab::Gitlab`   | GitLab (cloud or self-hosted)   |
+| `forge::gitea::Gitea`     | Gitea self-hosted               |
 | `forge::local::LocalRepo` | Local git2 operations (testing) |
 
 To target a custom platform, implement `Forge` from

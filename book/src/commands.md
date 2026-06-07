@@ -134,14 +134,14 @@ Output is a JSON array of `{ name, notes }` objects.
 
 These apply to every command:
 
-| Flag | Env fallback | Description |
-| ---- | ------------ | ----------- |
-| `--repo <url>` | `RELEASAURUS_REPO` | Repository URL |
-| `--forge <forge>` | `RELEASAURUS_FORGE` | Forge type (see below) |
-| `--token <token>` | `GITHUB_TOKEN`, etc. | Auth token |
-| `--local-path <path>` | `RELEASAURUS_LOCAL_PATH` | Local clone for hybrid mode |
-| `--base-branch <branch>` | — | Override the base branch |
-| `--debug` | `RELEASAURUS_DEBUG` | Verbose logging |
+| Flag                     | Env fallback             | Description                 |
+| ------------------------ | ------------------------ | --------------------------- |
+| `--repo <url>`           | `RELEASAURUS_REPO`       | Repository URL              |
+| `--forge <forge>`        | `RELEASAURUS_FORGE`      | Forge type (see below)      |
+| `--token <token>`        | `GITHUB_TOKEN`, etc.     | Auth token                  |
+| `--local-path <path>`    | `RELEASAURUS_LOCAL_PATH` | Local clone for hybrid mode |
+| `--base-branch <branch>` | —                        | Override the base branch    |
+| `--debug`                | `RELEASAURUS_DEBUG`      | Verbose logging             |
 
 Available forge types: `github`, `gitlab`, `gitea`, `forgejo`,
 `azure-devops` (experimental), and `local` (testing). For the full list
@@ -153,12 +153,12 @@ of token variables and required scopes, see the
 When `--repo` points at a recognized cloud host, `--forge` can be
 omitted:
 
-| Host | Inferred forge |
-| ---- | -------------- |
-| `github.com` | `github` |
-| `gitlab.com` | `gitlab` |
-| `gitea.com` | `gitea` |
-| `codeberg.org` | `forgejo` |
+| Host            | Inferred forge |
+| --------------- | -------------- |
+| `github.com`    | `github`       |
+| `gitlab.com`    | `gitlab`       |
+| `gitea.com`     | `gitea`        |
+| `codeberg.org`  | `forgejo`      |
 | `dev.azure.com` | `azure-devops` |
 
 Self-hosted instances (e.g. `https://gitlab.company.com/...`) and
@@ -171,7 +171,7 @@ Three ways to run safely or against a local checkout.
 
 ### Dry-Run Mode
 
-Performs all analysis and validation and logs exactly what *would*
+Performs all analysis and validation and logs exactly what _would_
 happen, but makes no changes — no branches, PRs, tags, or releases.
 Dry-run automatically enables debug logging (output is prefixed
 `dry_run:`).
@@ -223,15 +223,15 @@ Override config from the command line without editing
 `releasaurus.toml` — handy for testing, one-off releases, and per-branch
 CI settings.
 
-| Flag | Effect |
-| ---- | ------ |
-| `--base-branch <branch>` | Override the base branch |
-| `--tag-prefix <prefix>` | Global tag prefix for all packages |
-| `--prerelease-suffix <suffix>` | Global prerelease suffix (empty `""` disables) |
-| `--prerelease-strategy <versioned\|static>` | Global prerelease strategy |
-| `--skip-sha <sha>` | Skip a commit by SHA prefix (repeatable) |
-| `--reword <sha>=<message>` | Rewrite a commit message (repeatable) |
-| `--set-package <pkg>.<property>=<value>` | Per-package override (repeatable) |
+| Flag                                        | Effect                                         |
+| ------------------------------------------- | ---------------------------------------------- |
+| `--base-branch <branch>`                    | Override the base branch                       |
+| `--tag-prefix <prefix>`                     | Global tag prefix for all packages             |
+| `--prerelease-suffix <suffix>`              | Global prerelease suffix (empty `""` disables) |
+| `--prerelease-strategy <versioned\|static>` | Global prerelease strategy                     |
+| `--skip-sha <sha>`                          | Skip a commit by SHA prefix (repeatable)       |
+| `--reword <sha>=<message>`                  | Rewrite a commit message (repeatable)          |
+| `--set-package <pkg>.<property>=<value>`    | Per-package override (repeatable)              |
 
 `--set-package` takes precedence over all other overrides and config.
 Supported properties: `tag_prefix`, `prerelease.suffix`,
@@ -279,7 +279,7 @@ release branch (typically `releasaurus-release-*`).
 
 Grant it under **Project Settings → Repositories → {repo} → Security →
 Branches → {release branch}**, setting **Allow rewriting history** to
-*Allow* for the identity holding the PAT. Azure DevOps `release` also only
+_Allow_ for the identity holding the PAT. Azure DevOps `release` also only
 pushes the git tag — there is no native release object, so no release
 notes page is published.
 
