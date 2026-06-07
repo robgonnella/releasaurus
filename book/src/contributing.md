@@ -1,385 +1,121 @@
 # Contributing
 
-We appreciate your interest in contributing to Releasaurus! This guide will
-help you get started with contributing to the project, whether you're fixing
-bugs, adding features, improving documentation, or helping with community
-support.
+Thanks for your interest in contributing to Releasaurus! Bug reports,
+feature requests, code, docs, tests, and community support are all
+welcome. Bugs and feature requests go through
+[GitHub Issues](https://github.com/robgonnella/releasaurus/issues);
+general questions through GitHub Discussions.
 
-## Ways to Contribute
+## Development Setup
 
-### 🐛 Bug Reports
+**Prerequisites:** Rust 1.92+ ([rustup](https://rustup.rs/)), Git, and a
+GitHub/GitLab/Gitea account for testing.
 
-- Report bugs and issues you encounter
-- Provide detailed reproduction steps
-- Share your environment details
-
-### 💡 Feature Requests
-
-- Suggest new language/framework support
-- Propose workflow improvements
-- Request platform integrations
-
-### 🔧 Code Contributions
-
-- Fix bugs and implement features
-- Add support for new languages
-- Improve performance and reliability
-
-### 📚 Documentation
-
-- Improve existing documentation
-- Add examples and tutorials
-- Translate documentation
-
-### 🎯 Testing
-
-- Write and improve tests
-- Test on different platforms
-- Validate new features
-
-### 💬 Community Support
-
-- Help other users in discussions
-- Answer questions in issues
-- Share your experience and best practices
-
-## Development Environment Setup
-
-### Prerequisites
-
-- **Rust**: 1.92 or higher ([Install Rust](https://rustup.rs/))
-- **Git**: For version control
-- **A supported platform**: GitHub, GitLab, or Gitea account for testing
-
-See below section for managing rust version with mise.
-
-### Install Mise
-
-Mise is used to manage rust version for local development. Refer to
-[mise.toml](https://github.com/robgonnella/releasaurus/blob/main/mise.toml) for
-the list of tools and versions managed by mise.
-
-- Installing: https://mise.jdx.dev/installing-mise.html
-- Activating: https://mise.jdx.dev/installing-mise.html#shells
-
-### Getting Started
-
-1. **Fork and Clone**
-
-   ```bash
-   # Fork the repository on GitHub
-   git clone https://github.com/your-username/releasaurus.git
-   cd releasaurus
-   ```
-
-2. **Install Dependencies**
-
-Assuming mise is installed and activated, run the following from the root of
-this repo.
+This project uses [Mise](https://mise.jdx.dev/) to manage the Rust
+version and dev tools (see
+[mise.toml](https://github.com/robgonnella/releasaurus/blob/main/mise.toml)).
+After [installing and activating](https://mise.jdx.dev/installing-mise.html)
+mise:
 
 ```bash
-mise trust
-mise install
+git clone https://github.com/your-username/releasaurus.git
+cd releasaurus
+mise trust && mise install
 ```
 
-This will install the correct version of rust as well as other dependencies
-used for local development. It will also ensure any time you `cd` to this
-directory the proper versions of these tools are selected and added to the front
-of your PATH. It will also ensure that any environment variables you define in
-`.env` are automatically loaded into your environment, similar to `direnv`.
+This installs the correct Rust toolchain and tools (including `just`),
+switches to them whenever you `cd` into the repo, and auto-loads any
+variables from a local `.env`.
 
-3. **Using just commands**
-
-A Justfile is provided for quick access to a number of commands for developing
-locally. This tool is automatically installed and managed via `mise`.
+A `Justfile` provides common recipes:
 
 ```bash
-just build # builds the project
-just build --release # builds a release version
-just run # builds and run the releasaurus cli in one command
-# For example
-just run --help
-# Is equivalent to `cargo run -p releasaurus -- --help`
-just help # show all available just recipes and their descriptions
+just build              # build (add --release for a release build)
+just run --help         # = cargo run -p releasaurus -- --help
+just help               # list all recipes
 ```
 
-4. **Running tests**
-
-There are two types of tests included in this repository, unit and integration.
-Unit tests use mocks without ever interacting with real forges. Integration
-tests run against real forges and require setting up proper environment
-variables to point at real repositories used for testing.
-
-**Unit tests**
+To build and install from source directly:
 
 ```bash
-# run unit tests
-just test
-# run unit tests with coverage
-just test-cov
+cargo install --path crates/cli
 ```
 
-**Integration tests**
+## Running Tests
 
-The following environment variables are used when running integration tests.
+There are two kinds of tests:
 
-- `GITHUB_TEST_REPO`
-- `GITHUB_TEST_TOKEN`
-- `GITHUB_RESET_SHA`
-
-- `GITLAB_TEST_REPO`
-- `GITLAB_TEST_TOKEN`
-- `GITLAB_RESET_SHA`
-
-- `GITEA_TEST_REPO`
-- `GITEA_TEST_TOKEN`
-- `GITEA_RESET_SHA`
-
-- `FORGEJO_TEST_REPO`
-- `FORGEJO_TEST_TOKEN`
-- `FORGEJO_RESET_SHA`
-
-- `AZURE_DEVOPS_TEST_REPO` (form: `https://dev.azure.com/{org}/{project}/_git/{repo}`)
-- `AZURE_DEVOPS_TEST_TOKEN` (PAT with `Code: Read & Write` and
-  `Pull Request Threads: Read & Write` scopes)
-- `AZURE_DEVOPS_RESET_SHA`
-
-⚠️ Whatever you configure for these repositories WILL have their histories
-overwritten. All PRs, tags, releases, and branches will be deleted and the
-repository will be hard reset back to the configured reset sha at the start
-of the test suite.
+**Unit tests** use mocks and never touch a real forge:
 
 ```bash
-# Create test tokens (with minimal permissions)
-export GITHUB_TEST_REPO="https://github.com/your/test/repo"
-export GITHUB_TEST_TOKEN="gh_test_token"
-export GITHUB_RESET_SHA="abc123"
-
-export GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
-export GITLAB_TEST_TOKEN="gl_test_token"
-export GITLAB_RESET_SHA="abc123"
-
-export GITEA_TEST_REPO="https://gitea.com/your/test/repo"
-export GITEA_TEST_TOKEN="gt_test_token"
-export GITEA_RESET_SHA="abc123"
-
-export AZURE_DEVOPS_TEST_REPO="https://dev.azure.com/your-org/your-project/_git/test-repo"
-export AZURE_DEVOPS_TEST_TOKEN="azdo_test_pat"
-export AZURE_DEVOPS_RESET_SHA="abc123"
-
-# Or you can add these to a .env file and mise will automatically load them
-# .env
-# GITHUB_TEST_REPO="https://github.com/your/test/repo"
-# GITHUB_TEST_TOKEN="gh_test_token"
-# GITHUB_RESET_SHA="abc123"
-
-# GITLAB_TEST_REPO="https://gitlab.com/your/test/repo"
-# GITLAB_TEST_TOKEN="gl_test_token"
-# GITLAB_RESET_SHA="abc123"
-
-# GITEA_TEST_REPO="https://gitea.com/your/test/repo"
-# GITEA_TEST_TOKEN="gt_test_token"
-# GITEA_RESET_SHA="abc123"
-
-just test-all # run all tests including integration tests
-
-# target just github integration tests
-just test-github-integration
-# target just gitlab integration tests
-just test-gitlab-integration
-# target just gitea integration tests
-just test-gitea-integration
-# target just forgejo integration tests
-just test-forgejo-integration
-# target just azure devops integration tests
-just test-azure-devops-integration
+just test           # run unit tests
+just test-cov       # with coverage
 ```
 
-> **Azure DevOps test setup**: the test repo must not have any branch
-> policies on its default branch — the reset routine force-resets
-> history via a temporary branch swap and would fail against a
-> policy-protected branch. Create a dedicated empty project and grant
-> the test PAT `Code: Read & Write` and `Pull Request Threads: Read &
-> Write` scopes.
+**Integration tests** run against real forges and require per-forge
+environment variables (`*_TEST_REPO`, `*_TEST_TOKEN`, `*_RESET_SHA` for
+`GITHUB`, `GITLAB`, `GITEA`, `FORGEJO`, and `AZURE_DEVOPS`). You can put
+them in `.env` for mise to load automatically.
 
-## Code Contribution Guidelines
-
-### Coding Standards
-
-#### Rust Style
-
-- Use `cargo fmt` for consistent formatting
-- Use `cargo clippy` for linting
-- Write comprehensive documentation comments
-
-### Adding New Language/Framework Updaters
-
-Releasaurus supports multiple programming languages through its updater system.
-Adding support for a new language requires updating several files across the
-codebase.
-
-#### Overview
-
-Each language updater consists of:
-
-1. **ReleaseType enum variant** - Configuration option in
-   `crates/core/src/config/release_type.rs`
-2. **Manifests module** - Defines manifest file targets in
-   `crates/core/src/updater/yourlanguage/manifests.rs`
-3. **Updater module** - Language-specific implementation in
-   `crates/core/src/updater/yourlanguage/updater.rs`
-4. **File parsers** - Version file format handlers (e.g.,
-   `crates/core/src/updater/yourlanguage/your_file_type.rs`)
-5. **Tests** - Comprehensive test coverage for all modules
-6. **Documentation** - User-facing documentation updates
-
-#### Files to Update
-
-**1. Add ReleaseType Variant**
-
-- `crates/core/src/config/release_type.rs` - Add your
-  language to the `ReleaseType` enum
-
-**2. Create Manifests Module**
-
-- `crates/core/src/updater/yourlanguage/manifests.rs` -
-  Implement `ManifestTargets` trait
-- `crates/core/src/updater/manager.rs` - Register in
-  `release_type_manifest_targets()` function
-
-**3. Create Updater Implementation**
-
-- `crates/core/src/updater/yourlanguage.rs` - Module
-  declaration file
-- `crates/core/src/updater/yourlanguage/updater.rs` -
-  Implement `PackageUpdater` trait
-- `crates/core/src/updater/yourlanguage/your_file_type.rs` -
-  File format parser(s)
-- `crates/core/src/updater.rs` - Add module declaration
-- `crates/core/src/updater/manager.rs` - Register in
-  `updater()` function
-
-**4. Add Tests**
-
-- Tests in `manifests.rs` - Test manifest target generation
-- Tests in `updater.rs` - Test updater integration
-- Tests in file parser modules - Test version updates
-
-**5. Update Documentation**
-
-- `book/src/supported-languages.md` - Add language section
-- `book/src/configuration.md` - Update ReleaseType options
-
-#### Reference Implementations
-
-Use existing language implementations as templates:
-
-**Simple Languages (Good starting points):**
-
-- **PHP**: `crates/core/src/updater/php/` - Single
-  manifest file, straightforward JSON parsing
-- **Python**: `crates/core/src/updater/python/` -
-  Multiple manifest formats (TOML, cfg, py)
-
-**Complex Languages (Advanced features):**
-
-- **Node**: `crates/core/src/updater/node/` - Workspace
-  support, multiple lock files
-- **Rust**: `crates/core/src/updater/rust/` - Workspace
-  detection, dependency updates
-- **Java**: `crates/core/src/updater/java/` - Multiple
-  build tools (Maven, Gradle, version catalogs), properties files
-
-**Key Traits to Implement:**
-
-- `ManifestTargets` in `manifests.rs` - Defines which files to load
-- `PackageUpdater` in `updater.rs` - Coordinates version updates
-
-#### Testing Guidelines
-
-Follow the established testing patterns:
-
-- **Test outcomes, not implementation** - Verify behavior, not how
-  it's achieved
-- **Minimal and concise** - Only test what provides value
-- **Use helper functions** - Reduce duplication (see `test_helpers.rs`)
-- **Descriptive names** - e.g., `returns_all_manifest_targets` not
-  `test_1`
-
-**Example test files to reference:**
-
-- `crates/core/src/updater/php/manifests.rs` - Simple
-  manifest tests
-- `crates/core/src/updater/node/manifests.rs` -
-  Workspace-aware manifest tests
-- `crates/core/src/updater/php/updater.rs` - Basic
-  updater tests
-
-#### Running Tests
+> ⚠️ **The configured test repositories WILL be overwritten.** All PRs,
+> tags, releases, and branches are deleted and the repo is hard-reset to
+> the configured reset SHA at the start of the suite. Use dedicated,
+> disposable repositories with minimal-permission tokens.
 
 ```bash
-# Run all tests for your language
-just test yourlanguage
-
-# Run specific module tests
-just test updater::yourlanguage::manifests
-just test updater::yourlanguage::updater
-
-# Test with real repository
-just run release-pr \
-  --forge local \
-  --repo "/path/to/test/project" \
-  --debug
-
-# Test with real remote forge and local path to clone
-just run release-pr \
-  --forge github \
-  --repo "https://github.com/your/repo" \
-  --local-path "/path/to/your/repo" \
-  --debug \
-  --dry-run
+just test-all                      # all tests, including integration
+just test-github-integration       # a single forge's integration tests
+# (also: gitlab, gitea, forgejo, azure-devops)
 ```
 
-#### Best Practices
+> **Azure DevOps test setup:** the test repo's default branch must have
+> no branch policies (the reset routine force-resets history via a
+> temporary branch swap). The PAT needs `Code: Read & Write` and
+> `Pull Request Threads: Read & Write`.
 
-- **Parse robustly** - Handle various file formats and edge cases
-- **Preserve formatting** - Maintain original file structure when possible
-- **Log clearly** - Use `info!`, `warn!`, `error!` macros appropriately
-- **Follow patterns** - Study existing implementations before starting
-- **Write tests first** - Define expected behavior through tests
+## Coding Standards
 
-#### Getting Help
+- Format with `cargo fmt` and lint with `cargo clippy`.
+- Write documentation comments for public APIs.
+- Test outcomes, not implementation; keep tests minimal and use the
+  existing `test_helpers.rs` patterns; name tests descriptively
+  (`returns_all_manifest_targets`, not `test_1`).
 
-- Review existing implementations in
-  `crates/core/src/updater/`
-- Check test files for usage patterns
-- Ask questions in GitHub Discussions
-- Reference the `PackageUpdater` and `ManifestTargets` trait documentation
+## Adding a New Language Updater
+
+Each language updater lives under `crates/core/src/updater/<lang>/` and
+consists of a `ReleaseType` variant, a manifests module, an updater
+module, file parsers, tests, and docs. To add one:
+
+1. **Add the `ReleaseType` variant** in
+   `crates/core/src/config/release_type.rs`.
+2. **Create the manifests module**
+   (`crates/core/src/updater/<lang>/manifests.rs`, implementing
+   `ManifestTargets`) and register it in
+   `crates/core/src/updater/manager.rs` under
+   `release_type_manifest_targets()`.
+3. **Create the updater** (`crates/core/src/updater/<lang>/updater.rs`
+   implementing `PackageUpdater`, plus per-format file parsers), declare
+   the module in `crates/core/src/updater.rs`, and register it in the
+   `updater()` function in `manager.rs`.
+4. **Add tests** for manifest generation, updater integration, and each
+   file parser.
+5. **Update the docs** — add the language to the Supported Languages
+   table in `book/src/configuration-reference.md`.
+
+**Reference implementations:** PHP and Python are good simple starting
+points; Node, Rust, and Java show workspace support, lock files, and
+multiple build tools. Verify your work end-to-end with the local and
+hybrid modes:
+
+```bash
+just run release-pr --forge local --repo "/path/to/test/project" --debug
+```
 
 ## Code of Conduct
 
-This repository adheres the [Rust Code of Conduct]
-
-### Reporting
-
-Report any unacceptable behavior to the project maintainers.
-
-## Community and Communication
-
-### Channels
-
-- **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: General questions and community support
-- **Pull Requests**: Code review and collaboration
-
-### Getting Help
-
-- **Documentation**: Start with this book
-- **Search Issues**: Check if your question has been asked
-- **Ask Questions**: Create a discussion or issue
-- **Debug Mode**: Use `--debug` flag or `RELEASAURUS_DEBUG` environment
-  variable for troubleshooting
+This project follows the
+[Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct).
+Report unacceptable behavior to the project maintainers.
 
 Thank you for contributing to Releasaurus!
-
-[Rust Code of Conduct]: https://www.rust-lang.org/policies/code-of-conduct

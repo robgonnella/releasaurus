@@ -102,9 +102,10 @@ The release branch (typically `releasaurus-release-*`) must have
 **Allow rewriting history**
 enabled for the build service identity — releasaurus performs
 a non-fast-forward reset to the base branch when updating an existing
-release PR. See the [Azure DevOps known
-limitation](./commands.md#azure-devops-release-branch-requires-allow-rewriting-history)
-for the exact setting.
+release PR. See the [Azure DevOps known limitation][azure-limit] for
+the exact setting.
+
+[azure-limit]: ./commands.md#azure-devops-release-branch-requires-allow-rewriting-history
 
 Run `release` first (it tags any merged release PR), then `release-pr` (it
 opens or updates the next one). This matches the order used by the

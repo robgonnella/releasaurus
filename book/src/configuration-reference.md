@@ -1,200 +1,46 @@
 # Configuration Reference
 
-Complete reference of all configuration options for `releasaurus.toml`.
+Complete reference for `releasaurus.toml`, environment variables, and
+supported languages. For guidance and examples, see
+[Configuration](./configuration.md).
 
 ## Global Settings
 
-### `base_branch`
+Top-level keys, all optional:
 
-**Type**: String (optional)
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `base_branch` | string | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`. |
+| `first_release_search_depth` | integer | `400` | Commits to analyze for the **first** release (when no matching tag exists). |
+| `tag_search_depth` | integer | `100` | Max tags fetched when searching for a previous release. `0` = all tags. |
+| `separate_pull_requests` | bool | `false` | One PR per package (`true`) vs. a single combined PR (`false`). |
+| `auto_start_next` | bool | `false` | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)). |
+| `breaking_always_increment_major` | bool | `true` | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major. |
+| `features_always_increment_minor` | bool | `true` | `feat:` commits bump minor. |
+| `custom_major_increment_regex` | string | none | Additional regex that triggers a major bump. |
+| `custom_minor_increment_regex` | string | none | Additional regex that triggers a minor bump. |
 
-**Default**: Repository's default branch
+### Custom increment regexes
 
-Base branch to target for release PRs, tagging, and releases.
-
-```toml
-base_branch = "main"
-```
-
-**Override**: `--base-branch` CLI flag
-
-### `first_release_search_depth`
-
-**Type**: Integer (optional)
-
-**Default**: 400
-
-Number of commits to analyze for the first release (when no tags
-exist).
+`custom_major_increment_regex` and `custom_minor_increment_regex` are
+**additive** — breaking changes always bump major and `feat:` always
+bumps minor regardless. The pattern is matched against the full commit
+message. In TOML double-quoted strings, escape backslashes (`\\`):
 
 ```toml
-first_release_search_depth = 400
+custom_major_increment_regex = "\\[MAJOR\\]"   # matches "[MAJOR]"
+custom_minor_increment_regex = "FEATURE"        # no escaping needed
 ```
 
-**When to adjust:**
+## `[prerelease]`
 
-- Large repos: decrease to 100-200 for faster analysis
-- Need more history: increase to 1000+
-- CI/CD: use smaller values for speed
+Global prerelease config; can be overridden per package via a package
+`prerelease` table. See [Prereleases](./configuration.md#prereleases).
 
-### `tag_search_depth`
-
-**Type**: Integer (optional)
-
-**Default**: 100
-
-Maximum number of tags fetched from the forge when searching for a
-previous release. Set to `0` to fetch all tags.
-
-```toml
-tag_search_depth = 100
-```
-
-**When to adjust:**
-
-- Repos with many tags: decrease to reduce API calls
-- Previous release tag is beyond the default window: increase or
-  set to `0`
-
-### `separate_pull_requests`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Create separate PRs for each package (true) or one combined PR
-(false).
-
-```toml
-separate_pull_requests = true
-```
-
-See [Monorepo Configuration](./configuration-monorepo.md) for details.
-
-### `auto_start_next`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Automatically bump patch versions after publishing a release.
-
-```toml
-auto_start_next = true
-```
-
-Package-level settings override global. See [`start-next`
-command](./commands.md#start-next).
-
-### `breaking_always_increment_major`
-
-**Type**: Boolean (optional)
-
-**Default**: true
-
-Breaking changes (`feat!:` or `BREAKING CHANGE:`) increment major
-version.
-
-```toml
-breaking_always_increment_major = false
-```
-
-### `features_always_increment_minor`
-
-**Type**: Boolean (optional)
-
-**Default**: true
-
-Feature commits (`feat:`) increment minor version.
-
-```toml
-features_always_increment_minor = false
-```
-
-### `custom_major_increment_regex`
-
-**Type**: String (optional)
-
-**Default**: None
-
-Custom regex pattern matched against commit messages to trigger a major
-version bump. This is **additive** — breaking change commits (`feat!:`,
-`fix!:`, `BREAKING CHANGE:` footer, etc.) always trigger major bumps
-regardless of this setting. The custom regex adds an additional way to
-trigger the same bump.
-
-The pattern is matched against the full commit message. In TOML
-double-quoted strings, backslashes must be escaped (write `\\` to
-represent a single `\` in the regex). For example, to match the literal
-text `[MAJOR]` in a commit message:
-
-```toml
-custom_major_increment_regex = "\\[MAJOR\\]"
-```
-
-A simpler pattern with no special characters needs no escaping:
-
-```toml
-custom_major_increment_regex = "MAJOR"
-```
-
-### `custom_minor_increment_regex`
-
-**Type**: String (optional)
-
-**Default**: None
-
-Custom regex pattern matched against commit messages to trigger a minor
-version bump. This is **additive** — `feat:` commits always trigger minor
-bumps regardless of this setting. The custom regex adds an additional way
-to trigger the same bump.
-
-The pattern is matched against the full commit message. In TOML
-double-quoted strings, backslashes must be escaped (write `\\` to
-represent a single `\` in the regex). For example, to match the literal
-text `[FEATURE]` in a commit message:
-
-```toml
-custom_minor_increment_regex = "\\[FEATURE\\]"
-```
-
-A simpler pattern with no special characters needs no escaping:
-
-```toml
-custom_minor_increment_regex = "FEATURE"
-```
-
-## Prerelease Section
-
-### `[prerelease]`
-
-Global prerelease configuration for all packages.
-
-#### `suffix`
-
-**Type**: String (optional)
-
-**Default**: None (stable releases)
-
-Prerelease identifier (e.g., "alpha", "beta", "rc", "SNAPSHOT").
-
-```toml
-[prerelease]
-suffix = "alpha"
-```
-
-**Override**: `--prerelease-suffix` CLI flag
-
-#### `strategy`
-
-**Type**: String (optional)
-
-**Default**: "versioned"
-
-Prerelease versioning strategy:
-
-- `"versioned"` - Adds incremental counter (`.1`, `.2`)
-- `"static"` - Uses suffix as-is
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `suffix` | string | none (stable) | Identifier such as `alpha`, `beta`, `rc`, `SNAPSHOT`. Override: `--prerelease-suffix`. |
+| `strategy` | string | `versioned` | `versioned` (adds `.1`, `.2`, …) or `static` (suffix as-is). Override: `--prerelease-strategy`. |
 
 ```toml
 [prerelease]
@@ -202,535 +48,85 @@ suffix = "beta"
 strategy = "versioned"
 ```
 
-**Override**: `--prerelease-strategy` CLI flag
+## `[changelog]`
 
-See [Prerelease Configuration](./configuration-prerelease.md) for
-complete details.
+Controls changelog generation. See
+[Changelog Customization](./changelog.md) for the template and variables.
 
-## Changelog Section
-
-### `[changelog]`
-
-Customize changelog generation and formatting.
-
-#### `skip_ci`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude CI/CD commits from changelog.
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `skip_ci` | bool | `false` | Exclude `ci:` commits. |
+| `skip_chore` | bool | `false` | Exclude `chore:` commits. |
+| `skip_doc` | bool | `false` | Exclude `docs:` commits. |
+| `skip_test` | bool | `false` | Exclude `test:` commits. |
+| `skip_style` | bool | `false` | Exclude `style:` commits. |
+| `skip_refactor` | bool | `false` | Exclude `refactor:` commits. |
+| `skip_perf` | bool | `false` | Exclude `perf:` commits. |
+| `skip_revert` | bool | `false` | Exclude `revert:` commits. |
+| `skip_miscellaneous` | bool | `false` | Exclude non-conventional commits. |
+| `skip_merge_commits` | bool | `true` | Exclude merge commits. |
+| `include_author` | bool | `false` | Include commit author names. |
+| `aggregate_prereleases` | bool | `false` | On graduation, fold prior prerelease notes into the stable release. |
+| `skip_shas` | string[] | none | Skip commits by SHA prefix (7+ chars). CLI: `--skip-sha`. |
+| `reword` | object[] | none | Rewrite commit messages (affects changelog **and** version bump). CLI: `--reword`. |
+| `body` | string | standard template | Tera template for the changelog body. |
 
 ```toml
 [changelog]
 skip_ci = true
-```
-
-#### `skip_chore`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude chore commits from changelog.
-
-```toml
-[changelog]
 skip_chore = true
-```
 
-#### `skip_doc`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude documentation commits from changelog.
-
-```toml
-[changelog]
-skip_doc = true
-```
-
-#### `skip_perf`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude performance commits from changelog.
-
-```toml
-[changelog]
-skip_perf = true
-```
-
-#### `skip_refactor`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude refactor commits from changelog.
-
-```toml
-[changelog]
-skip_refactor = true
-```
-
-#### `skip_revert`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude revert commits from changelog.
-
-```toml
-[changelog]
-skip_revert = true
-```
-
-#### `skip_style`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude style commits from changelog.
-
-```toml
-[changelog]
-skip_style = true
-```
-
-#### `skip_test`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude test commits from changelog.
-
-```toml
-[changelog]
-skip_test = true
-```
-
-#### `skip_miscellaneous`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Exclude non-conventional commits from changelog.
-
-```toml
-[changelog]
-skip_miscellaneous = true
-```
-
-#### `skip_merge_commits`
-
-**Type**: Boolean (optional)
-
-**Default**: true
-
-Exclude merge commits from changelog.
-
-```toml
-[changelog]
-skip_merge_commits = false
-```
-
-#### `include_author`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Include commit author names in changelog.
-
-```toml
-[changelog]
-include_author = true
-```
-
-#### `aggregate_prereleases`
-
-**Type**: Boolean (optional)
-
-**Default**: false
-
-Aggregate changelog entries from all prior prerelease versions into
-the graduating stable release. Has no effect when the current version
-is already stable.
-
-```toml
-[changelog]
-aggregate_prereleases = true
-```
-
-#### `skip_shas`
-
-**Type**: Array of strings (optional)
-
-**Default**: None
-
-Skip specific commits by SHA prefix. Use 7+ character prefixes.
-
-```toml
-[changelog]
-skip_shas = ["abc123d", "def456e"]
-```
-
-#### `reword`
-
-**Type**: Array of objects (optional)
-
-**Default**: None
-
-Rewrite commit messages for specific commits. Affects both changelog and
-version calculation.
-
-```toml
 [[changelog.reword]]
 sha = "abc123d"
 message = "fix: corrected description"
-
-[[changelog.reword]]
-sha = "def456e"
-message = "feat: improved feature"
 ```
 
-#### `body`
-
-**Type**: String (optional)
-
-**Default**: Standard template
-
-Tera template for changelog body. See [Changelog
-Configuration](./configuration-changelog.md) for template variables.
-
-```toml
-[changelog]
-body = """## Release {{ version }}
-..."""
-```
-
-## Package Section
-
-### `[[package]]`
-
-Define packages in your repository. Can have multiple.
-
-#### `path`
-
-**Type**: String (required)
-
-**Default**: None
-
-Directory path to the package, relative to `workspace_root`.
-
-```toml
-[[package]]
-path = "."
-```
-
-#### `workspace_root`
-
-**Type**: String (optional)
-
-**Default**: "."
-
-Workspace root directory, relative to repository root.
-
-```toml
-[[package]]
-workspace_root = "backend"
-path = "services/api"
-```
-
-#### `name`
-
-**Type**: String (optional)
-
-**Default**: Derived from path
-
-Explicit package name. If not set, derived from directory name.
-
-```toml
-[[package]]
-name = "my-custom-name"
-path = "packages/backend"
-```
-
-#### `release_type`
-
-**Type**: String (required for version updates)
-
-**Default**: None
-
-Language/framework for version file updates:
-
-- `"generic"` - Changelog/tagging only
-- `"go"` - version.go
-- `"java"` - pom.xml, build.gradle, build.gradle.kts, gradle.properties,
-  gradle/libs.versions.toml
-- `"node"` - package.json, lock files
-- `"php"` - composer.json, composer.lock
-- `"python"` - pyproject.toml, setup.py, setup.cfg
-- `"ruby"` - .gemspec, Gemfile
-- `"rust"` - Cargo.toml, Cargo.lock
-
-```toml
-[[package]]
-path = "."
-release_type = "node"
-```
-
-#### `tag_prefix`
-
-**Type**: String (optional)
-
-**Default**: Derived from package name
-
-Git tag prefix. Defaults:
-
-- Root packages: `"v"`
-- Nested packages: `"<name>-v"`
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-tag_prefix = "v"
-```
-
-**Override**: `--tag-prefix` (global) or `--set-package <name>.tag_prefix=<value>`
-(per-package) CLI flags
-
-#### `sub_packages`
-
-**Type**: Array of objects (optional)
-
-**Default**: None
-
-Groups multiple packages under a single release that shares one changelog, tag,
-and release. Each sub-package gets independent manifest updates based on its
-`release_type`.
-
-**Use when:** Multiple packages should always be released together with the same
-version and share the same changelog
-
-```toml
-[[package]]
-name = "platform"
-workspace_root = "."
-path = "."
-sub_packages = [
-    { name = "web", path = "packages/web", release_type = "node" },
-    { name = "cli", path = "packages/cli", release_type = "rust" }
-]
-```
-
-See [Grouped Releases](./configuration-monorepo.md#grouped-releases-sub-packages)
-for details.
-
-#### `auto_start_next`
-
-**Type**: Boolean (optional)
-
-**Default**: Inherits global setting
-
-Override global `auto_start_next` for this package.
-
-```toml
-[[package]]
-path = "."
-release_type = "node"
-auto_start_next = false
-```
-
-#### `prerelease`
-
-**Type**: Inline table (optional)
-
-**Default**: Inherits global prerelease
-
-Override global prerelease configuration.
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-prerelease = { suffix = "beta", strategy = "versioned" }
-```
-
-**Override**: `--set-package <name>.prerelease.suffix=<value>` CLI flag
-
-#### `additional_paths`
-
-**Type**: Array of strings (optional)
-
-**Default**: None
-
-Additional directories to monitor for changes.
-
-```toml
-[[package]]
-path = "packages/api"
-release_type = "node"
-additional_paths = ["shared/utils", "shared/types"]
-```
-
-#### `additional_manifest_files`
-
-**Type**: Array of strings or objects (optional)
-
-**Default**: None
-
-Specifies additional files that should have their version strings updated during
-a release. This is useful for:
-
-- Custom version files (e.g., `VERSION`, `version.txt`)
-- Documentation files with embedded version numbers
-- Configuration files that reference the package version
-- Any file with version strings that need to stay in sync
-
-Accepts either simple string paths (recommended) or full configuration objects
-with custom regex patterns for advanced use cases.
-
-**Simple format** (recommended for most cases):
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-additional_manifest_files = ["VERSION", "README.md", "docs/installation.md"]
-```
-
-All paths are relative to the package path. The default regex pattern
-automatically matches common version formats:
-
-- `version = "1.0.0"`
-- `version: "1.0.0"`
-- `VERSION='1.0.0'`
-- `"version": "1.0.0"`
-
-**Full format** (for custom version patterns):
-
-Use this when your files have non-standard version formats:
+## `[[package]]`
+
+One entry per package; repeatable.
+
+| Key | Type | Default | Description |
+| --- | ---- | ------- | ----------- |
+| `path` | string | `.` | Package directory, relative to `workspace_root`. |
+| `workspace_root` | string | `.` | Workspace root, relative to repo root. |
+| `name` | string | derived from path | Explicit package name; must be unique. |
+| `release_type` | string | none | Language for version updates (see [Supported Languages](#supported-languages)). Omit for changelog/tagging only. |
+| `tag_prefix` | string | `v` (root) / `<name>-v` (nested) | Git tag prefix. Override: `--tag-prefix` or `--set-package <name>.tag_prefix=`. |
+| `prerelease` | table | inherits global | Per-package prerelease override. Override: `--set-package <name>.prerelease.suffix=`. |
+| `sub_packages` | object[] | none | Group packages under one shared tag/changelog (see [Grouped Releases](./configuration.md#grouped-releases-sub-packages)). |
+| `additional_paths` | string[] | none | Extra directories whose changes trigger a release for this package. |
+| `additional_manifest_files` | string[] / object[] | none | Extra files to version-bump (see below). |
+| `auto_start_next` | bool | inherits global | Per-package `auto_start_next` override. |
+| `breaking_always_increment_major` | bool | inherits global | Per-package override. |
+| `features_always_increment_minor` | bool | inherits global | Per-package override. |
+| `custom_major_increment_regex` | string | inherits global | Per-package override. |
+| `custom_minor_increment_regex` | string | inherits global | Per-package override. |
+
+`sub_packages` entries take `name`, `path`, and `release_type`.
+
+### `additional_manifest_files`
+
+Extra files whose version strings should be kept in sync — custom
+`VERSION` files, docs, config, etc. Accepts plain string paths (using a
+default regex) or objects with a custom `version_regex`. All paths are
+relative to the package `path`.
 
 ```toml
 [[package]]
 path = "."
 release_type = "rust"
 additional_manifest_files = [
+    "VERSION",                    # default regex
+    "README.md",                  # default regex
     { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?<version>\\d+\\.\\d+\\.\\d+)\"?" },
-    { path = "docker-compose.yml", version_regex = "image:.*:(?<version>\\d+\\.\\d+\\.\\d+)" }
 ]
 ```
 
-**Important:** The regex must include a **named capture group** called
-`version` to identify which part of the match should be replaced
-(e.g., `(?<version>\d+\.\d+\.\d+)`). The surrounding text is automatically
-preserved.
-
-**Mixed format** (combine simple and custom):
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-additional_manifest_files = [
-    "VERSION",                    # Uses default regex
-    "README.md",                  # Uses default regex
-    { path = "config.yml", version_regex = "app_version:\\s*(?<version>\\d+\\.\\d+\\.\\d+)" }
-]
-```
-
-**Important notes:**
-
-- Custom regex patterns **must** include a named capture group `(?<version>...)`
-- Files that don't contain a version pattern are skipped automatically
-- Invalid regex patterns will cause an error during configuration resolution
-- Only the content within the `version` capture group is replaced
-- Paths must be relative to the package path, not the repository root
-
-#### `breaking_always_increment_major`
-
-**Type**: Boolean (optional)
-
-**Default**: Inherits global setting
-
-Override global breaking change behavior.
-
-```toml
-[[package]]
-path = "."
-release_type = "node"
-breaking_always_increment_major = false
-```
-
-#### `features_always_increment_minor`
-
-**Type**: Boolean (optional)
-
-**Default**: Inherits global setting
-
-Override global feature commit behavior.
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-features_always_increment_minor = false
-```
-
-#### `custom_major_increment_regex`
-
-**Type**: String (optional)
-
-**Default**: Inherits global setting
-
-Custom regex pattern matched against commit messages to trigger a major
-version bump. This is **additive** — breaking change commits always
-trigger major bumps regardless of this setting. Overrides the global
-`custom_major_increment_regex` for this package.
-
-In TOML double-quoted strings, backslashes must be escaped (write `\\`
-to represent a single `\` in the regex). For example, to match the
-literal text `[BREAKING]`:
-
-```toml
-[[package]]
-path = "."
-release_type = "node"
-custom_major_increment_regex = "\\[BREAKING\\]"
-```
-
-#### `custom_minor_increment_regex`
-
-**Type**: String (optional)
-
-**Default**: Inherits global setting
-
-Custom regex pattern matched against commit messages to trigger a minor
-version bump. This is **additive** — `feat:` commits always trigger minor
-bumps regardless of this setting. Overrides the global
-`custom_minor_increment_regex` for this package.
-
-In TOML double-quoted strings, backslashes must be escaped (write `\\`
-to represent a single `\` in the regex). For example, to match the
-literal text `[FEATURE]`:
-
-```toml
-[[package]]
-path = "."
-release_type = "rust"
-custom_minor_increment_regex = "\\[FEATURE\\]"
-```
+The default regex matches common forms like `version = "1.0.0"`,
+`version: "1.0.0"`, `VERSION='1.0.0'`, and `"version": "1.0.0"`. A custom
+`version_regex` **must** include a named capture group `(?<version>...)`;
+only that group is replaced. Files without a match are skipped; an invalid
+regex errors during config resolution.
 
 ## Complete Example
 
@@ -743,19 +139,15 @@ auto_start_next = false
 breaking_always_increment_major = true
 features_always_increment_minor = true
 
-# Global prerelease
 [prerelease]
 suffix = "beta"
 strategy = "versioned"
 
-# Changelog customization
 [changelog]
 skip_ci = true
 skip_chore = true
-skip_miscellaneous = false
 include_author = false
 
-# Package definitions
 [[package]]
 name = "frontend"
 path = "./apps/web"
@@ -770,12 +162,54 @@ tag_prefix = "api-v"
 prerelease = { suffix = "alpha", strategy = "versioned" }
 ```
 
-## Next Steps
+## Environment Variables
 
-- [Configuration Overview](./configuration.md) - Getting started guide
-- [Prerelease Configuration](./configuration-prerelease.md) - Detailed
-  prerelease guide
-- [Changelog Configuration](./configuration-changelog.md) - Template
-  customization
-- [Monorepo Configuration](./configuration-monorepo.md) - Multi-package
-  setup
+Releasaurus selects the auth token automatically from the `--forge` type;
+`--token` overrides it. The `RELEASAURUS_*` variables are fallbacks for
+their matching CLI flags, and flags always win.
+
+| Variable | Purpose |
+| -------- | ------- |
+| `GITHUB_TOKEN` | GitHub auth token |
+| `GITLAB_TOKEN` | GitLab auth token |
+| `GITEA_TOKEN` | Gitea auth token |
+| `FORGEJO_TOKEN` | Forgejo auth token |
+| `AZURE_DEVOPS_TOKEN` | Azure DevOps PAT (experimental) |
+| `RELEASAURUS_FORGE` | Default `--forge` |
+| `RELEASAURUS_REPO` | Default `--repo` |
+| `RELEASAURUS_LOCAL_PATH` | Default `--local-path` (hybrid mode) |
+| `RELEASAURUS_DEBUG` | Enable debug logging when set to any non-empty value |
+| `RELEASAURUS_DRY_RUN` | Enable dry-run (auto-enables debug) when set to any non-empty value |
+
+### Required token scopes
+
+| Forge | Scopes / permissions |
+| ----- | -------------------- |
+| **GitHub** (classic) | `repo` |
+| **GitHub** (fine-grained) | Contents, Issues, Pull requests — all read & write. Add Actions/Workflows read & write only if using the Action to trigger/modify workflows. |
+| **GitLab** | `api`, `write_repository` |
+| **Gitea** | Repository read/write, issue/PR management |
+| **Forgejo** | Repository read/write, issue/PR management |
+| **Azure DevOps** | `Code: Read & Write`, `Pull Request Threads: Read & Write` |
+
+`RELEASAURUS_DEBUG` and `RELEASAURUS_DRY_RUN` are enabled by *any*
+non-empty value (including `false` or `0`); unset or empty to disable.
+The `--debug` / `--dry-run` flags always enable regardless of the
+variable.
+
+## Supported Languages
+
+Set `release_type` on a package and Releasaurus updates the matching
+manifest and lock files. Lock files are updated when present, and all
+languages support workspace/monorepo layouts.
+
+| `release_type` | Files updated |
+| -------------- | ------------- |
+| `generic` | Custom files via [`additional_manifest_files`](#additional_manifest_files) |
+| `go` | `version.go`, `version/version.go`, `internal/version.go`, `internal/version/version.go` |
+| `java` | `pom.xml`, `build.gradle`, `build.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml` |
+| `node` | `package.json`, `package-lock.json`, `yarn.lock` |
+| `php` | `composer.json`, `composer.lock` |
+| `python` | `pyproject.toml`, `setup.py`, `setup.cfg` |
+| `ruby` | `*.gemspec`, `Gemfile`, `Gemfile.lock` |
+| `rust` | `Cargo.toml`, `Cargo.lock` |

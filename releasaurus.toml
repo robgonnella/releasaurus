@@ -9,11 +9,14 @@ skip_miscellaneous = false
 include_author = true
 aggregate_prereleases = true
 
+# [prerelease]
+# strategy = "versioned"
+# suffix = "rc"
+
 [[package]]
 name = "workspace"
 tag_prefix = "v"
 release_type = "rust"
-prerelease = { strategy = "versioned", suffix = "rc" }
 additional_manifest_files = [
   { path = "./action/action.yml", version_regex = "(?m)v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
 ]

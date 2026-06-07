@@ -1,40 +1,49 @@
 # Configuration
 
-Releasaurus works out-of-the-box with zero configuration, but provides
-extensive customization through an optional `releasaurus.toml` file.
+Releasaurus works with zero configuration for changelog generation and
+tagging. Add an optional `releasaurus.toml` at your repository root when
+you need more. This page covers the common cases; for the exhaustive
+option list see the [Configuration Reference](./configuration-reference.md).
 
-## Do You Need Configuration?
+## Do You Need a Config File?
 
-### You DON'T need configuration if:
+You **don't** need one if you only want changelog generation and tagging
+with the default format and the default `v` tag prefix.
 
-- You only need changelog generation and tagging (no version file
-  updates)
-- You're happy with the default changelog format
-- You're happy with the default tag prefix "v" (e.g., `v1.0.0`)
+You **do** need one to:
 
-### You DO need configuration if:
+- update version files (set a `release_type`)
+- manage multiple packages (monorepo)
+- create prereleases (alpha/beta/rc/snapshot)
+- customize the changelog or use custom tag prefixes
 
-- You want version file updates (requires specifying `release_type`)
-- You want custom changelog templates or formatting
-- You have multiple packages in one repository (monorepo)
-- You want custom prefixed tags (e.g., `cli-v1.0.0`)
+Place the file at the repository root:
 
-## Quick Start Examples
-
-### Single Package with Version Updates
-
-The most common setup:
-
-```toml
-# releasaurus.toml
-[[package]]
-path = "."
-release_type = "node"  # or rust, python, java, php, ruby
+```
+my-project/
+├── releasaurus.toml
+├── src/
+└── README.md
 ```
 
-### Multi-Package (Monorepo)
+## Single Package
 
-Multiple independently-versioned packages:
+The most common setup — bump versions in one package's manifests:
+
+```toml
+[[package]]
+path = "."
+release_type = "node"  # or rust, python, java, php, ruby, go, generic
+```
+
+`release_type` selects which manifest and lock files are updated. See
+[Supported Languages](./configuration-reference.md#supported-languages)
+for the file list per language.
+
+## Monorepos
+
+Define one `[[package]]` per independently-versioned package. Each gets
+its own version, tag prefix, and manifest updates.
 
 ```toml
 [[package]]
@@ -48,12 +57,107 @@ release_type = "rust"
 tag_prefix = "backend-v"
 ```
 
-See [Monorepo Configuration](./configuration-monorepo.md) for complete
-details.
+Tag prefix defaults to `v` for a root package (`path = "."`) and
+`<name>-v` for nested packages.
 
-### Prerelease Versions
+### Combined vs. Separate PRs
 
-Create alpha/beta releases:
+By default all packages with changes are released in a **single** PR. Set
+`separate_pull_requests = true` to give each package its own PR
+(branches like `releasaurus-release-main-frontend`):
+
+```toml
+separate_pull_requests = true
+
+[[package]]
+path = "./frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+```
+
+- **Combined (default)** — best for tightly-coupled packages that release
+  together and a single, atomic review.
+- **Separate** — best for large monorepos and independently-versioned
+  packages with different release cadences or owners.
+
+In either mode, target one package with `--package <name>` on `release-pr`
+and `release`.
+
+### Tracking Shared Code
+
+Use `additional_paths` so a package also releases when shared directories
+change:
+
+```toml
+[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+additional_paths = ["shared/types", "shared/utils"]
+```
+
+### Workspaces in a Subdirectory
+
+When a workspace isn't at the repo root, set `workspace_root` so lock
+files resolve correctly:
+
+```toml
+[[package]]
+name = "api-server"
+workspace_root = "backend"
+path = "services/api"
+release_type = "rust"
+tag_prefix = "api-v"
+```
+
+This updates `backend/services/api/Cargo.toml` and the workspace
+`backend/Cargo.lock`.
+
+### Naming & Path Rules
+
+- **Names must be unique** across all packages. If omitted, the name is
+  derived from the last path component. Match the manifest's `name` field
+  where one exists (`package.json`, `Cargo.toml`, etc.).
+- **The full path (`workspace_root` + `path`) must be unique.** Two
+  packages may share a `path` only if their `workspace_root` differs.
+
+## Grouped Releases (Sub-Packages)
+
+Use `sub_packages` to release several packages under **one** shared tag,
+changelog, and release, while each sub-package still gets its own manifest
+updates based on its `release_type`. A sub-package does **not** produce its
+own tag.
+
+```toml
+[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+tag_prefix = "v"
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" },
+]
+```
+
+Result: one tag (`v1.0.0`), one changelog covering everything, one
+release — with `package.json` (web) and `Cargo.toml` (cli) updated
+independently. Reach for this when a group of packages must always ship
+together with the same version.
+
+> **Sub-packages vs. separate packages:** separate `[[package]]` entries
+> are versioned and tagged independently; `sub_packages` share the
+> parent's single tag and changelog.
+
+## Prereleases
+
+Publish alpha/beta/rc/snapshot versions before a stable release. Configure
+globally with `[prerelease]` or per-package with a `prerelease` table.
 
 ```toml
 [prerelease]
@@ -65,85 +169,75 @@ path = "."
 release_type = "node"
 ```
 
-This creates versions like `v1.0.0-alpha.1`, `v1.0.0-alpha.2`, etc.
+### Strategies
 
-See [Prerelease Configuration](./configuration-prerelease.md) for
-complete details.
+- **`versioned`** (default) — appends an incrementing counter:
+  `1.1.0-alpha.1`, `1.1.0-alpha.2`, …
+- **`static`** — appends the suffix as-is, with no counter:
+  `1.0.1-SNAPSHOT` (common in Java).
 
-### Custom Changelog
+### Lifecycle
 
-Filter commits and customize formatting:
+Change behavior by editing the config and opening a new release PR:
+
+| From | Config change | Result |
+| ---- | ------------- | ------ |
+| `v1.0.0` | `suffix = "alpha"` (+ feature commit) | `v1.1.0-alpha.1` |
+| `v1.1.0-alpha.1` | unchanged (+ fix commit) | `v1.1.0-alpha.2` |
+| `v1.0.0-alpha.3` | `suffix = "beta"` (+ feature) | `v1.1.0-beta.1` |
+| `v1.0.0-alpha.5` | remove `[prerelease]` (or `suffix = ""`) | `v1.0.0` |
+
+Switching the suffix recalculates the base version and resets the
+counter. Removing the prerelease config graduates to a stable release.
+
+### Per-Package Overrides
+
+```toml
+[prerelease]
+suffix = "beta"
+strategy = "versioned"
+
+[[package]]
+path = "./stable"
+release_type = "rust"
+# inherits the global beta prerelease
+
+[[package]]
+path = "./experimental"
+release_type = "rust"
+prerelease = { suffix = "alpha", strategy = "versioned" }
+```
+
+### Aggregating Prerelease Notes
+
+When graduating to stable, include the changelog entries from every prior
+prerelease:
 
 ```toml
 [changelog]
-skip_ci = true
-skip_chore = true
-skip_miscellaneous = true
-
-[[package]]
-path = "."
-release_type = "rust"
+aggregate_prereleases = true
 ```
 
-See [Changelog Configuration](./configuration-changelog.md) for template
-customization and complete options.
-
-## Configuration Topics
-
-### Core Settings
-
-- **[Prerelease Versions](./configuration-prerelease.md)** - Alpha,
-  beta, RC releases with versioned or static strategies
-- **[Changelog Customization](./configuration-changelog.md)** - Filter
-  commits, customize templates, format output
-- **[Monorepo Setup](./configuration-monorepo.md)** - Multiple packages,
-  separate PRs, independent versioning
-
-### Reference
-
-- **[Configuration Reference](./configuration-reference.md)** - Complete
-  list of all configuration options with descriptions
-
-## Configuration File Location
-
-Place `releasaurus.toml` in your project's root directory:
-
-```
-my-project/
-├── releasaurus.toml    # ← Configuration file
-├── src/
-└── README.md
-```
-
-## Command-Line Overrides
-
-Many configuration options can be overridden from the command line
-without modifying your config file. This is useful for testing different
-settings or using different values in CI/CD pipelines.
-
-See [Configuration Overrides](./commands.md#configuration-overrides) in
-the Commands guide for details.
+You can also override prerelease settings per run without editing the
+config — see [Configuration Overrides](./commands.md#configuration-overrides)
+(`--prerelease-suffix`, `--prerelease-strategy`, `--set-package`).
 
 ## Testing Your Configuration
 
-Test your configuration locally without making remote changes:
+Validate any config change locally before pushing — no token, no remote
+changes:
 
 ```bash
-# Test against your local repository
 releasaurus release-pr --forge local --repo "."
-
-# Review the output to verify settings
-# Then run against your remote forge when ready
 ```
 
-See [Local Repository Mode](./commands.md#local-repository-mode) for
-complete details.
+Check that packages are detected, tag prefixes match, and the
+combined/separate PR strategy behaves as expected. See
+[Local Repository Mode](./commands.md#local-repository-mode).
 
 ## Next Steps
 
-- **Getting started?** See [Quick Start](./quick-start.md) for a 2-minute
-  tutorial
-- **Need help?** Check [Troubleshooting](./troubleshooting.md) for
-  common issues
-- **CI/CD?** See [CI/CD Integration](./ci-cd-integration.md) for
-  automation
+- **[Changelog Customization](./changelog.md)** — filter commits and
+  customize the template.
+- **[Configuration Reference](./configuration-reference.md)** — every
+  option, default, and the full example config.
