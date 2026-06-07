@@ -1,3 +1,9 @@
+# [0.20.2](https://github.com/robgonnella/releasaurus/compare/v0.20.1...v0.20.2) - 2026-06-07
+
+### 🐛 Bug Fixes
+
+- fixes issue with publishing docker images [_(b05565e)_](https://github.com/robgonnella/releasaurus/commit/b05565e8502bb8de01fa413220b2d1ef8ff2c50d) (Rob Gonnella)
+
 # [0.20.1](https://github.com/robgonnella/releasaurus/compare/v0.20.0...v0.20.1) - 2026-06-07
 
 ### 🐛 Bug Fixes
