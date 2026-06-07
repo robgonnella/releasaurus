@@ -1,3 +1,9 @@
+# [0.20.1](https://github.com/robgonnella/releasaurus/compare/v0.20.0...v0.20.1) - 2026-06-07
+
+### 🐛 Bug Fixes
+
+- fixes github/gitea/forgejo action [_(d866932)_](https://github.com/robgonnella/releasaurus/commit/d866932e3fce463cf5a7ed7c915f2d6bba3399ea) (Rob Gonnella)
+
 # [0.20.0](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.3...v0.20.0) - 2026-06-07
 
 ### 🚀 Features
