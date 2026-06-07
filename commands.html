@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
+            window.path_to_searchindex_js = "searchindex-a972fa06.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -399,7 +399,9 @@ Releasaurus deletes and re-creates the release branch on each run;
 Forgejo auto-closes the PR targeting the deleted branch, so each run
 leaves a closed PR behind. Use
 <a href="#hybrid-mode-local-git--remote-forge">hybrid mode</a> (<code>--local-path</code>) to
-avoid this. A patch to Forgejo is in progress.</p>
+avoid this. A patch to Forgejo to allow force pushing the release branch has
+been accepted and will be available in v16.
+https://codeberg.org/forgejo/forgejo/pulls/12663</p>
 <h3 id="azure-devops-release-branch-requires-allow-rewriting-history"><a class="header" href="#azure-devops-release-branch-requires-allow-rewriting-history">Azure DevOps: Release Branch Requires “Allow rewriting history”</a></h3>
 <p>When updating a release PR, Releasaurus resets the release branch to the
 tip of the base branch and replays the changelog commit. If the existing
