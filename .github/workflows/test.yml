@@ -17,11 +17,10 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          include_llvm_cov: "true"
           cache_policy: pull-push
       - name: test
         run: |
-          cargo llvm-cov --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)"
+          cargo test
 
   test_all:
     runs-on: ubuntu-latest
@@ -30,7 +29,6 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          include_llvm_cov: "true"
           cache_policy: pull-push
       - name: test
         env:
@@ -50,6 +48,4 @@ jobs:
           AZURE_DEVOPS_TEST_TOKEN: ${{ secrets.AZDO_TEST_TOKEN }}
           AZURE_DEVOPS_RESET_SHA: ${{ vars.AZDO_RESET_SHA }}
         run: |
-          cargo llvm-cov \
-            --ignore-filename-regex "(_test\.rs$)|(_tests\.rs$)" \
-            --features _integration_tests -- --nocapture
+          cargo test --features _integration_tests -- --nocapture
