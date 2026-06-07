@@ -37,21 +37,8 @@ forge release.
 
 Open the PR body and edit the text inside the notes `<div>`. The
 metadata comment (`<!--{...}-->`) must be left intact — it carries
-the tag and link information needed at publish time.
-
-**Before editing:**
-
-```html
-<div id="my-package" data-tag="v1.2.3">
-<!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}-->
-
-## [v1.2.3](...) - 2026-04-10
-### Features
-- feat: some new feature (abc1234)
-</div>
-```
-
-**After editing:**
+the tag and link information needed at publish time. For example, adding
+a summary paragraph above the generated entries:
 
 ```html
 <div id="my-package" data-tag="v1.2.3">

@@ -1,33 +1,19 @@
-# Using releasaurus-core as a Library
+# Library API
 
 The `releasaurus-core` crate exposes the full release pipeline as a
-public Rust API. Use it when you want to embed release automation
-directly in your own tooling rather than shelling out to the CLI.
+public Rust API — use it to embed release automation in your own tooling
+instead of shelling out to the CLI. (For CI/CD and simple automation, the
+CLI is the better choice.)
 
-## When to use the library vs the CLI
-
-| Situation                                            | Recommendation  |
-| ---------------------------------------------------- | --------------- |
-| CI/CD pipeline, GitHub Actions                       | Use the CLI     |
-| Custom Rust tooling or internal build system         | Use the library |
-| Need to integrate release data into another workflow | Use the library |
-| Simple changelog + tag automation                    | Use the CLI     |
-
-## Adding the dependency
+## Adding the Dependency
 
 ```toml
 [dependencies]
 releasaurus-core = "0.14"
+tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 ```
 
-The crate is async-first and built on [Tokio], so you will also need:
-
-```toml
-[dependencies]
-tokio = { version = "1", features = ["full"] }
-```
-
-## Architecture overview
+## Architecture
 
 ```text
 Orchestrator            (pipeline entry point)
@@ -37,27 +23,28 @@ Orchestrator            (pipeline entry point)
        └─ Forge         (GitHub / GitLab / Gitea / Local)
 ```
 
-All release operations go through `Orchestrator`. Building one
-requires three pieces:
+All operations go through `Orchestrator`, which needs three pieces:
 
-1. A **`ForgeManager`** wrapping a concrete `Forge` implementation
-2. A **`ResolvedConfig`** — built by `Resolver::builder()` from the
-   loaded TOML config plus any runtime overrides
-3. A **`ResolvedPackageHash`** — the set of packages resolved from
-   `releasaurus.toml`; produced alongside `ResolvedConfig` by
-   `Resolver::resolve()`
+1. A **`ForgeManager`** wrapping a concrete `Forge`.
+2. A **`ResolvedConfig`** — built by `Resolver::builder()` from the loaded
+   TOML plus any runtime overrides.
+3. A **`ResolvedPackageHash`** — the resolved packages, produced alongside
+   `ResolvedConfig` by `Resolver::resolve()`.
 
-See the [crate-level quick start on docs.rs][docs-rs] for the full
-builder chain with inline comments for each step.
+See the [crate-level quick start on docs.rs][docs-rs] for the full builder
+chain with per-step comments.
+
+Internally each call drives packages through typed stages —
+`ResolvedPackage → PreparedPackage → AnalyzedPackage → ReleasablePackage
+→ ReleasePRPackage`. The stage name appears in most error contexts, which
+helps when reading errors.
 
 ## Constructing a RepoUrl
 
-The forge constructors (`Github::new`, `Gitlab::new`, `Gitea::new`)
-take a `RepoUrl` — an owned struct defined in this crate — instead of
-any third-party URL type. This keeps your dependency tree stable
-regardless of which URL parser you prefer.
-
-Construct it directly from the components of your parsed URL:
+Forge constructors (`Github::new`, `Gitlab::new`, `Gitea::new`) take a
+`RepoUrl` defined in this crate rather than a third-party URL type, so
+your dependency tree stays stable. Build it from your parsed URL's
+components:
 
 ```rust,no_run
 use releasaurus_core::forge::{RepoUrl, config::Scheme};
@@ -67,35 +54,33 @@ let url = RepoUrl {
     host: "github.com".into(),
     owner: "my-org".into(),
     name: "my-repo".into(),
-    // Full project path — for nested GitLab groups this may be
-    // "group/subgroup/repo"
+    // Full project path — nested GitLab groups may be "group/subgroup/repo"
     path: "my-org/my-repo".into(),
     port: None,
     token: None,
 };
 ```
 
-Set `token` only if the credential is embedded directly in the URL
-(e.g. `https://TOKEN@host/...`); otherwise leave it `None` and pass
-the token as `Option<secrecy::SecretString>` directly to the forge
-constructor (`Github::new`, `Gitlab::new`, `Gitea::new`). You will
-need to add [`secrecy`](https://docs.rs/secrecy) to your own
-dependencies to construct a `SecretString`.
+Set `token` only when the credential is embedded in the URL
+(`https://TOKEN@host/...`); otherwise leave it `None` and pass the token
+as `Option<secrecy::SecretString>` to the forge constructor (add
+[`secrecy`](https://docs.rs/secrecy) to construct one).
 
-## The Forge trait
+## The Forge Trait
 
-`Forge` is the extension point for platform support. The crate ships
-four implementations:
+`Forge` is the extension point for platform support. The crate ships four
+implementations:
 
-| Type                      | When to use                     |
-| ------------------------- | ------------------------------- |
-| `forge::github::Github`   | GitHub (cloud or Enterprise)    |
-| `forge::gitlab::Gitlab`   | GitLab (cloud or self-hosted)   |
-| `forge::gitea::Gitea`     | Gitea self-hosted               |
+| Type | When to use |
+| ---- | ----------- |
+| `forge::github::Github` | GitHub (cloud or Enterprise) |
+| `forge::gitlab::Gitlab` | GitLab (cloud or self-hosted) |
+| `forge::gitea::Gitea` | Gitea self-hosted |
 | `forge::local::LocalRepo` | Local git2 operations (testing) |
 
-To target a custom platform, implement the `Forge` trait from
-`releasaurus_core::forge::traits`:
+To target a custom platform, implement `Forge` from
+`releasaurus_core::forge::traits` and pass it to
+`ForgeManager::new(Box::new(my_forge), ...)`:
 
 ```rust,no_run
 use async_trait::async_trait;
@@ -135,7 +120,7 @@ impl Forge for MyForge {
         req: GetFileContentRequest,
     ) -> Result<Option<String>> { todo!() }
 
-    // ... remaining trait methods
+    // ... remaining trait methods (see docs.rs for the full list)
     # async fn get_release_by_tag(&self, _: &str)
     #     -> Result<ReleaseByTagResponse> { todo!() }
     # async fn create_release_branch(&self, _: CreateReleaseBranchRequest)
@@ -163,47 +148,12 @@ impl Forge for MyForge {
 }
 ```
 
-Pass your implementation to `ForgeManager::new(Box::new(my_forge), ...)`.
+## Dry-Run & Testing
 
-## The processing pipeline
+Pass `ForgeOptions { dry_run: true }` to `ForgeManager::new` to skip all
+write operations (logged at `WARN`) while read operations proceed
+normally. For tests, `LocalRepo` runs everything against a local git2
+repository; the `Forge` trait is also `#[cfg_attr(test, automock)]`, so
+`mockall`'s `MockForge` is available under `#[cfg(test)]`.
 
-Internally, each `Orchestrator` call drives packages through a
-sequence of typed stages:
-
-```text
-ResolvedPackage
-  → PreparedPackage    (commits fetched, filtered by path + timestamp)
-  → AnalyzedPackage    (conventional commits parsed, next version
-                        calculated, changelog generated)
-  → ReleasablePackage  (manifest files loaded, file changes prepared)
-  → ReleasePRPackage   (PR branch created or updated)
-```
-
-`create_releases` runs a shorter path: it reads the merged PR body,
-extracts the embedded release metadata, tags the commit, and calls
-the forge's `create_release`.
-
-Understanding the stages helps when reading error messages — the
-stage name appears in most error contexts.
-
-## Dry-run mode
-
-Pass `ForgeOptions { dry_run: true }` to `ForgeManager::new`. In
-dry-run mode all write operations (branch creation, PR creation,
-tagging, release publishing) are skipped and logged at `WARN` level.
-Read operations proceed normally, so you can safely preview what
-would happen.
-
-## Testing without a live forge
-
-`LocalRepo` (from `releasaurus_core::forge::local`) runs all
-operations against a local git repository using `git2`. It is the
-fastest way to integration-test a custom pipeline without hitting any
-remote API.
-
-Alternatively, the `Forge` trait is annotated with `#[cfg_attr(test,
-automock)]`, so `MockForge` from `mockall` is available under
-`#[cfg(test)]` for unit tests.
-
-[Tokio]: https://tokio.rs
 [docs-rs]: https://docs.rs/releasaurus-core

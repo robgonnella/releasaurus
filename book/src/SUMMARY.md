@@ -4,30 +4,22 @@
 
 # Getting Started
 
-- [Installation](./installation.md)
-- [Quick Start](./quick-start.md)
+- [Getting Started](./getting-started.md)
 
-# User Guide
+# Guide
 
 - [Commands](./commands.md)
+- [Configuration](./configuration.md)
+- [Changelog Customization](./changelog.md)
 - [Editing Release Notes](./release-notes-editing.md)
 - [CI/CD Integration](./ci-cd-integration.md)
 - [Troubleshooting](./troubleshooting.md)
-- [Supported Languages & Frameworks](./supported-languages.md)
 
-# Configuration
+# Reference
 
-- [Configuration File](./configuration.md)
-  - [Prerelease Versions](./configuration-prerelease.md)
-  - [Changelog Customization](./configuration-changelog.md)
-  - [Monorepo Setup](./configuration-monorepo.md)
-  - [Configuration Reference](./configuration-reference.md)
-- [Environment Variables](./environment-variables.md)
+- [Configuration Reference](./configuration-reference.md)
 
-# Library API
+# Extending
 
-- [Using as a Library](./library-api.md)
-
-# About
-
+- [Library API](./library-api.md)
 - [Contributing](./contributing.md)
