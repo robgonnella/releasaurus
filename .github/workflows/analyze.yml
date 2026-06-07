@@ -14,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache_policy: pull
       - name: generate
         run: cargo run -p releasaurus-core --bin gen_schema
       - name: check
@@ -32,7 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache_policy: pull
       - name: Install cargo machete
         run: |
           if ! cargo machete --version; then
@@ -45,9 +49,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-push-pull-cache
+      - uses: ./.github/actions/setup-rust
         with:
           components: clippy
+          cache_policy: pull
       - name: lint
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -55,8 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/setup-rust
         with:
           components: rustfmt
+          cache_policy: pull
       - name: fmt
         run: cargo fmt --all --check

@@ -13,6 +13,16 @@ inputs:
     description: Whether or not to also install cargo-llvm-cov
     required: false
     default: "false"
+  cache_policy:
+    description: How caching should behave
+    required: true
+    default: pull-push
+    type: choice
+    options:
+      - pull-push
+      - pull
+      - disable
+
 runs:
   using: "composite"
   steps:
@@ -20,8 +30,20 @@ runs:
       with:
         targets: ${{ inputs.targets }}
         components: ${{ inputs.components }}
-    - name: Cache Cargo
+    - name: Restore Cargo Cache
       uses: actions/cache/restore@v4
+      if: ${{ inputs.cache_policy == 'pull' }}
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Cache Cargo
+      uses: actions/cache@v4
+      if: ${{ inputs.cache_policy == 'pull-push' }}
       with:
         path: |
           ~/.cargo/bin/
