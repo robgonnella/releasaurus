@@ -18,7 +18,7 @@ name = "workspace"
 tag_prefix = "v"
 release_type = "rust"
 additional_manifest_files = [
-  { path = "./action/action.yml", version_regex = "(?m)v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)(?<end>['\",].*)?$" }
+  { path = "./action/action.yml", version_regex = "(?m)v(?<version>\\d+\\.\\d+\\.\\d+-?.*?)-alpine$" }
 ]
 sub_packages = [
   { name = "releasaurus", path = "crates/cli", release_type = "rust" },
