@@ -1,3 +1,11 @@
+# [0.20.4](https://github.com/robgonnella/releasaurus/compare/v0.20.3...v0.20.4) - 2026-06-07
+
+### 🐛 Bug Fixes
+
+- fixes issue with publish github action [_(d218bba)_](https://github.com/robgonnella/releasaurus/commit/d218bbaec232a11178709506801cea073b48bf2f) (Rob Gonnella)
+
+- fixes github/gitea/forgejo action [_(bb999e3)_](https://github.com/robgonnella/releasaurus/commit/bb999e3b2e4e116bb600a355ce997ca091d8315a) (Rob Gonnella)
+
 # [0.20.3](https://github.com/robgonnella/releasaurus/compare/v0.20.2...v0.20.3) - 2026-06-07
 
 ### 🐛 Bug Fixes
