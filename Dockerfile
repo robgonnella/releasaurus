@@ -10,8 +10,15 @@ RUN apk add --update --no-cache curl \
   && releasaurus --version
 
 ################################################################################
-# Final
+# Final Alpine
 ################################################################################
-FROM gcr.io/distroless/static-debian13
+FROM alpine:3.23 AS alpine
+COPY --from=builder /usr/local/cargo/bin/releasaurus /usr/local/bin
+ENTRYPOINT [ "releasaurus" ]
+
+################################################################################
+# Final Distroless
+################################################################################
+FROM gcr.io/distroless/static-debian13 AS distroless
 COPY --from=builder /usr/local/cargo/bin/releasaurus /releasaurus
 ENTRYPOINT [ "/releasaurus" ]
