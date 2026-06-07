@@ -1,3 +1,9 @@
+# [0.20.3](https://github.com/robgonnella/releasaurus/compare/v0.20.2...v0.20.3) - 2026-06-07
+
+### 🐛 Bug Fixes
+
+- another docker-publishing job fix [_(58fa3c3)_](https://github.com/robgonnella/releasaurus/commit/58fa3c39c4eae8af5eae68d91a346cbef166b8f2) (Rob Gonnella)
+
 # [0.20.2](https://github.com/robgonnella/releasaurus/compare/v0.20.1...v0.20.2) - 2026-06-07
 
 ### 🐛 Bug Fixes
