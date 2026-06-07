@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Configuration File - Releasaurus</title>
+        <title>Configuration - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,33 +178,38 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Releasaurus works out-of-the-box with zero configuration, but provides
-extensive customization through an optional <code>releasaurus.toml</code> file.</p>
-<h2 id="do-you-need-configuration"><a class="header" href="#do-you-need-configuration">Do You Need Configuration?</a></h2>
-<h3 id="you-dont-need-configuration-if"><a class="header" href="#you-dont-need-configuration-if">You DON’T need configuration if:</a></h3>
+<p>Releasaurus works with zero configuration for changelog generation and
+tagging. Add an optional <code>releasaurus.toml</code> at your repository root when
+you need more. This page covers the common cases; for the exhaustive
+option list see the <a href="./configuration-reference.html">Configuration Reference</a>.</p>
+<h2 id="do-you-need-a-config-file"><a class="header" href="#do-you-need-a-config-file">Do You Need a Config File?</a></h2>
+<p>You <strong>don’t</strong> need one if you only want changelog generation and tagging
+with the default format and the default <code>v</code> tag prefix.</p>
+<p>You <strong>do</strong> need one to:</p>
 <ul>
-<li>You only need changelog generation and tagging (no version file
-updates)</li>
-<li>You’re happy with the default changelog format</li>
-<li>You’re happy with the default tag prefix “v” (e.g., <code>v1.0.0</code>)</li>
+<li>update version files (set a <code>release_type</code>)</li>
+<li>manage multiple packages (monorepo)</li>
+<li>create prereleases (alpha/beta/rc/snapshot)</li>
+<li>customize the changelog or use custom tag prefixes</li>
 </ul>
-<h3 id="you-do-need-configuration-if"><a class="header" href="#you-do-need-configuration-if">You DO need configuration if:</a></h3>
-<ul>
-<li>You want version file updates (requires specifying <code>release_type</code>)</li>
-<li>You want custom changelog templates or formatting</li>
-<li>You have multiple packages in one repository (monorepo)</li>
-<li>You want custom prefixed tags (e.g., <code>cli-v1.0.0</code>)</li>
-</ul>
-<h2 id="quick-start-examples"><a class="header" href="#quick-start-examples">Quick Start Examples</a></h2>
-<h3 id="single-package-with-version-updates"><a class="header" href="#single-package-with-version-updates">Single Package with Version Updates</a></h3>
-<p>The most common setup:</p>
-<pre><code class="language-toml"># releasaurus.toml
-[[package]]
-path = "."
-release_type = "node"  # or rust, python, java, php, ruby
+<p>Place the file at the repository root:</p>
+<pre><code>my-project/
+├── releasaurus.toml
+├── src/
+└── README.md
 </code></pre>
-<h3 id="multi-package-monorepo"><a class="header" href="#multi-package-monorepo">Multi-Package (Monorepo)</a></h3>
-<p>Multiple independently-versioned packages:</p>
+<h2 id="single-package"><a class="header" href="#single-package">Single Package</a></h2>
+<p>The most common setup — bump versions in one package’s manifests:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "node"  # or rust, python, java, php, ruby, go, generic
+</code></pre>
+<p><code>release_type</code> selects which manifest and lock files are updated. See
+<a href="./configuration-reference.html#supported-languages">Supported Languages</a>
+for the file list per language.</p>
+<h2 id="monorepos"><a class="header" href="#monorepos">Monorepos</a></h2>
+<p>Define one <code>[[package]]</code> per independently-versioned package. Each gets
+its own version, tag prefix, and manifest updates.</p>
 <pre><code class="language-toml">[[package]]
 path = "./frontend"
 release_type = "node"
@@ -215,10 +220,88 @@ path = "./backend"
 release_type = "rust"
 tag_prefix = "backend-v"
 </code></pre>
-<p>See <a href="./configuration-monorepo.html">Monorepo Configuration</a> for complete
-details.</p>
-<h3 id="prerelease-versions"><a class="header" href="#prerelease-versions">Prerelease Versions</a></h3>
-<p>Create alpha/beta releases:</p>
+<p>Tag prefix defaults to <code>v</code> for a root package (<code>path = "."</code>) and
+<code>&lt;name&gt;-v</code> for nested packages.</p>
+<h3 id="combined-vs-separate-prs"><a class="header" href="#combined-vs-separate-prs">Combined vs. Separate PRs</a></h3>
+<p>By default all packages with changes are released in a <strong>single</strong> PR. Set
+<code>separate_pull_requests = true</code> to give each package its own PR
+(branches like <code>releasaurus-release-main-frontend</code>):</p>
+<pre><code class="language-toml">separate_pull_requests = true
+
+[[package]]
+path = "./frontend"
+release_type = "node"
+tag_prefix = "frontend-v"
+
+[[package]]
+path = "./backend"
+release_type = "rust"
+tag_prefix = "backend-v"
+</code></pre>
+<ul>
+<li><strong>Combined (default)</strong> — best for tightly-coupled packages that release
+together and a single, atomic review.</li>
+<li><strong>Separate</strong> — best for large monorepos and independently-versioned
+packages with different release cadences or owners.</li>
+</ul>
+<p>In either mode, target one package with <code>--package &lt;name&gt;</code> on <code>release-pr</code>
+and <code>release</code>.</p>
+<h3 id="tracking-shared-code"><a class="header" href="#tracking-shared-code">Tracking Shared Code</a></h3>
+<p>Use <code>additional_paths</code> so a package also releases when shared directories
+change:</p>
+<pre><code class="language-toml">[[package]]
+path = "./apps/web"
+release_type = "node"
+tag_prefix = "web-v"
+additional_paths = ["shared/types", "shared/utils"]
+</code></pre>
+<h3 id="workspaces-in-a-subdirectory"><a class="header" href="#workspaces-in-a-subdirectory">Workspaces in a Subdirectory</a></h3>
+<p>When a workspace isn’t at the repo root, set <code>workspace_root</code> so lock
+files resolve correctly:</p>
+<pre><code class="language-toml">[[package]]
+name = "api-server"
+workspace_root = "backend"
+path = "services/api"
+release_type = "rust"
+tag_prefix = "api-v"
+</code></pre>
+<p>This updates <code>backend/services/api/Cargo.toml</code> and the workspace
+<code>backend/Cargo.lock</code>.</p>
+<h3 id="naming--path-rules"><a class="header" href="#naming--path-rules">Naming &amp; Path Rules</a></h3>
+<ul>
+<li><strong>Names must be unique</strong> across all packages. If omitted, the name is
+derived from the last path component. Match the manifest’s <code>name</code> field
+where one exists (<code>package.json</code>, <code>Cargo.toml</code>, etc.).</li>
+<li><strong>The full path (<code>workspace_root</code> + <code>path</code>) must be unique.</strong> Two
+packages may share a <code>path</code> only if their <code>workspace_root</code> differs.</li>
+</ul>
+<h2 id="grouped-releases-sub-packages"><a class="header" href="#grouped-releases-sub-packages">Grouped Releases (Sub-Packages)</a></h2>
+<p>Use <code>sub_packages</code> to release several packages under <strong>one</strong> shared tag,
+changelog, and release, while each sub-package still gets its own manifest
+updates based on its <code>release_type</code>. A sub-package does <strong>not</strong> produce its
+own tag.</p>
+<pre><code class="language-toml">[[package]]
+name = "platform"
+workspace_root = "."
+path = "."
+tag_prefix = "v"
+sub_packages = [
+    { name = "web", path = "packages/web", release_type = "node" },
+    { name = "cli", path = "packages/cli", release_type = "rust" },
+]
+</code></pre>
+<p>Result: one tag (<code>v1.0.0</code>), one changelog covering everything, one
+release — with <code>package.json</code> (web) and <code>Cargo.toml</code> (cli) updated
+independently. Reach for this when a group of packages must always ship
+together with the same version.</p>
+<blockquote>
+<p><strong>Sub-packages vs. separate packages:</strong> separate <code>[[package]]</code> entries
+are versioned and tagged independently; <code>sub_packages</code> share the
+parent’s single tag and changelog.</p>
+</blockquote>
+<h2 id="prereleases"><a class="header" href="#prereleases">Prereleases</a></h2>
+<p>Publish alpha/beta/rc/snapshot versions before a stable release. Configure
+globally with <code>[prerelease]</code> or per-package with a <code>prerelease</code> table.</p>
 <pre><code class="language-toml">[prerelease]
 suffix = "alpha"
 strategy = "versioned"  # or "static"
@@ -227,79 +310,79 @@ strategy = "versioned"  # or "static"
 path = "."
 release_type = "node"
 </code></pre>
-<p>This creates versions like <code>v1.0.0-alpha.1</code>, <code>v1.0.0-alpha.2</code>, etc.</p>
-<p>See <a href="./configuration-prerelease.html">Prerelease Configuration</a> for
-complete details.</p>
-<h3 id="custom-changelog"><a class="header" href="#custom-changelog">Custom Changelog</a></h3>
-<p>Filter commits and customize formatting:</p>
-<pre><code class="language-toml">[changelog]
-skip_ci = true
-skip_chore = true
-skip_miscellaneous = true
+<h3 id="strategies"><a class="header" href="#strategies">Strategies</a></h3>
+<ul>
+<li><strong><code>versioned</code></strong> (default) — appends an incrementing counter:
+<code>1.1.0-alpha.1</code>, <code>1.1.0-alpha.2</code>, …</li>
+<li><strong><code>static</code></strong> — appends the suffix as-is, with no counter:
+<code>1.0.1-SNAPSHOT</code> (common in Java).</li>
+</ul>
+<h3 id="lifecycle"><a class="header" href="#lifecycle">Lifecycle</a></h3>
+<p>Change behavior by editing the config and opening a new release PR:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>From</th><th>Config change</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>v1.0.0</code></td><td><code>suffix = "alpha"</code> (+ feature commit)</td><td><code>v1.1.0-alpha.1</code></td></tr>
+<tr><td><code>v1.1.0-alpha.1</code></td><td>unchanged (+ fix commit)</td><td><code>v1.1.0-alpha.2</code></td></tr>
+<tr><td><code>v1.0.0-alpha.3</code></td><td><code>suffix = "beta"</code> (+ feature)</td><td><code>v1.1.0-beta.1</code></td></tr>
+<tr><td><code>v1.0.0-alpha.5</code></td><td>remove <code>[prerelease]</code> (or <code>suffix = ""</code>)</td><td><code>v1.0.0</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Switching the suffix recalculates the base version and resets the
+counter. Removing the prerelease config graduates to a stable release.</p>
+<h3 id="per-package-overrides"><a class="header" href="#per-package-overrides">Per-Package Overrides</a></h3>
+<pre><code class="language-toml">[prerelease]
+suffix = "beta"
+strategy = "versioned"
 
 [[package]]
-path = "."
+path = "./stable"
 release_type = "rust"
-</code></pre>
-<p>See <a href="./configuration-changelog.html">Changelog Configuration</a> for template
-customization and complete options.</p>
-<h2 id="configuration-topics"><a class="header" href="#configuration-topics">Configuration Topics</a></h2>
-<h3 id="core-settings"><a class="header" href="#core-settings">Core Settings</a></h3>
-<ul>
-<li><strong><a href="./configuration-prerelease.html">Prerelease Versions</a></strong> - Alpha,
-beta, RC releases with versioned or static strategies</li>
-<li><strong><a href="./configuration-changelog.html">Changelog Customization</a></strong> - Filter
-commits, customize templates, format output</li>
-<li><strong><a href="./configuration-monorepo.html">Monorepo Setup</a></strong> - Multiple packages,
-separate PRs, independent versioning</li>
-</ul>
-<h3 id="reference"><a class="header" href="#reference">Reference</a></h3>
-<ul>
-<li><strong><a href="./configuration-reference.html">Configuration Reference</a></strong> - Complete
-list of all configuration options with descriptions</li>
-</ul>
-<h2 id="configuration-file-location"><a class="header" href="#configuration-file-location">Configuration File Location</a></h2>
-<p>Place <code>releasaurus.toml</code> in your project’s root directory:</p>
-<pre><code>my-project/
-├── releasaurus.toml    # ← Configuration file
-├── src/
-└── README.md
-</code></pre>
-<h2 id="command-line-overrides"><a class="header" href="#command-line-overrides">Command-Line Overrides</a></h2>
-<p>Many configuration options can be overridden from the command line
-without modifying your config file. This is useful for testing different
-settings or using different values in CI/CD pipelines.</p>
-<p>See <a href="./commands.html#configuration-overrides">Configuration Overrides</a> in
-the Commands guide for details.</p>
-<h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
-<p>Test your configuration locally without making remote changes:</p>
-<pre><code class="language-bash"># Test against your local repository
-releasaurus release-pr --forge local --repo "."
+# inherits the global beta prerelease
 
-# Review the output to verify settings
-# Then run against your remote forge when ready
+[[package]]
+path = "./experimental"
+release_type = "rust"
+prerelease = { suffix = "alpha", strategy = "versioned" }
 </code></pre>
-<p>See <a href="./commands.html#local-repository-mode">Local Repository Mode</a> for
-complete details.</p>
+<h3 id="aggregating-prerelease-notes"><a class="header" href="#aggregating-prerelease-notes">Aggregating Prerelease Notes</a></h3>
+<p>When graduating to stable, include the changelog entries from every prior
+prerelease:</p>
+<pre><code class="language-toml">[changelog]
+aggregate_prereleases = true
+</code></pre>
+<p>You can also override prerelease settings per run without editing the
+config — see <a href="./commands.html#configuration-overrides">Configuration Overrides</a>
+(<code>--prerelease-suffix</code>, <code>--prerelease-strategy</code>, <code>--set-package</code>).</p>
+<h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
+<p>Validate any config change locally before pushing — no token, no remote
+changes:</p>
+<pre><code class="language-bash">releasaurus release-pr --forge local --repo "."
+</code></pre>
+<p>Check that packages are detected, tag prefixes match, and the
+combined/separate PR strategy behaves as expected. See
+<a href="./commands.html#local-repository-mode">Local Repository Mode</a>.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
-<li><strong>Getting started?</strong> See <a href="./quick-start.html">Quick Start</a> for a 2-minute
-tutorial</li>
-<li><strong>Need help?</strong> Check <a href="./troubleshooting.html">Troubleshooting</a> for
-common issues</li>
-<li><strong>CI/CD?</strong> See <a href="./ci-cd-integration.html">CI/CD Integration</a> for
-automation</li>
+<li><strong><a href="./changelog.html">Changelog Customization</a></strong> — filter commits and
+customize the template.</li>
+<li><strong><a href="./configuration-reference.html">Configuration Reference</a></strong> — every
+option, default, and the full example config.</li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="supported-languages.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="configuration-prerelease.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="changelog.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -309,11 +392,11 @@ automation</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="supported-languages.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="configuration-prerelease.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="changelog.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -335,11 +418,11 @@ automation</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 

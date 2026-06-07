@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Using as a Library - Releasaurus</title>
+        <title>Library API - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,57 +177,41 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="using-releasaurus-core-as-a-library"><a class="header" href="#using-releasaurus-core-as-a-library">Using releasaurus-core as a Library</a></h1>
+                        <h1 id="library-api"><a class="header" href="#library-api">Library API</a></h1>
 <p>The <code>releasaurus-core</code> crate exposes the full release pipeline as a
-public Rust API. Use it when you want to embed release automation
-directly in your own tooling rather than shelling out to the CLI.</p>
-<h2 id="when-to-use-the-library-vs-the-cli"><a class="header" href="#when-to-use-the-library-vs-the-cli">When to use the library vs the CLI</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Situation</th><th>Recommendation</th></tr>
-</thead>
-<tbody>
-<tr><td>CI/CD pipeline, GitHub Actions</td><td>Use the CLI</td></tr>
-<tr><td>Custom Rust tooling or internal build system</td><td>Use the library</td></tr>
-<tr><td>Need to integrate release data into another workflow</td><td>Use the library</td></tr>
-<tr><td>Simple changelog + tag automation</td><td>Use the CLI</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="adding-the-dependency"><a class="header" href="#adding-the-dependency">Adding the dependency</a></h2>
+public Rust API — use it to embed release automation in your own tooling
+instead of shelling out to the CLI. (For CI/CD and simple automation, the
+CLI is the better choice.)</p>
+<h2 id="adding-the-dependency"><a class="header" href="#adding-the-dependency">Adding the Dependency</a></h2>
 <pre><code class="language-toml">[dependencies]
 releasaurus-core = "0.14"
+tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 </code></pre>
-<p>The crate is async-first and built on <a href="https://tokio.rs">Tokio</a>, so you will also need:</p>
-<pre><code class="language-toml">[dependencies]
-tokio = { version = "1", features = ["full"] }
-</code></pre>
-<h2 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture overview</a></h2>
+<h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
 <pre><code class="language-text">Orchestrator            (pipeline entry point)
   └─ ResolvedConfig     (merged settings)
   └─ ResolvedPackageHash (resolved package configs)
   └─ ForgeManager       (caching + dry-run wrapper)
        └─ Forge         (GitHub / GitLab / Gitea / Local)
 </code></pre>
-<p>All release operations go through <code>Orchestrator</code>. Building one
-requires three pieces:</p>
+<p>All operations go through <code>Orchestrator</code>, which needs three pieces:</p>
 <ol>
-<li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code> implementation</li>
-<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the
-loaded TOML config plus any runtime overrides</li>
-<li>A <strong><code>ResolvedPackageHash</code></strong> — the set of packages resolved from
-<code>releasaurus.toml</code>; produced alongside <code>ResolvedConfig</code> by
-<code>Resolver::resolve()</code></li>
+<li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code>.</li>
+<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the loaded
+TOML plus any runtime overrides.</li>
+<li>A <strong><code>ResolvedPackageHash</code></strong> — the resolved packages, produced alongside
+<code>ResolvedConfig</code> by <code>Resolver::resolve()</code>.</li>
 </ol>
-<p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full
-builder chain with inline comments for each step.</p>
+<p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full builder
+chain with per-step comments.</p>
+<p>Internally each call drives packages through typed stages —
+<code>ResolvedPackage → PreparedPackage → AnalyzedPackage → ReleasablePackage → ReleasePRPackage</code>. The stage name appears in most error contexts, which
+helps when reading errors.</p>
 <h2 id="constructing-a-repourl"><a class="header" href="#constructing-a-repourl">Constructing a RepoUrl</a></h2>
-<p>The forge constructors (<code>Github::new</code>, <code>Gitlab::new</code>, <code>Gitea::new</code>)
-take a <code>RepoUrl</code> — an owned struct defined in this crate — instead of
-any third-party URL type. This keeps your dependency tree stable
-regardless of which URL parser you prefer.</p>
-<p>Construct it directly from the components of your parsed URL:</p>
+<p>Forge constructors (<code>Github::new</code>, <code>Gitlab::new</code>, <code>Gitea::new</code>) take a
+<code>RepoUrl</code> defined in this crate rather than a third-party URL type, so
+your dependency tree stays stable. Build it from your parsed URL’s
+components:</p>
 <pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use releasaurus_core::forge::{RepoUrl, config::Scheme};
@@ -237,22 +221,19 @@ let url = RepoUrl {
     host: "github.com".into(),
     owner: "my-org".into(),
     name: "my-repo".into(),
-    // Full project path — for nested GitLab groups this may be
-    // "group/subgroup/repo"
+    // Full project path — nested GitLab groups may be "group/subgroup/repo"
     path: "my-org/my-repo".into(),
     port: None,
     token: None,
 };
 <span class="boring">}</span></code></pre>
-<p>Set <code>token</code> only if the credential is embedded directly in the URL
-(e.g. <code>https://TOKEN@host/...</code>); otherwise leave it <code>None</code> and pass
-the token as <code>Option&lt;secrecy::SecretString&gt;</code> directly to the forge
-constructor (<code>Github::new</code>, <code>Gitlab::new</code>, <code>Gitea::new</code>). You will
-need to add <a href="https://docs.rs/secrecy"><code>secrecy</code></a> to your own
-dependencies to construct a <code>SecretString</code>.</p>
-<h2 id="the-forge-trait"><a class="header" href="#the-forge-trait">The Forge trait</a></h2>
-<p><code>Forge</code> is the extension point for platform support. The crate ships
-four implementations:</p>
+<p>Set <code>token</code> only when the credential is embedded in the URL
+(<code>https://TOKEN@host/...</code>); otherwise leave it <code>None</code> and pass the token
+as <code>Option&lt;secrecy::SecretString&gt;</code> to the forge constructor (add
+<a href="https://docs.rs/secrecy"><code>secrecy</code></a> to construct one).</p>
+<h2 id="the-forge-trait"><a class="header" href="#the-forge-trait">The Forge Trait</a></h2>
+<p><code>Forge</code> is the extension point for platform support. The crate ships four
+implementations:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -266,8 +247,9 @@ four implementations:</p>
 </tbody>
 </table>
 </div>
-<p>To target a custom platform, implement the <code>Forge</code> trait from
-<code>releasaurus_core::forge::traits</code>:</p>
+<p>To target a custom platform, implement <code>Forge</code> from
+<code>releasaurus_core::forge::traits</code> and pass it to
+<code>ForgeManager::new(Box::new(my_forge), ...)</code>:</p>
 <pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use async_trait::async_trait;
@@ -307,7 +289,7 @@ impl Forge for MyForge {
         req: GetFileContentRequest,
     ) -&gt; Result&lt;Option&lt;String&gt;&gt; { todo!() }
 
-    // ... remaining trait methods
+    // ... remaining trait methods (see docs.rs for the full list)
 <span class="boring">    async fn get_release_by_tag(&amp;self, _: &amp;str)
 </span><span class="boring">        -&gt; Result&lt;ReleaseByTagResponse&gt; { todo!() }
 </span><span class="boring">    async fn create_release_branch(&amp;self, _: CreateReleaseBranchRequest)
@@ -334,41 +316,18 @@ impl Forge for MyForge {
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
 </span>}
 <span class="boring">}</span></code></pre>
-<p>Pass your implementation to <code>ForgeManager::new(Box::new(my_forge), ...)</code>.</p>
-<h2 id="the-processing-pipeline"><a class="header" href="#the-processing-pipeline">The processing pipeline</a></h2>
-<p>Internally, each <code>Orchestrator</code> call drives packages through a
-sequence of typed stages:</p>
-<pre><code class="language-text">ResolvedPackage
-  → PreparedPackage    (commits fetched, filtered by path + timestamp)
-  → AnalyzedPackage    (conventional commits parsed, next version
-                        calculated, changelog generated)
-  → ReleasablePackage  (manifest files loaded, file changes prepared)
-  → ReleasePRPackage   (PR branch created or updated)
-</code></pre>
-<p><code>create_releases</code> runs a shorter path: it reads the merged PR body,
-extracts the embedded release metadata, tags the commit, and calls
-the forge’s <code>create_release</code>.</p>
-<p>Understanding the stages helps when reading error messages — the
-stage name appears in most error contexts.</p>
-<h2 id="dry-run-mode"><a class="header" href="#dry-run-mode">Dry-run mode</a></h2>
-<p>Pass <code>ForgeOptions { dry_run: true }</code> to <code>ForgeManager::new</code>. In
-dry-run mode all write operations (branch creation, PR creation,
-tagging, release publishing) are skipped and logged at <code>WARN</code> level.
-Read operations proceed normally, so you can safely preview what
-would happen.</p>
-<h2 id="testing-without-a-live-forge"><a class="header" href="#testing-without-a-live-forge">Testing without a live forge</a></h2>
-<p><code>LocalRepo</code> (from <code>releasaurus_core::forge::local</code>) runs all
-operations against a local git repository using <code>git2</code>. It is the
-fastest way to integration-test a custom pipeline without hitting any
-remote API.</p>
-<p>Alternatively, the <code>Forge</code> trait is annotated with <code>#[cfg_attr(test, automock)]</code>, so <code>MockForge</code> from <code>mockall</code> is available under
-<code>#[cfg(test)]</code> for unit tests.</p>
+<h2 id="dry-run--testing"><a class="header" href="#dry-run--testing">Dry-Run &amp; Testing</a></h2>
+<p>Pass <code>ForgeOptions { dry_run: true }</code> to <code>ForgeManager::new</code> to skip all
+write operations (logged at <code>WARN</code>) while read operations proceed
+normally. For tests, <code>LocalRepo</code> runs everything against a local git2
+repository; the <code>Forge</code> trait is also <code>#[cfg_attr(test, automock)]</code>, so
+<code>mockall</code>’s <code>MockForge</code> is available under <code>#[cfg(test)]</code>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="environment-variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration-reference.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -382,7 +341,7 @@ remote API.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="environment-variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration-reference.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -408,11 +367,11 @@ remote API.</p>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 

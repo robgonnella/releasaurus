@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Quick Start - Releasaurus</title>
+        <title>Getting Started - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,75 +177,79 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
-<p>Get Releasaurus running in under 2 minutes with zero configuration.</p>
-<h2 id="test-locally-no-setup-required"><a class="header" href="#test-locally-no-setup-required">Test Locally (No Setup Required)</a></h2>
-<p>Try Releasaurus on any git repository without tokens or configuration:</p>
-<pre><code class="language-bash"># 1. Navigate to any git repository
-cd /path/to/your/repo
-
-# 2. Run Releasaurus locally
+                        <h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<p>Install Releasaurus and cut your first release in a few minutes.</p>
+<h2 id="install"><a class="header" href="#install">Install</a></h2>
+<h3 id="pre-built-binary-recommended"><a class="header" href="#pre-built-binary-recommended">Pre-built binary (recommended)</a></h3>
+<p>The fastest option, via
+<a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a>:</p>
+<pre><code class="language-bash">cargo binstall releasaurus
+</code></pre>
+<h3 id="from-cratesio"><a class="header" href="#from-cratesio">From crates.io</a></h3>
+<p>Compiles from source:</p>
+<pre><code class="language-bash">cargo install releasaurus
+</code></pre>
+<h3 id="docker"><a class="header" href="#docker">Docker</a></h3>
+<pre><code class="language-bash">docker pull rgonnella/releasaurus:latest
+docker run --rm rgonnella/releasaurus:latest --help
+</code></pre>
+<p>You can also download a binary directly from the
+<a href="https://github.com/robgonnella/releasaurus/releases">releases page</a>, or
+build from source — see <a href="./contributing.html">Contributing</a>. Confirm the
+install with <code>releasaurus --version</code>.</p>
+<h2 id="preview-without-any-risk"><a class="header" href="#preview-without-any-risk">Preview Without Any Risk</a></h2>
+<p>Run Releasaurus against a local checkout to see what it would do — no
+token, no config, no changes:</p>
+<pre><code class="language-bash">cd /path/to/your/repo
 releasaurus release-pr --forge local --repo "."
-
-# 3. Review the output
-# - See what version would be released
-# - View the generated changelog
-# - No changes made to your repository
 </code></pre>
-<p><strong>That’s it!</strong> You’ve just seen what Releasaurus would do without any risk.</p>
-<h2 id="go-live-in-3-steps"><a class="header" href="#go-live-in-3-steps">Go Live in 3 Steps</a></h2>
-<p>Ready to create an actual release? Here’s the full workflow:</p>
-<h3 id="1-set-your-access-token"><a class="header" href="#1-set-your-access-token">1. Set Your Access Token</a></h3>
-<pre><code class="language-bash"># GitHub
-export GITHUB_TOKEN="ghp_your_token_here"
-
-# GitLab
-export GITLAB_TOKEN="glpat_your_token_here"
-
-# Gitea
-export GITEA_TOKEN="your_token_here"
+<p>The output shows the next version and the generated changelog without
+touching your repository. See
+<a href="./commands.html#testing-modes">Local &amp; Dry-Run Modes</a> for more.</p>
+<h2 id="cut-your-first-release"><a class="header" href="#cut-your-first-release">Cut Your First Release</a></h2>
+<h3 id="1-set-an-access-token"><a class="header" href="#1-set-an-access-token">1. Set an access token</a></h3>
+<p>Releasaurus picks the right variable from the <code>--forge</code> you use:</p>
+<pre><code class="language-bash">export GITHUB_TOKEN="ghp_your_token_here"    # GitHub
+export GITLAB_TOKEN="glpat_your_token_here"  # GitLab
+export GITEA_TOKEN="your_token_here"         # Gitea
 </code></pre>
-<p>See <a href="./environment-variables.html">Environment Variables</a> for token setup
-details.</p>
-<h3 id="2-create-a-release-pr"><a class="header" href="#2-create-a-release-pr">2. Create a Release PR</a></h3>
-<pre><code class="language-bash">releasaurus release-pr \
-  --forge github \
-  --repo "https://github.com/your-org/your-repo"
+<p>Every token variable and its required scopes are listed in the
+<a href="./configuration-reference.html#environment-variables">Configuration Reference</a>.</p>
+<h3 id="2-open-a-release-pr"><a class="header" href="#2-open-a-release-pr">2. Open a release PR</a></h3>
+<pre><code class="language-bash">releasaurus release-pr --repo "https://github.com/your-org/your-repo"
 </code></pre>
-<p>This analyzes commits, generates a changelog, and creates a pull request.</p>
-<h3 id="3-merge-pr-then-publish"><a class="header" href="#3-merge-pr-then-publish">3. Merge PR, Then Publish</a></h3>
-<p>After merging the pull request:</p>
-<pre><code class="language-bash">releasaurus release \
-  --forge github \
-  --repo "https://github.com/your-org/your-repo"
+<p>This analyzes your commits, picks the next version, generates a
+changelog, and opens a pull request. (<code>--forge</code> is inferred for known
+hosts like <code>github.com</code>; pass it explicitly for self-hosted instances.)</p>
+<h3 id="3-merge-then-publish"><a class="header" href="#3-merge-then-publish">3. Merge, then publish</a></h3>
+<p>After reviewing and merging the PR:</p>
+<pre><code class="language-bash">releasaurus release --repo "https://github.com/your-org/your-repo"
 </code></pre>
-<p>This creates a git tag and publishes the release.</p>
-<h2 id="need-version-file-updates"><a class="header" href="#need-version-file-updates">Need Version File Updates?</a></h2>
-<p>By default, Releasaurus only creates changelogs and tags. To update
-version files (package.json, Cargo.toml, etc.), add a
-<code>releasaurus.toml</code>:</p>
+<p>This tags the release commit and publishes the release on your forge.</p>
+<h2 id="add-version-file-updates-optional"><a class="header" href="#add-version-file-updates-optional">Add Version File Updates (Optional)</a></h2>
+<p>By default Releasaurus only writes changelogs and tags. To also bump
+versions in your manifests (<code>package.json</code>, <code>Cargo.toml</code>, etc.), add a
+<code>releasaurus.toml</code> at the repository root:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
-release_type = "node"  # or rust, python, java, php, ruby
+release_type = "node"  # or rust, python, java, php, ruby, go, generic
 </code></pre>
-<p>See <a href="./configuration.html">Configuration</a> for all options.</p>
+<p>See <a href="./configuration.html">Configuration</a> for monorepos, prereleases,
+changelog customization, and the full option list.</p>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
-<li><strong><a href="./commands.html">Commands</a></strong> - All commands and options including
-dry-run mode, CLI overrides, and the <code>start-next</code> command</li>
-<li><strong><a href="./ci-cd-integration.html">CI/CD Integration</a></strong> - Automate with GitHub
-Actions, GitLab CI, or Gitea Actions</li>
-<li><strong><a href="./configuration.html">Configuration</a></strong> - Monorepo support, custom
-changelogs, prerelease versions, and more</li>
-<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> - Common issues and
-solutions</li>
+<li><strong><a href="./commands.html">Commands</a></strong> — all commands, overrides, and the
+<code>start-next</code> and <code>get</code> commands.</li>
+<li><strong><a href="./ci-cd-integration.html">CI/CD Integration</a></strong> — automate with GitHub
+Actions, GitLab CI, and more.</li>
+<li><strong><a href="./troubleshooting.html">Troubleshooting</a></strong> — common issues and fixes.</li>
 </ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -259,7 +263,7 @@ solutions</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -285,11 +289,11 @@ solutions</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 

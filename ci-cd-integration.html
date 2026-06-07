@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,8 +178,9 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h1>
-<p>Releasaurus provides official integrations for GitHub Actions and Gitea
-Actions. For GitLab CI, use the Docker image directly.</p>
+<p>Releasaurus provides official integrations for GitHub Actions, Gitea
+Actions, and Forgejo Actions. For GitLab CI and Azure Pipelines, use
+the Docker image directly.</p>
 <blockquote>
 <p><strong>Note on fetch depth:</strong> When using <code>--local-path</code> (hybrid mode),
 Releasaurus reads commit history and tags directly from the local
@@ -188,9 +189,9 @@ missing commits or tags. Configure your CI checkout for full depth
 when using <code>--local-path</code>. Platform-specific instructions are in
 each section below.</p>
 </blockquote>
-<h2 id="github-actions--gitea-actions"><a class="header" href="#github-actions--gitea-actions">GitHub Actions &amp; Gitea Actions</a></h2>
-<p>A single action works for both GitHub Actions and Gitea Actions
-workflows. See the
+<h2 id="github-actions-gitea-actions--forgejo-actions"><a class="header" href="#github-actions-gitea-actions--forgejo-actions">GitHub Actions, Gitea Actions &amp; Forgejo Actions</a></h2>
+<p>A single action works for GitHub Actions, Gitea Actions, and Forgejo
+Actions workflows. See the
 <a href="https://github.com/robgonnella/releasaurus/tree/main/action">action README</a>
 for inputs, usage examples, and fetch depth configuration for
 <code>--local-path</code>.</p>
@@ -205,25 +206,30 @@ option with a reference to your defined variable, e.g.
 <li><code>api</code> (full API access)</li>
 <li><code>write_repository</code> (repository write access)</li>
 </ul>
+<p>Run both commands in a <strong>single job</strong> so they execute sequentially:
+<code>release</code> first (it tags any merged release PR), then <code>release-pr</code> (it
+opens or updates the next one). This matches the order used by the
+GitHub, Gitea, and Forgejo action. Defining them as two separate jobs
+with the same <code>rules:</code> lets GitLab schedule them in the same stage
+concurrently, which races: <code>release-pr</code> may observe a merged but
+not-yet-tagged release PR and abort with
+<code>must finish previous release first</code>.</p>
 <h3 id="example"><a class="header" href="#example">Example</a></h3>
-<pre><code class="language-yaml">publish-release:
+<pre><code class="language-yaml">releasaurus:
   image:
     name: rgonnella/releasaurus:vX.X.X
     entrypoint: [""]
   script:
-    # Assumes use of $GITLAB_TOKEN var for token authentication
+    # Assumes a CI/CD variable named $GITLAB_TOKEN for authentication.
+    # Alternatively, pass `--token $RELEASE_TOKEN` to each command.
+    #
+    # Run `release` BEFORE `release-pr`: `release` tags any merged
+    # release PR, then `release-pr` opens/updates the next one. The
+    # reverse order (or two parallel jobs) lets `release-pr` see a
+    # merged-but-untagged release PR and abort with
+    # "must finish previous release first".
     - releasaurus release --forge gitlab --repo $CI_PROJECT_URL
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-release-pr:
-  image:
-    name: rgonnella/releasaurus:vX.X.X
-    entrypoint: [""]
-  script:
-    # Uses custom var for token authentication
-    - releasaurus release-pr --forge gitlab \
-        --repo $CI_PROJECT_URL --token $RELEASE_TOKEN
+    - releasaurus release-pr --forge gitlab --repo $CI_PROJECT_URL
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 </code></pre>
@@ -238,9 +244,57 @@ from the local clone and requires a full checkout. Configure
 (i.e. <code>GIT_STRATEGY: fetch</code>), <code>GIT_DEPTH</code> has no effect on the
 already-shallow repository. Unshallow explicitly in <code>before_script</code>:</p>
 <pre><code class="language-yaml">before_script:
-  - git fetch --unshallow || true  # no-op if already full-depth
+  - git fetch --unshallow || true # no-op if already full-depth
 </code></pre>
 <p>Using both together is safe and covers all runner states.</p>
+<h2 id="azure-pipelines-experimental"><a class="header" href="#azure-pipelines-experimental">Azure Pipelines (EXPERIMENTAL)</a></h2>
+<p>Azure DevOps support is experimental. No first-party Azure Pipelines
+task is provided — use the Releasaurus Docker image directly in your
+pipeline. Note that the <code>release</code> command only pushes the git tag
+(the changelog commit lands when the release PR is merged); Azure
+DevOps Git has no native release object, so no release notes page is
+created.</p>
+<p>Provide a PAT via the <code>AZURE_DEVOPS_TOKEN</code> pipeline secret variable.
+The PAT needs <code>Code: Read &amp; Write</code> and <code>Pull Request Threads: Read &amp; Write</code> scopes.</p>
+<p>The release branch (typically <code>releasaurus-release-*</code>) must have
+<strong>Allow rewriting history</strong>
+enabled for the build service identity — releasaurus performs
+a non-fast-forward reset to the base branch when updating an existing
+release PR. See the <a href="./commands.html#azure-devops-release-branch-requires-allow-rewriting-history">Azure DevOps known limitation</a> for
+the exact setting.</p>
+<p>Run <code>release</code> first (it tags any merged release PR), then <code>release-pr</code> (it
+opens or updates the next one). This matches the order used by the
+GitHub, Gitea, and Forgejo action. Running <code>release-pr</code> first may observe a
+merged but not-yet-tagged release PR and abort with
+<code>must finish previous release first</code>.</p>
+<pre><code class="language-yaml">trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+container: rgonnella/releasaurus:vX.X.X
+
+steps:
+  - checkout: self
+    fetchDepth: 0 # required if you also pass --local-path
+
+  - script: |
+      releasaurus release \
+        --forge azure-devops \
+        --repo "$(Build.Repository.Uri)"
+    env:
+      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+
+  - script: |
+      releasaurus release-pr \
+        --forge azure-devops \
+        --repo "$(Build.Repository.Uri)"
+    env:
+      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
+</code></pre>
 
                     </main>
 
@@ -286,11 +340,11 @@ already-shallow repository. Unshallow explicitly in <code>before_script</code>:<
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 

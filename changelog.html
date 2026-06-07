@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Monorepo Setup - Releasaurus</title>
+        <title>Changelog Customization - Releasaurus</title>
 
 
         <!-- Custom HTML head -->
@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,376 +177,157 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="monorepo-configuration"><a class="header" href="#monorepo-configuration">Monorepo Configuration</a></h1>
-<p>Manage multiple independently-versioned packages within a single
-repository.</p>
-<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
-<p>Releasaurus supports monorepos with:</p>
-<ul>
-<li>Multiple packages with independent versions</li>
-<li>Separate or combined pull requests</li>
-<li>Custom tag prefixes per package</li>
-<li>Per-package configuration overrides</li>
-</ul>
-<h2 id="quick-configuration"><a class="header" href="#quick-configuration">Quick Configuration</a></h2>
-<h3 id="basic-monorepo-combined-releases"><a class="header" href="#basic-monorepo-combined-releases">Basic Monorepo (Combined Releases)</a></h3>
-<p>All packages released together in one PR:</p>
-<pre><code class="language-toml">[[package]]
-path = "./frontend"
-release_type = "node"
-tag_prefix = "frontend-v"
+                        <h1 id="changelog-customization"><a class="header" href="#changelog-customization">Changelog Customization</a></h1>
+<p>Releasaurus generates changelogs from conventional commits. Control what
+appears with the filtering options, and how it’s formatted with a Tera
+template — both in the <code>[changelog]</code> section of <code>releasaurus.toml</code>.</p>
+<h2 id="filtering-commits"><a class="header" href="#filtering-commits">Filtering Commits</a></h2>
+<p>Each <code>skip_*</code> flag drops a category of commit from the changelog; the
+remaining flags adjust what’s shown. Set them in <code>[changelog]</code>:</p>
+<pre><code class="language-toml">[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = true
+include_author = true
 
 [[package]]
-path = "./backend"
-release_type = "rust"
-tag_prefix = "backend-v"
-</code></pre>
-<p>Tags: <code>frontend-v1.0.0</code>, <code>backend-v2.3.0</code></p>
-<h3 id="independent-releases-separate-prs"><a class="header" href="#independent-releases-separate-prs">Independent Releases (Separate PRs)</a></h3>
-<p>Each package gets its own PR:</p>
-<pre><code class="language-toml">separate_pull_requests = true
-
-[[package]]
-path = "./frontend"
-release_type = "node"
-tag_prefix = "frontend-v"
-
-[[package]]
-path = "./backend"
-release_type = "rust"
-tag_prefix = "backend-v"
-</code></pre>
-<p>Creates separate PRs like:</p>
-<ul>
-<li><code>releasaurus-release-main-frontend</code></li>
-<li><code>releasaurus-release-main-backend</code></li>
-</ul>
-<h2 id="configuration-options"><a class="header" href="#configuration-options">Configuration Options</a></h2>
-<h3 id="separate_pull_requests-default-false"><a class="header" href="#separate_pull_requests-default-false"><code>separate_pull_requests</code> (default: false)</a></h3>
-<p>Control PR creation strategy:</p>
-<pre><code class="language-toml">separate_pull_requests = true  # or false
-</code></pre>
-<p><strong>false (default)</strong> - Single PR for all packages
-<strong>true</strong> - Separate PR for each package with changes</p>
-<h3 id="package-configuration"><a class="header" href="#package-configuration">Package Configuration</a></h3>
-<p>Each package needs:</p>
-<ul>
-<li><code>path</code> - Directory relative to repository root</li>
-<li><code>release_type</code> - Language/framework (rust, node, python, etc.)</li>
-<li><code>tag_prefix</code> (optional) - Custom tag prefix</li>
-</ul>
-<p><strong>Tag prefix defaults:</strong></p>
-<ul>
-<li>Root packages (<code>path = "."</code>) → <code>"v"</code></li>
-<li>Nested packages → <code>"&lt;package-name&gt;-v"</code></li>
-</ul>
-<h2 id="when-to-use-each-strategy"><a class="header" href="#when-to-use-each-strategy">When to Use Each Strategy</a></h2>
-<h3 id="single-pr-mode-default"><a class="header" href="#single-pr-mode-default">Single PR Mode (Default)</a></h3>
-<p><strong>Best for:</strong></p>
-<ul>
-<li>Tightly coupled packages that always release together</li>
-<li>Small monorepos (2-5 packages)</li>
-<li>Teams that prefer coordinated releases</li>
-<li>Simple review workflow</li>
-</ul>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>One review process</li>
-<li>Atomic releases</li>
-<li>Simpler workflow</li>
-</ul>
-<h3 id="separate-pr-mode"><a class="header" href="#separate-pr-mode">Separate PR Mode</a></h3>
-<p><strong>Best for:</strong></p>
-<ul>
-<li>Large monorepos (5+ packages)</li>
-<li>Independently versioned packages</li>
-<li>Different teams owning different packages</li>
-<li>Different release cadences per package</li>
-</ul>
-<p><strong>Benefits:</strong></p>
-<ul>
-<li>Independent release cycles</li>
-<li>Parallel reviews</li>
-<li>Flexible scheduling</li>
-</ul>
-<h2 id="practical-examples"><a class="header" href="#practical-examples">Practical Examples</a></h2>
-<h3 id="frontend--backend--shared-library"><a class="header" href="#frontend--backend--shared-library">Frontend + Backend + Shared Library</a></h3>
-<pre><code class="language-toml">separate_pull_requests = true
-
-[[package]]
-path = "./apps/web"
-release_type = "node"
-tag_prefix = "web-v"
-
-[[package]]
-path = "./apps/api"
-release_type = "rust"
-tag_prefix = "api-v"
-
-[[package]]
-path = "./packages/shared"
-release_type = "python"
-tag_prefix = "shared-v"
-</code></pre>
-<h3 id="microservices-repository"><a class="header" href="#microservices-repository">Microservices Repository</a></h3>
-<pre><code class="language-toml">separate_pull_requests = true
-
-[[package]]
-path = "./services/auth"
-release_type = "node"
-tag_prefix = "auth-v"
-
-[[package]]
-path = "./services/payments"
-release_type = "node"
-tag_prefix = "payments-v"
-
-[[package]]
-path = "./services/notifications"
-release_type = "python"
-tag_prefix = "notifications-v"
-
-[[package]]
-path = "./services/analytics"
-release_type = "rust"
-tag_prefix = "analytics-v"
-</code></pre>
-<h3 id="workspace-in-subdirectory"><a class="header" href="#workspace-in-subdirectory">Workspace in Subdirectory</a></h3>
-<p>For workspaces not at repository root:</p>
-<pre><code class="language-toml">[[package]]
-name = "api-server"
-workspace_root = "backend"
-path = "services/api"
-release_type = "rust"
-tag_prefix = "api-v"
-
-[[package]]
-name = "worker"
-workspace_root = "backend"
-path = "services/worker"
-release_type = "rust"
-tag_prefix = "worker-v"
-</code></pre>
-<p>This updates:</p>
-<ul>
-<li><code>backend/services/api/Cargo.toml</code></li>
-<li><code>backend/services/worker/Cargo.toml</code></li>
-<li><code>backend/Cargo.lock</code> (workspace lock file)</li>
-</ul>
-<h3 id="mixed-prerelease-states"><a class="header" href="#mixed-prerelease-states">Mixed Prerelease States</a></h3>
-<p>Some packages stable, others in beta:</p>
-<pre><code class="language-toml">separate_pull_requests = true
-
-[[package]]
-path = "./stable-api"
-release_type = "rust"
-tag_prefix = "api-v"
-# No prerelease - stable only
-
-[[package]]
-path = "./experimental-features"
-release_type = "rust"
-tag_prefix = "exp-v"
-prerelease = { suffix = "beta", strategy = "versioned" }
-</code></pre>
-<h2 id="shared-code-patterns"><a class="header" href="#shared-code-patterns">Shared Code Patterns</a></h2>
-<h3 id="packages-with-shared-dependencies"><a class="header" href="#packages-with-shared-dependencies">Packages with Shared Dependencies</a></h3>
-<p>Use <code>additional_paths</code> to track shared code:</p>
-<pre><code class="language-toml">[[package]]
-path = "./apps/web"
-release_type = "node"
-tag_prefix = "web-v"
-additional_paths = ["shared/types", "shared/utils"]
-
-[[package]]
-path = "./apps/mobile"
-release_type = "node"
-tag_prefix = "mobile-v"
-additional_paths = ["shared/types", "shared/utils"]
-</code></pre>
-<p>Both packages release when changes occur in <code>shared/*</code>.</p>
-<h3 id="dedicated-shared-package"><a class="header" href="#dedicated-shared-package">Dedicated Shared Package</a></h3>
-<pre><code class="language-toml">[[package]]
-path = "./shared"
-release_type = "node"
-tag_prefix = "shared-v"
-
-[[package]]
-path = "./apps/web"
-release_type = "node"
-tag_prefix = "web-v"
-
-[[package]]
-path = "./apps/mobile"
-release_type = "node"
-tag_prefix = "mobile-v"
-</code></pre>
-<p>The shared package releases independently.</p>
-<h2 id="grouped-releases-sub-packages"><a class="header" href="#grouped-releases-sub-packages">Grouped Releases (Sub-Packages)</a></h2>
-<p>Group multiple packages under a single release that shares one changelog, tag,
-and release, while each sub-package maintains independent version file updates
-based on its <code>release_type</code>.</p>
-<p><strong>Use this when:</strong></p>
-<ul>
-<li>Multiple packages should always be released together with the same version</li>
-<li>You want a single changelog for a group of related packages</li>
-<li>Sub-packages have different languages/frameworks needing different manifest
-updates</li>
-</ul>
-<h3 id="basic-example"><a class="header" href="#basic-example">Basic Example</a></h3>
-<pre><code class="language-toml">[[package]]
-name = "platform"
-workspace_root = "."
-path = "."
-tag_prefix = "v"
-sub_packages = [
-    { name = "web", path = "packages/web", release_type = "node" },
-    { name = "cli", path = "packages/cli", release_type = "rust" }
-]
-</code></pre>
-<p><strong>Result:</strong></p>
-<ul>
-<li><strong>One tag</strong>: <code>v1.0.0</code> (covers all packages)</li>
-<li><strong>One changelog</strong>: Lists all changes from parent and sub-packages</li>
-<li><strong>One release</strong>: Published together</li>
-<li><strong>Independent manifests</strong>: <code>Cargo.toml</code> (parent + cli) and <code>package.json</code>
-(web) updated separately</li>
-</ul>
-<h3 id="common-use-case-plugin-system"><a class="header" href="#common-use-case-plugin-system">Common Use Case: Plugin System</a></h3>
-<pre><code class="language-toml">[[package]]
-name = "app"
-workspace_root = "."
 path = "."
 release_type = "node"
-tag_prefix = "v"
-sub_packages = [
-    { name = "auth-plugin", path = "plugins/auth", release_type = "node" },
-    { name = "analytics-plugin", path = "plugins/analytics", release_type = "node" },
-    { name = "native-addon", path = "addons/native", release_type = "node" }
-]
 </code></pre>
-<p>All plugins and addons release together with the main app as a cohesive unit,
-each with properly updated manifests.</p>
-<h2 id="package-naming-and-path-requirements"><a class="header" href="#package-naming-and-path-requirements">Package Naming and Path Requirements</a></h2>
-<p>To avoid conflicts and ensure proper manifest updates:</p>
-<h3 id="package-names"><a class="header" href="#package-names">Package Names</a></h3>
-<ul>
-<li><strong>Must be unique</strong> across all packages and sub-packages in the repository</li>
-<li><strong>Should match manifest files</strong> if they exist:
-<ul>
-<li>Node: <code>name</code> field in <code>package.json</code></li>
-<li>Rust: <code>name</code> field in <code>Cargo.toml</code></li>
-<li>Python: <code>name</code> field in <code>pyproject.toml</code> or <code>setup.py</code></li>
-<li>And so on for other languages</li>
-</ul>
-</li>
-<li>If not provided, derived from the last component of the path</li>
-</ul>
-<h3 id="package-paths"><a class="header" href="#package-paths">Package Paths</a></h3>
-<ul>
-<li><strong>Must be unique</strong> when combined with <code>workspace_root</code></li>
-<li>Full path = <code>workspace_root/path</code></li>
-<li>Example: If two packages have different <code>workspace_root</code> values, they can have
-the same <code>path</code></li>
-</ul>
-<p><strong>Valid (different full paths):</strong></p>
-<pre><code class="language-toml">[[package]]
-workspace_root = "backend"
-path = "api"
-
-[[package]]
-workspace_root = "frontend"
-path = "api"
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Default</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>skip_ci</code></td><td><code>false</code></td><td>Excludes <code>ci:</code> commits (e.g. <em>ci: update workflow</em>)</td></tr>
+<tr><td><code>skip_chore</code></td><td><code>false</code></td><td>Excludes <code>chore:</code> commits (e.g. <em>chore: update deps</em>)</td></tr>
+<tr><td><code>skip_doc</code></td><td><code>false</code></td><td>Excludes <code>docs:</code> commits</td></tr>
+<tr><td><code>skip_test</code></td><td><code>false</code></td><td>Excludes <code>test:</code> commits</td></tr>
+<tr><td><code>skip_style</code></td><td><code>false</code></td><td>Excludes <code>style:</code> commits</td></tr>
+<tr><td><code>skip_refactor</code></td><td><code>false</code></td><td>Excludes <code>refactor:</code> commits</td></tr>
+<tr><td><code>skip_perf</code></td><td><code>false</code></td><td>Excludes <code>perf:</code> commits</td></tr>
+<tr><td><code>skip_revert</code></td><td><code>false</code></td><td>Excludes <code>revert:</code> commits</td></tr>
+<tr><td><code>skip_miscellaneous</code></td><td><code>false</code></td><td>Excludes non-conventional commits (no recognized type prefix)</td></tr>
+<tr><td><code>skip_merge_commits</code></td><td><code>true</code></td><td>Excludes merge commits</td></tr>
+<tr><td><code>include_author</code></td><td><code>false</code></td><td>Adds the commit author’s name to each entry</td></tr>
+<tr><td><code>aggregate_prereleases</code></td><td><code>false</code></td><td>When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see <a href="./configuration.html#prereleases">Prereleases</a>)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="dropping-or-rewriting-individual-commits"><a class="header" href="#dropping-or-rewriting-individual-commits">Dropping or rewriting individual commits</a></h3>
+<p><code>skip_shas</code> removes specific commits by SHA prefix (use 7+ characters).
+Handy for commits that shouldn’t affect versioning or appear in the
+changelog:</p>
+<pre><code class="language-toml">[changelog]
+skip_shas = ["abc123d", "def456e"]
 </code></pre>
-<p><strong>Invalid (same full path):</strong></p>
-<pre><code class="language-toml">[[package]]
-path = "services/api"
-
-[[package]]
-path = "services/api"  # Conflict!
+<p><code>reword</code> rewrites a commit’s message in the changelog. The new message
+affects <strong>both</strong> the changelog text <strong>and</strong> the version bump — changing
+<code>fix:</code> to <code>feat:</code>, for example, bumps minor instead of patch:</p>
+<pre><code class="language-toml">[[changelog.reword]]
+sha = "abc123d"
+message = "feat: added user authentication"
 </code></pre>
-<h2 id="workflow-differences"><a class="header" href="#workflow-differences">Workflow Differences</a></h2>
-<h3 id="single-pr-workflow"><a class="header" href="#single-pr-workflow">Single PR Workflow</a></h3>
-<ol>
-<li>Run <code>releasaurus release-pr</code></li>
-<li>One PR created with all package updates</li>
-<li>Review and merge</li>
-<li>Run <code>releasaurus release</code></li>
-<li>All packages tagged and released</li>
-</ol>
-<h3 id="separate-pr-workflow"><a class="header" href="#separate-pr-workflow">Separate PR Workflow</a></h3>
-<ol>
-<li>Run <code>releasaurus release-pr</code></li>
-<li>Multiple PRs created (one per package with changes)</li>
-<li>Review and merge each PR independently</li>
-<li>Run <code>releasaurus release</code> after each merge</li>
-<li>Each package tagged and released separately</li>
-</ol>
-<h3 id="targeting-a-specific-package"><a class="header" href="#targeting-a-specific-package">Targeting a Specific Package</a></h3>
-<p>In both modes, you can target a single package using the <code>--package</code> flag
-on <code>release-pr</code> and <code>release</code> commands. This is useful when you want to
-release one package without affecting others:</p>
-<pre><code class="language-bash"># Create a release PR for just the API package
-releasaurus release-pr \
-  --package api \
-  --forge github \
-  --repo "https://github.com/owner/repo"
-
-# Publish a release for just the API package
-releasaurus release \
-  --package api \
-  --forge github \
-  --repo "https://github.com/owner/repo"
+<p>Both have CLI equivalents for one-off runs: <code>--skip-sha &lt;sha&gt;</code> and
+<code>--reword &lt;sha&gt;=&lt;message&gt;</code>. The
+<a href="./configuration-reference.html#changelog">Configuration Reference</a> lists
+these options again in terse lookup form.</p>
+<h2 id="the-body-template"><a class="header" href="#the-body-template">The <code>body</code> Template</a></h2>
+<p><code>body</code> is a <a href="https://keats.github.io/tera/">Tera</a> template rendered once
+per release. The default groups commits by type, links each commit, and
+highlights breaking changes:</p>
+<pre><code class="language-toml">[changelog]
+body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+{% if commit.breaking -%}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.body -%}
+&gt; {{ commit.body }}
+{% endif -%}
+{% if commit.breaking_description -%}
+&gt; {{ commit.breaking_description }}
+{% endif -%}
+{% else -%}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% endif -%}
+{% endfor %}
+{% endfor %}"""
 </code></pre>
-<p>The package name must match a <code>name</code> defined in your <code>releasaurus.toml</code>.
-An error is returned if the package name is not found.</p>
-<h2 id="auto-start-next"><a class="header" href="#auto-start-next">Auto Start Next</a></h2>
-<p>Automatically bump versions after release:</p>
-<pre><code class="language-toml">auto_start_next = true
+<p>A simpler custom template:</p>
+<pre><code class="language-toml">[changelog]
+body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
 
-[[package]]
-path = "./api"
-release_type = "rust"
-auto_start_next = false  # Override for this package
-
-[[package]]
-path = "./web"
-release_type = "node"
-# Uses global setting (true)
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.title }} ({{ commit.short_id }}){% if include_author %} by {{ commit.author_name }}{% endif %}
+{% endfor %}
+{% endfor %}"""
 </code></pre>
-<p>See <a href="./commands.html#start-next"><code>start-next</code> command</a> for details.</p>
-<h2 id="testing-monorepo-configuration"><a class="header" href="#testing-monorepo-configuration">Testing Monorepo Configuration</a></h2>
-<p>Test locally to verify package detection and tagging:</p>
-<pre><code class="language-bash"># See what packages would be released
-releasaurus release-pr --forge local --repo "."
-
-# Test a specific package
-releasaurus release-pr --package my-pkg --forge local --repo "."
-
-# Check:
-# - All packages detected correctly
-# - Tag prefixes match expectations
-# - Separate/combined PR strategy works
-# - Package targeting works as expected
+<h2 id="template-variables"><a class="header" href="#template-variables">Template Variables</a></h2>
+<h3 id="release"><a class="header" href="#release">Release</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>version</code></td><td>Semantic version (e.g. <code>1.2.3</code>)</td></tr>
+<tr><td><code>tag_name</code></td><td>Full tag including prefix/suffix</td></tr>
+<tr><td><code>link</code></td><td>URL to the release</td></tr>
+<tr><td><code>tag_compare_link</code></td><td>Diff vs. previous tag (empty for first release)</td></tr>
+<tr><td><code>sha_compare_link</code></td><td>Diff vs. previous tag, by commit SHA (empty for first release)</td></tr>
+<tr><td><code>sha</code></td><td>Release commit SHA</td></tr>
+<tr><td><code>timestamp</code></td><td>Unix timestamp</td></tr>
+<tr><td><code>include_author</code></td><td>Whether author display is enabled</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="commit-each-item-in-commits"><a class="header" href="#commit-each-item-in-commits">Commit (each item in <code>commits</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>id</code> / <code>short_id</code></td><td>Full / abbreviated SHA</td></tr>
+<tr><td><code>group</code></td><td>Category (Features, Bug Fixes, …)</td></tr>
+<tr><td><code>scope</code></td><td>Optional conventional-commit scope</td></tr>
+<tr><td><code>title</code></td><td>Message without type/scope</td></tr>
+<tr><td><code>body</code></td><td>Optional extended description</td></tr>
+<tr><td><code>link</code></td><td>URL to the commit</td></tr>
+<tr><td><code>breaking</code> / <code>breaking_description</code></td><td>Breaking-change flag and details</td></tr>
+<tr><td><code>merge_commit</code></td><td>Whether it’s a merge commit</td></tr>
+<tr><td><code>timestamp</code></td><td>Commit timestamp</td></tr>
+<tr><td><code>author_name</code> / <code>author_email</code></td><td>Commit author</td></tr>
+<tr><td><code>raw_title</code> / <code>raw_message</code></td><td>Original unprocessed title / message</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="tips"><a class="header" href="#tips">Tips</a></h2>
+<p>Filter merge commits and conditionally show authors:</p>
+<pre><code class="language-tera">{% for commit in commits | filter(attribute="merge_commit", value=false) %}
+- {{ commit.title }}{% if include_author %} &lt;{{ commit.author_name }}&gt;{% endif %}
+{% endfor %}
 </code></pre>
-<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
-<ul>
-<li><a href="./configuration.html">Configuration Overview</a> - Main configuration
-guide</li>
-<li><a href="./configuration-prerelease.html">Prerelease Configuration</a> - Per-
-package prereleases</li>
-<li><a href="./commands.html">Commands</a> - All command options</li>
-</ul>
+<p>Test any template change locally before committing it:</p>
+<pre><code class="language-bash">releasaurus release-pr --forge local --repo "."
+</code></pre>
+<p>See the <a href="https://keats.github.io/tera/">Tera documentation</a> for advanced
+filtering and formatting.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="configuration-changelog.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="configuration-reference.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="release-notes-editing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -556,11 +337,11 @@ package prereleases</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="configuration-changelog.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="configuration-reference.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="release-notes-editing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -582,11 +363,11 @@ package prereleases</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 

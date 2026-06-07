@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-951f73fa.js";
+            window.path_to_searchindex_js = "searchindex-7e9f2eab.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-5db85cea.js"></script>
+        <script src="toc-67bafc63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -185,16 +185,15 @@ or the <code>CHANGELOG.md</code>.</p>
 <p>When <code>release-pr</code> creates or updates a release PR, it renders the PR
 body with a structured layout per package:</p>
 <pre><code class="language-html">&lt;details open&gt;
-&lt;summary&gt;v1.2.3&lt;/summary&gt;
-&lt;div id="my-package-header"&gt;&lt;/div&gt;
-&lt;div id="my-package" data-tag="v1.2.3"&gt;
-&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
+  &lt;summary&gt;v1.2.3&lt;/summary&gt;
+  &lt;div id="my-package-header"&gt;&lt;/div&gt;
+  &lt;div id="my-package" data-tag="v1.2.3"&gt;
+    &lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
 
-## [v1.2.3](...) - 2026-04-10
-### Features
-- feat: some new feature (abc1234)
-&lt;/div&gt;
-&lt;div id="my-package-footer"&gt;&lt;/div&gt;
+    ## [v1.2.3](...) - 2026-04-10 ### Features - feat: some new feature
+    (abc1234)
+  &lt;/div&gt;
+  &lt;div id="my-package-footer"&gt;&lt;/div&gt;
 &lt;/details&gt;
 </code></pre>
 <p>At release time, <code>releasaurus release</code> reads the notes directly from
@@ -209,28 +208,14 @@ not affected.</p>
 <h2 id="editing-the-release-notes"><a class="header" href="#editing-the-release-notes">Editing the Release Notes</a></h2>
 <p>Open the PR body and edit the text inside the notes <code>&lt;div&gt;</code>. The
 metadata comment (<code>&lt;!--{...}--&gt;</code>) must be left intact — it carries
-the tag and link information needed at publish time.</p>
-<p><strong>Before editing:</strong></p>
+the tag and link information needed at publish time. For example, adding
+a summary paragraph above the generated entries:</p>
 <pre><code class="language-html">&lt;div id="my-package" data-tag="v1.2.3"&gt;
-&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
+  &lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
 
-## [v1.2.3](...) - 2026-04-10
-### Features
-- feat: some new feature (abc1234)
-&lt;/div&gt;
-</code></pre>
-<p><strong>After editing:</strong></p>
-<pre><code class="language-html">&lt;div id="my-package" data-tag="v1.2.3"&gt;
-&lt;!--{"metadata":{"sha_compare_link":"...","tag_compare_link":"..."}}--&gt;
-
-## [v1.2.3](...) - 2026-04-10
-
-This release improves startup performance and fixes a crash on
-empty input. See the [migration guide](https://example.com) for
-details.
-
-### Features
-- feat: some new feature (abc1234)
+  ## [v1.2.3](...) - 2026-04-10 This release improves startup performance and
+  fixes a crash on empty input. See the [migration guide](https://example.com)
+  for details. ### Features - feat: some new feature (abc1234)
 &lt;/div&gt;
 </code></pre>
 <h2 id="persistent-header-and-footer"><a class="header" href="#persistent-header-and-footer">Persistent Header and Footer</a></h2>
@@ -238,14 +223,12 @@ details.
 if you run the command again after new commits land), place it in the
 dedicated header and footer <code>&lt;div&gt;</code>s.</p>
 <pre><code class="language-html">&lt;div id="my-package-header"&gt;
-## Highlights
-
-This is a major stability release. All users on v1.x are encouraged
-to upgrade.
+  ## Highlights This is a major stability release. All users on v1.x are
+  encouraged to upgrade.
 &lt;/div&gt;
 
 &lt;div id="my-package-footer"&gt;
-Full migration guide: https://example.com/migrate
+  Full migration guide: https://example.com/migrate
 &lt;/div&gt;
 </code></pre>
 <p>When <code>release-pr</code> regenerates the PR body, it reads back the content
@@ -291,7 +274,7 @@ header/footer sections for content you want to survive re-runs.</li>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="changelog.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -305,7 +288,7 @@ header/footer sections for content you want to survive re-runs.</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="changelog.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
@@ -331,11 +314,11 @@ header/footer sections for content you want to survive re-runs.</li>
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-c22b7243.js"></script>
 
         <!-- Custom JS scripts -->
 
