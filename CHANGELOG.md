@@ -1,3 +1,47 @@
+# [0.20.0](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.3...v0.20.0) - 2026-06-07
+
+### 🚀 Features
+
+- adds explicit support for forgejo [_(12438cd)_](https://github.com/robgonnella/releasaurus/commit/12438cd74662a362809a212e42a5b3de3d7ddb52) (Rob Gonnella)
+
+- _(azure)_ adds experimental support for azure devops [_(1a27e65)_](https://github.com/robgonnella/releasaurus/commit/1a27e6559efa0ac49ebc1b65ee75cf336265df48) (Michal Dvořák)
+
+- _(cli)_ auto-infer forge from repo URL for cloud hosts [_(246652a)_](https://github.com/robgonnella/releasaurus/commit/246652af4b38de40d352e6bed15bb1daa34c0c14) (Michal Dvořák)
+
+- _(cli)_ support env vars for forge, repo, and local-path flags [_(d3207f7)_](https://github.com/robgonnella/releasaurus/commit/d3207f77d8488ed9a067fed227807e0181dcb72d) (Michal Dvořák)
+
+- _(azure)_ support OAuth bearer tokens alongside PATs [_(4753a37)_](https://github.com/robgonnella/releasaurus/commit/4753a37d737a10e9c23ed24f15ebea672331504f) (Michal Dvořák)
+
+### 🐛 Bug Fixes
+
+- _(gitea)_ updates gitea types to match latest api [_(a6a2b5e)_](https://github.com/robgonnella/releasaurus/commit/a6a2b5ead4638c601dec147795b91c78d415c5fa) (Rob Gonnella)
+
+- fixes forgejo implementations [_(5d81b3a)_](https://github.com/robgonnella/releasaurus/commit/5d81b3acead37cddc2b31984dd247469cbb52fdf) (Rob Gonnella)
+
+- removes option to skip release commits [_(09a3006)_](https://github.com/robgonnella/releasaurus/commit/09a3006801dd58e5800c6144ae39557700d7af4c) (Rob Gonnella)
+
+- fixes issue with creating release branch in forgejo [_(ebb6dc8)_](https://github.com/robgonnella/releasaurus/commit/ebb6dc815a5984850c3c41d5d6d40d4851d3c882) (Rob Gonnella)
+
+- _(forgejo)_ fixes issue with deleting release branch in forgejo [_(99ceb60)_](https://github.com/robgonnella/releasaurus/commit/99ceb60735ad76daeb8fbc28a94d6b2e15b2fb3c) (Rob Gonnella)
+
+- _(azure)_ surface API errors and document release branch permission [_(c846151)_](https://github.com/robgonnella/releasaurus/commit/c846151b1787a01220d6cbe5024b26112492807b) (Michal Dvořák)
+
+- _(azure)_ surface actionable error on non-JSON responses [_(e1f1258)_](https://github.com/robgonnella/releasaurus/commit/e1f1258600cfd4c343b6529f21cbee610bdc6976) (Michal Dvořák)
+
+- _(azure)_ never treat URL username as a token [_(729e8d9)_](https://github.com/robgonnella/releasaurus/commit/729e8d9d61e1a1af8e13c2a32301068205d2bb4d) (Michal Dvořák)
+
+- _(gitea)_ fixes issue with getting existing file shas [_(0bc85f0)_](https://github.com/robgonnella/releasaurus/commit/0bc85f01b00c2d608bcb490f10074b0ea8765934) (Rob Gonnella)
+
+- fixes issue with missing user-agent header [_(bc8d495)_](https://github.com/robgonnella/releasaurus/commit/bc8d495f388158e794a81dcd18af355366e2ba67) (Rob Gonnella)
+
+### 📚 Documentation
+
+- run gitlab release then release-pr in one sequential job [_(88c2cc6)_](https://github.com/robgonnella/releasaurus/commit/88c2cc64f370e306954915712cd1676d05f1d9a4) (nblair2)
+
+- updates azure docs for command order [_(437a0d5)_](https://github.com/robgonnella/releasaurus/commit/437a0d5373cc3dce83eb2ff24d46646a8e2bcd93) (Rob Gonnella)
+
+- streamlines documentation [_(4b39ca5)_](https://github.com/robgonnella/releasaurus/commit/4b39ca5b4a610f9f17f43c3a35f351a0add5d65a) (Rob Gonnella)
+
 # [0.20.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.20.0-rc.2...v0.20.0-rc.3) - 2026-05-24
 
 ### 🐛 Bug Fixes
