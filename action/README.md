@@ -10,6 +10,13 @@ Actions and Gitea Actions workflows.
 | `command`      | Yes      | The releasaurus command to run   |
 | `command_args` | No       | Arguments to pass to the command |
 
+## Required token scopes
+
+| Forge                     | Scopes / permissions                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub** (classic)      | `repo`                                                                                                                                    |
+| **GitHub** (fine-grained) | Contents, Issues, Pull requests — all read & write. Add Actions/Workflows read & write only if using the Action to modify workflow files. |
+
 ## Examples
 
 ### Basic Release Workflow
