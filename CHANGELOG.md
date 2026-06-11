@@ -1,3 +1,13 @@
+# [0.20.5](https://github.com/robgonnella/releasaurus/compare/v0.20.4...v0.20.5) - 2026-06-11
+
+### 🐛 Bug Fixes
+
+- fixes issue with sha_compare_links and release timestamps [_(06bae82)_](https://github.com/robgonnella/releasaurus/commit/06bae82810684d12017efa759a347a6ebde5cc85) (Rob Gonnella)
+
+### 📚 Documentation
+
+- improves visibility for required token scopes [_(787fac2)_](https://github.com/robgonnella/releasaurus/commit/787fac2b9eb576d8f86e0ad4c751d385dc727118) (Rob Gonnella)
+
 # [0.20.4](https://github.com/robgonnella/releasaurus/compare/v0.20.3...v0.20.4) - 2026-06-07
 
 ### 🐛 Bug Fixes
