@@ -191,7 +191,9 @@ impl PackageProcessor {
                         .into_iter()
                         .filter(|c| !commit_hash_set.contains(c)),
                 );
-                commits.sort_by_key(|c| c.timestamp);
+                // restore the newest-first order guaranteed by
+                // Forge::get_commits
+                commits.sort_by_key(|c| std::cmp::Reverse(c.timestamp));
             }
 
             prepared_packages.push(PreparedPackage {
