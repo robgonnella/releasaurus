@@ -183,14 +183,14 @@ their matching CLI flags, and flags always win.
 
 ### Required token scopes
 
-| Forge                     | Scopes / permissions                                                                                                                         |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub** (classic)      | `repo`                                                                                                                                       |
-| **GitHub** (fine-grained) | Contents, Issues, Pull requests — all read & write. Add Actions/Workflows read & write only if using the Action to trigger/modify workflows. |
-| **GitLab**                | `api`, `write_repository`                                                                                                                    |
-| **Gitea**                 | Repository read/write, issue/PR management                                                                                                   |
-| **Forgejo**               | Repository read/write, issue/PR management                                                                                                   |
-| **Azure DevOps**          | `Code: Read & Write`, `Pull Request Threads: Read & Write`                                                                                   |
+| Forge                     | Scopes / permissions                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub** (classic)      | `repo`                                                                                                                                    |
+| **GitHub** (fine-grained) | Contents, Issues, Pull requests — all read & write. Add Actions/Workflows read & write only if using the Action to modify workflow files. |
+| **GitLab**                | `api`, `write_repository`                                                                                                                 |
+| **Gitea**                 | repository (read/write), issue (read/write), misc (read/write) management                                                                 |
+| **Forgejo**               | repository (read/write), issue (read/write), misc (read/write) management                                                                 |
+| **Azure DevOps**          | `Code: Read & Write`, `Pull Request Threads: Read & Write`                                                                                |
 
 `RELEASAURUS_DEBUG` and `RELEASAURUS_DRY_RUN` are enabled by _any_
 non-empty value (including `false` or `0`); unset or empty to disable.

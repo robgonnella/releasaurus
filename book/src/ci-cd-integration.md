@@ -11,6 +11,17 @@ the Docker image directly.
 > when using `--local-path`. Platform-specific instructions are in
 > each section below.
 
+## Required token scopes
+
+| Forge                     | Scopes / permissions                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub** (classic)      | `repo`                                                                                                                                    |
+| **GitHub** (fine-grained) | Contents, Issues, Pull requests — all read & write. Add Actions/Workflows read & write only if using the Action to modify workflow files. |
+| **GitLab**                | `api`, `write_repository`                                                                                                                 |
+| **Gitea**                 | repository (read/write), issue (read/write), misc (read/write) management                                                                 |
+| **Forgejo**               | repository (read/write), issue (read/write), misc (read/write) management                                                                 |
+| **Azure DevOps**          | `Code: Read & Write`, `Pull Request Threads: Read & Write`                                                                                |
+
 ## GitHub Actions, Gitea Actions & Forgejo Actions
 
 A single action works for GitHub Actions, Gitea Actions, and Forgejo
