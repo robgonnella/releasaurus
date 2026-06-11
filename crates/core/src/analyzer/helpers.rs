@@ -16,8 +16,8 @@ use crate::{
 static EXTRA_NEW_LINES_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\n{3,}").unwrap());
 
-/// Add a parsed commit to the release and update the release SHA and
-/// timestamp to reflect the latest commit.
+/// Parse a forge commit and, if it passes the configured filters, add it
+/// to the release's commit list.
 pub fn update_release_with_commit(
     group_parser: &GroupParser,
     release: &mut Release,
@@ -28,8 +28,6 @@ pub fn update_release_with_commit(
     if let Some(commit) =
         Commit::parse_forge_commit(group_parser, forge_commit, config)
     {
-        let commit_id = commit.id.to_string();
-
         log::info!(
             "processing commit: {} : {}",
             commit.short_id,
@@ -38,10 +36,6 @@ pub fn update_release_with_commit(
 
         // add commit to release
         release.commits.push(commit);
-        // set release commit - this will keep getting updated until we
-        // get to the last commit in the release, which will be a tag
-        release.sha = commit_id;
-        release.timestamp = forge_commit.timestamp;
     }
 }
 
@@ -131,12 +125,7 @@ mod tests {
 
         // Should have 1 commit (merge commit 2 is filtered by default skip_merge_commits: true)
         assert_eq!(release.commits.len(), 1);
-
-        // SHA should be from the last commit
-        assert_eq!(release.sha, "commit1");
-
-        // Timestamp should be from the last commit
-        assert_eq!(release.timestamp, 1640995200);
+        assert_eq!(release.commits[0].id, "commit1");
     }
 
     #[test]

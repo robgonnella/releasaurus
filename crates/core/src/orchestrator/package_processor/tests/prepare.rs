@@ -226,9 +226,9 @@ async fn aggregate_prereleases_enabled_and_graduating_merges_commits() {
     assert_eq!(prepared.len(), 1);
     // historical (500) and current (2000); current already in window
     assert_eq!(prepared[0].commits.len(), 2);
-    // sorted by timestamp: historical first
-    assert_eq!(prepared[0].commits[0].id, "historical");
-    assert_eq!(prepared[0].commits[1].id, "current");
+    // sorted newest-first: current first
+    assert_eq!(prepared[0].commits[0].id, "current");
+    assert_eq!(prepared[0].commits[1].id, "historical");
 }
 
 #[tokio::test]

@@ -9,6 +9,7 @@
 //! - Multiple commits
 
 use semver::Version as SemVer;
+use url::Url;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
@@ -210,6 +211,103 @@ fn test_analyze_multiple_commits() {
     assert_eq!(release.commits.len(), 3);
     // Should bump minor due to features
     assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+}
+
+#[test]
+fn test_sha_compare_link_uses_newest_commit() {
+    let config = AnalyzerConfig {
+        compare_link_base_url: Some(
+            Url::parse("https://example.com/compare/").unwrap(),
+        ),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    // commits arrive newest-first, matching the Forge::get_commits contract
+    let commits = vec![
+        ForgeCommit {
+            id: "newest999".to_string(),
+            message: "fix: latest fix".to_string(),
+            timestamp: 3000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "middle555".to_string(),
+            message: "fix: another fix".to_string(),
+            timestamp: 2000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "oldest111".to_string(),
+            message: "fix: first fix after release".to_string(),
+            timestamp: 1000,
+            ..ForgeCommit::default()
+        },
+    ];
+
+    let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+    let release = result.unwrap();
+    assert_eq!(release.sha, "newest999");
+    assert_eq!(release.timestamp, 3000);
+    assert_eq!(
+        release.sha_compare_link,
+        "https://example.com/compare/1.0.0...newest999"
+    );
+}
+
+#[test]
+fn test_sha_compare_link_spans_filtered_newest_commit() {
+    let config = AnalyzerConfig {
+        compare_link_base_url: Some(
+            Url::parse("https://example.com/compare/").unwrap(),
+        ),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    // newest commit is a merge commit, filtered from the changelog by
+    // default, but the compare link should still span the whole range
+    let commits = vec![
+        ForgeCommit {
+            id: "merge999".to_string(),
+            message: "Merge pull request #42".to_string(),
+            merge_commit: true,
+            timestamp: 2000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "fix111".to_string(),
+            message: "fix: a bug fix".to_string(),
+            timestamp: 1000,
+            ..ForgeCommit::default()
+        },
+    ];
+
+    let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+    let release = result.unwrap();
+    assert_eq!(release.commits.len(), 1);
+    assert_eq!(release.sha, "merge999");
+    assert_eq!(release.timestamp, 2000);
+    assert_eq!(
+        release.sha_compare_link,
+        "https://example.com/compare/1.0.0...merge999"
+    );
 }
 
 #[test]

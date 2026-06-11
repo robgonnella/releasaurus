@@ -145,7 +145,15 @@ impl<'a> Analyzer<'a> {
             release.include_author = true;
         }
 
-        // loop commits in reverse oldest -> newest
+        // commits are ordered newest-first; the release sha and timestamp
+        // come from the newest commit in the range regardless of any
+        // conventional-commit filtering below, so compare links span the
+        // entire range
+        if let Some(newest) = commits.first() {
+            release.sha = newest.id.clone();
+            release.timestamp = newest.timestamp;
+        }
+
         for forge_commit in commits.iter() {
             if self
                 .config

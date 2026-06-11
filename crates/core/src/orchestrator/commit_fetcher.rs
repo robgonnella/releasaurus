@@ -247,7 +247,8 @@ impl CommitFetcher {
         }
 
         let mut commits = cache.iter().cloned().collect::<Vec<ForgeCommit>>();
-        commits.sort_by_key(|c| c.timestamp);
+        // restore the newest-first order guaranteed by Forge::get_commits
+        commits.sort_by_key(|c| std::cmp::Reverse(c.timestamp));
         Ok(commits)
     }
 
