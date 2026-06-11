@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-50530989.js";
+            window.path_to_searchindex_js = "searchindex-c2e67b0f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -988,6 +988,22 @@ missing commits or tags. Configure your CI checkout for full depth
 when using <code>--local-path</code>. Platform-specific instructions are in
 each section below.</p>
 </blockquote>
+<h2 id="required-token-scopes"><a class="header" href="#required-token-scopes">Required token scopes</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Forge</th><th>Scopes / permissions</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>GitHub</strong> (classic)</td><td><code>repo</code></td></tr>
+<tr><td><strong>GitHub</strong> (fine-grained)</td><td>Contents, Issues, Pull requests — all read &amp; write. Add Actions/Workflows read &amp; write only if using the Action to modify workflow files.</td></tr>
+<tr><td><strong>GitLab</strong></td><td><code>api</code>, <code>write_repository</code></td></tr>
+<tr><td><strong>Gitea</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
+<tr><td><strong>Forgejo</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
+<tr><td><strong>Azure DevOps</strong></td><td><code>Code: Read &amp; Write</code>, <code>Pull Request Threads: Read &amp; Write</code></td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="github-actions-gitea-actions--forgejo-actions"><a class="header" href="#github-actions-gitea-actions--forgejo-actions">GitHub Actions, Gitea Actions &amp; Forgejo Actions</a></h2>
 <p>A single action works for GitHub Actions, Gitea Actions, and Forgejo
 Actions workflows. See the
@@ -1128,7 +1144,7 @@ searching, use <code>tag_search_depth</code>.</p>
 <li><strong>Confirm the token is set</strong> for the forge you’re targeting
 (<code>echo $GITHUB_TOKEN</code>), or pass <code>--token</code> explicitly.</li>
 <li><strong>Check the scopes</strong> — see
-<a href="#required-token-scopes">required token scopes</a>.</li>
+<a href="#required-token-scopes-1">required token scopes</a>.</li>
 <li><strong>Check expiration</strong> — regenerate if expired.</li>
 </ol>
 <h2 id="repository-not-found-with-a-valid-repo"><a class="header" href="#repository-not-found-with-a-valid-repo">“Repository not found” with a valid repo</a></h2>
@@ -1343,7 +1359,7 @@ their matching CLI flags, and flags always win.</p>
 </tbody>
 </table>
 </div>
-<h3 id="required-token-scopes"><a class="header" href="#required-token-scopes">Required token scopes</a></h3>
+<h3 id="required-token-scopes-1"><a class="header" href="#required-token-scopes-1">Required token scopes</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1351,10 +1367,10 @@ their matching CLI flags, and flags always win.</p>
 </thead>
 <tbody>
 <tr><td><strong>GitHub</strong> (classic)</td><td><code>repo</code></td></tr>
-<tr><td><strong>GitHub</strong> (fine-grained)</td><td>Contents, Issues, Pull requests — all read &amp; write. Add Actions/Workflows read &amp; write only if using the Action to trigger/modify workflows.</td></tr>
+<tr><td><strong>GitHub</strong> (fine-grained)</td><td>Contents, Issues, Pull requests — all read &amp; write. Add Actions/Workflows read &amp; write only if using the Action to modify workflow files.</td></tr>
 <tr><td><strong>GitLab</strong></td><td><code>api</code>, <code>write_repository</code></td></tr>
-<tr><td><strong>Gitea</strong></td><td>Repository read/write, issue/PR management</td></tr>
-<tr><td><strong>Forgejo</strong></td><td>Repository read/write, issue/PR management</td></tr>
+<tr><td><strong>Gitea</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
+<tr><td><strong>Forgejo</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
 <tr><td><strong>Azure DevOps</strong></td><td><code>Code: Read &amp; Write</code>, <code>Pull Request Threads: Read &amp; Write</code></td></tr>
 </tbody>
 </table>

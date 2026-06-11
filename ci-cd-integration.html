@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-50530989.js";
+            window.path_to_searchindex_js = "searchindex-c2e67b0f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -189,6 +189,22 @@ missing commits or tags. Configure your CI checkout for full depth
 when using <code>--local-path</code>. Platform-specific instructions are in
 each section below.</p>
 </blockquote>
+<h2 id="required-token-scopes"><a class="header" href="#required-token-scopes">Required token scopes</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Forge</th><th>Scopes / permissions</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>GitHub</strong> (classic)</td><td><code>repo</code></td></tr>
+<tr><td><strong>GitHub</strong> (fine-grained)</td><td>Contents, Issues, Pull requests — all read &amp; write. Add Actions/Workflows read &amp; write only if using the Action to modify workflow files.</td></tr>
+<tr><td><strong>GitLab</strong></td><td><code>api</code>, <code>write_repository</code></td></tr>
+<tr><td><strong>Gitea</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
+<tr><td><strong>Forgejo</strong></td><td>repository (read/write), issue (read/write), misc (read/write) management</td></tr>
+<tr><td><strong>Azure DevOps</strong></td><td><code>Code: Read &amp; Write</code>, <code>Pull Request Threads: Read &amp; Write</code></td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="github-actions-gitea-actions--forgejo-actions"><a class="header" href="#github-actions-gitea-actions--forgejo-actions">GitHub Actions, Gitea Actions &amp; Forgejo Actions</a></h2>
 <p>A single action works for GitHub Actions, Gitea Actions, and Forgejo
 Actions workflows. See the
