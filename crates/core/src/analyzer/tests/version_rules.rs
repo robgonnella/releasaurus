@@ -15,10 +15,82 @@ use crate::{
     forge::request::{ForgeCommit, Tag},
 };
 
+/// Both increment flags reach the analyzer as `Option<bool>` - the resolver
+/// passes the config tiers through unresolved - so the default is applied
+/// deep in `Context::create_version_updater`, from
+/// `DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR` and
+/// `DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR`. These two tests cover the unset
+/// path: every other test in this file sets the flags explicitly, so nothing
+/// else would catch the runtime default drifting away from the value the JSON
+/// schema documents. Flipping either constant fails the assertion below.
+#[test]
+fn test_breaking_always_increments_major_when_unset() {
+    let config = AnalyzerConfig {
+        breaking_always_increment_major: None,
+        ..AnalyzerConfig::default()
+    };
+
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "0.1.0".to_string(),
+        semver: SemVer::parse("0.1.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![ForgeCommit {
+        id: "abc123".to_string(),
+        message: "feat!: breaking change".to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    // Contrast with `test_breaking_always_increment_major_disabled`, where the
+    // same 0.x commit only reaches 0.2.0.
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
+}
+
+#[test]
+fn test_features_always_increment_minor_when_unset() {
+    let config = AnalyzerConfig {
+        features_always_increment_minor: None,
+        ..AnalyzerConfig::default()
+    };
+
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "0.1.0".to_string(),
+        semver: SemVer::parse("0.1.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![ForgeCommit {
+        id: "abc123".to_string(),
+        message: "feat: a new feature".to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.tag.semver, SemVer::parse("0.2.0").unwrap());
+}
+
 #[test]
 fn test_breaking_always_increment_major_disabled() {
     let config = AnalyzerConfig {
-        breaking_always_increment_major: false,
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
 
@@ -110,7 +182,7 @@ fn test_custom_major_increment_regex() {
 #[test]
 fn test_features_always_increment_minor_disabled() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
+        features_always_increment_minor: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -198,8 +270,8 @@ fn test_custom_minor_regex_works_with_feat_syntax() {
 #[test]
 fn test_both_boolean_flags_disabled_minor_bump() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
-        breaking_always_increment_major: false,
+        features_always_increment_minor: Some(false),
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -243,8 +315,8 @@ fn test_both_boolean_flags_disabled_minor_bump() {
 #[test]
 fn test_both_boolean_flags_disabled_patch_bump() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
-        breaking_always_increment_major: false,
+        features_always_increment_minor: Some(false),
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();

@@ -107,6 +107,7 @@ mod tests {
             sha_compare_link: "https://example.com/compare/v0.9.0...abc123"
                 .into(),
             sha: "abc123".to_string(),
+            short_sha: "abc".to_string(),
             commits: vec![],
             include_author: false,
             notes: "Test release notes".to_string(),

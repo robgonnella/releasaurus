@@ -13,6 +13,63 @@ use crate::config::prerelease::PrereleaseConfig;
 pub const DEFAULT_SKIP_MERGE_COMMITS: bool = true;
 pub const DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR: bool = true;
 pub const DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR: bool = true;
+pub const DEFAULT_VERSION_TYPE: VersionType = VersionType::Semantic;
+
+/// Determines what type of versioning to use (semantic, date, etc.)
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    PartialEq,
+    Eq,
+    Default,
+)]
+pub enum VersionType {
+    #[default]
+    #[serde(rename = "major.minor.patch")]
+    Semantic,
+    #[serde(rename = "major.minor.patch+timestamp.sha")]
+    SemanticWithBuild,
+    #[serde(rename = "year.month.day")]
+    Date,
+    #[serde(rename = "year.month.day+hour.minute.second")]
+    DateWithTime,
+    #[serde(rename = "year.month.day+hour.minute.second.micro")]
+    DateWithTimeMicro,
+}
+
+impl std::fmt::Display for VersionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            VersionType::Semantic => "major.minor.patch",
+            VersionType::SemanticWithBuild => "major.minor.patch+timestamp.sha",
+            VersionType::Date => "year.month.day",
+            VersionType::DateWithTime => "year.month.day+hour.minute.second",
+            VersionType::DateWithTimeMicro => {
+                "year.month.day+hour.minute.second.micro"
+            }
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl VersionType {
+    /// Returns true for date-based version types, which derive the version
+    /// from the current date/time rather than from commits. Semantic-only
+    /// settings (prerelease, custom increment regexes) do not apply to
+    /// these types.
+    pub fn is_date_based(self) -> bool {
+        matches!(
+            self,
+            VersionType::Date
+                | VersionType::DateWithTime
+                | VersionType::DateWithTimeMicro
+        )
+    }
+}
 
 /// Commit categories based on conventional commit types, used for grouping
 /// changes in the changelog.
@@ -127,6 +184,10 @@ fn default_named_parsers() -> IndexMap<Group, Parser> {
     NAMED_PARSERS.clone()
 }
 
+fn default_version_type() -> VersionType {
+    DEFAULT_VERSION_TYPE
+}
+
 pub static NAMED_PARSERS: LazyLock<IndexMap<Group, Parser>> =
     LazyLock::new(|| {
         let chore_regex = Regex::new(r"^chore").unwrap();
@@ -222,6 +283,11 @@ pub struct ParserList(#[merge(strategy = merge::vec::append)] pub Vec<Parser>);
 #[builder(setter(into, strip_option), default)]
 #[serde(deny_unknown_fields)]
 pub struct VersioningConfig {
+    /// Determines what kind of versioning to perform (semantic, date, etc).
+    /// Default: major.minor.patch (semantic)
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_version_type")]
+    pub version_type: Option<VersionType>,
     /// Prerelease configuration (suffix + strategy)
     // Excluded from the merge: `resolve_prerelease` has its own precedence
     // chain (config, then global CLI overrides, then per-package ones) and

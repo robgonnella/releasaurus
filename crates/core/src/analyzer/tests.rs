@@ -6,9 +6,11 @@
 //! - `prerelease`: Prerelease versioning tests
 //! - `rendering`: Default `body` template output and group ordering
 //! - `version_rules`: Custom version increment rules and regex tests
+//! - `version_types`: Version type tests (semantic+build, date-based)
 
 mod basic_versioning;
 mod filtering;
 mod prerelease;
 mod rendering;
 mod version_rules;
+mod version_types;

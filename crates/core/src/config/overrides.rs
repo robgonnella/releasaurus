@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use crate::config::{
     prerelease::PrereleaseStrategy, repository::RewordedCommit,
+    versioning::VersionType,
 };
 
 /// Runtime overrides for a specific named package.
@@ -22,6 +23,8 @@ pub struct PackageOverrides {
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub version_type: Option<VersionType>,
 }
 
 /// Runtime overrides that apply to all packages.
@@ -38,6 +41,8 @@ pub struct GlobalOverrides {
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub version_type: Option<VersionType>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -21,6 +21,7 @@ struct ShadowRelease {
     pub notes: String,
     pub timestamp: i64,
     // optional to for backward compatibility
+    pub short_sha: Option<String>,
     pub tag_compare_link: Option<String>,
     pub sha_compare_link: Option<String>,
 }
@@ -30,9 +31,9 @@ struct ShadowRelease {
 #[derive(Clone, Default, Deserialize)]
 #[serde(from = "ShadowRelease")]
 pub struct Release {
-    /// Associated version tag.
+    /// Associated version tag
     pub tag: Tag,
-    /// Release URL link.
+    /// Release URL link
     pub link: String,
     /// Link to diff between new tag and previous release tag
     /// This won't be valid until after we finish tagging the release
@@ -41,15 +42,17 @@ pub struct Release {
     /// Link to diff between new release sha and previous release tag
     /// This should always be valid
     pub sha_compare_link: String,
-    /// Git commit SHA for the release.
+    /// Git commit SHA for the release
     pub sha: String,
-    /// Commits included in this release.
+    /// Git commit short SHA for the release
+    pub short_sha: String,
+    /// Commits included in this release
     pub commits: Vec<Commit>,
     /// Whether or not to include author name for each commit in changelog
     pub include_author: bool,
-    /// Generated release notes.
+    /// Generated release notes
     pub notes: String,
-    /// Release timestamp.
+    /// Release timestamp
     pub timestamp: i64,
 }
 
@@ -63,6 +66,7 @@ impl From<ShadowRelease> for Release {
             sha_compare_link: value.sha_compare_link.unwrap_or_default(),
             notes: value.notes,
             sha: value.sha,
+            short_sha: value.short_sha.unwrap_or_default(),
             timestamp: value.timestamp,
             tag: Tag {
                 name: value.tag_name,
@@ -83,6 +87,7 @@ impl std::fmt::Debug for Release {
             .field("tag_compare_link", &self.tag_compare_link)
             .field("sha_compare_link", &self.sha_compare_link)
             .field("sha", &self.sha)
+            .field("short_sha", &self.short_sha)
             .field("include_author", &self.include_author)
             .field("timestamp", &self.timestamp)
             .finish()
@@ -94,13 +99,14 @@ impl Serialize for Release {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Release", 10)?;
+        let mut s = serializer.serialize_struct("Release", 11)?;
         s.serialize_field("link", &self.link)?;
         s.serialize_field("tag_compare_link", &self.tag_compare_link)?;
         s.serialize_field("sha_compare_link", &self.sha_compare_link)?;
         s.serialize_field("version", &self.tag.semver.to_string())?;
         s.serialize_field("tag_name", &self.tag.name)?;
         s.serialize_field("sha", &self.sha)?;
+        s.serialize_field("short_sha", &self.short_sha)?;
         s.serialize_field("include_author", &self.include_author)?;
         s.serialize_field("commits", &self.commits)?;
         s.serialize_field("notes", &self.notes)?;
@@ -222,6 +228,7 @@ mod tests {
             sha_compare_link:
                 "https://example.com/compare/v0.9.0...release_sha".into(),
             sha: "release_sha".to_string(),
+            short_sha: "release_sh".to_string(),
             commits: vec![Commit::default()],
             include_author: true,
             notes: "Some long release notes...".to_string(),
@@ -270,6 +277,7 @@ mod tests {
                 "https://github.com/owner/repo/compare/v2.0.0...release_sha_456"
                     .into(),
             sha: "release_sha_456".to_string(),
+            short_sha: "release_sha_4".to_string(),
             commits: vec![commit],
             include_author: true,
             notes: "# Release Notes\n\n- Added feature".to_string(),
@@ -307,6 +315,7 @@ mod tests {
             tag_compare_link: "".to_string(),
             sha_compare_link: "".to_string(),
             sha: "".to_string(),
+            short_sha: "".to_string(),
             commits: vec![],
             include_author: false,
             notes: "".to_string(),
@@ -344,6 +353,7 @@ mod tests {
             tag_compare_link: "".to_string(),
             sha_compare_link: "".to_string(),
             sha: "".to_string(),
+            short_sha: "".to_string(),
             commits,
             include_author: false,
             notes: "".to_string(),

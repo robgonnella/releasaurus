@@ -13,8 +13,20 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
-/// Resolves all versioning config with package config taking precedence
+/// Resolves all versioning config.
+///
+/// Precedence (highest to lowest):
+/// 1. Package-level CLI overrides
+/// 2. Global CLI overrides
+/// 3. Package-level config
+/// 4. Global config
+///
+/// `name` is the *resolved* package name from [`resolve_package_name`], which
+/// is what per-package overrides are addressed by.
+///
+/// [`resolve_package_name`]: super::package_name::resolve_package_name
 pub fn resolve_versioning(
+    name: &str,
     package_config: &PackageConfig,
     default_versioning: Option<&VersioningConfig>,
     package_overrides: &PackageOverridesHash,
@@ -32,10 +44,23 @@ pub fn resolve_versioning(
 
     let mut final_versioning = final_versioning.unwrap_or_default();
 
+    // CLI overrides sit above both config tiers, so they are layered on
+    // after the merge: global first, then per-package, which wins.
+    if let Some(version_type) = global_overrides.version_type {
+        final_versioning.version_type = Some(version_type);
+    }
+
+    if let Some(version_type) =
+        package_overrides.get(name).and_then(|o| o.version_type)
+    {
+        final_versioning.version_type = Some(version_type);
+    }
+
     // Prerelease has its own precedence chain (config, then global CLI
     // overrides, then per-package CLI overrides), so it is resolved
     // separately and assigned over whatever the merge above produced.
     let final_prerelease_config = resolve_prerelease(
+        name,
         package_config,
         &default_versioning
             .and_then(|v| v.prerelease.clone())
@@ -215,7 +240,10 @@ mod tests {
     use regex::Regex;
     use std::collections::HashMap;
 
-    use crate::config::{overrides::GlobalOverrides, versioning::ParserList};
+    use crate::config::{
+        overrides::{GlobalOverrides, PackageOverrides},
+        versioning::{ParserList, VersionType},
+    };
 
     use super::*;
 
@@ -230,6 +258,7 @@ mod tests {
     fn resolve_versioning_precedence() {
         // Package (global empty)
         let resolved = resolve_versioning(
+            "",
             &package_with_versioning(VersioningConfig {
                 skip_merge_commits: Some(false),
                 ..VersioningConfig::default()
@@ -250,6 +279,7 @@ mod tests {
         };
 
         let resolved = resolve_versioning(
+            "",
             &package_with_versioning(VersioningConfig {
                 skip_merge_commits: Some(false),
                 ..VersioningConfig::default()
@@ -266,6 +296,7 @@ mod tests {
 
         // Global (package empty)
         let resolved = resolve_versioning(
+            "",
             &PackageConfig::default(),
             Some(&default_versionging),
             &HashMap::new(),
@@ -277,6 +308,7 @@ mod tests {
 
         // Default (both empty)
         let resolved = resolve_versioning(
+            "",
             &PackageConfig::default(),
             None,
             &HashMap::new(),
@@ -285,6 +317,135 @@ mod tests {
         .unwrap();
 
         assert_eq!(resolved.skip_merge_commits, None);
+    }
+
+    /// `version_type` has the same four-tier precedence as `tag_prefix` and
+    /// `prerelease`, so the CLI tiers have to be layered on after the config
+    /// merge rather than left to it.
+    #[test]
+    fn resolve_versioning_version_type_precedence() {
+        let default_versioning = VersioningConfig {
+            version_type: Some(VersionType::Semantic),
+            ..VersioningConfig::default()
+        };
+
+        let package = PackageConfig {
+            name: "frontend".to_string(),
+            versioning: Some(VersioningConfig {
+                version_type: Some(VersionType::SemanticWithBuild),
+                ..VersioningConfig::default()
+            }),
+            ..PackageConfig::default()
+        };
+
+        // Global config only
+        let resolved = resolve_versioning(
+            "",
+            &PackageConfig::default(),
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::Semantic));
+
+        // Package config beats global config
+        let resolved = resolve_versioning(
+            "frontend",
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::SemanticWithBuild));
+
+        // Global CLI override beats both config tiers
+        let global_overrides = GlobalOverrides {
+            version_type: Some(VersionType::Date),
+            ..GlobalOverrides::default()
+        };
+
+        let resolved = resolve_versioning(
+            "frontend",
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &global_overrides,
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::Date));
+
+        // Per-package CLI override beats everything
+        let package_overrides = HashMap::from([(
+            "frontend".to_string(),
+            PackageOverrides {
+                version_type: Some(VersionType::DateWithTime),
+                tag_prefix: None,
+                prerelease_suffix: None,
+                prerelease_strategy: None,
+            },
+        )]);
+
+        let resolved = resolve_versioning(
+            "frontend",
+            &package,
+            Some(&default_versioning),
+            &package_overrides,
+            &global_overrides,
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::DateWithTime));
+
+        // A per-package override for a different package does not leak
+        let resolved = resolve_versioning(
+            "backend",
+            &PackageConfig {
+                name: "backend".to_string(),
+                ..package.clone()
+            },
+            Some(&default_versioning),
+            &package_overrides,
+            &global_overrides,
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::Date));
+    }
+
+    /// A `[[package]]` without a `name` is addressed by its *resolved* name
+    /// (derived from the repo or path), so the override lookup has to use
+    /// that rather than the empty `PackageConfig::name`.
+    #[test]
+    fn resolve_versioning_overrides_match_resolved_name() {
+        let package_overrides = HashMap::from([(
+            "myrepo".to_string(),
+            PackageOverrides {
+                version_type: Some(VersionType::Date),
+                tag_prefix: None,
+                prerelease_suffix: Some("beta".to_string()),
+                prerelease_strategy: None,
+            },
+        )]);
+
+        let resolved = resolve_versioning(
+            "myrepo",
+            &PackageConfig::default(),
+            None,
+            &package_overrides,
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
+
+        assert_eq!(resolved.version_type, Some(VersionType::Date));
+        assert_eq!(
+            resolved.prerelease.map(|p| p.suffix),
+            Some("beta".to_string())
+        );
     }
 
     #[test]
@@ -297,6 +458,7 @@ mod tests {
         };
 
         let resolved = resolve_versioning(
+            "",
             &package_with_versioning(VersioningConfig {
                 breaking_always_increment_major: Some(true),
                 custom_minor_increment_regex: Some("^package".into()),
@@ -320,6 +482,7 @@ mod tests {
     #[test]
     fn resolve_versioning_fills_all_named_parsers_with_defaults() {
         let resolved = resolve_versioning(
+            "",
             &PackageConfig::default(),
             None,
             &HashMap::new(),
@@ -369,6 +532,7 @@ mod tests {
         });
 
         let resolved = resolve_versioning(
+            "frontend",
             &package,
             Some(&default_versioning),
             &HashMap::new(),
@@ -424,6 +588,7 @@ mod tests {
         });
 
         let resolved = resolve_versioning(
+            "frontend",
             &package,
             Some(&default_versioning),
             &HashMap::new(),
@@ -459,6 +624,7 @@ mod tests {
         };
 
         let resolved = resolve_versioning(
+            "",
             &PackageConfig::default(),
             Some(&default_versioning),
             &HashMap::new(),
@@ -497,6 +663,7 @@ mod tests {
         });
 
         let resolved = resolve_versioning(
+            "frontend",
             &package,
             Some(&default_versioning),
             &HashMap::new(),
@@ -529,6 +696,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -553,6 +721,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -583,6 +752,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -625,6 +795,7 @@ mod tests {
         });
 
         let resolved = resolve_versioning(
+            "frontend",
             &package,
             Some(&default_versioning),
             &HashMap::new(),
@@ -643,6 +814,7 @@ mod tests {
     #[test]
     fn resolve_versioning_named_parsers_inherit_default_order() {
         let resolved = resolve_versioning(
+            "",
             &PackageConfig::default(),
             None,
             &HashMap::new(),
@@ -675,6 +847,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -706,6 +879,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -733,6 +907,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -755,6 +930,7 @@ mod tests {
         });
 
         let result = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),
@@ -777,6 +953,7 @@ mod tests {
         });
 
         let resolved = resolve_versioning(
+            "",
             &package,
             None,
             &HashMap::new(),

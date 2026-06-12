@@ -50,6 +50,7 @@ table (see [`[[package]]`](#package)).
 
 | Key                               | Type   | Default         | Description                                                                                                                                           |
 | --------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version_type`                    | string | `major.minor.patch` | Version format to produce. See [Version Types](./configuration.md#version-types) for the five accepted values.                                    |
 | `auto_start_next`                 | bool   | `false`         | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
 | `breaking_always_increment_major` | bool   | `true`          | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
 | `features_always_increment_minor` | bool   | `true`          | `feat:` commits bump minor.                                                                                                                           |
@@ -77,7 +78,9 @@ custom_minor_increment_regex = "FEATURE"        # no escaping needed
 
 Default prerelease config; can be overridden per package via that
 package's `versioning.prerelease`. See
-[Prereleases](./configuration.md#prereleases).
+[Prereleases](./configuration.md#prereleases). Applies only when
+`version_type` is `major.minor.patch` or
+`major.minor.patch+timestamp.sha`.
 
 | Key        | Type   | Default       | Description                                                                                     |
 | ---------- | ------ | ------------- | ----------------------------------------------------------------------------------------------- |
@@ -238,6 +241,7 @@ separate_pull_requests = false
 
 [defaults.versioning]
 auto_start_next = false
+version_type = "major.minor.patch"
 breaking_always_increment_major = true
 features_always_increment_minor = true
 

@@ -6,12 +6,13 @@ use crate::config::{
     versioning::{
         DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR,
         DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR, DEFAULT_SKIP_MERGE_COMMITS,
-        NAMED_PARSERS, VersioningConfig,
+        DEFAULT_VERSION_TYPE, NAMED_PARSERS, VersioningConfig,
     },
 };
 
 fn default_versioning() -> VersioningConfig {
     VersioningConfig {
+        version_type: Some(DEFAULT_VERSION_TYPE),
         prerelease: None,
         auto_start_next: Some(false),
         breaking_always_increment_major: Some(
