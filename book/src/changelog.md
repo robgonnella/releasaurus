@@ -225,6 +225,7 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 | `tag_compare_link` | Diff vs. previous tag (empty for first release)                |
 | `sha_compare_link` | Diff vs. previous tag, by commit SHA (empty for first release) |
 | `sha`              | Release commit SHA                                             |
+| `short_sha`        | Abbreviated release commit SHA                                 |
 | `timestamp`        | Unix timestamp                                                 |
 | `include_author`   | Whether author display is enabled                              |
 

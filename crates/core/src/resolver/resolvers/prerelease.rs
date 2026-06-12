@@ -13,7 +13,14 @@ use crate::config::{
 /// 4. Global config
 ///
 /// Returns None if no suffix is set after all resolution.
+///
+/// `name` is the *resolved* package name from [`resolve_package_name`], not
+/// `package.name`: the latter is empty when the TOML omits `name`, while
+/// per-package overrides are addressed by the name the user sees.
+///
+/// [`resolve_package_name`]: super::package_name::resolve_package_name
 pub fn resolve_prerelease(
+    name: &str,
     package: &PackageConfig,
     global_prerelease: &PrereleaseConfig,
     global_overrides: &GlobalOverrides,
@@ -37,7 +44,7 @@ pub fn resolve_prerelease(
     }
 
     // Package-level CLI overrides override everything
-    if let Some(overrides) = package_overrides.get(&package.name) {
+    if let Some(overrides) = package_overrides.get(name) {
         if let Some(ref suffix) = overrides.prerelease_suffix {
             prerelease.suffix = suffix.clone();
         }
@@ -73,6 +80,7 @@ mod tests {
         let package_overrides = PackageOverridesHash::new();
 
         let result = resolve_prerelease(
+            "test",
             &pkg,
             &global,
             &global_overrides,
@@ -93,6 +101,7 @@ mod tests {
         let package_overrides = PackageOverridesHash::new();
 
         let result = resolve_prerelease(
+            "test",
             &pkg,
             &default,
             &global_overrides,
@@ -127,6 +136,7 @@ mod tests {
         };
 
         let result = resolve_prerelease(
+            "test",
             &pkg,
             &default,
             &GlobalOverrides::default(),

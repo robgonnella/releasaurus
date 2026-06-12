@@ -12,9 +12,8 @@ use crate::{
         changelog::{ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR},
         overrides::CommitModifiers,
         versioning::{
-            DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR,
-            DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR, DEFAULT_SKIP_MERGE_COMMITS,
-            NAMED_PARSERS, VersioningConfig,
+            DEFAULT_SKIP_MERGE_COMMITS, DEFAULT_VERSION_TYPE, NAMED_PARSERS,
+            VersioningConfig,
         },
     },
 };
@@ -40,11 +39,14 @@ pub struct AnalyzerParams {
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
     AnalyzerConfig {
+        version_type: params
+            .versioning
+            .version_type
+            .unwrap_or(DEFAULT_VERSION_TYPE),
         body: params.changelog.body.unwrap_or_else(|| DEFAULT_BODY.into()),
         breaking_always_increment_major: params
             .versioning
-            .breaking_always_increment_major
-            .unwrap_or(DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR),
+            .breaking_always_increment_major,
         custom_major_increment_regex: params
             .versioning
             .custom_major_increment_regex,
@@ -53,8 +55,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
             .custom_minor_increment_regex,
         features_always_increment_minor: params
             .versioning
-            .features_always_increment_minor
-            .unwrap_or(DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR),
+            .features_always_increment_minor,
         include_author: params
             .changelog
             .include_author

@@ -5,7 +5,7 @@ use crate::{
         changelog::{ChangelogConfig, DEFAULT_AGGREGATE_PRERELEASES},
         overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
-        versioning::VersioningConfig,
+        versioning::{DEFAULT_VERSION_TYPE, VersioningConfig},
     },
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
@@ -58,11 +58,18 @@ pub fn resolve_package(
     );
 
     let versioning_config = resolve_versioning(
+        &name,
         &package_config,
         default_versioning,
         package_overrides,
         global_overrides,
     )?;
+
+    warn_ignored_semantic_config(
+        &name,
+        &versioning_config,
+        package_config.versioning.as_ref(),
+    );
 
     // Normalize paths
     let (normalized_workspace_root, normalized_full_path) =
@@ -118,4 +125,61 @@ pub fn resolve_package(
         analyzer_config,
         versioning_config,
     })
+}
+
+/// Warns when semantic-only settings are configured alongside a date-based
+/// version type. Prerelease, the custom increment regexes, and the increment
+/// flags only apply to the two `major.minor.patch` version types; for
+/// date-based types they are silently ignored, so surface that to the user
+/// rather than dropping them without notice.
+///
+/// Which tier is inspected differs per setting. Prerelease and the custom
+/// regexes are never part of the documented baseline config, so an inherited
+/// `[defaults.versioning]` value is still worth reporting and they are read
+/// from `resolved`. The increment flags *are* part of it — the configuration
+/// reference recommends setting both globally — so they are read from
+/// `package_versioning` and only reported when set on this package, keeping
+/// one date-based package from warning about a repo-wide default.
+fn warn_ignored_semantic_config(
+    package: &str,
+    resolved: &VersioningConfig,
+    package_versioning: Option<&VersioningConfig>,
+) {
+    let version_type = resolved.version_type.unwrap_or(DEFAULT_VERSION_TYPE);
+
+    if !version_type.is_date_based() {
+        return;
+    }
+
+    let ignored = [
+        ("prerelease", resolved.prerelease.is_some()),
+        (
+            "custom_major_increment_regex",
+            resolved.custom_major_increment_regex.is_some(),
+        ),
+        (
+            "custom_minor_increment_regex",
+            resolved.custom_minor_increment_regex.is_some(),
+        ),
+        (
+            "breaking_always_increment_major",
+            package_versioning
+                .is_some_and(|v| v.breaking_always_increment_major.is_some()),
+        ),
+        (
+            "features_always_increment_minor",
+            package_versioning
+                .is_some_and(|v| v.features_always_increment_minor.is_some()),
+        ),
+    ];
+
+    for (setting, is_set) in ignored {
+        if is_set {
+            log::warn!(
+                "package \"{package}\": {setting} is ignored for version_type \
+                 {version_type}; it only applies to major.minor.patch and \
+                 major.minor.patch+timestamp.sha"
+            );
+        }
+    }
 }

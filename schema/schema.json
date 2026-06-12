@@ -132,6 +132,7 @@
             }
           ],
           "default": {
+            "version_type": "major.minor.patch",
             "prerelease": null,
             "auto_start_next": false,
             "breaking_always_increment_major": true,
@@ -235,6 +236,18 @@
       "description": "Versioning config for calculating the next release version",
       "type": "object",
       "properties": {
+        "version_type": {
+          "description": "Determines what kind of versioning to perform (semantic, date, etc).\nDefault: major.minor.patch (semantic)",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VersionType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "major.minor.patch"
+        },
         "prerelease": {
           "description": "Prerelease configuration (suffix + strategy)",
           "anyOf": [
@@ -424,6 +437,17 @@
         }
       },
       "additionalProperties": false
+    },
+    "VersionType": {
+      "description": "Determines what type of versioning to use (semantic, date, etc.)",
+      "type": "string",
+      "enum": [
+        "major.minor.patch",
+        "major.minor.patch+timestamp.sha",
+        "year.month.day",
+        "year.month.day+hour.minute.second",
+        "year.month.day+hour.minute.second.micro"
+      ]
     },
     "PrereleaseConfig": {
       "description": "Configurable prerelease settings for both default and package scopes",
