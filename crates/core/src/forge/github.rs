@@ -150,7 +150,7 @@ impl Github {
             if matches!(change.update_type, FileUpdateType::Prepend)
                 && let Some(existing_content) = existing_content.clone()
             {
-                content = format!("{content}{existing_content}");
+                content = format!("{content}\n{existing_content}");
             }
 
             if content == existing_content.unwrap_or_default() {
