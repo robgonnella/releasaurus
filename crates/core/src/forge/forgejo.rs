@@ -198,7 +198,7 @@ impl Forge for Forgejo {
             if let Some(existing_content) = existing_content {
                 sha = Some(self.get_file_sha(&change.path).await?);
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{existing_content}");
+                    content = format!("{content}\n{existing_content}");
                 }
             } else {
                 op = ForgejoFileChangeOperation::Create;

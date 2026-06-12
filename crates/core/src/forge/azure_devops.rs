@@ -244,7 +244,7 @@ impl AzureDevops {
             let (change_type, existed) = match existing.as_deref() {
                 Some(prev) => {
                     if matches!(change.update_type, FileUpdateType::Prepend) {
-                        content = format!("{content}{prev}");
+                        content = format!("{content}\n{prev}");
                     }
                     ("edit", Some(prev.to_string()))
                 }

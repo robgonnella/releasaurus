@@ -582,7 +582,7 @@ impl PackageProcessor {
                 .join("CHANGELOG.md")
                 .to_string_lossy()
                 .to_string(),
-            content: format!("{}\n\n", target.notes),
+            content: format!("{}\n", target.notes),
             update_type: FileUpdateType::Prepend,
         }
     }

@@ -495,7 +495,7 @@ impl Forge for Gitea {
                     self.get_file_sha(&req.base_branch, &change.path).await?,
                 );
                 if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{existing_content}");
+                    content = format!("{content}\n{existing_content}");
                 }
             } else {
                 op = GiteaFileChangeOperation::Create;
