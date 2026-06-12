@@ -154,10 +154,53 @@ together with the same version.
 > are versioned and tagged independently; `sub_packages` share the
 > parent's single tag and changelog.
 
+## Version Types
+
+By default Releasaurus produces semantic versions (`major.minor.patch`). Set
+`version_type` to change the version format — globally, or per package
+to override the global value.
+
+| `version_type`                            | Example output              |
+| ----------------------------------------- | --------------------------- |
+| `major.minor.patch` (default)             | `1.4.0`                     |
+| `major.minor.patch+timestamp.sha`         | `1.4.0+1700000000.abc1234`  |
+| `year.month.day`                          | `2026.6.14`                 |
+| `year.month.day+hour.minute.second`       | `2026.6.14+15.30.45`        |
+| `year.month.day+hour.minute.second.micro` | `2026.6.14+15.30.45.123456` |
+
+```toml
+version_type = "major.minor.patch"   # global default
+
+[[package]]
+path = "./nightly"
+release_type = "node"
+version_type = "year.month.day+hour.minute.second"
+```
+
+- **`major.minor.patch`** — standard semver driven by conventional commits.
+- **`major.minor.patch+timestamp.sha`** — semver with build metadata of the
+  form `{commit-timestamp}.{short-sha}`, for sortable, traceable builds.
+- **`year.month.day`** and the `+hour.minute.second[.micro]` variants —
+  calendar-based versions derived from the current UTC time; commits and
+  the previous tag are ignored. Plain `year.month.day` allows **one
+  release per day** by design; a same-day re-run reports nothing to
+  release. Use a time-based variant when you need multiple releases per
+  day.
+
+`major.minor.patch` and `major.minor.patch+timestamp.sha` both honor
+`[prerelease]` (below) and the semver increment controls
+(`breaking_always_increment_major`, `features_always_increment_minor`,
+`custom_major_increment_regex`, `custom_minor_increment_regex`). For
+date-based types those settings are ignored — if you set any of them
+explicitly alongside a date-based `version_type`, Releasaurus logs a warning
+naming the package and setting so the no-op config does not pass silently.
+
 ## Prereleases
 
 Publish alpha/beta/rc/snapshot versions before a stable release. Configure
 globally with `[prerelease]` or per-package with a `prerelease` table.
+Prereleases apply to the `major.minor.patch` and
+`major.minor.patch+timestamp.sha` [version types](#version-types) only.
 
 ```toml
 [prerelease]

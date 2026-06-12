@@ -67,6 +67,7 @@ impl Resolver {
         let resolved_config = Rc::new(ResolvedConfig {
             auto_start_next: self.toml_config.auto_start_next,
             base_branch,
+            version_type: self.toml_config.version_type,
             breaking_always_increment_major: self
                 .toml_config
                 .breaking_always_increment_major,

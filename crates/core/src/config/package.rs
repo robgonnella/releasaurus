@@ -6,7 +6,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+    config::{
+        VersionType, prerelease::PrereleaseConfig, release_type::ReleaseType,
+    },
     result::{ReleasaurusError, Result},
 };
 
@@ -125,7 +127,8 @@ pub struct PackageConfig {
     /// tag, and release, but will receive independent manifest version updates
     /// according to their type
     pub sub_packages: Option<Vec<SubPackage>>,
-    /// Optional prerelease configuration that overrides global settings
+    /// Optional prerelease configuration that overrides global settings.
+    /// Only applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha
     pub prerelease: Option<PrereleaseConfig>,
     /// Auto starts next release for this package by performing a patch version
     /// update to version files and pushing a "chore" commit to the base_branch
@@ -136,20 +139,27 @@ pub struct PackageConfig {
     /// be relative to the package path. Accepts either simple string paths or
     /// full config objects with custom regex patterns.
     pub additional_manifest_files: Option<Vec<AdditionalManifestSpec>>,
-    /// Always increments major version on breaking commits
+    /// Determines what kind of versioning to perform (semantic, date, etc).
+    /// Default: major.minor.patch (semantic)
+    pub version_type: Option<VersionType>,
+    /// Always increments major version on breaking commits.
+    /// Only applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha
     pub breaking_always_increment_major: Option<bool>,
-    /// Always increments minor version on feature commits
+    /// Always increments minor version on feature commits.
+    /// Only applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha
     pub features_always_increment_minor: Option<bool>,
     /// Custom regex pattern matched against commit messages to trigger a
     /// major version bump. This is additive — breaking change commits always
     /// trigger major bumps regardless of this setting. In TOML double-quoted
     /// strings, escape backslashes (e.g. `"\\[BREAKING\\]"` matches
-    /// `[BREAKING]`).
+    /// `[BREAKING]`). Only applies when version_type is major.minor.patch or
+    /// major.minor.patch+timestamp.sha
     pub custom_major_increment_regex: Option<String>,
     /// Custom regex pattern matched against commit messages to trigger a
     /// minor version bump. This is additive — `feat:` commits always trigger
     /// minor bumps regardless of this setting. In TOML double-quoted strings,
     /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
+    /// Only applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha
     pub custom_minor_increment_regex: Option<String>,
 }
 
@@ -166,6 +176,7 @@ impl Default for PackageConfig {
             auto_start_next: None,
             additional_paths: None,
             additional_manifest_files: None,
+            version_type: None,
             breaking_always_increment_major: None,
             features_always_increment_minor: None,
             custom_major_increment_regex: None,
