@@ -224,7 +224,7 @@ impl LocalRepo {
                         full_path.display(),
                         existing_content.len()
                     );
-                    content = format!("{content}\n{existing_content}");
+                    content = format!("{content}{existing_content}");
                 } else {
                     log::debug!(
                         "local_commit: no existing file at {}, creating new",
