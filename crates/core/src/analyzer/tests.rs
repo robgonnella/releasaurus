@@ -5,8 +5,10 @@
 //! - `filtering`: Commit filtering tests (skip_ci, skip_chore, etc.)
 //! - `prerelease`: Prerelease versioning tests
 //! - `version_rules`: Custom version increment rules and regex tests
+//! - `version_types`: Version type tests (semantic+build, date-based)
 
 mod basic_versioning;
 mod filtering;
 mod prerelease;
 mod version_rules;
+mod version_types;

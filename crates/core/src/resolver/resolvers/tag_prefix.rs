@@ -109,6 +109,7 @@ mod tests {
                 tag_prefix: Some("cli-v".to_string()),
                 prerelease_suffix: None,
                 prerelease_strategy: None,
+                version_type: None,
             },
         );
 

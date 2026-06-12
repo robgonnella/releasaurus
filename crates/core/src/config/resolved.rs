@@ -7,6 +7,7 @@ use url::Url;
 use crate::config::{
     changelog::{ChangelogConfig, RewordedCommit},
     prerelease::{PrereleaseConfig, PrereleaseStrategy},
+    toml::VersionType,
 };
 
 /// Runtime overrides for a specific named package.
@@ -22,6 +23,8 @@ pub struct PackageOverrides {
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub version_type: Option<VersionType>,
 }
 
 /// Runtime overrides that apply to all packages.
@@ -38,6 +41,8 @@ pub struct GlobalOverrides {
     pub prerelease_suffix: Option<String>,
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub version_type: Option<VersionType>,
 }
 
 /// Package name used as the key in override and config maps.
@@ -74,8 +79,9 @@ pub struct ResolvedConfig {
     pub separate_pull_requests: bool,
     pub prerelease: PrereleaseConfig,
     pub auto_start_next: Option<bool>,
-    pub breaking_always_increment_major: bool,
-    pub features_always_increment_minor: bool,
+    pub version_type: Option<VersionType>,
+    pub breaking_always_increment_major: Option<bool>,
+    pub features_always_increment_minor: Option<bool>,
     pub custom_major_increment_regex: Option<String>,
     pub custom_minor_increment_regex: Option<String>,
     pub changelog: ChangelogConfig,

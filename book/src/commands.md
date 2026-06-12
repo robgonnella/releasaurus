@@ -228,6 +228,7 @@ CI settings.
 | ------------------------------------------- | ---------------------------------------------- |
 | `--base-branch <branch>`                    | Override the base branch                       |
 | `--tag-prefix <prefix>`                     | Global tag prefix for all packages             |
+| `--version-type <value>`                    | Global version type for all packages           |
 | `--prerelease-suffix <suffix>`              | Global prerelease suffix (empty `""` disables) |
 | `--prerelease-strategy <versioned\|static>` | Global prerelease strategy                     |
 | `--skip-sha <sha>`                          | Skip a commit by SHA prefix (repeatable)       |
@@ -235,7 +236,7 @@ CI settings.
 | `--set-package <pkg>.<property>=<value>`    | Per-package override (repeatable)              |
 
 `--set-package` takes precedence over all other overrides and config.
-Supported properties: `tag_prefix`, `prerelease.suffix`,
+Supported properties: `tag_prefix`, `version_type`, `prerelease.suffix`,
 `prerelease.strategy`. Setting an unsupported property prints an error
 listing valid values.
 
@@ -249,6 +250,10 @@ releasaurus release-pr --base-branch develop --prerelease-suffix beta \
 
 # Per-package override (e.g. only the frontend gets a beta suffix)
 releasaurus release-pr --set-package frontend.prerelease.suffix=beta \
+  --repo "https://github.com/owner/repo"
+
+# Date-based versioning for just the nightly package
+releasaurus release-pr --set-package nightly.version_type=year.month.day \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another

@@ -8,7 +8,7 @@ use crate::{
         config::AnalyzerConfig,
         group::GroupParser,
         release::Release,
-        version_strategy::{VersionContext, VersionStrategyFactory},
+        version_strategy::{context::Context, factory::VersionStrategyFactory},
     },
     forge::request::{ForgeCommit, Tag},
     result::Result,
@@ -19,7 +19,7 @@ pub mod config;
 pub mod group;
 mod helpers;
 pub mod release;
-pub mod version_strategy;
+mod version_strategy;
 
 /// Analyzes commits using conventional commit patterns to determine version
 /// bumps and generate changelogs.
@@ -47,12 +47,13 @@ impl<'a> Analyzer<'a> {
     ) -> Result<Option<Release>> {
         let mut release = self.process_commits(commits)?;
 
-        if release.commits.is_empty() {
+        // calculate next release
+        let releasable =
+            self.process_release(&mut release, current_tag.as_ref())?;
+
+        if !releasable {
             return Ok(None);
         }
-
-        // calculate next release
-        self.process_release(&mut release, current_tag.as_ref())?;
 
         Ok(Some(release))
     }
@@ -61,37 +62,35 @@ impl<'a> Analyzer<'a> {
         &self,
         release: &mut Release,
         current_tag: Option<&Tag>,
-    ) -> Result<()> {
-        // Create version strategy based on configuration
-        let strategy =
-            VersionStrategyFactory::create(self.config.prerelease.as_ref())?;
+    ) -> Result<bool> {
+        if release.commits.is_empty() {
+            return Ok(false);
+        }
 
-        let commits = release
+        // Create version strategy based on configuration
+        let strategy = VersionStrategyFactory::create(self.config)?;
+
+        let commits: Vec<String> = release
             .commits
             .iter()
-            .map(|c| c.raw_message.to_string())
-            .collect::<Vec<String>>();
+            .map(|c| c.raw_message.clone())
+            .collect();
 
-        let context = VersionContext {
+        let context = Context {
             current_tag,
             commits: &commits,
-            breaking_always_increment_major: self
-                .config
-                .breaking_always_increment_major,
-            features_always_increment_minor: self
-                .config
-                .features_always_increment_minor,
-            custom_major_increment_regex: self
-                .config
-                .custom_major_increment_regex
-                .as_deref(),
-            custom_minor_increment_regex: self
-                .config
-                .custom_minor_increment_regex
-                .as_deref(),
+            config: self.config,
+            short_sha: &release.short_sha,
+            timestamp: release.timestamp,
         };
 
         let next = strategy.calculate_next_version(&context)?;
+
+        if let Some(current) = current_tag
+            && next == current.semver
+        {
+            return Ok(false);
+        }
 
         let mut next_tag_name = next.to_string();
 
@@ -129,7 +128,8 @@ impl<'a> Analyzer<'a> {
         let context = tera::Context::from_serialize(&release)?;
         let notes = tera::Tera::one_off(&self.config.body, &context, false)?;
         release.notes = helpers::strip_extra_lines(notes.trim());
-        Ok(())
+
+        Ok(true)
     }
 
     /// Parse commits into structured format with conventional commit
@@ -151,6 +151,7 @@ impl<'a> Analyzer<'a> {
         // entire range
         if let Some(newest) = commits.first() {
             release.sha = newest.id.clone();
+            release.short_sha = newest.short_id.clone();
             release.timestamp = newest.timestamp;
         }
 

@@ -32,7 +32,7 @@
       "default": false
     },
     "prerelease": {
-      "description": "Global prerelease configuration (suffix + strategy). Packages can\noverride this configuration",
+      "description": "Global prerelease configuration (suffix + strategy). Packages can\noverride this configuration\nOnly applies when version_type is major.minor.patch or\nmajor.minor.patch+timestamp.sha",
       "$ref": "#/$defs/PrereleaseConfig",
       "default": {
         "suffix": null,
@@ -47,18 +47,36 @@
       ],
       "default": null
     },
+    "version_type": {
+      "description": "Determines what kind of versioning to perform (semantic, date, etc).\nPackages can override this configuration.\nDefault: major.minor.patch (semantic)",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "breaking_always_increment_major": {
-      "description": "Always increments major version on breaking commits",
-      "type": "boolean",
-      "default": true
+      "description": "Always increments major version on breaking commits.\nPackages can override this configuration. Default: true.\nOnly applies when version_type is major.minor.patch or\nmajor.minor.patch+timestamp.sha",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
     },
     "features_always_increment_minor": {
-      "description": "Always increments minor version on feature commits",
-      "type": "boolean",
-      "default": true
+      "description": "Always increments minor version on feature commits.\nPackages can override this configuration. Default: true.\nOnly applies when version_type is major.minor.patch or\nmajor.minor.patch+timestamp.sha",
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "default": null
     },
     "custom_major_increment_regex": {
-      "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`).",
+      "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`). Only applies when version_type is major.minor.patch\nor major.minor.patch+timestamp.sha",
       "type": [
         "string",
         "null"
@@ -66,7 +84,7 @@
       "default": null
     },
     "custom_minor_increment_regex": {
-      "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).",
+      "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).\nOnly applies when version_type is major.minor.patch or\nmajor.minor.patch+timestamp.sha",
       "type": [
         "string",
         "null"
@@ -112,6 +130,7 @@
           "auto_start_next": null,
           "additional_paths": null,
           "additional_manifest_files": null,
+          "version_type": null,
           "breaking_always_increment_major": null,
           "features_always_increment_minor": null,
           "custom_major_increment_regex": null,
@@ -153,6 +172,17 @@
           "type": "string",
           "const": "static"
         }
+      ]
+    },
+    "VersionType": {
+      "description": "Determines what type of versioning to use (semantic, date, etc.)",
+      "type": "string",
+      "enum": [
+        "major.minor.patch",
+        "major.minor.patch+timestamp.sha",
+        "year.month.day",
+        "year.month.day+hour.minute.second",
+        "year.month.day+hour.minute.second.micro"
       ]
     },
     "ChangelogConfig": {
@@ -317,7 +347,7 @@
           "default": null
         },
         "prerelease": {
-          "description": "Optional prerelease configuration that overrides global settings",
+          "description": "Optional prerelease configuration that overrides global settings.\nOnly applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha",
           "anyOf": [
             {
               "$ref": "#/$defs/PrereleaseConfig"
@@ -358,8 +388,20 @@
           },
           "default": null
         },
+        "version_type": {
+          "description": "Determines what kind of versioning to perform (semantic, date, etc).\nDefault: major.minor.patch (semantic)",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VersionType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "breaking_always_increment_major": {
-          "description": "Always increments major version on breaking commits",
+          "description": "Always increments major version on breaking commits.\nOnly applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha",
           "type": [
             "boolean",
             "null"
@@ -367,7 +409,7 @@
           "default": null
         },
         "features_always_increment_minor": {
-          "description": "Always increments minor version on feature commits",
+          "description": "Always increments minor version on feature commits.\nOnly applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha",
           "type": [
             "boolean",
             "null"
@@ -375,7 +417,7 @@
           "default": null
         },
         "custom_major_increment_regex": {
-          "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`).",
+          "description": "Custom regex pattern matched against commit messages to trigger a\nmajor version bump. This is additive — breaking change commits always\ntrigger major bumps regardless of this setting. In TOML double-quoted\nstrings, escape backslashes (e.g. `\"\\\\[BREAKING\\\\]\"` matches\n`[BREAKING]`). Only applies when version_type is major.minor.patch or\nmajor.minor.patch+timestamp.sha",
           "type": [
             "string",
             "null"
@@ -383,7 +425,7 @@
           "default": null
         },
         "custom_minor_increment_regex": {
-          "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).",
+          "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).\nOnly applies when version_type is major.minor.patch or major.minor.patch+timestamp.sha",
           "type": [
             "string",
             "null"

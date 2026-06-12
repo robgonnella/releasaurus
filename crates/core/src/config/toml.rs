@@ -20,6 +20,62 @@ pub const DEFAULT_COMMIT_SEARCH_DEPTH: usize = 400;
 /// Default number of tags to search when looking for previous releases
 pub const DEFAULT_TAG_SEARCH_DEPTH: usize = 100;
 
+/// Determines what type of versioning to use (semantic, date, etc.)
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    PartialEq,
+    Eq,
+    Default,
+)]
+pub enum VersionType {
+    #[default]
+    #[serde(rename = "major.minor.patch")]
+    Semantic,
+    #[serde(rename = "major.minor.patch+timestamp.sha")]
+    SemanticWithBuild,
+    #[serde(rename = "year.month.day")]
+    Date,
+    #[serde(rename = "year.month.day+hour.minute.second")]
+    DateWithTime,
+    #[serde(rename = "year.month.day+hour.minute.second.micro")]
+    DateWithTimeMicro,
+}
+
+impl std::fmt::Display for VersionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            VersionType::Semantic => "major.minor.patch",
+            VersionType::SemanticWithBuild => "major.minor.patch+timestamp.sha",
+            VersionType::Date => "year.month.day",
+            VersionType::DateWithTime => "year.month.day+hour.minute.second",
+            VersionType::DateWithTimeMicro => {
+                "year.month.day+hour.minute.second.micro"
+            }
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl VersionType {
+    /// Returns true for date-based version types, which derive the version
+    /// from the current date/time rather than from commits. Semantic-only
+    /// settings (prerelease, custom increment regexes) do not apply to
+    /// these types.
+    pub fn is_date_based(&self) -> bool {
+        matches!(
+            self,
+            VersionType::Date
+                | VersionType::DateWithTime
+                | VersionType::DateWithTimeMicro
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[schemars(rename = "Releasaurus TOML Configuration Schema")]
 #[serde(default)]
@@ -39,24 +95,39 @@ pub struct Config {
     pub separate_pull_requests: bool,
     /// Global prerelease configuration (suffix + strategy). Packages can
     /// override this configuration
+    /// Only applies when version_type is major.minor.patch or
+    /// major.minor.patch+timestamp.sha
     pub prerelease: PrereleaseConfig,
     /// Global config to auto start next release for all packages. Packages
     /// can override this configuration
     pub auto_start_next: Option<bool>,
-    /// Always increments major version on breaking commits
-    pub breaking_always_increment_major: bool,
-    /// Always increments minor version on feature commits
-    pub features_always_increment_minor: bool,
+    /// Determines what kind of versioning to perform (semantic, date, etc).
+    /// Packages can override this configuration.
+    /// Default: major.minor.patch (semantic)
+    pub version_type: Option<VersionType>,
+    /// Always increments major version on breaking commits.
+    /// Packages can override this configuration. Default: true.
+    /// Only applies when version_type is major.minor.patch or
+    /// major.minor.patch+timestamp.sha
+    pub breaking_always_increment_major: Option<bool>,
+    /// Always increments minor version on feature commits.
+    /// Packages can override this configuration. Default: true.
+    /// Only applies when version_type is major.minor.patch or
+    /// major.minor.patch+timestamp.sha
+    pub features_always_increment_minor: Option<bool>,
     /// Custom regex pattern matched against commit messages to trigger a
     /// major version bump. This is additive — breaking change commits always
     /// trigger major bumps regardless of this setting. In TOML double-quoted
     /// strings, escape backslashes (e.g. `"\\[BREAKING\\]"` matches
-    /// `[BREAKING]`).
+    /// `[BREAKING]`). Only applies when version_type is major.minor.patch
+    /// or major.minor.patch+timestamp.sha
     pub custom_major_increment_regex: Option<String>,
     /// Custom regex pattern matched against commit messages to trigger a
     /// minor version bump. This is additive — `feat:` commits always trigger
     /// minor bumps regardless of this setting. In TOML double-quoted strings,
     /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
+    /// Only applies when version_type is major.minor.patch or
+    /// major.minor.patch+timestamp.sha
     pub custom_minor_increment_regex: Option<String>,
     /// Changelog generation settings.
     pub changelog: ChangelogConfig,
@@ -74,8 +145,9 @@ impl Default for Config {
             separate_pull_requests: false,
             prerelease: PrereleaseConfig::default(),
             auto_start_next: None,
-            breaking_always_increment_major: true,
-            features_always_increment_minor: true,
+            version_type: None,
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             changelog: ChangelogConfig::default(),
@@ -102,6 +174,15 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_type_is_date_based() {
+        assert!(VersionType::Date.is_date_based());
+        assert!(VersionType::DateWithTime.is_date_based());
+        assert!(VersionType::DateWithTimeMicro.is_date_based());
+        assert!(!VersionType::Semantic.is_date_based());
+        assert!(!VersionType::SemanticWithBuild.is_date_based());
+    }
 
     #[test]
     fn loads_defaults() {

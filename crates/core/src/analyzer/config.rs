@@ -3,7 +3,9 @@
 use derive_builder::Builder;
 use url::Url;
 
-use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
+use crate::config::{
+    VersionType, prerelease::PrereleaseConfig, resolved::CommitModifiers,
+};
 
 /// Configuration for commit analysis and changelog generation.
 #[derive(Debug, Clone, Builder)]
@@ -41,10 +43,16 @@ pub struct AnalyzerConfig {
     pub compare_link_base_url: Option<Url>,
     /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
-    /// Always increments major version on breaking commits
-    pub breaking_always_increment_major: bool,
-    /// Always increments minor version on feature commits
-    pub features_always_increment_minor: bool,
+    /// Type of versioning to perform (semantic, date, etc)
+    pub version_type: VersionType,
+    /// Always increments major version on breaking commits. `None` defers to
+    /// the default (true), applied only when a semantic version updater is
+    /// built; not consulted for date-based version types.
+    pub breaking_always_increment_major: Option<bool>,
+    /// Always increments minor version on feature commits. `None` defers to
+    /// the default (true), applied only when a semantic version updater is
+    /// built; not consulted for date-based version types.
+    pub features_always_increment_minor: Option<bool>,
     /// Custom commit type regex matcher to increment major version
     pub custom_major_increment_regex: Option<String>,
     /// Custom commit type regex matcher to increment minor version
@@ -73,8 +81,9 @@ impl Default for AnalyzerConfig {
             release_link_base_url: None,
             compare_link_base_url: None,
             prerelease: None,
-            breaking_always_increment_major: true,
-            features_always_increment_minor: true,
+            version_type: VersionType::default(),
+            breaking_always_increment_major: None,
+            features_always_increment_minor: None,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             commit_modifiers: CommitModifiers::default(),
