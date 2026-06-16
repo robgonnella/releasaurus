@@ -190,6 +190,30 @@ impl Gitea {
         Ok(label)
     }
 
+    /// Returns the list of pending labels safe to filter on when
+    /// searching for release PRs.
+    ///
+    /// Gitea's issues endpoint silently discards non-existent label
+    /// names from the `labels` query parameter, which causes the
+    /// filter to match every issue. To prevent that, only return
+    /// labels that already exist in the repository. Missing labels
+    /// are created on demand by the PR-management code paths, so
+    /// there is nothing to filter on until they exist.
+    ///
+    /// Callers MUST skip the API query entirely when this returns an
+    /// empty list — issuing a request without any label filter would
+    /// match all issues.
+    async fn pending_labels_to_query(&self) -> Result<Vec<&'static str>> {
+        let all_labels = self.get_all_labels().await?;
+        let mut labels = vec![];
+        for candidate in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+            if all_labels.iter().any(|l| l.name == candidate) {
+                labels.push(candidate);
+            }
+        }
+        Ok(labels)
+    }
+
     /// Returns true if `tag_sha` is an ancestor of `branch`. Uses the
     /// Gitea compare API: `total_commits == 0` when base=branch, head=tag
     /// means the tag has no commits that the branch doesn't, so the tag
@@ -612,7 +636,7 @@ impl Forge for Gitea {
         // Try the current label first, then fall back to the
         // legacy single-colon label for users upgrading from an
         // older version of releasaurus.
-        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+        for pending_label in self.pending_labels_to_query().await? {
             if !found_prs.is_empty() {
                 break;
             }
@@ -693,7 +717,7 @@ impl Forge for Gitea {
         // Try the current label first, then fall back to the
         // legacy single-colon label for users upgrading from an
         // older version of releasaurus.
-        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
+        for pending_label in self.pending_labels_to_query().await? {
             if !found_prs.is_empty() {
                 break;
             }
@@ -869,5 +893,166 @@ impl Forge for Gitea {
         response.error_for_status()?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use secrecy::SecretString;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use crate::forge::config::{RepoUrl, Scheme};
+    use crate::forge::traits::Forge;
+
+    use super::Gitea;
+    use crate::forge::request::GetPrRequest;
+
+    /// Build a [`RepoUrl`] pointing at `server` with the given owner/name.
+    fn make_repo_url(server: &MockServer, owner: &str, name: &str) -> RepoUrl {
+        let uri = server.uri();
+        let parsed = url::Url::parse(&uri).expect("mock server uri is valid");
+        let host = parsed.host_str().unwrap_or("127.0.0.1").to_string();
+        let port = parsed.port();
+        RepoUrl {
+            scheme: Scheme::Http,
+            host,
+            owner: owner.to_string(),
+            name: name.to_string(),
+            path: format!("/{owner}/{name}"),
+            port,
+            token: None,
+        }
+    }
+
+    /// Construct a `Gitea` instance pointed at `server`.
+    ///
+    /// Mounts the repo-metadata mock (required by `Gitea::new`) before
+    /// calling the constructor. The caller is responsible for mounting
+    /// any additional mocks.
+    async fn make_gitea(server: &MockServer, owner: &str, name: &str) -> Gitea {
+        let repo_path = format!("/api/v1/repos/{owner}/{name}/");
+        Mock::given(method("GET"))
+            .and(path(&repo_path))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({"default_branch": "main"}),
+                ),
+            )
+            .mount(server)
+            .await;
+
+        let url = make_repo_url(server, owner, name);
+        Gitea::new(url, Some(SecretString::from("dummy-token")), None)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn pending_labels_to_query_returns_empty_when_no_pending_labels_exist()
+     {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/labels"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    {
+                        "id": 1,
+                        "name": "releasaurus::tagged",
+                        "color": "a47dab",
+                        "description": "",
+                        "exclusive": false,
+                        "is_archived": false
+                    }
+                ]),
+            ))
+            .mount(&server)
+            .await;
+
+        let labels = gitea.pending_labels_to_query().await.unwrap();
+
+        assert!(
+            labels.is_empty(),
+            "expected empty vec when no pending labels exist, got: {labels:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_merged_release_pr_skips_query_when_no_pending_labels_exist() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/labels"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    {
+                        "id": 1,
+                        "name": "releasaurus::tagged",
+                        "color": "a47dab",
+                        "description": "",
+                        "exclusive": false,
+                        "is_archived": false
+                    }
+                ]),
+            ))
+            .mount(&server)
+            .await;
+
+        // The /issues endpoint must never be called when there are no
+        // pending labels to filter on.
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/issues"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([])),
+            )
+            .expect(0)
+            .mount(&server)
+            .await;
+
+        let req = GetPrRequest {
+            head_branch: "release-branch".to_string(),
+            base_branch: "main".to_string(),
+        };
+
+        let result = gitea.get_merged_release_pr(req).await.unwrap();
+
+        assert!(
+            result.is_none(),
+            "expected None when no pending labels exist"
+        );
+    }
+
+    #[tokio::test]
+    async fn pending_labels_to_query_includes_legacy_when_present() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/labels"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    {
+                        "id": 2,
+                        "name": "releasaurus:pending",
+                        "color": "a47dab",
+                        "description": "",
+                        "exclusive": false,
+                        "is_archived": false
+                    }
+                ]),
+            ))
+            .mount(&server)
+            .await;
+
+        let labels = gitea.pending_labels_to_query().await.unwrap();
+
+        assert_eq!(
+            labels,
+            vec!["releasaurus:pending"],
+            "expected only the legacy label to be returned"
+        );
     }
 }

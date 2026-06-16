@@ -54,6 +54,7 @@ mockall = "0.14.0"
 temp-env = "0.3.6"
 tempfile = "3.27.0"
 test-log = "0.2.20"
+wiremock = "0.6"
 
 [features]
 default = []
