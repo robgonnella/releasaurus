@@ -8,7 +8,7 @@ use git2::{
 use regex::Regex;
 use secrecy::{ExposeSecret, SecretString};
 use std::{
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 use tokio::{fs, sync::Mutex};
@@ -65,9 +65,9 @@ pub struct LocalRepo {
 }
 
 impl LocalRepo {
-    pub fn new(repo_path: &Path, remote: Option<Remote>) -> Result<Self> {
+    pub async fn new(repo_path: &Path, remote: Option<Remote>) -> Result<Self> {
         let repo_str = repo_path.to_string_lossy();
-        let abs_repo_path = path::absolute(repo_path)?;
+        let abs_repo_path = fs::canonicalize(repo_path).await?;
         log::debug!(
             "LocalRepo::new: repo_path={}, abs_repo_path={}",
             repo_str,
@@ -119,7 +119,7 @@ impl LocalRepo {
 
         Ok(Self {
             repo_name,
-            repo_path: repo_path.to_path_buf(),
+            repo_path: abs_repo_path,
             repo: Arc::new(Mutex::new(repo)),
             default_branch,
             link_base_url,
@@ -805,7 +805,7 @@ mod tests {
         tag_oid(&repo, "v1.0.0", oid);
         let branch = current_branch_name(&repo);
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let mut result = forge
             .get_latest_tags_for_prefix("v", &branch)
             .await
@@ -824,7 +824,7 @@ mod tests {
         let oid = add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge.create_branch("release", &base_branch).await.unwrap();
 
         let repo = git2::Repository::open(dir.path()).unwrap();
@@ -854,7 +854,7 @@ mod tests {
 
         switch_branch(&repo, &base_branch).unwrap();
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         // Both should be overwritten with main.
         forge.create_branch("test1", &base_branch).await.unwrap();
         forge.create_branch("test2", &base_branch).await.unwrap();
@@ -878,7 +878,7 @@ mod tests {
         add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge.create_branch("release", &base_branch).await.unwrap();
         forge.switch_branch("release").await.unwrap();
 
@@ -898,7 +898,7 @@ mod tests {
         let file_path = dir.path().join("staged.txt");
         std::fs::write(&file_path, "hello").unwrap();
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge
             .stage_file(std::path::Path::new("staged.txt"))
             .await
@@ -919,7 +919,7 @@ mod tests {
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
             path: dir.path().join("version.txt").to_string_lossy().to_string(),
             content: "1.2.3".to_string(),
@@ -967,7 +967,7 @@ mod tests {
         index.write().unwrap();
         add_commit(&repo, "initial commit");
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
             path: file_path.to_string_lossy().to_string(),
             content: "new\n".to_string(),
@@ -999,7 +999,7 @@ mod tests {
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
             path: "CHANGELOG.md".to_string(),
             content: "# 1.0.0\n\n- first release\n".to_string(),
@@ -1029,7 +1029,7 @@ mod tests {
         let sub_dir = dir.path().join("packages").join("ui");
         std::fs::create_dir_all(&sub_dir).unwrap();
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
             path: "packages/ui/version.txt".to_string(),
             content: "1.0.0".to_string(),
@@ -1055,7 +1055,7 @@ mod tests {
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let result = forge.local_commit("chore: empty", &[]).await;
         assert!(
             result.is_err(),
@@ -1072,7 +1072,7 @@ mod tests {
         configure_git_user(&repo);
         let oid = add_commit(&repo, "initial commit");
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge
             .local_tag_commit("v1.0.0", &oid.to_string())
             .await
@@ -1095,7 +1095,7 @@ mod tests {
         add_commit(&repo, "initial commit");
         let base_branch = current_branch_name(&repo);
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge.push_branch(&base_branch, false).await.unwrap();
     }
 
@@ -1107,7 +1107,7 @@ mod tests {
         let oid = add_commit(&repo, "initial commit");
         tag_oid(&repo, "v1.0.0", oid);
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         forge.push_tag("v1.0.0").await.unwrap();
     }
 
@@ -1138,7 +1138,7 @@ mod tests {
         // LocalRepo so it detects the correct default branch.
         repo.set_head(&format!("refs/heads/{main_branch}")).unwrap();
 
-        let forge = LocalRepo::new(dir.path(), None).unwrap();
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
 
         // Querying main_branch must return v1.0.0 only; v2.0.0 is
         // not in main_branch's history.
@@ -1186,7 +1186,8 @@ mod tests {
             },
         };
 
-        let mut local_forge = LocalRepo::new(dir.path(), Some(remote)).unwrap();
+        let mut local_forge =
+            LocalRepo::new(dir.path(), Some(remote)).await.unwrap();
         local_forge.disable_push_targets();
 
         local_forge

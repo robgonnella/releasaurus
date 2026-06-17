@@ -96,7 +96,8 @@ impl ForgeArgs {
                             local_path,
                             &repo,
                             TokenVar::Github,
-                        )?
+                        )
+                        .await?
                     } else {
                         Box::new(github)
                     }
@@ -111,7 +112,8 @@ impl ForgeArgs {
                             local_path,
                             &repo,
                             TokenVar::Gitlab,
-                        )?
+                        )
+                        .await?
                     } else {
                         Box::new(gitlab)
                     }
@@ -127,7 +129,8 @@ impl ForgeArgs {
                             local_path,
                             &repo,
                             TokenVar::Gitea,
-                        )?
+                        )
+                        .await?
                     } else {
                         Box::new(gitea)
                     }
@@ -142,7 +145,8 @@ impl ForgeArgs {
                             local_path,
                             &repo,
                             TokenVar::Forgejo,
-                        )?
+                        )
+                        .await?
                     } else {
                         Box::new(forgejo)
                     }
@@ -158,13 +162,14 @@ impl ForgeArgs {
                             local_path,
                             &repo,
                             TokenVar::AzureDevops,
-                        )?
+                        )
+                        .await?
                     } else {
                         Box::new(azure)
                     }
                 }
                 ForgeType::Local => {
-                    Box::new(LocalRepo::new(Path::new(git_url), None)?)
+                    Box::new(LocalRepo::new(Path::new(git_url), None).await?)
                 }
             };
 
@@ -182,7 +187,7 @@ impl ForgeArgs {
         }
     }
 
-    fn resolve_hybrid_forge(
+    async fn resolve_hybrid_forge(
         &self,
         forge: Arc<dyn Forge>,
         local_path: &Path,
@@ -192,14 +197,17 @@ impl ForgeArgs {
         let token =
             resolve_token(self.token.clone(), repo.token.as_ref(), token_var)?;
 
-        Ok(Box::new(LocalRepo::new(
-            local_path,
-            Some(Remote {
-                forge,
-                token,
-                url: repo.clone(),
-            }),
-        )?))
+        Ok(Box::new(
+            LocalRepo::new(
+                local_path,
+                Some(Remote {
+                    forge,
+                    token,
+                    url: repo.clone(),
+                }),
+            )
+            .await?,
+        ))
     }
 }
 
