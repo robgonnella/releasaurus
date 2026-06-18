@@ -231,6 +231,10 @@ impl Gitea {
         ))?;
         let request = self.client.get(compare_url).build()?;
         let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            // dangling commit
+            return Ok(false);
+        }
         let result: serde_json::Value =
             response.error_for_status()?.json().await?;
         Ok(result["total_commits"].as_u64() == Some(0))
