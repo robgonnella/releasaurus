@@ -1,3 +1,29 @@
+# [0.21.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.20.5...v0.21.0-rc.1) - 2026-06-18
+
+### 🚀 Features
+
+- support token env vars prefixed with RELEASAURUS_ [_(05ebf75)_](https://github.com/robgonnella/releasaurus/commit/05ebf75a7d0e1d13076d8a86323e4793169d0d2f) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- fixes issue in gitea is_ancestor_of_branch check [_(812c281)_](https://github.com/robgonnella/releasaurus/commit/812c2813acfca59cd7a8a0f81ff091c8136fa7e0) (Rob Gonnella)
+
+- fixes issue with using --local-path [_(8a19d2d)_](https://github.com/robgonnella/releasaurus/commit/8a19d2d579c05df0e37d5ec676eb79e9bcdb6c55) (Rob Gonnella)
+
+- only filter Gitea release PRs by labels that exist [_(fabd951)_](https://github.com/robgonnella/releasaurus/commit/fabd951beb09bba2267f090e98e2d1133d768a09) (Stephan Peijnik-Steinwender)
+
+- fixes extra tailing new line at end of changelog [_(23bdbbc)_](https://github.com/robgonnella/releasaurus/commit/23bdbbcc4a7772b4f23f1eba6db280359a1729d0) (Rob Gonnella)
+
+- remove trailing blank line from generated CHANGELOG [_(de31897)_](https://github.com/robgonnella/releasaurus/commit/de3189731a7a19fd8269ae16469a8e3a5c7fb305) (Nicholas Blair)
+
+### ◀️ Revert
+
+- reverts de31897 to fix changelog formatting [_(d4b09f0)_](https://github.com/robgonnella/releasaurus/commit/d4b09f00228cb605611e4f67fa702477856aa8d3) (Rob Gonnella)
+
+### 📚 Documentation
+
+- updates documentation for gitea/forgejo action issue [_(e2d36af)_](https://github.com/robgonnella/releasaurus/commit/e2d36afd93c5150af750ef8187e7b4f9e1743c5e) (Rob Gonnella)
+
 # [0.20.5](https://github.com/robgonnella/releasaurus/compare/v0.20.4...v0.20.5) - 2026-06-11
 
 ### 🐛 Bug Fixes
