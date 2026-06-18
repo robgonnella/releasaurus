@@ -30,6 +30,17 @@ Actions workflows. See the
 for inputs, usage examples, and fetch depth configuration for
 `--local-path`.
 
+> **Gitea / Forgejo runners (including Codeberg):** pass your token
+> with `--token ${{ secrets.RELEASE_TOKEN }}` rather than
+> `env: FORGEJO_TOKEN` / `env: GITEA_TOKEN`. These runners inject their
+> own limited per-job token under those variable names, which can
+> shadow your PAT and cause private-repo PR creation to fail with an
+> opaque `404 Not Found`. The `--token` flag takes precedence over any
+> `*_TOKEN` environment variable. See
+> [Gitea and Forgejo Actions: Injected Token Shadows Your PAT][token-limit].
+
+[token-limit]: ./commands.md#gitea-and-forgejo-actions-injected-token-shadows-your-pat
+
 ## GitLab CI
 
 Use the Releasaurus Docker image directly in your `.gitlab-ci.yml`.
