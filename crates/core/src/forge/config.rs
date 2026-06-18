@@ -99,14 +99,24 @@ pub const LEGACY_PENDING_LABEL: &str = "releasaurus:pending";
 /// authenticating each forge type
 #[derive(Clone, Copy, strum::Display)]
 pub enum TokenVar {
+    #[strum(to_string = "RELEASAURUS_GITHUB_TOKEN")]
+    ReleasaurusGithub,
     #[strum(to_string = "GITHUB_TOKEN")]
     Github,
+    #[strum(to_string = "RELEASAURUS_GITLAB_TOKEN")]
+    ReleasaurusGitlab,
     #[strum(to_string = "GITLAB_TOKEN")]
     Gitlab,
+    #[strum(to_string = "RELEASAURUS_GITEA_TOKEN")]
+    ReleasaurusGitea,
     #[strum(to_string = "GITEA_TOKEN")]
     Gitea,
+    #[strum(to_string = "RELEASAURUS_FORGEJO_TOKEN")]
+    ReleasaurusForgejo,
     #[strum(to_string = "FORGEJO_TOKEN")]
     Forgejo,
+    #[strum(to_string = "RELEASAURUS_AZURE_DEVOPS_TOKEN")]
+    ReleasaurusAzureDevops,
     #[strum(to_string = "AZURE_DEVOPS_TOKEN")]
     AzureDevops,
 }
@@ -120,12 +130,14 @@ pub enum TokenVar {
 pub fn resolve_token(
     cli_token: Option<SecretString>,
     url_token: Option<&SecretString>,
-    token_var: TokenVar,
+    token_vars: Vec<TokenVar>,
 ) -> Result<SecretString> {
     cli_token
         .or_else(|| url_token.cloned())
         .or_else(|| {
-            env::var(token_var.to_string()).ok().map(SecretString::from)
+            token_vars.iter().find_map(|v| {
+                env::var(v.to_string()).ok().map(SecretString::from)
+            })
         })
         .ok_or_else(|| {
             ReleasaurusError::AuthenticationError(
@@ -146,7 +158,7 @@ mod tests {
         let url_token = SecretString::from("url_token");
 
         let result =
-            resolve_token(cli_token, Some(&url_token), TokenVar::Github);
+            resolve_token(cli_token, Some(&url_token), vec![TokenVar::Github]);
 
         assert_eq!(result.unwrap().expose_secret(), "cli_token");
     }
@@ -155,7 +167,8 @@ mod tests {
     fn resolve_token_falls_back_to_url_token() {
         let url_token = SecretString::from("url_token");
 
-        let result = resolve_token(None, Some(&url_token), TokenVar::Gitlab);
+        let result =
+            resolve_token(None, Some(&url_token), vec![TokenVar::Gitlab]);
 
         assert_eq!(result.unwrap().expose_secret(), "url_token");
     }
@@ -166,8 +179,54 @@ mod tests {
             TokenVar::Github.to_string(),
             Some("env_token"),
             || {
-                let result = resolve_token(None, None, TokenVar::Github);
+                let result = resolve_token(None, None, vec![TokenVar::Github]);
                 assert_eq!(result.unwrap().expose_secret(), "env_token");
+            },
+        );
+    }
+
+    #[test]
+    fn resolve_token_prefers_releasaurus_prefixed_env_var() {
+        // When both the RELEASAURUS_-prefixed var and the bare forge var
+        // are set, the prefixed one wins. This lets users authenticate via
+        // env on CI runners (Gitea/Forgejo) that auto-inject their own
+        // value into the bare `*_TOKEN` name.
+        temp_env::with_vars(
+            [
+                (
+                    TokenVar::ReleasaurusForgejo.to_string(),
+                    Some("releasaurus_token"),
+                ),
+                (TokenVar::Forgejo.to_string(), Some("injected_token")),
+            ],
+            || {
+                let result = resolve_token(
+                    None,
+                    None,
+                    vec![TokenVar::ReleasaurusForgejo, TokenVar::Forgejo],
+                );
+                assert_eq!(
+                    result.unwrap().expose_secret(),
+                    "releasaurus_token"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn resolve_token_falls_back_to_bare_env_var_when_prefixed_unset() {
+        temp_env::with_vars(
+            [
+                (TokenVar::ReleasaurusForgejo.to_string(), None::<&str>),
+                (TokenVar::Forgejo.to_string(), Some("bare_token")),
+            ],
+            || {
+                let result = resolve_token(
+                    None,
+                    None,
+                    vec![TokenVar::ReleasaurusForgejo, TokenVar::Forgejo],
+                );
+                assert_eq!(result.unwrap().expose_secret(), "bare_token");
             },
         );
     }
@@ -175,7 +234,7 @@ mod tests {
     #[test]
     fn resolve_token_errors_when_no_token_available() {
         temp_env::with_var_unset(TokenVar::Gitea.to_string(), || {
-            let result = resolve_token(None, None, TokenVar::Gitea);
+            let result = resolve_token(None, None, vec![TokenVar::Gitea]);
             assert!(result.is_err());
             let err = result.unwrap_err();
             assert!(matches!(err, ReleasaurusError::AuthenticationError(_)));
@@ -217,7 +276,8 @@ mod tests {
             Some("env_token"),
             || {
                 let cli_token = Some(SecretString::from("cli_token"));
-                let result = resolve_token(cli_token, None, TokenVar::Gitea);
+                let result =
+                    resolve_token(cli_token, None, vec![TokenVar::Gitea]);
                 assert_eq!(result.unwrap().expose_secret(), "cli_token");
             },
         );
@@ -230,8 +290,11 @@ mod tests {
             Some("env_token"),
             || {
                 let url_token = SecretString::from("url_token");
-                let result =
-                    resolve_token(None, Some(&url_token), TokenVar::Gitlab);
+                let result = resolve_token(
+                    None,
+                    Some(&url_token),
+                    vec![TokenVar::Gitlab],
+                );
                 assert_eq!(result.unwrap().expose_secret(), "url_token");
             },
         );

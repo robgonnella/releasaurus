@@ -134,14 +134,14 @@ Output is a JSON array of `{ name, notes }` objects.
 
 These apply to every command:
 
-| Flag                     | Env fallback             | Description                 |
-| ------------------------ | ------------------------ | --------------------------- |
-| `--repo <url>`           | `RELEASAURUS_REPO`       | Repository URL              |
-| `--forge <forge>`        | `RELEASAURUS_FORGE`      | Forge type (see below)      |
-| `--token <token>`        | `GITHUB_TOKEN`, etc.     | Auth token                  |
-| `--local-path <path>`    | `RELEASAURUS_LOCAL_PATH` | Local clone for hybrid mode |
-| `--base-branch <branch>` | —                        | Override the base branch    |
-| `--debug`                | `RELEASAURUS_DEBUG`      | Verbose logging             |
+| Flag                     | Env fallback                                 | Description                 |
+| ------------------------ | -------------------------------------------- | --------------------------- |
+| `--repo <url>`           | `RELEASAURUS_REPO`                           | Repository URL              |
+| `--forge <forge>`        | `RELEASAURUS_FORGE`                          | Forge type (see below)      |
+| `--token <token>`        | `RELEASAURUS_<FORGE>_TOKEN`, `<FORGE>_TOKEN` | Auth token                  |
+| `--local-path <path>`    | `RELEASAURUS_LOCAL_PATH`                     | Local clone for hybrid mode |
+| `--base-branch <branch>` | —                                            | Override the base branch    |
+| `--debug`                | `RELEASAURUS_DEBUG`                          | Verbose logging             |
 
 Available forge types: `github`, `gitlab`, `gitea`, `forgejo`,
 `azure-devops` (experimental), and `local` (testing). For the full list
@@ -288,10 +288,20 @@ against the `.../pulls` endpoint, which is easy to misread as a
 missing repository. Public repos hide the problem because reads are
 anonymous.
 
-**Fix:** pass your token on the command line with `--token` instead of
-through an environment variable. The `--token` flag takes precedence
-over any `*_TOKEN` environment variable, so it bypasses the injected
-value:
+**Fix (recommended):** supply your token through the
+`RELEASAURUS_`-prefixed environment variable — e.g.
+`RELEASAURUS_FORGEJO_TOKEN` for Forgejo, `RELEASAURUS_GITEA_TOKEN` for
+Gitea. Releasaurus reads it _before_ the bare `*_TOKEN` name, and the
+runner does not inject the prefixed name, so it can't be shadowed:
+
+```yaml
+env:
+  RELEASAURUS_FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+```
+
+**Alternative:** pass the token on the command line with `--token`,
+which takes precedence over every environment variable. Note that
+command arguments are more likely to appear in CI logs than env vars:
 
 ```yaml
 command_args: >-

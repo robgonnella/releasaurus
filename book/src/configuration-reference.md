@@ -168,18 +168,28 @@ Releasaurus selects the auth token automatically from the `--forge` type;
 `--token` overrides it. The `RELEASAURUS_*` variables are fallbacks for
 their matching CLI flags, and flags always win.
 
-| Variable                 | Purpose                                                             |
-| ------------------------ | ------------------------------------------------------------------- |
-| `GITHUB_TOKEN`           | GitHub auth token                                                   |
-| `GITLAB_TOKEN`           | GitLab auth token                                                   |
-| `GITEA_TOKEN`            | Gitea auth token                                                    |
-| `FORGEJO_TOKEN`          | Forgejo auth token                                                  |
-| `AZURE_DEVOPS_TOKEN`     | Azure DevOps PAT (experimental)                                     |
-| `RELEASAURUS_FORGE`      | Default `--forge`                                                   |
-| `RELEASAURUS_REPO`       | Default `--repo`                                                    |
-| `RELEASAURUS_LOCAL_PATH` | Default `--local-path` (hybrid mode)                                |
-| `RELEASAURUS_DEBUG`      | Enable debug logging when set to any non-empty value                |
-| `RELEASAURUS_DRY_RUN`    | Enable dry-run (auto-enables debug) when set to any non-empty value |
+For the auth token, each forge accepts two env vars: a
+`RELEASAURUS_`-prefixed name and the bare name. The prefixed name takes
+precedence. Prefer it on Gitea/Forgejo CI runners (including Codeberg),
+which auto-inject their own limited token into the bare `*_TOKEN` name
+and would otherwise shadow your PAT — see
+[the CI/CD integration notes](./ci-cd-integration.md) and
+[this known limitation][token-limit].
+
+[token-limit]: ./commands.md#gitea-and-forgejo-actions-injected-token-shadows-your-pat
+
+| Variable                                                | Purpose                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| `RELEASAURUS_GITHUB_TOKEN` / `GITHUB_TOKEN`             | GitHub auth token                                                   |
+| `RELEASAURUS_GITLAB_TOKEN` / `GITLAB_TOKEN`             | GitLab auth token                                                   |
+| `RELEASAURUS_GITEA_TOKEN` / `GITEA_TOKEN`               | Gitea auth token                                                    |
+| `RELEASAURUS_FORGEJO_TOKEN` / `FORGEJO_TOKEN`           | Forgejo auth token                                                  |
+| `RELEASAURUS_AZURE_DEVOPS_TOKEN` / `AZURE_DEVOPS_TOKEN` | Azure DevOps PAT (experimental)                                     |
+| `RELEASAURUS_FORGE`                                     | Default `--forge`                                                   |
+| `RELEASAURUS_REPO`                                      | Default `--repo`                                                    |
+| `RELEASAURUS_LOCAL_PATH`                                | Default `--local-path` (hybrid mode)                                |
+| `RELEASAURUS_DEBUG`                                     | Enable debug logging when set to any non-empty value                |
+| `RELEASAURUS_DRY_RUN`                                   | Enable dry-run (auto-enables debug) when set to any non-empty value |
 
 ### Required token scopes
 

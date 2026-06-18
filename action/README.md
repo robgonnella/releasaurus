@@ -19,21 +19,25 @@ Actions and Gitea Actions workflows.
 
 ## Authentication on Gitea / Forgejo Actions
 
-> ⚠️ **Pass your token with `--token`, not `env: FORGEJO_TOKEN` /
-> `env: GITEA_TOKEN`, on Gitea and Forgejo runners (including
-> Codeberg).**
+> ⚠️ **On Gitea and Forgejo runners (including Codeberg), set your
+> token via `env: RELEASAURUS_FORGEJO_TOKEN` /
+> `env: RELEASAURUS_GITEA_TOKEN` — not the bare `FORGEJO_TOKEN` /
+> `GITEA_TOKEN`.**
 >
 > These runners automatically inject an ephemeral, limited per-job
 > token into the environment under `GITHUB_TOKEN`, `GITEA_TOKEN`, and
 > `FORGEJO_TOKEN`. A token you set via step `env:` under one of those
-> names can be shadowed by the runner's value, so Releasaurus ends up
-> using the limited token. It can read the repo (so the run starts
+> bare names can be shadowed by the runner's value, so Releasaurus ends
+> up using the limited token. It can read the repo (so the run starts
 > fine) but cannot open a pull request on a **private** repo —
 > Gitea/Forgejo return a `404 Not Found` on `.../pulls`. Public repos
 > hide the issue.
 >
-> Passing `--token ${{ secrets.RELEASE_TOKEN }}` takes precedence over
-> any `*_TOKEN` environment variable and avoids the collision. See the
+> Releasaurus reads the `RELEASAURUS_`-prefixed variable before the
+> bare name, and the runner doesn't inject the prefixed name, so it
+> can't be shadowed. (Passing `--token ${{ secrets.RELEASE_TOKEN }}`
+> works too — it beats every env var — but command args are more
+> likely to surface in CI logs.) See the
 > [example below](#gitea--forgejo-actions).
 
 ## Examples
@@ -106,8 +110,9 @@ jobs:
 
 ### Gitea / Forgejo Actions
 
-On Gitea and Forgejo runners (including Codeberg), pass the token with
-`--token` rather than `env: FORGEJO_TOKEN` / `env: GITEA_TOKEN` — see
+On Gitea and Forgejo runners (including Codeberg), set the token via
+`env: RELEASAURUS_FORGEJO_TOKEN` / `env: RELEASAURUS_GITEA_TOKEN`
+rather than the bare `FORGEJO_TOKEN` / `GITEA_TOKEN` — see
 [the authentication note above][auth-note] for why.
 
 [auth-note]: #authentication-on-gitea--forgejo-actions
@@ -132,8 +137,9 @@ jobs:
           command_args: >-
             --forge forgejo
             --repo ${{ github.server_url }}/${{ github.repository }}
-            --token ${{ secrets.RELEASE_TOKEN }}
             --local-path ${{ github.workspace }}
+        env:
+          RELEASAURUS_FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 ```
 
 ## Documentation

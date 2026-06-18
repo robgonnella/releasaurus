@@ -921,7 +921,7 @@ mod tests {
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
-            path: dir.path().join("version.txt").to_string_lossy().to_string(),
+            path: "version.txt".to_string(),
             content: "1.2.3".to_string(),
             update_type: FileUpdateType::Replace,
         };
@@ -969,7 +969,7 @@ mod tests {
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let change = FileChange {
-            path: file_path.to_string_lossy().to_string(),
+            path: "CHANGELOG.md".to_string(),
             content: "new\n".to_string(),
             update_type: FileUpdateType::Prepend,
         };
