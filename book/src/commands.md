@@ -271,6 +271,35 @@ avoid this. A patch to Forgejo to allow force pushing the release branch has
 been accepted and will be available in v16.
 <https://codeberg.org/forgejo/forgejo/pulls/12663>
 
+### Gitea and Forgejo Actions: Injected Token Shadows Your PAT
+
+Gitea and Forgejo Actions runners (including Codeberg) automatically
+inject an ephemeral, limited per-job token into the job environment
+under the names `GITHUB_TOKEN`, `GITEA_TOKEN`, and `FORGEJO_TOKEN`. If
+you supply your own token through one of those environment variables
+— for example `env: FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}` — the
+runner's injected value can take precedence inside the action, and
+Releasaurus authenticates with the limited token instead of your PAT.
+
+That injected token can usually _read_ the repository, so startup
+succeeds, but it cannot create a pull request on a **private** repo.
+Gitea/Forgejo return `404 Not Found` for the unauthorized write
+against the `.../pulls` endpoint, which is easy to misread as a
+missing repository. Public repos hide the problem because reads are
+anonymous.
+
+**Fix:** pass your token on the command line with `--token` instead of
+through an environment variable. The `--token` flag takes precedence
+over any `*_TOKEN` environment variable, so it bypasses the injected
+value:
+
+```yaml
+command_args: >-
+  --forge forgejo
+  --repo ${{ github.server_url }}/${{ github.repository }}
+  --token ${{ secrets.RELEASE_TOKEN }}
+```
+
 ### Azure DevOps: Release Branch Requires "Allow rewriting history"
 
 When updating a release PR, Releasaurus resets the release branch to the
