@@ -92,7 +92,11 @@ impl Gitlab {
             .install_default()
             .ok();
 
-        let token = resolve_token(token, url.token.as_ref(), TokenVar::Gitlab)?;
+        let token = resolve_token(
+            token,
+            url.token.as_ref(),
+            vec![TokenVar::ReleasaurusGitlab, TokenVar::Gitlab],
+        )?;
 
         let link_base_url = url.link_base_url();
         let path = url.path.trim_start_matches('/');

@@ -95,7 +95,7 @@ impl ForgeArgs {
                             Arc::new(github),
                             local_path,
                             &repo,
-                            TokenVar::Github,
+                            vec![TokenVar::ReleasaurusGithub, TokenVar::Github],
                         )
                         .await?
                     } else {
@@ -111,7 +111,7 @@ impl ForgeArgs {
                             Arc::new(gitlab),
                             local_path,
                             &repo,
-                            TokenVar::Gitlab,
+                            vec![TokenVar::ReleasaurusGitlab, TokenVar::Gitlab],
                         )
                         .await?
                     } else {
@@ -128,7 +128,7 @@ impl ForgeArgs {
                             Arc::new(gitea),
                             local_path,
                             &repo,
-                            TokenVar::Gitea,
+                            vec![TokenVar::ReleasaurusGitea, TokenVar::Gitea],
                         )
                         .await?
                     } else {
@@ -144,7 +144,10 @@ impl ForgeArgs {
                             Arc::new(forgejo),
                             local_path,
                             &repo,
-                            TokenVar::Forgejo,
+                            vec![
+                                TokenVar::ReleasaurusForgejo,
+                                TokenVar::Forgejo,
+                            ],
                         )
                         .await?
                     } else {
@@ -161,7 +164,10 @@ impl ForgeArgs {
                             Arc::new(azure),
                             local_path,
                             &repo,
-                            TokenVar::AzureDevops,
+                            vec![
+                                TokenVar::ReleasaurusAzureDevops,
+                                TokenVar::AzureDevops,
+                            ],
                         )
                         .await?
                     } else {
@@ -192,10 +198,10 @@ impl ForgeArgs {
         forge: Arc<dyn Forge>,
         local_path: &Path,
         repo: &RepoUrl,
-        token_var: TokenVar,
+        token_vars: Vec<TokenVar>,
     ) -> Result<Box<dyn Forge>> {
         let token =
-            resolve_token(self.token.clone(), repo.token.as_ref(), token_var)?;
+            resolve_token(self.token.clone(), repo.token.as_ref(), token_vars)?;
 
         Ok(Box::new(
             LocalRepo::new(

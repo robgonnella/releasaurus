@@ -47,8 +47,11 @@ impl Forgejo {
             .install_default()
             .ok();
 
-        let token =
-            resolve_token(token, url.token.as_ref(), TokenVar::Forgejo)?;
+        let token = resolve_token(
+            token,
+            url.token.as_ref(),
+            vec![TokenVar::ReleasaurusForgejo, TokenVar::Forgejo],
+        )?;
 
         let mut headers = HeaderMap::new();
 
@@ -77,9 +80,12 @@ impl Forgejo {
 
         let base_url = Url::parse(&base_url)?;
 
-        let gitea =
-            Gitea::new(url.clone(), Some(token), Some(TokenVar::Forgejo))
-                .await?;
+        let gitea = Gitea::new(
+            url.clone(),
+            Some(token),
+            Some(vec![TokenVar::ReleasaurusForgejo, TokenVar::Forgejo]),
+        )
+        .await?;
 
         Ok(Self {
             client,

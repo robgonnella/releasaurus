@@ -72,7 +72,11 @@ impl Github {
             .install_default()
             .ok();
 
-        let token = resolve_token(token, url.token.as_ref(), TokenVar::Github)?;
+        let token = resolve_token(
+            token,
+            url.token.as_ref(),
+            vec![TokenVar::ReleasaurusGithub, TokenVar::Github],
+        )?;
 
         let link_base_url = url.link_base_url();
 
