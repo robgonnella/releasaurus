@@ -1,6 +1,6 @@
 [package]
 name = "releasaurus-core"
-version = "0.20.5"
+version = "0.21.0-rc.1"
 edition.workspace = true
 description.workspace = true
 readme = "README.md"
