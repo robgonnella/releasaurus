@@ -1066,6 +1066,101 @@ mod tests {
         );
     }
 
+    /// `load_config` with a custom config path reads that file
+    /// instead of the default `releasaurus.toml`.
+    #[tokio::test]
+    async fn load_config_custom_path() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+
+        let custom_toml = dir.path().join("my-config.toml");
+        std::fs::write(
+            &custom_toml,
+            r#"
+base_branch = "develop"
+first_release_search_depth = 50
+tag_search_depth = 10
+"#,
+        )
+        .unwrap();
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let config = forge
+            .load_config(None, Some("my-config.toml".to_string()))
+            .await
+            .unwrap();
+
+        assert_eq!(config.base_branch, Some("develop".to_string()));
+        assert_eq!(config.first_release_search_depth, 50);
+        assert_eq!(config.tag_search_depth, 10);
+    }
+
+    /// `load_config` with no config path reads the default
+    /// `releasaurus.toml` file.
+    #[tokio::test]
+    async fn load_config_default_path() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+
+        let default_toml = dir.path().join("releasaurus.toml");
+        std::fs::write(
+            &default_toml,
+            r#"
+base_branch = "develop"
+first_release_search_depth = 50
+tag_search_depth = 10
+"#,
+        )
+        .unwrap();
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let config = forge.load_config(None, None).await.unwrap();
+
+        assert_eq!(config.base_branch, Some("develop".to_string()));
+        assert_eq!(config.first_release_search_depth, 50);
+        assert_eq!(config.tag_search_depth, 10);
+    }
+
+    /// `load_config` with a non-existent custom path returns the
+    /// default config.
+    #[tokio::test]
+    async fn load_config_returns_default_when_custom_path_not_found() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let config = forge
+            .load_config(None, Some("nonexistent.toml".to_string()))
+            .await
+            .unwrap();
+
+        let default = Config::default();
+        assert_eq!(config.base_branch, default.base_branch);
+        assert_eq!(
+            config.first_release_search_depth,
+            default.first_release_search_depth
+        );
+        assert_eq!(config.tag_search_depth, default.tag_search_depth);
+        assert_eq!(
+            config.separate_pull_requests,
+            default.separate_pull_requests
+        );
+        assert_eq!(
+            config.breaking_always_increment_major,
+            default.breaking_always_increment_major
+        );
+        assert_eq!(
+            config.features_always_increment_minor,
+            default.features_always_increment_minor
+        );
+    }
+
     /// `local_tag_commit` must create an annotated tag pointing to
     /// the specified commit OID.
     #[tokio::test]
