@@ -188,6 +188,7 @@ and would otherwise shadow your PAT — see
 | `RELEASAURUS_FORGE`                                     | Default `--forge`                                                   |
 | `RELEASAURUS_REPO`                                      | Default `--repo`                                                    |
 | `RELEASAURUS_LOCAL_PATH`                                | Default `--local-path` (hybrid mode)                                |
+| `RELEASAURUS_CONFIG`                                    | Default `--config`                                                  |
 | `RELEASAURUS_DEBUG`                                     | Enable debug logging when set to any non-empty value                |
 | `RELEASAURUS_DRY_RUN`                                   | Enable dry-run (auto-enables debug) when set to any non-empty value |
 
