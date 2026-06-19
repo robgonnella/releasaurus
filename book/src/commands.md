@@ -142,6 +142,7 @@ These apply to every command:
 | `--local-path <path>`    | `RELEASAURUS_LOCAL_PATH`                     | Local clone for hybrid mode |
 | `--base-branch <branch>` | —                                            | Override the base branch    |
 | `--debug`                | `RELEASAURUS_DEBUG`                          | Verbose logging             |
+| `--config`               | `RELEASAURUS_CONFIG`                         | Custom file path location   |
 
 Available forge types: `github`, `gitlab`, `gitea`, `forgejo`,
 `azure-devops` (experimental), and `local` (testing). For the full list
