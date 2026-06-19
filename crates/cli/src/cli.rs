@@ -47,6 +47,11 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub base_branch: Option<String>,
 
+    /// Path to the configuration file. Defaults to "releasaurus.toml" in the
+    /// repository root
+    #[arg(long, global = true, env = "RELEASAURUS_CONFIG")]
+    pub config: Option<PathBuf>,
+
     /// Subcommand to execute
     #[command(subcommand)]
     pub command: Command,

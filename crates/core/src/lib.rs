@@ -50,7 +50,7 @@
 //!
 //!     // 2. Load releasaurus.toml from the repository.
 //!     let config = Rc::new(
-//!         forge_manager.load_config(None).await?,
+//!         forge_manager.load_config(None, None).await?,
 //!     );
 //!
 //!     // 3. Resolve packages and build config.

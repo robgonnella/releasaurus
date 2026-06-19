@@ -385,7 +385,7 @@ pub async fn run_forge_test(
     // load_config -> Default::default()
     ////////////////////////////////////////////////////////////////////////////
     log::info!("loading non-existent config file");
-    let config = forge.load_config(None).await.unwrap();
+    let config = forge.load_config(None, None).await.unwrap();
     assert_eq!(
         config.packages[0].workspace_root,
         Config::default().packages[0].workspace_root
@@ -419,7 +419,7 @@ pub async fn run_forge_test(
     sleep(SHORT_WAIT).await;
 
     let config = forge
-        .load_config(Some(default_branch.to_string()))
+        .load_config(Some(default_branch.to_string()), None)
         .await
         .unwrap();
 

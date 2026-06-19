@@ -86,10 +86,18 @@ impl ForgeManager {
         result
     }
 
-    pub async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        log::info!("Loading configuration from forge (branch: {:?})", branch);
+    pub async fn load_config(
+        &self,
+        branch: Option<String>,
+        config_path: Option<String>,
+    ) -> Result<Config> {
+        log::info!(
+            "Loading configuration from forge (branch: {:?}, config: {:?})",
+            branch,
+            config_path
+        );
 
-        let result = self.forge.load_config(branch).await;
+        let result = self.forge.load_config(branch, config_path).await;
 
         if let Err(e) = &result {
             log::error!("Failed to load configuration: {}", e);
