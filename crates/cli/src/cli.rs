@@ -774,6 +774,11 @@ mod tests {
             .output()
             .unwrap();
         Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Command::new("git")
             .args(["config", "user.email", "test@test.com"])
             .current_dir(path)
             .output()
