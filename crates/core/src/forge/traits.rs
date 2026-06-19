@@ -36,8 +36,12 @@ pub trait Forge: Any + Send + Sync {
     /// Sets the tag search depth when searching for tags. Previous tags are
     /// used as markers for commits to include in next release
     fn set_tag_search_depth(&mut self, depth: usize);
-    /// Load releasaurus.toml configuration from repository root.
-    async fn load_config(&self, branch: Option<String>) -> Result<Config>;
+    /// Load configuration from repository root.
+    async fn load_config(
+        &self,
+        branch: Option<String>,
+        config_path: Option<String>,
+    ) -> Result<Config>;
     /// Fetch file content from repository by path, returning None if file
     /// doesn't exist.
     async fn get_file_content(

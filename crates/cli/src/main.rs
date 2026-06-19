@@ -107,7 +107,10 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
 
     let config = Rc::new(
         forge
-            .load_config(global_overrides.base_branch.clone())
+            .load_config(
+                global_overrides.base_branch.clone(),
+                cli.config.as_ref().map(|p| p.to_string_lossy().to_string()),
+            )
             .await?,
     );
 

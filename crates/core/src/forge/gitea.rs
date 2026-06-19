@@ -288,12 +288,15 @@ impl Forge for Gitea {
         Ok(Some(content))
     }
 
-    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
+    async fn load_config(
+        &self,
+        branch: Option<String>,
+        config_path: Option<String>,
+    ) -> Result<Config> {
+        let path =
+            config_path.unwrap_or_else(|| DEFAULT_CONFIG_FILE.to_string());
         if let Some(content) = self
-            .get_file_content(GetFileContentRequest {
-                branch,
-                path: DEFAULT_CONFIG_FILE.into(),
-            })
+            .get_file_content(GetFileContentRequest { branch, path })
             .await?
         {
             let config: Config = toml::from_str(&content)?;

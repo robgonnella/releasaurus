@@ -149,8 +149,12 @@ impl Forge for Forgejo {
         self.gitea.get_file_content(req).await
     }
 
-    async fn load_config(&self, branch: Option<String>) -> Result<Config> {
-        self.gitea.load_config(branch).await
+    async fn load_config(
+        &self,
+        branch: Option<String>,
+        config_path: Option<String>,
+    ) -> Result<Config> {
+        self.gitea.load_config(branch, config_path).await
     }
 
     async fn get_release_by_tag(
