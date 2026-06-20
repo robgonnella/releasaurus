@@ -400,10 +400,10 @@ impl Forge for Github {
             });
 
             let result: TagSearchResult = self.instance.graphql(&json).await?;
-            cursor = result.data.repository.refs.page_info.end_cursor;
-            has_next_page = result.data.repository.refs.page_info.has_next_page;
+            cursor = result.repository.refs.page_info.end_cursor;
+            has_next_page = result.repository.refs.page_info.has_next_page;
 
-            for tag in result.data.repository.refs.nodes.into_iter() {
+            for tag in result.repository.refs.nodes.into_iter() {
                 if count >= self.tag_search_depth {
                     has_next_page = false;
                     break;
@@ -471,7 +471,7 @@ impl Forge for Github {
             let result: StartCommitResult =
                 self.instance.graphql(&json).await?;
 
-            let created = result.data.repository.start_commit.committed_date;
+            let created = result.repository.start_commit.committed_date;
             let since = DateTime::parse_from_rfc3339(&created)?.to_utc();
 
             self.instance
@@ -748,10 +748,12 @@ impl Forge for Github {
                 && labels.iter().any(|l| {
                     l.name == PENDING_LABEL || l.name == LEGACY_PENDING_LABEL
                 })
+                && let Some(pr_number) = pr.number
+                && let Some(pr_head) = pr.head
             {
                 found_prs.push(PullRequest {
-                    number: pr.number,
-                    sha: pr.head.sha,
+                    number: pr_number,
+                    sha: pr_head.sha,
                     body: pr.body.unwrap_or_default(),
                 });
             }
@@ -810,7 +812,9 @@ impl Forge for Github {
                     .get(issue.number)
                     .await?;
 
-                if let Some(head_label) = pr.head.label
+                if let Some(pr_number) = pr.number
+                    && let Some(pr_head) = pr.head
+                    && let Some(head_label) = pr_head.label
                     && head_label
                         == format!("{}:{}", self.url.owner, req.head_branch)
                 {
@@ -819,7 +823,7 @@ impl Forge for Github {
                     {
                         log::warn!(
                             "found unmerged closed pr {} with pending label: skipping",
-                            pr.number
+                            pr_number
                         );
                         continue;
                     }
@@ -831,7 +835,7 @@ impl Forge for Github {
                     })?;
 
                     found_prs.push(PullRequest {
-                        number: pr.number,
+                        number: pr_number,
                         sha,
                         body: pr.body.unwrap_or_default(),
                     });
@@ -868,9 +872,17 @@ impl Forge for Github {
             .send()
             .await?;
 
+        let pr_number = pr.number.ok_or(ReleasaurusError::forge(
+            "failed to create pull request: response missing pr number",
+        ))?;
+
+        let pr_head = pr.head.ok_or(ReleasaurusError::forge(
+            "failed to create pull request: response missing head",
+        ))?;
+
         Ok(PullRequest {
-            number: pr.number,
-            sha: pr.head.sha,
+            number: pr_number,
+            sha: pr_head.sha,
             body: pr.body.unwrap_or_default(),
         })
     }

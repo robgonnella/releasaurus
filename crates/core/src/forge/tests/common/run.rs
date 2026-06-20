@@ -54,6 +54,7 @@ pub async fn run_forge_test(
 ) {
     log::info!("resetting repository");
     helper.reset().await.unwrap();
+    sleep(LONG_WAIT).await;
 
     let default_branch = forge.default_branch();
     let release_branch = "release-branch";

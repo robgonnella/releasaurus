@@ -32,13 +32,8 @@ pub struct StartCommitRepo {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct StartCommitData {
-    pub repository: StartCommitRepo,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct StartCommitResult {
-    pub data: StartCommitData,
+    pub repository: StartCommitRepo,
 }
 
 #[derive(Debug, Serialize)]
@@ -131,13 +126,8 @@ pub struct TagSearchRepository {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TagSearchData {
-    pub repository: TagSearchRepository,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct TagSearchResult {
-    pub data: TagSearchData,
+    pub repository: TagSearchRepository,
 }
 
 #[derive(Debug, Serialize)]

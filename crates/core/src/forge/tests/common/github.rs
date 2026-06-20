@@ -59,14 +59,16 @@ impl GithubForgeTestHelper {
             .await?;
 
         for pull in &pulls {
+            let pull_number = pull.number.unwrap();
+
             self.instance
                 .issues(&self.owner, &self.repo)
-                .replace_all_labels(pull.number, &[])
+                .replace_all_labels(pull_number, &[])
                 .await?;
 
             self.instance
                 .pulls(&self.owner, &self.repo)
-                .update(pull.number)
+                .update(pull_number)
                 .state(pulls::State::Closed)
                 .send()
                 .await?;

@@ -1,6 +1,6 @@
 //! Local forge implementation for offline development and testing.
 use async_trait::async_trait;
-use color_eyre::eyre::{Context, OptionExt};
+use color_eyre::eyre::Context;
 use git2::{
     BranchType, Commit as Git2Commit, Oid, RemoteCallbacks, Sort,
     StatusOptions, TreeWalkMode,
@@ -112,7 +112,7 @@ impl LocalRepo {
 
         let default_branch = head
             .shorthand()
-            .ok_or_eyre("unable to get current branch for local repo")?
+            .wrap_err("unable to get current branch for local repo")?
             .to_string();
 
         drop(head);
@@ -140,9 +140,7 @@ impl LocalRepo {
         let head = repo.head()?;
         let current_branch = head
             .shorthand()
-            .ok_or(ReleasaurusError::git_other(
-                "unable to get current branch for local repo",
-            ))?
+            .wrap_err("unable to get current branch for local repo")?
             .to_string();
         Ok(current_branch)
     }
@@ -462,7 +460,7 @@ impl Forge for LocalRepo {
                     break;
                 }
                 count += 1;
-                if let Some(name) = reference.name()
+                if let Ok(name) = reference.name()
                     && let Some(stripped) = name.strip_prefix("refs/tags/")
                     && tag_prefix_regex.is_match(stripped)
                 {
