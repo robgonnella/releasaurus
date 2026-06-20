@@ -109,7 +109,9 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
         forge
             .load_config(
                 global_overrides.base_branch.clone(),
-                cli.config.as_ref().map(|p| p.to_string_lossy().to_string()),
+                cli.config
+                    .as_deref()
+                    .map(|p| p.to_string_lossy().into_owned()),
             )
             .await?,
     );
