@@ -405,14 +405,22 @@ impl Forge for LocalRepo {
         branch: Option<String>,
         config_path: Option<String>,
     ) -> Result<Config> {
+        let is_custom = config_path.is_some();
         let path =
             config_path.unwrap_or_else(|| DEFAULT_CONFIG_FILE.to_string());
         if let Some(content) = self
-            .get_file_content(GetFileContentRequest { branch, path })
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: path.clone(),
+            })
             .await?
         {
             let config: Config = toml::from_str(&content)?;
             Ok(config)
+        } else if is_custom {
+            Err(ReleasaurusError::invalid_config(format!(
+                "configuration file not found at: {path}"
+            )))
         } else {
             log::info!("repository configuration not found: using default");
             Ok(Config::default())
@@ -1125,20 +1133,38 @@ tag_search_depth = 10
         assert_eq!(config.tag_search_depth, 10);
     }
 
-    /// `load_config` with a non-existent custom path returns the
-    /// default config.
+    /// `load_config` with a non-existent custom path returns an error.
     #[tokio::test]
-    async fn load_config_returns_default_when_custom_path_not_found() {
+    async fn load_config_errors_when_custom_path_not_found() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let config = forge
+        let err = forge
             .load_config(None, Some("nonexistent.toml".to_string()))
             .await
-            .unwrap();
+            .unwrap_err();
+
+        assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
+        assert!(
+            err.to_string()
+                .contains("configuration file not found at: nonexistent.toml")
+        );
+    }
+
+    /// `load_config` without a custom path and no default config file
+    /// returns the default config.
+    #[tokio::test]
+    async fn load_config_returns_default_when_no_custom() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let config = forge.load_config(None, None).await.unwrap();
 
         let default = Config::default();
         assert_eq!(config.base_branch, default.base_branch);

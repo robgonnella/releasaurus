@@ -293,15 +293,23 @@ impl Forge for Gitea {
         branch: Option<String>,
         config_path: Option<String>,
     ) -> Result<Config> {
+        let is_custom = config_path.is_some();
         let path =
             config_path.unwrap_or_else(|| DEFAULT_CONFIG_FILE.to_string());
         if let Some(content) = self
-            .get_file_content(GetFileContentRequest { branch, path })
+            .get_file_content(GetFileContentRequest {
+                branch,
+                path: path.clone(),
+            })
             .await?
         {
             let config: Config = toml::from_str(&content)?;
 
             Ok(config)
+        } else if is_custom {
+            Err(ReleasaurusError::invalid_config(format!(
+                "configuration file not found at: {path}"
+            )))
         } else {
             Ok(Config::default())
         }
