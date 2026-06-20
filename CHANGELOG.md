@@ -1,3 +1,25 @@
+# [0.21.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.1...v0.21.0-rc.2) - 2026-06-20
+
+### 🚀 Features
+
+- add configurable config path [_(10a7b17)_](https://github.com/robgonnella/releasaurus/commit/10a7b1761d768140cecacb5f9104549ea3e5e94c) (astrelion)
+
+### 🐛 Bug Fixes
+
+- return error when custom config not found [_(6d1c9a4)_](https://github.com/robgonnella/releasaurus/commit/6d1c9a473914b9723c5bd1244c0ff7204d44ae09) (astrelion)
+
+- use deref [_(4b2c739)_](https://github.com/robgonnella/releasaurus/commit/4b2c73963f40beb31cb07099f3f6556ad7f52700) (astrelion)
+
+- force gpgsign to false in tests [_(a247628)_](https://github.com/robgonnella/releasaurus/commit/a247628c9053052d882507f96b0beebbe10a963b) (astrelion)
+
+### 📚 Documentation
+
+- add config options to docs [_(7520a61)_](https://github.com/robgonnella/releasaurus/commit/7520a615f03e47b1afecc67d95eef33384de5894) (astrelion)
+
+### 🧪 Testing
+
+- add custom config path tests [_(b562cc9)_](https://github.com/robgonnella/releasaurus/commit/b562cc9e900d7cc30294bdd617f4be3c78fedb89) (astrelion)
+
 # [0.21.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.20.5...v0.21.0-rc.1) - 2026-06-18
 
 ### 🚀 Features
