@@ -25,8 +25,8 @@ use crate::{
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
             GiteaCreatedCommit, GiteaFileChange, GiteaFileChangeOperation,
-            GiteaIssue, GiteaModifyFiles, GiteaPullRequest, GiteaRelease,
-            GiteaTag, Label, UpdatePullBody, UpdatePullLabels,
+            GiteaIssue, GiteaLabel, GiteaModifyFiles, GiteaPullRequest,
+            GiteaRelease, GiteaTag, UpdatePullBody, UpdatePullLabels,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -145,7 +145,7 @@ impl Gitea {
         Ok(sha.into())
     }
 
-    async fn get_all_labels(&self) -> Result<Vec<Label>> {
+    async fn get_all_labels(&self) -> Result<Vec<GiteaLabel>> {
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
@@ -167,7 +167,7 @@ impl Gitea {
                 .map(|h| h.to_str().unwrap_or_default() == "true")
                 .unwrap_or(false);
             let result = response.error_for_status()?;
-            let batch: Vec<Label> = result.json().await?;
+            let batch: Vec<GiteaLabel> = result.json().await?;
             labels.extend(batch);
             page += 1;
         }
@@ -175,7 +175,7 @@ impl Gitea {
         Ok(labels)
     }
 
-    async fn create_label(&self, label_name: String) -> Result<Label> {
+    async fn create_label(&self, label_name: String) -> Result<GiteaLabel> {
         let labels_url = self.base_url.join("labels")?;
         let request = self
             .client
@@ -187,7 +187,7 @@ impl Gitea {
             .build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
-        let label: Label = result.json().await?;
+        let label: GiteaLabel = result.json().await?;
         Ok(label)
     }
 
