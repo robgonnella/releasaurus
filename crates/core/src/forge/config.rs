@@ -90,10 +90,6 @@ pub const TAGGED_LABEL: &str = "releasaurus::tagged";
 /// this label automatically removes `TAGGED_LABEL` on GitLab.
 /// On GitHub and Gitea the `::` is treated as literal characters.
 pub const PENDING_LABEL: &str = "releasaurus::pending";
-/// Legacy pending label used before the scoped-label migration.
-/// Retained so that existing release PRs created by an older
-/// version of releasaurus can still be found after an upgrade.
-pub const LEGACY_PENDING_LABEL: &str = "releasaurus:pending";
 
 /// Represents the default token variable names that are checked for
 /// authenticating each forge type
