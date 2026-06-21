@@ -368,10 +368,10 @@ pub async fn run_forge_test(
     ////////////////////////////////////////////////////////////////////////////
     log::info!("creating commit to add releasaurus config file");
     let releasaurus_toml_content = r#"
-    [[package]]
-    name = "test-package"
-    workspace_root = "packages"
-    path = "test-package"
+[[package]]
+name = "test-package"
+workspace_root = "packages"
+path = "test-package"
     "#;
 
     let create_commit_req = CreateCommitRequest {
