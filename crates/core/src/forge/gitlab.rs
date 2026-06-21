@@ -47,8 +47,8 @@ use crate::{
     },
     forge::{
         config::{
-            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL,
-            PENDING_LABEL, RepoUrl, TokenVar, resolve_token,
+            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl,
+            TokenVar, resolve_token,
         },
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
@@ -686,29 +686,20 @@ impl Forge for Gitlab {
     ) -> Result<Option<PullRequest>> {
         let mut merge_requests: Vec<MergeRequestInfo> = vec![];
 
-        // Try the current label first, then fall back to the
-        // legacy single-colon label for users upgrading from an
-        // older version of releasaurus.
-        for pending_label in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
-            if !merge_requests.is_empty() {
-                break;
-            }
+        // Search for merged MRs with the pending label
+        let endpoint = MergeRequests::builder()
+            .project(&self.project_id)
+            .state(MergeRequestState::Merged)
+            .source_branch(req.head_branch.clone())
+            .labels(vec![PENDING_LABEL])
+            .build()?;
 
-            // Search for merged MRs with the pending label
-            let endpoint = MergeRequests::builder()
-                .project(&self.project_id)
-                .state(MergeRequestState::Merged)
-                .source_branch(req.head_branch.clone())
-                .labels(vec![pending_label])
-                .build()?;
-
-            merge_requests = paged(
-                endpoint,
-                Pagination::AllPerPageLimit(DEFAULT_PAGE_SIZE.into()),
-            )
-            .query_async(&self.gl)
-            .await?;
-        }
+        merge_requests = paged(
+            endpoint,
+            Pagination::AllPerPageLimit(DEFAULT_PAGE_SIZE.into()),
+        )
+        .query_async(&self.gl)
+        .await?;
 
         if merge_requests.is_empty() {
             return Ok(None);
