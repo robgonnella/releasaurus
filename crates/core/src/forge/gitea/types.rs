@@ -9,7 +9,7 @@ pub struct CreateLabel {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Label {
+pub struct GiteaLabel {
     pub id: u64,
     pub name: String,
     pub color: String,

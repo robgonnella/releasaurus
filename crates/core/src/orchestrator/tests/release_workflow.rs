@@ -7,8 +7,6 @@
 //! - Handling separate pull requests
 //! - Skipping packages without merged PRs
 //! - Edited notes and header/footer sections in release notes
-//!
-//! Legacy-format tests are in `release_workflow_legacy.rs`.
 
 use crate::{
     config::{Config, package::PackageConfigBuilder},
