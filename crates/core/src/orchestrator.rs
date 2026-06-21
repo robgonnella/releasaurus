@@ -16,7 +16,7 @@ use crate::{
     },
     orchestrator::{
         package_processor::{PackageProcessor, PrBranchResult},
-        pr_body::{parse_legacy_pr_body, parse_pr_body},
+        pr_body::parse_pr_body,
     },
     packages::{
         releasable::SerializableReleasablePackage, resolved::ResolvedPackage,
@@ -387,13 +387,7 @@ impl Orchestrator {
         package: &ResolvedPackage,
         merged_pr: &PullRequest,
     ) -> Result<()> {
-        let (tag, notes) = if let Some((tag, notes)) = parse_legacy_pr_body(
-            &package.name,
-            merged_pr.number,
-            &merged_pr.body,
-        )? {
-            (tag, notes)
-        } else {
+        let (tag, notes) =
             parse_pr_body(&package.name, merged_pr.number, &merged_pr.body)
                 .inspect_err(|_e| {
                     log::debug!(
@@ -402,8 +396,7 @@ impl Orchestrator {
                         merged_pr.body.len(),
                         merged_pr.body
                     );
-                })?
-        };
+                })?;
 
         log::info!("tagging commit: tag: {}, sha: {}", tag, merged_pr.sha);
 

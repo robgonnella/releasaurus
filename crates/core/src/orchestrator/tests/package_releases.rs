@@ -13,15 +13,15 @@ use super::common::*;
 
 #[tokio::test]
 async fn create_package_release_parses_metadata_from_pr_body() {
-    let pr_body = format!(
-        r#"
-<!--{{"metadata":{{"name":"{TEST_PKG_NAME}","tag":"v1.2.3","notes":"Release notes here"}}}}-->
-<details><summary>v1.2.3</summary>
-
-Release notes here
-</details>
-"#
-    );
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.2.3",
+        notes: "Release notes here",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
 
     let merged_pr = PullRequest {
         number: 123,
@@ -84,22 +84,26 @@ Release notes here
 
 #[tokio::test]
 async fn create_package_release_matches_correct_package_by_name() {
-    // PR body has metadata for different package - should match the correct one
-    let pr_body = format!(
-        r#"
-<!--{{"metadata":{{"name":"other-pkg","tag":"v2.0.0","notes":"Other notes"}}}}-->
-<details><summary>v2.0.0</summary>
-
-Other notes
-</details>
-
-<!--{{"metadata":{{"name":"{TEST_PKG_NAME}","tag":"v1.2.3","notes":"Correct notes"}}}}-->
-<details><summary>v1.2.3</summary>
-
-Correct notes
-</details>
-"#
-    );
+    // PR body has metadata for two packages - should match the correct one
+    let other_body = make_pr_body(&PrBodyInput {
+        pkg: "other-pkg",
+        tag: "v2.0.0",
+        notes: "Other notes",
+        tag_link: "tag-link-other",
+        sha_link: "sha-link-other",
+        header: "",
+        footer: "",
+    });
+    let correct_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.2.3",
+        notes: "Correct notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+    let pr_body = format!("{other_body}\n{correct_body}");
 
     let merged_pr = PullRequest {
         number: 123,
@@ -133,15 +137,15 @@ Correct notes
 
 #[tokio::test]
 async fn create_package_release_trims_notes() {
-    let pr_body = format!(
-        r#"
-<!--{{"metadata":{{"name":"{TEST_PKG_NAME}","tag":"v1.2.3","notes":"  \n Release notes \n  "}}}}-->
-<details><summary>v1.2.3</summary>
-
-Release notes
-</details>
-"#
-    );
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.2.3",
+        notes: "  \n Release notes \n  ",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
 
     let merged_pr = PullRequest {
         number: 123,
