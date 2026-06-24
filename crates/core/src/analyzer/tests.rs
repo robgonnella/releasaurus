@@ -4,9 +4,11 @@
 //! - `basic_versioning`: Basic analyzer functionality (construction, version bumping)
 //! - `filtering`: Commit filtering tests (skip_ci, skip_chore, etc.)
 //! - `prerelease`: Prerelease versioning tests
+//! - `rendering`: Default `body` template output and group ordering
 //! - `version_rules`: Custom version increment rules and regex tests
 
 mod basic_versioning;
 mod filtering;
 mod prerelease;
+mod rendering;
 mod version_rules;

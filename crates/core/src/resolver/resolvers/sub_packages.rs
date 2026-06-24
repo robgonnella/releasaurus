@@ -3,8 +3,8 @@ use std::{path::Path, rc::Rc};
 use crate::{
     analyzer::config::AnalyzerConfig,
     config::{
-        package::PackageConfig, prerelease::PrereleaseConfig,
-        resolved::ResolvedConfig,
+        package::PackageConfig, resolved::ResolvedConfig,
+        versioning::VersioningConfig,
     },
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
@@ -18,9 +18,8 @@ pub fn resolve_sub_packages_full(
     package_config: PackageConfig,
     normalized_workspace_root: &Path,
     tag_prefix: &str,
-    prerelease: Option<PrereleaseConfig>,
-    auto_start: bool,
     analyzer_config: &AnalyzerConfig,
+    versioning_config: &VersioningConfig,
 ) -> Vec<ResolvedPackage> {
     let PackageConfig {
         sub_packages,
@@ -55,11 +54,11 @@ pub fn resolve_sub_packages_full(
                 release_type: s.release_type.unwrap_or_default(),
                 tag_prefix: tag_prefix.to_string(),
                 sub_packages: vec![],
-                prerelease: prerelease.clone(),
-                auto_start_next: auto_start,
+                aggregate_prereleases: false,
                 normalized_additional_paths: vec![],
                 compiled_additional_manifests: vec![],
                 analyzer_config: analyzer_config.clone(),
+                versioning_config: versioning_config.clone(),
             }
         })
         .collect()
@@ -71,9 +70,9 @@ mod tests {
     use url::Url;
 
     use crate::config::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
         changelog::ChangelogConfig,
         package::{PackageConfigBuilder, SubPackage},
+        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
         resolved::{CommitModifiers, GlobalOverrides},
     };
 
@@ -92,13 +91,8 @@ mod tests {
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             separate_pull_requests: true,
-            prerelease: PrereleaseConfig::default(),
-            auto_start_next: None,
-            breaking_always_increment_major: true,
-            features_always_increment_minor: true,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
             changelog: ChangelogConfig::default(),
+            versioning: None,
         }
     }
 
@@ -126,18 +120,16 @@ mod tests {
 
         let workspace_root = Path::new(".");
         let tag_prefix = "v";
-        let auto_start = false;
-        let prerelease = None;
         let analyzer_config = AnalyzerConfig::default();
+        let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
             resolved_config,
             pkg_config,
             workspace_root,
             tag_prefix,
-            prerelease,
-            auto_start,
             &analyzer_config,
+            &versioning_config,
         );
 
         assert_eq!(resolved.len(), 2);
@@ -162,18 +154,16 @@ mod tests {
 
         let workspace_root = Path::new(".");
         let tag_prefix = "v";
-        let auto_start = false;
-        let prerelease = None;
         let analyzer_config = AnalyzerConfig::default();
+        let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
             resolved_config,
             pkg_config,
             workspace_root,
             tag_prefix,
-            prerelease,
-            auto_start,
             &analyzer_config,
+            &versioning_config,
         );
 
         assert_eq!(resolved.len(), 1);
@@ -199,18 +189,16 @@ mod tests {
 
         let workspace_root = Path::new(".");
         let expected_tag_prefix = "v";
-        let auto_start = false;
-        let prerelease = None;
         let analyzer_config = AnalyzerConfig::default();
+        let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
             resolved_config,
             pkg_config,
             workspace_root,
             expected_tag_prefix,
-            prerelease,
-            auto_start,
             &analyzer_config,
+            &versioning_config,
         );
 
         // Sub-packages should inherit the same tag prefix
@@ -234,18 +222,16 @@ mod tests {
 
         let workspace_root = Path::new("workspace");
         let expected_tag_prefix = "v";
-        let auto_start = false;
-        let prerelease = None;
         let analyzer_config = AnalyzerConfig::default();
+        let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
             resolved_config,
             pkg_config,
             workspace_root,
             expected_tag_prefix,
-            prerelease,
-            auto_start,
             &analyzer_config,
+            &versioning_config,
         );
 
         assert_eq!(resolved.len(), 1);
@@ -275,18 +261,16 @@ mod tests {
 
         let workspace_root = Path::new(".");
         let expected_tag_prefix = "v";
-        let auto_start = false;
-        let prerelease = None;
         let analyzer_config = AnalyzerConfig::default();
+        let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
             resolved_config,
             pkg_config,
             workspace_root,
             expected_tag_prefix,
-            prerelease,
-            auto_start,
             &analyzer_config,
+            &versioning_config,
         );
 
         // Should have no sub-packages

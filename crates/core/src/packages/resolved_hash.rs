@@ -68,7 +68,8 @@ impl ResolvedPackageHash {
 #[cfg(test)]
 mod tests {
     use crate::{
-        analyzer::config::AnalyzerConfig, config::release_type::ReleaseType,
+        analyzer::config::AnalyzerConfig,
+        config::{release_type::ReleaseType, versioning::VersioningConfig},
     };
 
     use super::*;
@@ -82,11 +83,11 @@ mod tests {
             release_type: ReleaseType::default(),
             tag_prefix: "v".to_string(),
             sub_packages: vec![],
-            prerelease: None,
-            auto_start_next: false,
+            aggregate_prereleases: false,
             normalized_additional_paths: vec![],
             compiled_additional_manifests: vec![],
             analyzer_config: AnalyzerConfig::default(),
+            versioning_config: VersioningConfig::default(),
         }
     }
 

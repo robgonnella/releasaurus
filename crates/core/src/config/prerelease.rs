@@ -2,8 +2,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use crate::result::{ReleasaurusError, Result};
-
 /// Determines how prerelease identifiers should be appended to versions
 #[derive(
     Debug,
@@ -28,23 +26,12 @@ pub enum PrereleaseStrategy {
     Static,
 }
 
-/// Configurable prerelease settings for both global and package scopes
+/// Configurable prerelease settings for both default and package scopes
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct PrereleaseConfig {
     /// Prerelease identifier (e.g., "alpha", "beta", "rc", "SNAPSHOT")
-    pub suffix: Option<String>,
+    pub suffix: String,
     /// How prerelease suffixes should be applied to versions
     pub strategy: PrereleaseStrategy,
-}
-
-impl PrereleaseConfig {
-    /// Returns the suffix for configs that have been resolved
-    pub fn suffix(&self) -> Result<&str> {
-        self.suffix.as_deref().ok_or_else(|| {
-            ReleasaurusError::invalid_config(
-                "resolved prerelease config must include suffix",
-            )
-        })
-    }
 }

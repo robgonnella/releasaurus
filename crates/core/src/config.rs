@@ -5,13 +5,15 @@
 //! used throughout the pipeline.
 
 pub mod changelog;
+pub mod defaults;
 pub mod package;
 pub mod prerelease;
 pub mod release_type;
+pub mod repository;
 pub mod resolved;
 mod toml;
+pub mod versioning;
 
 pub use toml::{
-    Config, ConfigBuilder, ConfigBuilderError, DEFAULT_COMMIT_SEARCH_DEPTH,
-    DEFAULT_CONFIG_FILE, DEFAULT_TAG_SEARCH_DEPTH,
+    Config, ConfigBuilder, ConfigBuilderError, DEFAULT_CONFIG_FILE,
 };

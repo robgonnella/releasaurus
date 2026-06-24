@@ -4,11 +4,19 @@
 //! handling complex interactions between global config, package
 //! config, and CLI overrides.
 
-use std::rc::Rc;
+use url::Url;
 
 use crate::{
     analyzer::config::AnalyzerConfig,
-    config::{prerelease::PrereleaseConfig, resolved::ResolvedConfig},
+    config::{
+        changelog::{ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR},
+        resolved::CommitModifiers,
+        versioning::{
+            DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR,
+            DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR, DEFAULT_SKIP_MERGE_COMMITS,
+            NAMED_PARSERS, VersioningConfig,
+        },
+    },
 };
 
 /// Parameters for building an analyzer configuration.
@@ -17,14 +25,12 @@ use crate::{
 /// package configuration into the analyzer config builder.
 #[derive(Debug)]
 pub struct AnalyzerParams {
-    pub config: Rc<ResolvedConfig>,
-    pub package_name: String,
-    pub prerelease: Option<PrereleaseConfig>,
+    pub changelog: ChangelogConfig,
+    pub versioning: VersioningConfig,
     pub tag_prefix: String,
-    pub breaking_always_increment_major: bool,
-    pub custom_major_increment_regex: Option<String>,
-    pub features_always_increment_minor: bool,
-    pub custom_minor_increment_regex: Option<String>,
+    pub release_link_base_url: Option<Url>,
+    pub compare_link_base_url: Option<Url>,
+    pub commit_modifiers: CommitModifiers,
 }
 
 /// Builds an AnalyzerConfig from resolved parameters.
@@ -34,30 +40,41 @@ pub struct AnalyzerParams {
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
     AnalyzerConfig {
-        body: params.config.changelog.body.clone(),
-        breaking_always_increment_major: params.breaking_always_increment_major,
-        custom_major_increment_regex: params.custom_major_increment_regex,
-        custom_minor_increment_regex: params.custom_minor_increment_regex,
-        features_always_increment_minor: params.features_always_increment_minor,
-        include_author: params.config.changelog.include_author,
-        prerelease: params.prerelease,
-        release_link_base_url: Some(
-            params.config.release_link_base_url.clone(),
-        ),
-        compare_link_base_url: Some(
-            params.config.compare_link_base_url.clone(),
-        ),
-        skip_chore: params.config.changelog.skip_chore,
-        skip_ci: params.config.changelog.skip_ci,
-        skip_doc: params.config.changelog.skip_doc,
-        skip_perf: params.config.changelog.skip_perf,
-        skip_test: params.config.changelog.skip_test,
-        skip_refactor: params.config.changelog.skip_refactor,
-        skip_revert: params.config.changelog.skip_revert,
-        skip_style: params.config.changelog.skip_style,
-        skip_merge_commits: params.config.changelog.skip_merge_commits,
-        skip_miscellaneous: params.config.changelog.skip_miscellaneous,
+        body: params.changelog.body.clone().unwrap_or(DEFAULT_BODY.into()),
+        breaking_always_increment_major: params
+            .versioning
+            .breaking_always_increment_major
+            .unwrap_or(DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR),
+        custom_major_increment_regex: params
+            .versioning
+            .custom_major_increment_regex,
+        custom_minor_increment_regex: params
+            .versioning
+            .custom_minor_increment_regex,
+        features_always_increment_minor: params
+            .versioning
+            .features_always_increment_minor
+            .unwrap_or(DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR),
+        include_author: params
+            .changelog
+            .include_author
+            .unwrap_or(DEFAULT_INCLUDE_AUTHOR),
+        prerelease: params.versioning.prerelease,
+        release_link_base_url: params.release_link_base_url,
+        compare_link_base_url: params.compare_link_base_url,
+        skip_merge_commits: params
+            .versioning
+            .skip_merge_commits
+            .unwrap_or(DEFAULT_SKIP_MERGE_COMMITS),
         tag_prefix: Some(params.tag_prefix),
-        commit_modifiers: params.config.commit_modifiers.clone(),
+        commit_modifiers: params.commit_modifiers.clone(),
+        // `resolve_versioning` always populates this, but an empty map would
+        // classify every commit into an unnamed group and apply no `skip`, so
+        // fall back to the built-in defaults rather than `IndexMap::default()`.
+        named_parsers: params
+            .versioning
+            .named_parsers
+            .unwrap_or_else(|| NAMED_PARSERS.clone()),
+        custom_parsers: params.versioning.custom_parsers.unwrap_or_default().0,
     }
 }

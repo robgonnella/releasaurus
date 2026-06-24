@@ -215,14 +215,11 @@ impl CommitFetcher {
 
                     // current tag has a pre-release identifier - check config
 
-                    if let Some(prerelease_config) = package.prerelease.as_ref()
+                    if let Some(prerelease_config) =
+                        package.versioning_config.prerelease.as_ref()
                     {
                         // suffix is empty = graduating
-                        prerelease_config
-                            .suffix
-                            .as_deref()
-                            .unwrap_or_default()
-                            .is_empty()
+                        prerelease_config.suffix.is_empty()
                     } else {
                         // prerelease config is none = graduating
                         true
@@ -312,6 +309,7 @@ mod tests {
             prerelease::{PrereleaseConfig, PrereleaseStrategy},
             release_type::ReleaseType,
             resolved::{CommitModifiers, GlobalOverrides},
+            versioning::VersioningConfig,
         },
         forge::{
             manager::ForgeOptions, request::ForgeCommitBuilder,
@@ -899,14 +897,19 @@ mod tests {
             });
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
+        let versioning = VersioningConfig {
+            prerelease: Some(PrereleaseConfig {
+                suffix: "rc".to_string(),
+                strategy: PrereleaseStrategy::Versioned,
+            }),
+            ..Default::default()
+        };
+
         let pkg = PackageConfigBuilder::default()
             .name("test-pkg")
             .path(".")
             .release_type(ReleaseType::Node)
-            .prerelease(PrereleaseConfig {
-                suffix: Some("rc".to_string()),
-                strategy: PrereleaseStrategy::Versioned,
-            })
+            .versioning(versioning)
             .build()
             .unwrap();
 
@@ -964,14 +967,19 @@ mod tests {
             });
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
+        let versioning = VersioningConfig {
+            prerelease: Some(PrereleaseConfig {
+                suffix: "".to_string(),
+                strategy: PrereleaseStrategy::Versioned,
+            }),
+            ..Default::default()
+        };
+
         let pkg = PackageConfigBuilder::default()
             .name("test-pkg")
             .path(".")
             .release_type(ReleaseType::Node)
-            .prerelease(PrereleaseConfig {
-                suffix: Some("".to_string()),
-                strategy: PrereleaseStrategy::Versioned,
-            })
+            .versioning(versioning)
             .build()
             .unwrap();
 
@@ -984,45 +992,6 @@ mod tests {
         assert!(
             tags.get("test-pkg").unwrap().graduating_to_stable,
             "expected graduating_to_stable = true when suffix is empty string"
-        );
-    }
-
-    #[tokio::test]
-    async fn graduating_to_stable_true_when_prerelease_tag_and_none_suffix() {
-        // Current tag is a prerelease and the prerelease config has no suffix
-        // set at all — treated the same as empty, i.e. graduating to stable.
-        let mut mock = MockForge::new();
-        mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
-                Ok(vec![Tag {
-                    name: "v1.0.0-rc.1".to_string(),
-                    semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
-                    sha: "sha-rc1".to_string(),
-                    timestamp: Some(1000),
-                }])
-            });
-        mock.expect_get_commits().returning(|_, _| Ok(vec![]));
-
-        let pkg = PackageConfigBuilder::default()
-            .name("test-pkg")
-            .path(".")
-            .release_type(ReleaseType::Node)
-            .prerelease(PrereleaseConfig {
-                suffix: None,
-                strategy: PrereleaseStrategy::Versioned,
-            })
-            .build()
-            .unwrap();
-
-        let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
-        let (_, tags) = commit_fetcher
-            .get_commits_for_all_packages(None)
-            .await
-            .unwrap();
-
-        assert!(
-            tags.get("test-pkg").unwrap().graduating_to_stable,
-            "expected graduating_to_stable = true when suffix is None"
         );
     }
 

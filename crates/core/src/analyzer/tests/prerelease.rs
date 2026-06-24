@@ -22,7 +22,7 @@ use crate::{
 fn test_prerelease_start_from_stable() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("alpha".to_string()),
+            suffix: "alpha".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -53,7 +53,7 @@ fn test_prerelease_start_from_stable() {
 fn test_prerelease_continue_same_identifier() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("alpha".to_string()),
+            suffix: "alpha".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -112,7 +112,7 @@ fn test_prerelease_graduate_to_stable() {
 fn test_prerelease_switch_identifier() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("beta".to_string()),
+            suffix: "beta".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -144,7 +144,7 @@ fn test_prerelease_switch_identifier() {
 fn test_prerelease_first_release() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("alpha".to_string()),
+            suffix: "alpha".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -168,7 +168,7 @@ fn test_prerelease_first_release() {
 fn test_prerelease_breaking_change() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("alpha".to_string()),
+            suffix: "alpha".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()
@@ -200,7 +200,7 @@ fn test_prerelease_breaking_change() {
 fn test_new_prerelease_with_static_strategy() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("dev".to_string()),
+            suffix: "dev".to_string(),
             strategy: PrereleaseStrategy::Static,
         }),
         ..AnalyzerConfig::default()
@@ -232,7 +232,7 @@ fn test_new_prerelease_with_static_strategy() {
 fn test_continuing_prerelease_with_static_strategy() {
     let config = AnalyzerConfig {
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("dev".to_string()),
+            suffix: "dev".to_string(),
             strategy: PrereleaseStrategy::Static,
         }),
         ..AnalyzerConfig::default()
@@ -265,7 +265,7 @@ fn test_prerelease_with_tag_prefix() {
     let config = AnalyzerConfig {
         tag_prefix: Some("v".to_string()),
         prerelease: Some(PrereleaseConfig {
-            suffix: Some("rc".to_string()),
+            suffix: "rc".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         }),
         ..AnalyzerConfig::default()

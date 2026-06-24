@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::{
     analyzer::config::AnalyzerConfig,
-    config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+    config::{release_type::ReleaseType, versioning::VersioningConfig},
 };
 
 /// Compiled version of AdditionalManifest with pre-compiled regex.
@@ -32,9 +32,9 @@ pub struct ResolvedPackage {
     pub release_type: ReleaseType,
     pub tag_prefix: String,
     pub sub_packages: Vec<ResolvedPackage>,
-    pub prerelease: Option<PrereleaseConfig>,
-    pub auto_start_next: bool,
     pub normalized_additional_paths: Vec<PathBuf>,
     pub compiled_additional_manifests: Vec<CompiledAdditionalManifest>,
+    pub aggregate_prereleases: bool,
     pub analyzer_config: AnalyzerConfig,
+    pub versioning_config: VersioningConfig,
 }

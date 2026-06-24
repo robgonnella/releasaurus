@@ -6,7 +6,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+    config::{
+        changelog::ChangelogConfig, release_type::ReleaseType,
+        versioning::VersioningConfig,
+    },
     result::{ReleasaurusError, Result},
 };
 
@@ -74,6 +77,7 @@ impl AdditionalManifestSpec {
 #[derive(
     Debug, Default, Clone, Serialize, Deserialize, JsonSchema, Builder,
 )]
+#[serde(deny_unknown_fields)]
 pub struct AdditionalManifest {
     /// The path to the manifest file relative to package path
     pub path: String,
@@ -89,6 +93,7 @@ pub struct AdditionalManifest {
 #[derive(
     Debug, Default, Clone, Serialize, Deserialize, JsonSchema, Builder,
 )]
+#[serde(deny_unknown_fields)]
 pub struct SubPackage {
     /// Name for this sub-package (default derived from path if not provided).
     /// For proper manifest version file updates this should match the
@@ -104,7 +109,7 @@ pub struct SubPackage {
 
 /// Package configuration for multi-package repositories and monorepos
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
-#[serde(default)] // Use default for missing fields
+#[serde(default, deny_unknown_fields)] // Use default for missing fields
 #[builder(setter(into, strip_option), default)]
 pub struct PackageConfig {
     /// Name for this package (default derived from path if not provided). For
@@ -125,32 +130,16 @@ pub struct PackageConfig {
     /// tag, and release, but will receive independent manifest version updates
     /// according to their type
     pub sub_packages: Option<Vec<SubPackage>>,
-    /// Optional prerelease configuration that overrides global settings
-    pub prerelease: Option<PrereleaseConfig>,
-    /// Auto starts next release for this package by performing a patch version
-    /// update to version files and pushing a "chore" commit to the base_branch
-    pub auto_start_next: Option<bool>,
     /// Additional directory paths to include commits from
     pub additional_paths: Option<Vec<String>>,
     /// Additional paths to generic version manifest files to update. Paths must
     /// be relative to the package path. Accepts either simple string paths or
     /// full config objects with custom regex patterns.
     pub additional_manifest_files: Option<Vec<AdditionalManifestSpec>>,
-    /// Always increments major version on breaking commits
-    pub breaking_always_increment_major: Option<bool>,
-    /// Always increments minor version on feature commits
-    pub features_always_increment_minor: Option<bool>,
-    /// Custom regex pattern matched against commit messages to trigger a
-    /// major version bump. This is additive — breaking change commits always
-    /// trigger major bumps regardless of this setting. In TOML double-quoted
-    /// strings, escape backslashes (e.g. `"\\[BREAKING\\]"` matches
-    /// `[BREAKING]`).
-    pub custom_major_increment_regex: Option<String>,
-    /// Custom regex pattern matched against commit messages to trigger a
-    /// minor version bump. This is additive — `feat:` commits always trigger
-    /// minor bumps regardless of this setting. In TOML double-quoted strings,
-    /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
-    pub custom_minor_increment_regex: Option<String>,
+    /// Changelog generation settings applied to target package.
+    pub changelog: Option<ChangelogConfig>,
+    /// Versioning config for calculating next versions of packages
+    pub versioning: Option<VersioningConfig>,
 }
 
 impl Default for PackageConfig {
@@ -162,14 +151,10 @@ impl Default for PackageConfig {
             sub_packages: None,
             release_type: None,
             tag_prefix: None,
-            prerelease: None,
-            auto_start_next: None,
             additional_paths: None,
             additional_manifest_files: None,
-            breaking_always_increment_major: None,
-            features_always_increment_minor: None,
-            custom_major_increment_regex: None,
-            custom_minor_increment_regex: None,
+            changelog: None,
+            versioning: None,
         }
     }
 }

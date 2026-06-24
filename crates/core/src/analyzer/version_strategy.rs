@@ -11,7 +11,7 @@ use crate::{
     analyzer::helpers,
     config::prerelease::{PrereleaseConfig, PrereleaseStrategy},
     forge::request::Tag,
-    result::Result,
+    result::{ReleasaurusError, Result},
 };
 
 /// Context for version calculation containing all necessary information.
@@ -275,7 +275,18 @@ impl VersionStrategyFactory {
         prerelease: Option<&PrereleaseConfig>,
     ) -> Result<Box<dyn VersionStrategy>> {
         if let Some(config) = prerelease {
-            let identifier = config.suffix()?.to_string();
+            // `resolve_prerelease` never yields a config with an empty suffix,
+            // but `AnalyzerConfig` is public and can be built by hand. Reject
+            // it here rather than letting it through: a `Static` strategy
+            // would silently emit a stable version, and a `Versioned` one
+            // would fail with an opaque semver error about ".1".
+            if config.suffix.trim().is_empty() {
+                return Err(ReleasaurusError::invalid_config(
+                    "prerelease config must include a non-empty suffix",
+                ));
+            }
+
+            let identifier = config.suffix.clone();
 
             match config.strategy {
                 PrereleaseStrategy::Versioned => {
@@ -438,7 +449,7 @@ mod tests {
     #[test]
     fn test_factory_creates_versioned_prerelease_strategy() {
         let config = PrereleaseConfig {
-            suffix: Some("alpha".to_string()),
+            suffix: "alpha".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         };
         let strategy = VersionStrategyFactory::create(Some(&config)).unwrap();
@@ -452,7 +463,7 @@ mod tests {
     #[test]
     fn test_factory_creates_static_prerelease_strategy() {
         let config = PrereleaseConfig {
-            suffix: Some("SNAPSHOT".to_string()),
+            suffix: "SNAPSHOT".to_string(),
             strategy: PrereleaseStrategy::Static,
         };
         let strategy = VersionStrategyFactory::create(Some(&config)).unwrap();
@@ -461,5 +472,35 @@ mod tests {
 
         let result = strategy.calculate_next_version(&context).unwrap();
         assert_eq!(result, Version::parse("0.1.0-SNAPSHOT").unwrap());
+    }
+
+    /// A hand-built config with a blank suffix is rejected up front. The
+    /// variant is the point: left unchecked, `Static` would silently produce a
+    /// stable version and `Versioned` would surface an `InvalidVersion` from
+    /// semver about ".1". This must be an `InvalidConfig` instead.
+    #[test]
+    fn test_factory_rejects_blank_suffix() {
+        for strategy in
+            [PrereleaseStrategy::Versioned, PrereleaseStrategy::Static]
+        {
+            for suffix in ["", "   "] {
+                let config = PrereleaseConfig {
+                    suffix: suffix.to_string(),
+                    strategy,
+                };
+
+                // `Box<dyn VersionStrategy>` isn't `Debug`, so `expect_err`
+                // is unavailable here.
+                match VersionStrategyFactory::create(Some(&config)) {
+                    Err(ReleasaurusError::InvalidConfig(_)) => {}
+                    Err(e) => panic!(
+                        "expected InvalidConfig for {strategy} strategy with suffix {suffix:?}, got {e:?}"
+                    ),
+                    Ok(_) => panic!(
+                        "expected {strategy} strategy to reject suffix {suffix:?}"
+                    ),
+                }
+            }
+        }
     }
 }

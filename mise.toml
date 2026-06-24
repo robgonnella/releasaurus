@@ -3,6 +3,7 @@ _.file = ".env"
 
 [tools]
 rust = "1.92.0"
+rust-analyzer = "2026-07-13"
 just = "1.49.0"
 
 [hooks]

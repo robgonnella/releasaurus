@@ -1,7 +1,11 @@
 use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use serde::Serialize;
-use std::{path::Path, rc::Rc};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    path::Path,
+    rc::Rc,
+};
 use tokio::fs;
 
 use crate::{
@@ -118,11 +122,27 @@ impl Orchestrator {
         let mut packages: Vec<SerializableReleasablePackage> =
             serde_json::from_str(&content)?;
 
-        // Compile template once before loop to avoid O(n) template compilation
-        let mut tera = tera::Tera::default();
-        tera.add_raw_template("changelog", &self.config.changelog.body)?;
+        // Bodies are per-package but usually identical across packages, so
+        // compile once per distinct body rather than once per package.
+        let mut compiled: HashMap<&str, tera::Tera> = HashMap::new();
 
         for package in packages.iter_mut() {
+            let body = self
+                .package_configs
+                .get(&package.name)?
+                .analyzer_config
+                .body
+                .as_str();
+
+            let tera = match compiled.entry(body) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => {
+                    let mut tera = tera::Tera::default();
+                    tera.add_raw_template("changelog", body)?;
+                    entry.insert(tera)
+                }
+            };
+
             let context = tera::Context::from_serialize(&package.release)?;
             package.release.notes = tera.render("changelog", &context)?;
         }
@@ -252,7 +272,11 @@ impl Orchestrator {
 
                 self.forge.replace_pr_labels(req).await?;
 
-                if package.auto_start_next {
+                if package
+                    .versioning_config
+                    .auto_start_next
+                    .unwrap_or_default()
+                {
                     auto_start_packages.push(name.clone());
                 };
             }

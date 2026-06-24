@@ -13,10 +13,12 @@ categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
 color-eyre = "0.6.5"
+indexmap = { version = "2.14.0", features = ["serde"] }
 log = "0.4.32"
 merge = "0.2.0"
 secrecy = "0.10.3"
 serde = "1.0.228"
 serde_json = { version = "1.0.150", features = ["preserve_order"] }
+serde_regex = "1.2.0"
 tokio = { version = "1.52.3", features = ["fs", "macros", "rt-multi-thread"] }
 url = "2.5.8"

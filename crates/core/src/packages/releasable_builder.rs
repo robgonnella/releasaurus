@@ -85,11 +85,11 @@ mod tests {
             release_type: ReleaseType::Node,
             tag_prefix: "v".to_string(),
             sub_packages: vec![],
-            prerelease: None,
-            auto_start_next: false,
+            aggregate_prereleases: false,
             normalized_additional_paths: vec![],
             compiled_additional_manifests: vec![],
             analyzer_config: Default::default(),
+            versioning_config: Default::default(),
         }
     }
 

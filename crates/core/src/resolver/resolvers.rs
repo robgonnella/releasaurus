@@ -6,8 +6,8 @@
 //! sub-packages, etc.
 
 pub mod analyzer;
-pub mod auto_start;
 pub mod base_branch;
+pub mod changelog;
 pub mod commit_modifiers;
 pub mod manifest;
 pub mod package;
@@ -16,7 +16,7 @@ pub mod path_utils;
 pub mod prerelease;
 pub mod sub_packages;
 pub mod tag_prefix;
-pub mod version_increment;
+pub mod versioning;
 
 #[cfg(test)]
 pub mod test_helper;

@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{
-    config::{
-        package::PackageConfig,
-        prerelease::PrereleaseConfig,
-        resolved::{GlobalOverrides, PackageOverrides},
-    },
-    result::Result,
+use crate::config::{
+    package::PackageConfig,
+    prerelease::PrereleaseConfig,
+    resolved::{GlobalOverrides, PackageOverrides},
 };
 
 /// Resolves prerelease configuration with complex override logic.
@@ -23,17 +20,19 @@ pub fn resolve_prerelease(
     global_prerelease: &PrereleaseConfig,
     global_overrides: &GlobalOverrides,
     package_overrides: &HashMap<String, PackageOverrides>,
-) -> Result<Option<PrereleaseConfig>> {
+) -> Option<PrereleaseConfig> {
     let mut prerelease = global_prerelease.clone();
 
     // Package config overrides global config
-    if let Some(pkg_prerelease) = package.prerelease.clone() {
+    if let Some(version_config) = package.versioning.as_ref()
+        && let Some(pkg_prerelease) = version_config.prerelease.clone()
+    {
         prerelease = pkg_prerelease;
     }
 
     // Global CLI overrides override config
     if let Some(ref suffix) = global_overrides.prerelease_suffix {
-        prerelease.suffix = Some(suffix.clone());
+        prerelease.suffix = suffix.clone();
     }
     if let Some(strategy) = global_overrides.prerelease_strategy {
         prerelease.strategy = strategy;
@@ -42,7 +41,7 @@ pub fn resolve_prerelease(
     // Package-level CLI overrides override everything
     if let Some(overrides) = package_overrides.get(&package.name) {
         if let Some(ref suffix) = overrides.prerelease_suffix {
-            prerelease.suffix = Some(suffix.clone());
+            prerelease.suffix = suffix.clone();
         }
         if let Some(strategy) = overrides.prerelease_strategy {
             prerelease.strategy = strategy;
@@ -50,16 +49,12 @@ pub fn resolve_prerelease(
     }
 
     // Clean and validate suffix
-    prerelease.suffix = prerelease
-        .suffix
-        .as_ref()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
+    prerelease.suffix = prerelease.suffix.trim().to_string();
 
-    if prerelease.suffix.is_some() {
-        Ok(Some(prerelease))
+    if prerelease.suffix.is_empty() {
+        None
     } else {
-        Ok(None)
+        Some(prerelease)
     }
 }
 
@@ -84,17 +79,16 @@ mod tests {
             &global,
             &global_overrides,
             &package_overrides,
-        )
-        .unwrap();
+        );
 
         assert!(result.is_none());
     }
 
     #[test]
-    fn resolve_prerelease_with_global_suffix() {
+    fn resolve_prerelease_with_default_suffix() {
         let pkg = create_test_package("test");
-        let global = PrereleaseConfig {
-            suffix: Some("beta".to_string()),
+        let default = PrereleaseConfig {
+            suffix: "beta".to_string(),
             strategy: PrereleaseStrategy::Versioned,
         };
         let global_overrides = GlobalOverrides::default();
@@ -102,13 +96,47 @@ mod tests {
 
         let result = resolve_prerelease(
             &pkg,
-            &global,
+            &default,
             &global_overrides,
             &package_overrides,
         )
-        .unwrap()
         .unwrap();
 
-        assert_eq!(result.suffix, Some("beta".to_string()));
+        assert_eq!(result.suffix, "beta".to_string());
+    }
+
+    /// A package's `prerelease` table replaces the default one rather than
+    /// merging into it: `suffix` and `strategy` describe one prerelease
+    /// identity, so a package naming a new suffix gets the default strategy,
+    /// not the global one. This is deliberate - see "Per-package overrides"
+    /// in the configuration reference.
+    ///
+    /// Built from TOML rather than a struct literal so the omitted `strategy`
+    /// is filled in by serde, exactly as it would be for a real config.
+    #[test]
+    fn resolve_prerelease_package_table_replaces_default() {
+        let pkg: PackageConfig = toml::from_str(
+            r#"
+            name = "test"
+            versioning = { prerelease = { suffix = "alpha" } }
+        "#,
+        )
+        .unwrap();
+
+        let default = PrereleaseConfig {
+            suffix: "SNAPSHOT".to_string(),
+            strategy: PrereleaseStrategy::Static,
+        };
+
+        let result = resolve_prerelease(
+            &pkg,
+            &default,
+            &GlobalOverrides::default(),
+            &HashMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(result.suffix, "alpha".to_string());
+        assert_eq!(result.strategy, PrereleaseStrategy::Versioned);
     }
 }

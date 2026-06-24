@@ -2,3 +2,6 @@
 book/build
 .env
 CLAUDE.md
+# `get next-release --out-file` / `get release --out-file` artifacts
+/release.json
+/notes.json
