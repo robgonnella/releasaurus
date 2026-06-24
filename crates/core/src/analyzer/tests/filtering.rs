@@ -11,13 +11,19 @@
 //! - skip_revert filtering behavior
 //! - skip_miscellaneous filtering behavior
 //! - include_author flag
+//! - custom parser grouping and skipping
 //! - Combined filtering scenarios
 
+use regex::Regex;
 use semver::Version as SemVer;
 
 use crate::{
-    analyzer::{Analyzer, config::AnalyzerConfig, group::Group},
-    config::{changelog::RewordedCommit, resolved::CommitModifiers},
+    analyzer::{Analyzer, config::AnalyzerConfig},
+    config::{
+        repository::RewordedCommit,
+        resolved::CommitModifiers,
+        versioning::{Group, NAMED_PARSERS, Parser},
+    },
     forge::request::{ForgeCommit, Tag},
 };
 
@@ -33,8 +39,12 @@ fn make_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
 
 #[test]
 fn test_skip_ci_filters_ci_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::CI).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_ci: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -59,13 +69,14 @@ fn test_skip_ci_filters_ci_commits() {
         .unwrap();
     // Should only have 2 commits (feat and fix), ci commits filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Ci));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_ci_false_includes_ci_commits() {
+    let named_parsers = NAMED_PARSERS.clone();
     let config = AnalyzerConfig {
-        skip_ci: false,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -82,8 +93,12 @@ fn test_skip_ci_false_includes_ci_commits() {
 
 #[test]
 fn test_skip_chore_filters_chore_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Chore).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_chore: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -108,13 +123,14 @@ fn test_skip_chore_filters_chore_commits() {
         .unwrap();
     // Should only have 2 commits (feat and fix), chore commits filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Chore));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_chore_false_includes_chore_commits() {
+    let named_parsers = NAMED_PARSERS.clone();
     let config = AnalyzerConfig {
-        skip_chore: false,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -131,8 +147,12 @@ fn test_skip_chore_false_includes_chore_commits() {
 
 #[test]
 fn test_skip_miscellaneous_filters_non_conventional_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    target_parser.skip = Some(true);
+    let expected_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_miscellaneous: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -157,18 +177,14 @@ fn test_skip_miscellaneous_filters_non_conventional_commits() {
         .unwrap();
     // Should only have 2 commits (feat and fix), miscellaneous filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != Group::Miscellaneous)
-    );
+    assert!(release.commits.iter().all(|c| c.group != expected_title));
 }
 
 #[test]
 fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
+    let named_parsers = NAMED_PARSERS.clone();
     let config = AnalyzerConfig {
-        skip_miscellaneous: false,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -185,8 +201,12 @@ fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
 
 #[test]
 fn test_skip_docs_filters_docs_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Documentation).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_doc: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -210,13 +230,14 @@ fn test_skip_docs_filters_docs_commits() {
         .unwrap();
     // Should only have 2 commits (feat and fix), docs commit filtered out
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Doc));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_docs_false_includes_docs_commits() {
+    let named_parsers = NAMED_PARSERS.clone();
     let config = AnalyzerConfig {
-        skip_doc: false,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -233,10 +254,22 @@ fn test_skip_docs_false_includes_docs_commits() {
 
 #[test]
 fn test_skip_multiple_types_combined() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+
+    let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
+    ci_parser.skip = Some(true);
+    let ci_title = ci_parser.group_title();
+
+    let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
+    chore_parser.skip = Some(true);
+    let chore_title = chore_parser.group_title();
+
+    let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    misc_parser.skip = Some(true);
+    let misc_title = misc_parser.group_title();
+
     let config = AnalyzerConfig {
-        skip_ci: true,
-        skip_chore: true,
-        skip_miscellaneous: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -263,14 +296,9 @@ fn test_skip_multiple_types_combined() {
         .unwrap();
     // Should only have 3 commits (feat, fix, docs)
     assert_eq!(release.commits.len(), 3);
-    assert!(release.commits.iter().all(|c| c.group != Group::Ci));
-    assert!(release.commits.iter().all(|c| c.group != Group::Chore));
-    assert!(
-        release
-            .commits
-            .iter()
-            .all(|c| c.group != Group::Miscellaneous)
-    );
+    assert!(release.commits.iter().all(|c| c.group != ci_title));
+    assert!(release.commits.iter().all(|c| c.group != chore_title));
+    assert!(release.commits.iter().all(|c| c.group != misc_title));
 }
 
 #[test]
@@ -302,8 +330,11 @@ fn test_include_author_false_by_default() {
 
 #[test]
 fn test_skip_ci_with_no_ci_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::CI).unwrap();
+    target_parser.skip = Some(true);
     let config = AnalyzerConfig {
-        skip_ci: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -319,12 +350,22 @@ fn test_skip_ci_with_no_ci_commits() {
 
 #[test]
 fn test_skip_all_types_results_in_no_release() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+
+    let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
+    ci_parser.skip = Some(true);
+
+    let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
+    chore_parser.skip = Some(true);
+
+    let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    misc_parser.skip = Some(true);
+
     let config = AnalyzerConfig {
-        skip_ci: true,
-        skip_chore: true,
-        skip_miscellaneous: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
+
     let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
@@ -612,8 +653,12 @@ fn test_skip_shas_and_reword_combined() {
 
 #[test]
 fn test_skip_test_filters_test_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Test).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_test: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -638,13 +683,13 @@ fn test_skip_test_filters_test_commits() {
         .unwrap();
 
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Test));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_test_false_includes_test_commits() {
     let config = AnalyzerConfig {
-        skip_test: false,
+        named_parsers: NAMED_PARSERS.clone(),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -661,8 +706,12 @@ fn test_skip_test_false_includes_test_commits() {
 
 #[test]
 fn test_skip_style_filters_style_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Style).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_style: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -686,13 +735,13 @@ fn test_skip_style_filters_style_commits() {
         .unwrap();
 
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Style));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_style_false_includes_style_commits() {
     let config = AnalyzerConfig {
-        skip_style: false,
+        named_parsers: NAMED_PARSERS.clone(),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -709,8 +758,12 @@ fn test_skip_style_false_includes_style_commits() {
 
 #[test]
 fn test_skip_refactor_filters_refactor_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Refactor).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_refactor: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -734,13 +787,13 @@ fn test_skip_refactor_filters_refactor_commits() {
         .unwrap();
 
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Refactor));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_refactor_false_includes_refactor_commits() {
     let config = AnalyzerConfig {
-        skip_refactor: false,
+        named_parsers: NAMED_PARSERS.clone(),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -757,8 +810,12 @@ fn test_skip_refactor_false_includes_refactor_commits() {
 
 #[test]
 fn test_skip_perf_filters_perf_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Performance).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_perf: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -782,13 +839,13 @@ fn test_skip_perf_filters_perf_commits() {
         .unwrap();
 
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Perf));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_perf_false_includes_perf_commits() {
     let config = AnalyzerConfig {
-        skip_perf: false,
+        named_parsers: NAMED_PARSERS.clone(),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -805,8 +862,12 @@ fn test_skip_perf_false_includes_perf_commits() {
 
 #[test]
 fn test_skip_revert_filters_revert_commits() {
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Revert).unwrap();
+    target_parser.skip = Some(true);
+    let target_title = target_parser.group_title();
     let config = AnalyzerConfig {
-        skip_revert: true,
+        named_parsers,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -830,13 +891,13 @@ fn test_skip_revert_filters_revert_commits() {
         .unwrap();
 
     assert_eq!(release.commits.len(), 2);
-    assert!(release.commits.iter().all(|c| c.group != Group::Revert));
+    assert!(release.commits.iter().all(|c| c.group != target_title));
 }
 
 #[test]
 fn test_skip_revert_false_includes_revert_commits() {
     let config = AnalyzerConfig {
-        skip_revert: false,
+        named_parsers: NAMED_PARSERS.clone(),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -849,4 +910,137 @@ fn test_skip_revert_false_includes_revert_commits() {
     let release = analyzer.analyze(commits, None).unwrap().unwrap();
 
     assert_eq!(release.commits.len(), 2);
+}
+
+#[test]
+fn test_custom_parser_groups_commits_and_still_bumps_version() {
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        custom_parsers: vec![Parser::new(
+            Some(Regex::new(r"^deps").unwrap()),
+            "📦 Dependencies".into(),
+            false,
+            2,
+        )],
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![
+        make_commit("abc123", "deps: bump serde", 1000),
+        make_commit("def456", "fix: bug fix", 2000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits.len(), 2);
+    assert_eq!(release.commits[0].group, "<!-- 02 -->📦 Dependencies");
+    // the custom-grouped commit is not skipped, so it still feeds version
+    // calculation - `fix:` drives the patch bump
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+}
+
+#[test]
+fn test_custom_parser_takes_precedence_over_named_parser() {
+    // A custom parser whose pattern overlaps `feat` wins, but the commit is
+    // still a conventional feature for versioning purposes.
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        custom_parsers: vec![Parser::new(
+            Some(Regex::new(r"^feat").unwrap()),
+            "Custom Features".into(),
+            false,
+            1,
+        )],
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![make_commit("abc123", "feat: add feature", 1000)];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(release.commits[0].group, "<!-- 01 -->Custom Features");
+    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+}
+
+#[test]
+fn test_custom_parser_skip_excludes_from_changelog_and_version() {
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        custom_parsers: vec![Parser::new(
+            Some(Regex::new(r"^deps").unwrap()),
+            "📦 Dependencies".into(),
+            true,
+            2,
+        )],
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    // `deps!:` would be a breaking change if it reached version calculation
+    let commits = vec![
+        make_commit("abc123", "deps!: bump serde", 1000),
+        make_commit("def456", "fix: bug fix", 2000),
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    // dropped from the changelog...
+    assert_eq!(release.commits.len(), 1);
+    assert_eq!(release.commits[0].id, "def456");
+    // ...and from version calculation: patch, not major
+    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+}
+
+#[test]
+fn test_skipping_every_custom_matched_commit_results_in_no_release() {
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        custom_parsers: vec![Parser::new(
+            Some(Regex::new(r".*").unwrap()),
+            "Everything".into(),
+            true,
+            0,
+        )],
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![
+        make_commit("abc123", "feat: add feature", 1000),
+        make_commit("def456", "fix: bug fix", 2000),
+    ];
+
+    assert!(analyzer.analyze(commits, None).unwrap().is_none());
 }

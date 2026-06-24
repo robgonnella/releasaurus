@@ -7,7 +7,9 @@
 use semver::Version;
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+    },
     forge::{request::Tag, traits::MockForge},
     packages::releasable::ReleasablePackage,
 };
@@ -23,7 +25,10 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
         .returning(|_| Ok(None));
 
     let toml_config = Config {
-        separate_pull_requests: false,
+        repository: RepositoryConfig {
+            separate_pull_requests: false,
+            ..RepositoryConfig::default()
+        },
         ..Config::default()
     };
 
@@ -87,7 +92,10 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
         .returning(|_| Ok(None));
 
     let toml_config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Config::default()
     };
 

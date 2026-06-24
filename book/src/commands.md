@@ -73,7 +73,7 @@ releasaurus start-next --repo "https://github.com/owner/repo" \
 > **Note:** This commits directly to your base branch. Ensure your branch
 > protection rules permit it. It can also run automatically after
 > `release` — see
-> [`auto_start_next`](./configuration-reference.md#global-settings).
+> [`auto_start_next`](./configuration-reference.md#defaultsversioning).
 
 ## `get`
 
@@ -240,7 +240,8 @@ Supported properties: `tag_prefix`, `prerelease.suffix`,
 listing valid values.
 
 **Precedence (highest to lowest):** `--set-package` → global CLI
-overrides → package config → global config → defaults.
+overrides → `[[package]]` config → `[defaults]` config → built-in
+defaults.
 
 ```bash
 # Override base branch and global prerelease suffix

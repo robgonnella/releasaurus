@@ -25,7 +25,7 @@ pub mod version_strategy;
 /// bumps and generate changelogs.
 pub struct Analyzer<'a> {
     config: &'a AnalyzerConfig,
-    group_parser: GroupParser,
+    group_parser: GroupParser<'a>,
 }
 
 impl<'a> Analyzer<'a> {
@@ -34,7 +34,10 @@ impl<'a> Analyzer<'a> {
     pub fn new(config: &'a config::AnalyzerConfig) -> Result<Self> {
         Ok(Self {
             config,
-            group_parser: GroupParser::default(),
+            group_parser: GroupParser::new(
+                &config.named_parsers,
+                &config.custom_parsers,
+            ),
         })
     }
 

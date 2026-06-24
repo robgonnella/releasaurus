@@ -5,8 +5,8 @@ use merge::Merge;
 use url::Url;
 
 use crate::config::{
-    changelog::{ChangelogConfig, RewordedCommit},
-    prerelease::{PrereleaseConfig, PrereleaseStrategy},
+    changelog::ChangelogConfig, prerelease::PrereleaseStrategy,
+    repository::RewordedCommit, versioning::VersioningConfig,
 };
 
 /// Runtime overrides for a specific named package.
@@ -40,19 +40,20 @@ pub struct GlobalOverrides {
     pub prerelease_strategy: Option<PrereleaseStrategy>,
 }
 
-/// Package name used as the key in override and config maps.
-pub type PackageName = String;
-
 #[derive(Debug, Clone, Default)]
 pub struct CommitModifiers {
     /// Commit sha (or prefix) to skip when calculating next version and
     /// generating changelog. Matches any commit whose SHA starts with the
     /// provided value
     pub skip_shas: Vec<String>,
-    /// Rewords a commit message when generating changelog. The SHA can be a
-    /// prefix - matches any commit whose SHA starts with the provided value.
+    /// Rewords commit messages for targeted shas when generated changelog.
+    /// Each SHA can be a prefix - matches any commit whose SHA starts with the
+    /// provided value
     pub reword: Vec<RewordedCommit>,
 }
+
+/// Package name used as the key in override and config maps.
+pub type PackageName = String;
 
 /// Fully resolved runtime configuration for the release pipeline.
 ///
@@ -72,11 +73,6 @@ pub struct ResolvedConfig {
     pub first_release_search_depth: usize,
     pub tag_search_depth: usize,
     pub separate_pull_requests: bool,
-    pub prerelease: PrereleaseConfig,
-    pub auto_start_next: Option<bool>,
-    pub breaking_always_increment_major: bool,
-    pub features_always_increment_minor: bool,
-    pub custom_major_increment_regex: Option<String>,
-    pub custom_minor_increment_regex: Option<String>,
     pub changelog: ChangelogConfig,
+    pub versioning: Option<VersioningConfig>,
 }

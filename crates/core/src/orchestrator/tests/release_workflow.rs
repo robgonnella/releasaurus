@@ -9,7 +9,10 @@
 //! - Edited notes and header/footer sections in release notes
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+        versioning::VersioningConfig,
+    },
     forge::{
         request::{Commit, GetPrRequest, PullRequest, Tag},
         traits::MockForge,
@@ -125,7 +128,10 @@ async fn create_releases_handles_separate_pull_requests() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 
@@ -190,7 +196,10 @@ async fn create_releases_targets_specific_package() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 
@@ -267,13 +276,18 @@ async fn create_releases_triggers_auto_start_next() {
         })
     });
 
+    let versioning = VersioningConfig {
+        auto_start_next: Some(true),
+        ..Default::default()
+    };
+
     let orchestrator = create_test_orchestrator_with_config(
         mock_forge,
         vec![
             PackageConfigBuilder::default()
                 .name(TEST_PKG_NAME)
                 .path(".")
-                .auto_start_next(true)
+                .versioning(versioning)
                 .build()
                 .unwrap(),
         ],

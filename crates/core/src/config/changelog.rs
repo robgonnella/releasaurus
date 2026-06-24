@@ -1,6 +1,10 @@
 use derive_builder::Builder;
+use merge::Merge;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+pub const DEFAULT_INCLUDE_AUTHOR: bool = false;
+pub const DEFAULT_AGGREGATE_PRERELEASES: bool = false;
 
 /// Default changelog body template.
 pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -22,78 +26,35 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]{% if tag_compare_link %}({{
 {% endfor %}
  "#;
 
-/// Rewords messages in changelog for targeted commit shas
-#[derive(
-    Debug, Clone, Default, JsonSchema, Serialize, Deserialize, Builder,
-)]
-#[builder(setter(into))]
-pub struct RewordedCommit {
-    /// Sha (or prefix) of the commit to reword. Matches any commit whose SHA
-    /// starts with this value
-    pub sha: String,
-    /// The new message to display in changelog
-    pub message: String,
+fn default_body() -> String {
+    DEFAULT_BODY.into()
+}
+
+fn default_include_author() -> bool {
+    DEFAULT_INCLUDE_AUTHOR
+}
+
+fn default_aggregate_prereleases() -> bool {
+    DEFAULT_AGGREGATE_PRERELEASES
 }
 
 /// Changelog configuration (applies to all packages)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, JsonSchema, Builder, Merge,
+)]
 #[builder(setter(into, strip_option), default)]
-#[serde(default)] // Use default for missing fields
+#[serde(default, deny_unknown_fields)] // Use default for missing fields
 pub struct ChangelogConfig {
     /// Main changelog body template.
-    pub body: String,
-    /// Skips including ci commits in changelog
-    pub skip_ci: bool,
-    /// Skips including chore commits in changelog
-    pub skip_chore: bool,
-    /// Skips including doc commits in changelog
-    pub skip_doc: bool,
-    /// Skips including test commits in changelog
-    pub skip_test: bool,
-    /// Skips including style commits in changelog
-    pub skip_style: bool,
-    /// Skips including refactor commits in changelog
-    pub skip_refactor: bool,
-    /// Skips including perf commits in changelog
-    pub skip_perf: bool,
-    /// Skips including revert commits in changelog
-    pub skip_revert: bool,
-    /// Skips including miscellaneous commits in changelog
-    pub skip_miscellaneous: bool,
-    /// Skips including merge commits in changelog
-    pub skip_merge_commits: bool,
-    /// Skips targeted commit shas (or prefixes) when generating next version
-    /// and changelog. Each value matches any commit whose SHA starts with the
-    /// provided value
-    pub skip_shas: Option<Vec<String>>,
-    /// Rewords commit messages for targeted shas when generated changelog.
-    /// Each SHA can be a prefix - matches any commit whose SHA starts with the
-    /// provided value
-    pub reword: Option<Vec<RewordedCommit>>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_body")]
+    pub body: Option<String>,
     /// Includes commit author name in default body template
-    pub include_author: bool,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_include_author")]
+    pub include_author: Option<bool>,
     /// Aggregates changelogs from prior prereleases when graduating
-    pub aggregate_prereleases: bool,
-}
-
-impl Default for ChangelogConfig {
-    fn default() -> Self {
-        Self {
-            body: DEFAULT_BODY.into(),
-            skip_ci: false,
-            skip_chore: false,
-            skip_doc: false,
-            skip_test: false,
-            skip_style: false,
-            skip_refactor: false,
-            skip_perf: false,
-            skip_revert: false,
-            skip_miscellaneous: false,
-            skip_merge_commits: true,
-            skip_shas: None,
-            reword: None,
-            include_author: false,
-            aggregate_prereleases: false,
-        }
-    }
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_aggregate_prereleases")]
+    pub aggregate_prereleases: Option<bool>,
 }
