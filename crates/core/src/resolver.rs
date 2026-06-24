@@ -1,10 +1,12 @@
 use derive_builder::Builder;
+use merge::Merge;
 use std::{collections::HashMap, rc::Rc};
 use url::Url;
 
 use crate::{
     config::{
         Config,
+        changelog::DEFAULT_PARSERS,
         package::PackageConfig,
         resolved::{
             CommitModifiers, GlobalOverrides, PackageOverrides, ResolvedConfig,
@@ -64,13 +66,24 @@ impl Resolver {
             &self.commit_modifiers,
         )?;
 
+        let mut parsers = DEFAULT_PARSERS.clone();
+        let mut changelog_config = self.toml_config.changelog.clone();
+        for (group, mut parser) in changelog_config.default_parsers {
+            // Every Group variant is present in DEFAULT_PARSERS, so the
+            // lookup always succeeds.
+            parser.merge(DEFAULT_PARSERS[&group].clone());
+            log::info!("updated parser: group={group}, parser={parser:?}");
+            parsers.insert(group, parser);
+        }
+        changelog_config.default_parsers = parsers;
+
         let resolved_config = Rc::new(ResolvedConfig {
             auto_start_next: self.toml_config.auto_start_next,
             base_branch,
             breaking_always_increment_major: self
                 .toml_config
                 .breaking_always_increment_major,
-            changelog: self.toml_config.changelog.clone(),
+            changelog: changelog_config,
             commit_modifiers,
             custom_major_increment_regex: self
                 .toml_config

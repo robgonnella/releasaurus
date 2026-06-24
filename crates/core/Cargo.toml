@@ -11,6 +11,9 @@ keywords.workspace = true
 categories.workspace = true
 exclude = ["src/bin/gen_schema.rs"]
 
+[package.metadata.cargo-machete]
+ignored = ["serde_regex"]
+
 [dependencies]
 async-trait = "0.1.89"
 base64 = "0.22.1"
@@ -19,13 +22,10 @@ color-eyre.workspace = true
 derive_builder = "0.20.2"
 futures-util = "0.3.32"
 git-conventional = "1.1.0"
-git2 = { version = "0.21.0", default-features = false, features = [
-    "https",
-    "vendored-libgit2",
-    "vendored-openssl",
-] }
+git2 = { version = "0.21.0", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"]}
 gitlab = "0.1900.1"
 graphql_client = "0.14.0"
+indexmap.workspace = true
 log.workspace = true
 md5 = "0.8.0"
 merge.workspace = true
@@ -35,11 +35,12 @@ quick-xml = "0.40.1"
 regex = "1.12.4"
 reqwest = "0.13.4"
 rustls = { version = "0.23", default-features = false }
-schemars = "1.2.1"
+schemars = { version = "1.2.1", features = ["indexmap2"] }
 secrecy.workspace = true
 semver = "1.0.28"
 serde.workspace = true
 serde_json.workspace = true
+serde_regex.workspace = true
 strum = { version = "0.28.0", features = ["derive"] }
 tera = "1.20.1"
 thiserror = "2.0.18"

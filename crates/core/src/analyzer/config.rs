@@ -11,24 +11,6 @@ use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
 pub struct AnalyzerConfig {
     /// Tera template string for changelog body format.
     pub body: String,
-    /// Skips including ci commits in changelog (default: false)
-    pub skip_ci: bool,
-    /// Skips including chore commits in changelog (default: false)
-    pub skip_chore: bool,
-    /// Skips including doc commits in changelog (default: false)
-    pub skip_doc: bool,
-    /// Skips including test commits in changelog (default: false)
-    pub skip_test: bool,
-    /// Skips including style commits in changelog (default: false)
-    pub skip_style: bool,
-    /// Skips including refactor commits in changelog (default: false)
-    pub skip_refactor: bool,
-    /// Skips including perf commits in changelog (default: false)
-    pub skip_perf: bool,
-    /// Skips including revert commits in changelog (default: false)
-    pub skip_revert: bool,
-    /// Skips including miscellaneous commits in changelog (default: false)
-    pub skip_miscellaneous: bool,
     /// Skips including merge commits in changelog (default: true)
     pub skip_merge_commits: bool,
     /// Includes commit author in default body template (default: false)
@@ -58,15 +40,6 @@ impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
             body: "".into(),
-            skip_ci: false,
-            skip_chore: false,
-            skip_doc: false,
-            skip_test: false,
-            skip_style: false,
-            skip_refactor: false,
-            skip_perf: false,
-            skip_revert: false,
-            skip_miscellaneous: false,
             skip_merge_commits: true,
             include_author: false,
             tag_prefix: None,
