@@ -214,7 +214,11 @@ impl PackageProcessor {
 
         for pkg in packages.into_iter() {
             let config = self.package_configs.get(&pkg.name)?;
-            let analyzer = Analyzer::new(&config.analyzer_config)?;
+            let analyzer = Analyzer::new(
+                &config.analyzer_config,
+                &self.config.changelog.default_parsers,
+                &self.config.changelog.custom_parsers,
+            )?;
             let release = analyzer.analyze(pkg.commits, pkg.current_tag)?;
             let analyzed = AnalyzedPackage {
                 name: pkg.name.clone(),

@@ -3,11 +3,9 @@
 tag_search_depth = 25
 
 [changelog]
-skip_ci = true
-skip_chore = true
-skip_miscellaneous = false
 include_author = true
 aggregate_prereleases = true
+default_parsers = { ci.skip = true, chore.skip = true, miscellaneous.skip = false }
 
 [prerelease]
 strategy = "versioned"

@@ -3,6 +3,8 @@
 //! Parses conventional commits, determines semantic version bumps,
 //! and generates formatted changelogs using Tera templates.
 
+use indexmap::IndexMap;
+
 use crate::{
     analyzer::{
         config::AnalyzerConfig,
@@ -10,6 +12,7 @@ use crate::{
         release::Release,
         version_strategy::{VersionContext, VersionStrategyFactory},
     },
+    config::changelog::{Group, Parser},
     forge::request::{ForgeCommit, Tag},
     result::Result,
 };
@@ -25,16 +28,20 @@ pub mod version_strategy;
 /// bumps and generate changelogs.
 pub struct Analyzer<'a> {
     config: &'a AnalyzerConfig,
-    group_parser: GroupParser,
+    group_parser: GroupParser<'a>,
 }
 
 impl<'a> Analyzer<'a> {
     /// Create analyzer with changelog template configuration and tag prefix
     /// settings.
-    pub fn new(config: &'a config::AnalyzerConfig) -> Result<Self> {
+    pub fn new(
+        config: &'a config::AnalyzerConfig,
+        default_parsers: &'a IndexMap<Group, Parser>,
+        custom_parsers: &'a [Parser],
+    ) -> Result<Self> {
         Ok(Self {
             config,
-            group_parser: GroupParser::default(),
+            group_parser: GroupParser::new(default_parsers, custom_parsers),
         })
     }
 

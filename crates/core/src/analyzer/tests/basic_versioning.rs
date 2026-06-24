@@ -13,20 +13,21 @@ use url::Url;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
+    config::changelog::DEFAULT_PARSERS,
     forge::request::{ForgeCommit, Tag},
 };
 
 #[test]
 fn test_analyzer_new() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
     assert_eq!(analyzer.config.tag_prefix, config.tag_prefix);
 }
 
 #[test]
 fn test_analyze_empty_commits() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
     let result = analyzer.analyze(vec![], None).unwrap();
     assert!(result.is_none());
 }
@@ -34,7 +35,7 @@ fn test_analyze_empty_commits() {
 #[test]
 fn test_analyze_first_release_no_tag() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let commits = vec![
         ForgeCommit {
@@ -61,7 +62,7 @@ fn test_analyze_first_release_no_tag() {
 #[test]
 fn test_analyze_with_current_tag_patch_bump() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -86,7 +87,7 @@ fn test_analyze_with_current_tag_patch_bump() {
 #[test]
 fn test_analyze_with_current_tag_minor_bump() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -111,7 +112,7 @@ fn test_analyze_with_current_tag_minor_bump() {
 #[test]
 fn test_analyze_with_current_tag_major_bump() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -139,7 +140,7 @@ fn test_analyze_with_tag_prefix() {
         tag_prefix: Some("v".to_string()),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let commits = vec![ForgeCommit {
         id: "abc123".to_string(),
@@ -157,7 +158,7 @@ fn test_analyze_with_tag_prefix() {
 #[test]
 fn test_analyze_generates_release_link() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let commits = vec![ForgeCommit {
         id: "abc123".to_string(),
@@ -175,7 +176,7 @@ fn test_analyze_generates_release_link() {
 #[test]
 fn test_analyze_multiple_commits() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -221,7 +222,7 @@ fn test_sha_compare_link_uses_newest_commit() {
         ),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -271,7 +272,7 @@ fn test_sha_compare_link_spans_filtered_newest_commit() {
         ),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -313,7 +314,7 @@ fn test_sha_compare_link_spans_filtered_newest_commit() {
 #[test]
 fn test_chore_only_with_no_tag() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     // Only a chore commit - should still create a first release (0.1.0)
     let commits = vec![ForgeCommit {
@@ -334,7 +335,7 @@ fn test_chore_only_with_no_tag() {
 #[test]
 fn test_chore_only_with_existing_tag() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
