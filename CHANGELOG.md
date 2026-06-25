@@ -1,3 +1,9 @@
+# [0.21.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.2...v0.21.0-rc.3) - 2026-06-25
+
+### 🐛 Bug Fixes
+
+- Ignore invalid semver tags for local repos [_(8898548)_](https://github.com/robgonnella/releasaurus/commit/88985482d3e29b16610c574222b37f226c0b2e54) (astrelion)
+
 # [0.21.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.1...v0.21.0-rc.2) - 2026-06-20
 
 ### 🚀 Features
