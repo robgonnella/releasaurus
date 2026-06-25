@@ -9,7 +9,9 @@ use std::rc::Rc;
 
 use crate::{
     analyzer::config::AnalyzerConfig,
-    config::{prerelease::PrereleaseConfig, resolved::ResolvedConfig},
+    config::{
+        VersionType, prerelease::PrereleaseConfig, resolved::ResolvedConfig,
+    },
 };
 
 /// Parameters for building an analyzer configuration.
@@ -22,9 +24,10 @@ pub struct AnalyzerParams {
     pub package_name: String,
     pub prerelease: Option<PrereleaseConfig>,
     pub tag_prefix: String,
-    pub breaking_always_increment_major: bool,
+    pub version_type: VersionType,
+    pub breaking_always_increment_major: Option<bool>,
     pub custom_major_increment_regex: Option<String>,
-    pub features_always_increment_minor: bool,
+    pub features_always_increment_minor: Option<bool>,
     pub custom_minor_increment_regex: Option<String>,
 }
 
@@ -39,6 +42,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
 
     AnalyzerConfig {
         body: params.config.changelog.body.clone(),
+        version_type: params.version_type,
         breaking_always_increment_major: params.breaking_always_increment_major,
         custom_major_increment_regex: params.custom_major_increment_regex,
         custom_minor_increment_regex: params.custom_minor_increment_regex,

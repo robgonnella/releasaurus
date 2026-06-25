@@ -8,17 +8,41 @@ supported languages. For guidance and examples, see
 
 Top-level keys, all optional:
 
-| Key                               | Type    | Default      | Description                                                                                       |
-| --------------------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| `base_branch`                     | string  | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                        |
-| `first_release_search_depth`      | integer | `400`        | Commits to analyze for the **first** release (when no matching tag exists).                       |
-| `tag_search_depth`                | integer | `100`        | Max tags fetched when searching for a previous release. `0` = all tags.                           |
-| `separate_pull_requests`          | bool    | `false`      | One PR per package (`true`) vs. a single combined PR (`false`).                                   |
-| `auto_start_next`                 | bool    | `false`      | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)). |
-| `breaking_always_increment_major` | bool    | `true`       | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                       |
-| `features_always_increment_minor` | bool    | `true`       | `feat:` commits bump minor.                                                                       |
-| `custom_major_increment_regex`    | string  | none         | Additional regex that triggers a major bump.                                                      |
-| `custom_minor_increment_regex`    | string  | none         | Additional regex that triggers a minor bump.                                                      |
+| Key                               | Type    | Default             | Description                                                                                       |
+| --------------------------------- | ------- | ------------------- | ------------------------------------------------------------------------------------------------- |
+| `base_branch`                     | string  | repo default        | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                        |
+| `first_release_search_depth`      | integer | `400`               | Commits to analyze for the **first** release (when no matching tag exists).                       |
+| `tag_search_depth`                | integer | `100`               | Max tags fetched when searching for a previous release. `0` = all tags.                           |
+| `separate_pull_requests`          | bool    | `false`             | One PR per package (`true`) vs. a single combined PR (`false`).                                   |
+| `auto_start_next`                 | bool    | `false`             | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)). |
+| `version_type`                    | string  | `major.minor.patch` | Version format (see [Version type values](#version-type-values)). Override: `--version-type`.     |
+| `breaking_always_increment_major` | bool    | `true`              | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                       |
+| `features_always_increment_minor` | bool    | `true`              | `feat:` commits bump minor.                                                                       |
+| `custom_major_increment_regex`    | string  | none                | Additional regex that triggers a major bump.                                                      |
+| `custom_minor_increment_regex`    | string  | none                | Additional regex that triggers a minor bump.                                                      |
+
+The four increment controls above (and `[prerelease]`) apply only when
+`version_type` is `major.minor.patch` or `major.minor.patch+timestamp.sha`;
+they are ignored for date-based types. Setting any of them explicitly alongside
+a date-based `version_type` logs a warning so the no-op config is not silently
+dropped.
+
+### Version type values
+
+`version_type` selects the version format. See
+[Version Types](./configuration.md#version-types) for guidance.
+
+| Value                                     | Example output              |
+| ----------------------------------------- | --------------------------- |
+| `major.minor.patch` (default)             | `1.4.0`                     |
+| `major.minor.patch+timestamp.sha`         | `1.4.0+1700000000.abc1234`  |
+| `year.month.day`                          | `2026.6.14`                 |
+| `year.month.day+hour.minute.second`       | `2026.6.14+15.30.45`        |
+| `year.month.day+hour.minute.second.micro` | `2026.6.14+15.30.45.123456` |
+
+`major.minor.patch+timestamp.sha` appends build metadata of the form
+`{commit-timestamp}.{short-sha}`. Date-based types derive from the
+current UTC time; plain `year.month.day` allows one release per day.
 
 ### Custom increment regexes
 
@@ -36,6 +60,8 @@ custom_minor_increment_regex = "FEATURE"        # no escaping needed
 
 Global prerelease config; can be overridden per package via a package
 `prerelease` table. See [Prereleases](./configuration.md#prereleases).
+Applies only when `version_type` is `major.minor.patch` or
+`major.minor.patch+timestamp.sha`.
 
 | Key        | Type   | Default       | Description                                                                                     |
 | ---------- | ------ | ------------- | ----------------------------------------------------------------------------------------------- |
@@ -92,6 +118,7 @@ One entry per package; repeatable.
 | `name`                            | string              | derived from path                | Explicit package name; must be unique.                                                                                    |
 | `release_type`                    | string              | none                             | Language for version updates (see [Supported Languages](#supported-languages)). Omit for changelog/tagging only.          |
 | `tag_prefix`                      | string              | `v` (root) / `<name>-v` (nested) | Git tag prefix. Override: `--tag-prefix` or `--set-package <name>.tag_prefix=`.                                           |
+| `version_type`                    | string              | inherits global                  | Per-package [version type](#version-type-values). Override: `--set-package <name>.version_type=`.                         |
 | `prerelease`                      | table               | inherits global                  | Per-package prerelease override. Override: `--set-package <name>.prerelease.suffix=`.                                     |
 | `sub_packages`                    | object[]            | none                             | Group packages under one shared tag/changelog (see [Grouped Releases](./configuration.md#grouped-releases-sub-packages)). |
 | `additional_paths`                | string[]            | none                             | Extra directories whose changes trigger a release for this package.                                                       |
@@ -136,6 +163,7 @@ base_branch = "main"
 first_release_search_depth = 400
 separate_pull_requests = false
 auto_start_next = false
+version_type = "major.minor.patch"
 breaking_always_increment_major = true
 features_always_increment_minor = true
 

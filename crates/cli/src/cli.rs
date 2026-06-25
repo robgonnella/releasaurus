@@ -5,6 +5,7 @@ use git_url_parse::{GitUrl, types::provider::GenericProvider};
 use merge::Merge;
 use releasaurus_core::{
     config::{
+        VersionType,
         changelog::RewordedCommit,
         prerelease::PrereleaseStrategy,
         resolved::{CommitModifiers, GlobalOverrides, PackageOverrides},
@@ -313,9 +314,10 @@ pub struct PackagePathOverride {
 #[derive(Debug, Clone, Merge, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CliPackageOverrides {
-    #[serde(rename = "tag_prefix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub tag_prefix: Option<String>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    pub version_type: Option<VersionType>,
     #[serde(rename = "prerelease.suffix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
@@ -330,6 +332,7 @@ impl From<CliPackageOverrides> for PackageOverrides {
             prerelease_strategy: value.prerelease_strategy,
             prerelease_suffix: value.prerelease_suffix,
             tag_prefix: value.tag_prefix,
+            version_type: value.version_type,
         }
     }
 }
@@ -352,6 +355,11 @@ pub struct SharedCommandOverrides {
     #[arg(long)]
     tag_prefix: Option<String>,
 
+    /// Global override for version_type. Overrides package config. Can
+    /// be overridden via explicit "--set-package" override
+    #[arg(long)]
+    version_type: Option<CliVersionType>,
+
     /// Global override for prerelease suffix. Overrides package config. Can
     /// be overridden via explicit "--set-package" override. To disable
     /// prerelease for all packages use --prerelease-suffix="". To disable
@@ -364,6 +372,22 @@ pub struct SharedCommandOverrides {
     /// be overridden via explicit "--set-package" override
     #[arg(long, value_parser = parse_prerelease_strategy)]
     prerelease_strategy: Option<PrereleaseStrategy>,
+}
+
+/// Determines what type of versioning to use (semantic, date, etc.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum CliVersionType {
+    #[default]
+    #[value(name = "major.minor.patch")]
+    Semantic,
+    #[value(name = "major.minor.patch+timestamp.sha")]
+    SemanticWithBuild,
+    #[value(name = "year.month.day")]
+    Date,
+    #[value(name = "year.month.day+hour.minute.second")]
+    DateWithTime,
+    #[value(name = "year.month.day+hour.minute.second.micro")]
+    DateWithTimeMicro,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -385,6 +409,18 @@ pub struct CliCommitModifiers {
     /// Example: --reword "abc123de=fix: a new message\n\nMore content"
     #[arg(long, value_parser = parse_reworded_commit, value_name = "KEY=VALUE")]
     pub reword: Vec<RewordedCommit>,
+}
+
+impl From<CliVersionType> for VersionType {
+    fn from(value: CliVersionType) -> Self {
+        match value {
+            CliVersionType::Date => VersionType::Date,
+            CliVersionType::DateWithTime => VersionType::DateWithTime,
+            CliVersionType::DateWithTimeMicro => VersionType::DateWithTimeMicro,
+            CliVersionType::Semantic => VersionType::Semantic,
+            CliVersionType::SemanticWithBuild => VersionType::SemanticWithBuild,
+        }
+    }
 }
 
 impl From<CommitModifiers> for CliCommitModifiers {
@@ -663,6 +699,8 @@ impl Cli {
 
         if let Some(overrides) = cmd_overrides {
             global_overrides.tag_prefix = overrides.tag_prefix.clone();
+            global_overrides.version_type =
+                overrides.version_type.map(Into::into);
             global_overrides.prerelease_suffix =
                 overrides.prerelease_suffix.clone();
             global_overrides.prerelease_strategy =
