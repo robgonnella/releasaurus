@@ -465,9 +465,11 @@ impl Forge for LocalRepo {
                     && tag_prefix_regex.is_match(stripped)
                 {
                     let commit = reference.peel_to_commit()?;
-                    let semver = semver::Version::parse(
+                    let Ok(semver) = semver::Version::parse(
                         tag_prefix_regex.replace_all(stripped, "").as_ref(),
-                    )?;
+                    ) else {
+                        continue;
+                    };
 
                     let tag = Tag {
                         sha: commit.id().to_string(),
