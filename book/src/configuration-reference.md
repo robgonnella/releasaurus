@@ -53,28 +53,24 @@ strategy = "versioned"
 Controls changelog generation. See
 [Changelog Customization](./changelog.md) for the template and variables.
 
-| Key                     | Type     | Default           | Description                                                                        |
-| ----------------------- | -------- | ----------------- | ---------------------------------------------------------------------------------- |
-| `skip_ci`               | bool     | `false`           | Exclude `ci:` commits.                                                             |
-| `skip_chore`            | bool     | `false`           | Exclude `chore:` commits.                                                          |
-| `skip_doc`              | bool     | `false`           | Exclude `docs:` commits.                                                           |
-| `skip_test`             | bool     | `false`           | Exclude `test:` commits.                                                           |
-| `skip_style`            | bool     | `false`           | Exclude `style:` commits.                                                          |
-| `skip_refactor`         | bool     | `false`           | Exclude `refactor:` commits.                                                       |
-| `skip_perf`             | bool     | `false`           | Exclude `perf:` commits.                                                           |
-| `skip_revert`           | bool     | `false`           | Exclude `revert:` commits.                                                         |
-| `skip_miscellaneous`    | bool     | `false`           | Exclude non-conventional commits.                                                  |
-| `skip_merge_commits`    | bool     | `true`            | Exclude merge commits.                                                             |
-| `include_author`        | bool     | `false`           | Include commit author names.                                                       |
-| `aggregate_prereleases` | bool     | `false`           | On graduation, fold prior prerelease notes into the stable release.                |
-| `skip_shas`             | string[] | none              | Skip commits by SHA prefix (7+ chars). CLI: `--skip-sha`.                          |
-| `reword`                | object[] | none              | Rewrite commit messages (affects changelog **and** version bump). CLI: `--reword`. |
-| `body`                  | string   | standard template | Tera template for the changelog body.                                              |
+| Key                     | Type     | Default           | Description                                                                                                                                   |
+| ----------------------- | -------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default_parsers`       | table    | built-in groups   | Override built-in commit groups (`pattern`/`title`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
+| `custom_parsers`        | array    | none              | Define additional commit groups, checked before the defaults.                                                                                 |
+| `skip_merge_commits`    | bool     | `true`            | Exclude merge commits.                                                                                                                        |
+| `include_author`        | bool     | `false`           | Include commit author names.                                                                                                                  |
+| `aggregate_prereleases` | bool     | `false`           | On graduation, fold prior prerelease notes into the stable release.                                                                           |
+| `skip_shas`             | string[] | none              | Skip commits by SHA prefix (7+ chars). CLI: `--skip-sha`.                                                                                     |
+| `reword`                | object[] | none              | Rewrite commit messages (affects changelog **and** version bump). CLI: `--reword`.                                                            |
+| `body`                  | string   | standard template | Tera template for the changelog body.                                                                                                         |
 
 ```toml
 [changelog]
-skip_ci = true
-skip_chore = true
+include_author = true
+
+[changelog.default_parsers]
+ci.skip = true
+chore.skip = true
 
 [[changelog.reword]]
 sha = "abc123d"
@@ -144,9 +140,11 @@ suffix = "beta"
 strategy = "versioned"
 
 [changelog]
-skip_ci = true
-skip_chore = true
 include_author = false
+
+[changelog.default_parsers]
+ci.skip = true
+chore.skip = true
 
 [[package]]
 name = "frontend"

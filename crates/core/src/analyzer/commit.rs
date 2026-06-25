@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 use crate::{
-    analyzer::{
-        config::AnalyzerConfig,
-        group::{Group, GroupParser},
-    },
+    analyzer::{config::AnalyzerConfig, group::GroupParser},
     forge::request::ForgeCommit,
 };
 
@@ -18,7 +15,7 @@ use crate::{
 pub struct Commit {
     pub id: String,
     pub short_id: String,
-    pub group: Group,
+    pub group: String,
     pub scope: Option<String>,
     pub title: String,
     pub body: Option<String>,
@@ -85,26 +82,19 @@ impl Commit {
                         .map(|d| d.to_string()),
                     raw_title,
                     raw_message,
-                    group: Group::default(),
+                    group: String::new(),
                     link,
                     timestamp,
                     author_name,
                     author_email,
                 };
-                commit.group = group_parser.parse(&commit);
 
-                let should_skip = match commit.group {
-                    Group::Ci => config.skip_ci,
-                    Group::Chore => config.skip_chore,
-                    Group::Doc => config.skip_doc,
-                    Group::Test => config.skip_test,
-                    Group::Style => config.skip_style,
-                    Group::Refactor => config.skip_refactor,
-                    Group::Perf => config.skip_perf,
-                    Group::Revert => config.skip_revert,
-                    Group::Miscellaneous => config.skip_miscellaneous,
-                    _ => false,
-                };
+                let mut should_skip = false;
+                if let Some((group, skip)) = group_parser.parse(&commit) {
+                    commit.group = group;
+                    should_skip = skip;
+                }
+
                 if should_skip {
                     log::debug!(
                         "omitting {} commit: {} : {}",
@@ -114,6 +104,7 @@ impl Commit {
                     );
                     return None;
                 }
+
                 if commit.merge_commit && config.skip_merge_commits {
                     log::debug!(
                         "omitting merge commit: {} : {}",
@@ -122,6 +113,7 @@ impl Commit {
                     );
                     return None;
                 }
+
                 if let Some(matcher) = config.release_commit_matcher.as_ref()
                     && matcher.is_match(&commit.raw_title)
                 {
@@ -137,7 +129,31 @@ impl Commit {
                 Some(commit)
             }
             Err(_) => {
-                if config.skip_miscellaneous {
+                let mut commit = Self {
+                    id: commit_id,
+                    short_id: short_id.clone(),
+                    scope: None,
+                    title: raw_title.clone(),
+                    body: raw_body,
+                    merge_commit,
+                    breaking: false,
+                    breaking_description: None,
+                    raw_title: raw_title.clone(),
+                    raw_message,
+                    group: String::new(),
+                    link,
+                    timestamp,
+                    author_name,
+                    author_email,
+                };
+
+                let mut should_skip = false;
+                if let Some((group, skip)) = group_parser.parse(&commit) {
+                    commit.group = group;
+                    should_skip = skip;
+                }
+
+                if should_skip {
                     return None;
                 }
 
@@ -148,23 +164,7 @@ impl Commit {
                     return None;
                 }
 
-                Some(Self {
-                    id: commit_id,
-                    short_id,
-                    scope: None,
-                    title: raw_title.clone(),
-                    body: raw_body,
-                    merge_commit,
-                    breaking: false,
-                    breaking_description: None,
-                    raw_title,
-                    raw_message,
-                    group: Group::default(),
-                    link,
-                    timestamp,
-                    author_name,
-                    author_email,
-                })
+                Some(commit)
             }
         }
     }
@@ -194,14 +194,17 @@ fn trim_to_cow(s: &str) -> Cow<'_, str> {
 mod tests {
     use regex::Regex;
 
-    use crate::forge::request::ForgeCommitBuilder;
+    use crate::{
+        config::changelog::{DEFAULT_PARSERS, Group},
+        forge::request::ForgeCommitBuilder,
+    };
 
     use super::*;
 
     #[test]
     fn test_parse_conventional_feat_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc123")
             .message("feat: add new user authentication")
@@ -212,6 +215,8 @@ mod tests {
             .build()
             .unwrap();
 
+        let target_parser = DEFAULT_PARSERS.get(&Group::Feature).unwrap();
+
         let commit = Commit::parse_forge_commit(
             &group_parser,
             &forge_commit,
@@ -220,7 +225,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(commit.id, "abc123");
-        assert_eq!(commit.group, Group::Feat);
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.scope, None);
         assert_eq!(commit.title, "add new user authentication");
         assert_eq!(commit.body, None);
@@ -237,7 +242,7 @@ mod tests {
     #[test]
     fn test_parse_conventional_feat_commit_with_scope() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("def456")
             .message("feat(auth): add OAuth2 support")
@@ -255,8 +260,10 @@ mod tests {
         )
         .unwrap();
 
+        let target_parser = DEFAULT_PARSERS.get(&Group::Feature).unwrap();
+
         assert_eq!(commit.id, "def456");
-        assert_eq!(commit.group, Group::Feat);
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.scope, Some("auth".to_string()));
         assert_eq!(commit.title, "add OAuth2 support");
         assert_eq!(commit.body, None);
@@ -268,7 +275,7 @@ mod tests {
     #[test]
     fn test_parse_conventional_fix_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("ghi789")
             .message("fix: resolve null pointer exception")
@@ -286,7 +293,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Fix);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Fix).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "resolve null pointer exception");
         assert!(!commit.breaking);
     }
@@ -294,7 +303,7 @@ mod tests {
     #[test]
     fn test_parse_breaking_change_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("jkl012")
             .message("feat!: redesign user API\n\nBREAKING CHANGE: The user API has been completely redesigned")
@@ -312,7 +321,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Breaking);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Breaking).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "redesign user API");
         assert_eq!(commit.body, None);
         assert!(commit.breaking);
@@ -325,7 +336,7 @@ mod tests {
     #[test]
     fn test_parse_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let message = "feat: add user registration\n\nThis feature allows new users to register\nwith email verification.";
         let forge_commit = ForgeCommitBuilder::default()
             .id("mno345")
@@ -344,7 +355,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Feat);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Feature).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "add user registration");
         assert_eq!(commit.body, Some("This feature allows new users to register\nwith email verification.".to_string()));
         assert!(!commit.breaking);
@@ -353,7 +366,7 @@ mod tests {
     #[test]
     fn test_parse_non_conventional_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("pqr678")
             .message("Update user authentication logic")
@@ -371,7 +384,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Miscellaneous);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Miscellaneous).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.scope, None);
         assert_eq!(commit.title, "Update user authentication logic");
         assert_eq!(commit.body, None);
@@ -382,7 +397,7 @@ mod tests {
     #[test]
     fn test_parse_non_conventional_commit_with_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let message = "Update database schema\n\nAdded new indexes for better performance\nand updated user table structure.";
         let forge_commit = ForgeCommitBuilder::default()
             .id("stu901")
@@ -401,7 +416,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Miscellaneous);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Miscellaneous).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "Update database schema");
         assert_eq!(commit.body, Some("Added new indexes for better performance\nand updated user table structure.".to_string()));
     }
@@ -409,7 +426,7 @@ mod tests {
     #[test]
     fn test_parses_and_omits_merge_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("Merge pull request #123 from feature/auth")
@@ -435,7 +452,7 @@ mod tests {
             skip_merge_commits: false,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("Merge pull request #123 from feature/auth")
@@ -453,7 +470,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Miscellaneous);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Miscellaneous).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert!(commit.merge_commit);
         assert_eq!(commit.title, "Merge pull request #123 from feature/auth");
         assert_eq!(commit.author_name, "GitHub");
@@ -463,14 +482,13 @@ mod tests {
     #[test]
     fn test_parses_and_omits_release_commit() {
         let analyzer_config = AnalyzerConfig {
-            skip_chore: false,
             release_commit_matcher: Some(
                 Regex::new(r#"^chore\(main\):\srelease.+"#).unwrap(),
             ),
             tag_prefix: Some("test-package-v".into()),
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx234")
             .message("chore(main): release test-package test-package-v1.0.0")
@@ -493,7 +511,7 @@ mod tests {
     #[test]
     fn test_parse_empty_message() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("yz567")
             .message("")
@@ -510,7 +528,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Miscellaneous);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Miscellaneous).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "");
         assert_eq!(commit.body, None);
         assert!(!commit.breaking);
@@ -519,7 +539,7 @@ mod tests {
     #[test]
     fn test_parse_chore_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc890")
             .message("chore: update dependencies")
@@ -536,14 +556,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Chore);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Chore).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "update dependencies");
     }
 
     #[test]
     fn test_parse_ci_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("def123")
             .message("ci: update GitHub Actions workflow")
@@ -560,14 +582,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Ci);
+        let target_parser = DEFAULT_PARSERS.get(&Group::CI).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "update GitHub Actions workflow");
     }
 
     #[test]
     fn test_parse_docs_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("ghi456")
             .message("doc: update README with installation instructions")
@@ -584,7 +608,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Doc);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Documentation).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(
             commit.title,
             "update README with installation instructions"
@@ -594,7 +620,7 @@ mod tests {
     #[test]
     fn test_parse_test_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("jkl789")
             .message("test: add unit tests for user service")
@@ -611,14 +637,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Test);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Test).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "add unit tests for user service");
     }
 
     #[test]
     fn test_parse_refactor_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("mno012")
             .message("refactor: simplify authentication logic")
@@ -635,14 +663,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Refactor);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Refactor).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "simplify authentication logic");
     }
 
     #[test]
     fn test_parse_perf_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("pqr345")
             .message("perf: optimize database queries")
@@ -659,14 +689,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Perf);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Performance).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "optimize database queries");
     }
 
     #[test]
     fn test_parse_style_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("stu678")
             .message("style: format code with prettier")
@@ -683,14 +715,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Style);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Style).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "format code with prettier");
     }
 
     #[test]
     fn test_parse_revert_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("vwx901")
             .message("revert: undo breaking changes")
@@ -707,14 +741,16 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Revert);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Revert).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "undo breaking changes");
     }
 
     #[test]
     fn test_parse_commit_with_trailing_whitespace() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("xyz234")
             .message("feat: add new feature   \n\n  ")
@@ -731,7 +767,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Feat);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Feature).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "add new feature");
         // Body should be None since it's just whitespace
         assert_eq!(commit.body, None);
@@ -740,7 +778,7 @@ mod tests {
     #[test]
     fn test_parse_commit_with_empty_body() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("abc567")
             .message("fix: resolve issue\n\n")
@@ -757,7 +795,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Fix);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Fix).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "resolve issue");
         assert_eq!(commit.body, None);
     }
@@ -765,7 +805,7 @@ mod tests {
     #[test]
     fn test_parse_breaking_change_with_conventional_format() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let message = "feat(api)!: remove deprecated endpoints\n\nBREAKING CHANGE: The old v1 API endpoints have been removed".to_string();
         let forge_commit = ForgeCommitBuilder::default()
             .id("def890")
@@ -783,7 +823,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Breaking);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Breaking).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.scope, Some("api".to_string()));
         assert_eq!(commit.title, "remove deprecated endpoints");
         assert!(commit.breaking);
@@ -796,7 +838,7 @@ mod tests {
     #[test]
     fn test_metadata_preservation() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("unique123")
             .short_id("uni")
@@ -830,7 +872,7 @@ mod tests {
     #[test]
     fn test_non_conventional_single_line() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("single123")
             .message("Just a simple commit message")
@@ -847,7 +889,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(commit.group, Group::Miscellaneous);
+        let target_parser = DEFAULT_PARSERS.get(&Group::Miscellaneous).unwrap();
+
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "Just a simple commit message");
         assert_eq!(commit.body, None);
         assert_eq!(commit.scope, None);
@@ -858,7 +902,7 @@ mod tests {
     #[test]
     fn test_breaking_takes_precedence_over_type() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("breaking123")
             .message("feat!: feature change")
@@ -875,19 +919,21 @@ mod tests {
         )
         .unwrap();
 
+        let target_parser = DEFAULT_PARSERS.get(&Group::Breaking).unwrap();
+
         // Breaking should take precedence over feat
-        assert_eq!(commit.group, Group::Breaking);
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert!(commit.breaking);
         assert_eq!(commit.title, "feature change");
     }
 
     #[test]
     fn test_skip_ci_filters_ci_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_ci: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let ci_parser = default_parsers.get_mut(&Group::CI).unwrap();
+        ci_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("ci123")
             .message("ci: update github actions workflow")
@@ -909,11 +955,8 @@ mod tests {
 
     #[test]
     fn test_skip_ci_false_includes_ci_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_ci: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("ci123")
             .message("ci: update github actions workflow")
@@ -929,19 +972,21 @@ mod tests {
             &analyzer_config,
         );
 
+        let target_parser = DEFAULT_PARSERS.get(&Group::CI).unwrap();
+
         // Should return Some when skip_ci is false
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Ci);
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "update github actions workflow");
     }
 
     #[test]
     fn test_skip_chore_filters_chore_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_chore: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let chore_parser = default_parsers.get_mut(&Group::Chore).unwrap();
+        chore_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("chore123")
             .message("chore: update dependencies")
@@ -963,11 +1008,8 @@ mod tests {
 
     #[test]
     fn test_skip_chore_false_includes_chore_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_chore: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("chore123")
             .message("chore: update dependencies")
@@ -983,19 +1025,22 @@ mod tests {
             &analyzer_config,
         );
 
+        let target_parser = DEFAULT_PARSERS.get(&Group::Chore).unwrap();
+
         // Should return Some when skip_chore is false
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Chore);
+        assert_eq!(commit.group, target_parser.title.clone().unwrap());
         assert_eq!(commit.title, "update dependencies");
     }
 
     #[test]
     fn test_skip_miscellaneous_filters_non_conventional_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_miscellaneous: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let misc_parser =
+            default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+        misc_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("misc123")
             .message("random commit message without type")
@@ -1017,11 +1062,13 @@ mod tests {
 
     #[test]
     fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_miscellaneous: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let misc_parser =
+            default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+        misc_parser.skip = Some(false);
+        let misc_title = misc_parser.title.clone().unwrap();
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("misc123")
             .message("random commit message without type")
@@ -1039,17 +1086,18 @@ mod tests {
 
         // Should return Some when skip_miscellaneous is false
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Miscellaneous);
+        assert_eq!(commit.group, misc_title);
         assert_eq!(commit.title, "random commit message without type");
     }
 
     #[test]
     fn test_skip_docs_filters_docs_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_doc: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let doc_parser =
+            default_parsers.get_mut(&Group::Documentation).unwrap();
+        doc_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("docs123")
             .message("docs: update README")
@@ -1070,11 +1118,15 @@ mod tests {
 
     #[test]
     fn test_skip_docs_false_includes_docs_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_doc: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let default_parsers = DEFAULT_PARSERS.clone();
+        let analyzer_config = AnalyzerConfig::default();
+        let doc_title = default_parsers
+            .get(&Group::Documentation)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("docs123")
             .message("docs: update README")
@@ -1091,17 +1143,17 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Doc);
+        assert_eq!(commit.group, doc_title);
         assert_eq!(commit.title, "update README");
     }
 
     #[test]
     fn test_skip_test_filters_test_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_test: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let test_parser = default_parsers.get_mut(&Group::Test).unwrap();
+        test_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("test123")
             .message("test: add unit tests for auth")
@@ -1122,11 +1174,14 @@ mod tests {
 
     #[test]
     fn test_skip_test_false_includes_test_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_test: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let test_title = DEFAULT_PARSERS
+            .get(&Group::Test)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("test123")
             .message("test: add unit tests for auth")
@@ -1143,17 +1198,17 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Test);
+        assert_eq!(commit.group, test_title);
         assert_eq!(commit.title, "add unit tests for auth");
     }
 
     #[test]
     fn test_skip_style_filters_style_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_style: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let style_parser = default_parsers.get_mut(&Group::Style).unwrap();
+        style_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("style123")
             .message("style: format code with prettier")
@@ -1174,11 +1229,14 @@ mod tests {
 
     #[test]
     fn test_skip_style_false_includes_style_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_style: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let style_title = DEFAULT_PARSERS
+            .get(&Group::Style)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("style123")
             .message("style: format code with prettier")
@@ -1195,17 +1253,18 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Style);
+        assert_eq!(commit.group, style_title);
         assert_eq!(commit.title, "format code with prettier");
     }
 
     #[test]
     fn test_skip_refactor_filters_refactor_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_refactor: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let refactor_parser =
+            default_parsers.get_mut(&Group::Refactor).unwrap();
+        refactor_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("refactor123")
             .message("refactor: simplify authentication logic")
@@ -1226,11 +1285,14 @@ mod tests {
 
     #[test]
     fn test_skip_refactor_false_includes_refactor_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_refactor: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let refactor_title = DEFAULT_PARSERS
+            .get(&Group::Refactor)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("refactor123")
             .message("refactor: simplify authentication logic")
@@ -1247,17 +1309,17 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Refactor);
+        assert_eq!(commit.group, refactor_title);
         assert_eq!(commit.title, "simplify authentication logic");
     }
 
     #[test]
     fn test_skip_perf_filters_perf_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_perf: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let perf_parser = default_parsers.get_mut(&Group::Performance).unwrap();
+        perf_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("perf123")
             .message("perf: optimize database queries")
@@ -1278,11 +1340,14 @@ mod tests {
 
     #[test]
     fn test_skip_perf_false_includes_perf_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_perf: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let perf_title = DEFAULT_PARSERS
+            .get(&Group::Performance)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("perf123")
             .message("perf: optimize database queries")
@@ -1299,17 +1364,17 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Perf);
+        assert_eq!(commit.group, perf_title);
         assert_eq!(commit.title, "optimize database queries");
     }
 
     #[test]
     fn test_skip_revert_filters_revert_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_revert: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+        let revert_parser = default_parsers.get_mut(&Group::Revert).unwrap();
+        revert_parser.skip = Some(true);
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&default_parsers, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("revert123")
             .message("revert: undo breaking changes")
@@ -1330,11 +1395,14 @@ mod tests {
 
     #[test]
     fn test_skip_revert_false_includes_revert_commits() {
-        let analyzer_config = AnalyzerConfig {
-            skip_revert: false,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+        let revert_title = DEFAULT_PARSERS
+            .get(&Group::Revert)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommitBuilder::default()
             .id("revert123")
             .message("revert: undo breaking changes")
@@ -1351,33 +1419,78 @@ mod tests {
         );
 
         let commit = result.unwrap();
-        assert_eq!(commit.group, Group::Revert);
+        assert_eq!(commit.group, revert_title);
         assert_eq!(commit.title, "undo breaking changes");
     }
 
     #[test]
     fn test_skip_options_do_not_affect_other_types() {
+        let mut default_parsers = DEFAULT_PARSERS.clone();
+
+        let chore_parser = default_parsers.get_mut(&Group::Chore).unwrap();
+        chore_parser.skip = Some(true);
+
+        let ci_parser = default_parsers.get_mut(&Group::CI).unwrap();
+        ci_parser.skip = Some(true);
+
+        let doc_parser =
+            default_parsers.get_mut(&Group::Documentation).unwrap();
+        doc_parser.skip = Some(true);
+
+        let misc_parser =
+            default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+        misc_parser.skip = Some(true);
+
+        let perf_parser = default_parsers.get_mut(&Group::Performance).unwrap();
+        perf_parser.skip = Some(true);
+
+        let refactor_parser =
+            default_parsers.get_mut(&Group::Refactor).unwrap();
+        refactor_parser.skip = Some(true);
+
+        let revert_parser = default_parsers.get_mut(&Group::Revert).unwrap();
+        revert_parser.skip = Some(true);
+
+        let style_parser = default_parsers.get_mut(&Group::Style).unwrap();
+        style_parser.skip = Some(true);
+
+        let test_parser = default_parsers.get_mut(&Group::Test).unwrap();
+        test_parser.skip = Some(true);
+
         let analyzer_config = AnalyzerConfig {
-            skip_chore: true,
-            skip_ci: true,
-            skip_doc: true,
             skip_merge_commits: true,
-            skip_miscellaneous: true,
-            skip_perf: true,
-            skip_refactor: true,
-            skip_revert: true,
-            skip_style: true,
-            skip_test: true,
             ..AnalyzerConfig::default()
         };
-        let group_parser = GroupParser::default();
+
+        let feature_title = default_parsers
+            .get(&Group::Feature)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+
+        let fix_title = default_parsers
+            .get(&Group::Fix)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+
+        let breaking_title = default_parsers
+            .get(&Group::Breaking)
+            .cloned()
+            .unwrap()
+            .title
+            .unwrap();
+
+        let group_parser = GroupParser::new(&default_parsers, &[]);
 
         // Test that other commit types are not affected when all skip configs
         // set to true
         let test_cases = vec![
-            ("feat: add feature", Group::Feat),
-            ("fix: fix bug", Group::Fix),
-            ("chore!: breaking chore change", Group::Breaking),
+            ("feat: add feature", feature_title),
+            ("fix: fix bug", fix_title),
+            ("chore!: breaking chore change", breaking_title),
         ];
 
         for (message, expected_group) in test_cases {
@@ -1409,7 +1522,7 @@ mod tests {
     #[test]
     fn test_author_information_preserved() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&DEFAULT_PARSERS, &[]);
         let forge_commit = ForgeCommit {
             id: "author123".into(),
             message: "feat: add feature".into(),

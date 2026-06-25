@@ -14,7 +14,10 @@ use semver::Version as SemVer;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
-    config::prerelease::{PrereleaseConfig, PrereleaseStrategy},
+    config::{
+        changelog::DEFAULT_PARSERS,
+        prerelease::{PrereleaseConfig, PrereleaseStrategy},
+    },
     forge::request::{ForgeCommit, Tag},
 };
 
@@ -27,7 +30,7 @@ fn test_prerelease_start_from_stable() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -58,7 +61,7 @@ fn test_prerelease_continue_same_identifier() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -86,7 +89,7 @@ fn test_prerelease_graduate_to_stable() {
         prerelease: None,
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -117,7 +120,7 @@ fn test_prerelease_switch_identifier() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -149,7 +152,7 @@ fn test_prerelease_first_release() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let commits = vec![ForgeCommit {
         id: "abc123".to_string(),
@@ -173,7 +176,7 @@ fn test_prerelease_breaking_change() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -205,7 +208,7 @@ fn test_new_prerelease_with_static_strategy() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -237,7 +240,7 @@ fn test_continuing_prerelease_with_static_strategy() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -270,7 +273,7 @@ fn test_prerelease_with_tag_prefix() {
         }),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config).unwrap();
+    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
