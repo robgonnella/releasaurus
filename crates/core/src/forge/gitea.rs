@@ -19,14 +19,14 @@ use crate::{
     },
     forge::{
         config::{
-            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL,
-            PENDING_LABEL, RepoUrl, TokenVar, USER_AGENT, resolve_token,
+            DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl,
+            TokenVar, USER_AGENT, resolve_token,
         },
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
             GiteaCreatedCommit, GiteaFileChange, GiteaFileChangeOperation,
-            GiteaIssue, GiteaModifyFiles, GiteaPullRequest, GiteaRelease,
-            GiteaTag, Label, UpdatePullBody, UpdatePullLabels,
+            GiteaIssue, GiteaLabel, GiteaModifyFiles, GiteaPullRequest,
+            GiteaRelease, GiteaTag, UpdatePullBody, UpdatePullLabels,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -145,7 +145,7 @@ impl Gitea {
         Ok(sha.into())
     }
 
-    async fn get_all_labels(&self) -> Result<Vec<Label>> {
+    async fn get_all_labels(&self) -> Result<Vec<GiteaLabel>> {
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
@@ -167,7 +167,7 @@ impl Gitea {
                 .map(|h| h.to_str().unwrap_or_default() == "true")
                 .unwrap_or(false);
             let result = response.error_for_status()?;
-            let batch: Vec<Label> = result.json().await?;
+            let batch: Vec<GiteaLabel> = result.json().await?;
             labels.extend(batch);
             page += 1;
         }
@@ -175,7 +175,7 @@ impl Gitea {
         Ok(labels)
     }
 
-    async fn create_label(&self, label_name: String) -> Result<Label> {
+    async fn create_label(&self, label_name: String) -> Result<GiteaLabel> {
         let labels_url = self.base_url.join("labels")?;
         let request = self
             .client
@@ -187,12 +187,11 @@ impl Gitea {
             .build()?;
         let response = self.client.execute(request).await?;
         let result = response.error_for_status()?;
-        let label: Label = result.json().await?;
+        let label: GiteaLabel = result.json().await?;
         Ok(label)
     }
 
-    /// Returns the list of pending labels safe to filter on when
-    /// searching for release PRs.
+    /// Returns whether or not PENDING_LABEL exists.
     ///
     /// Gitea's issues endpoint silently discards non-existent label
     /// names from the `labels` query parameter, which causes the
@@ -201,18 +200,14 @@ impl Gitea {
     /// are created on demand by the PR-management code paths, so
     /// there is nothing to filter on until they exist.
     ///
-    /// Callers MUST skip the API query entirely when this returns an
-    /// empty list — issuing a request without any label filter would
-    /// match all issues.
-    async fn pending_labels_to_query(&self) -> Result<Vec<&'static str>> {
+    /// Callers MUST skip the API query entirely when this returns false.
+    /// Issuing a request without any label filter would match all issues.
+    async fn pending_label_exists(&self) -> Result<bool> {
         let all_labels = self.get_all_labels().await?;
-        let mut labels = vec![];
-        for candidate in [PENDING_LABEL, LEGACY_PENDING_LABEL] {
-            if all_labels.iter().any(|l| l.name == candidate) {
-                labels.push(candidate);
-            }
+        if all_labels.iter().any(|l| l.name == PENDING_LABEL) {
+            return Ok(true);
         }
-        Ok(labels)
+        Ok(false)
     }
 
     /// Returns true if `tag_sha` is an ancestor of `branch`. Uses the
@@ -647,63 +642,56 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
+        if !self.pending_label_exists().await? {
+            return Ok(None);
+        }
+
         let mut found_prs = vec![];
+        let mut has_more = true;
+        let mut page = 1;
+        let page_limit = DEFAULT_PAGE_SIZE.to_string();
 
-        // Try the current label first, then fall back to the
-        // legacy single-colon label for users upgrading from an
-        // older version of releasaurus.
-        for pending_label in self.pending_labels_to_query().await? {
-            if !found_prs.is_empty() {
-                break;
-            }
+        while has_more {
+            // Search for open issues with the pending label
+            let mut issues_url = self.base_url.join(&format!(
+                "issues?state=open&type=pulls&labels={}",
+                PENDING_LABEL
+            ))?;
 
-            let mut has_more = true;
-            let mut page = 1;
-            let page_limit = DEFAULT_PAGE_SIZE.to_string();
+            issues_url
+                .query_pairs_mut()
+                .append_pair("limit", &page_limit.to_string())
+                .append_pair("page", &page.to_string());
 
-            while has_more {
-                // Search for open issues with the pending label
-                let mut issues_url = self.base_url.join(&format!(
-                    "issues?state=open&type=pulls&labels={}",
-                    pending_label
-                ))?;
+            let request = self.client.get(issues_url).build()?;
+            let response = self.client.execute(request).await?;
+            let headers = response.headers();
 
-                issues_url
-                    .query_pairs_mut()
-                    .append_pair("limit", &page_limit.to_string())
-                    .append_pair("page", &page.to_string());
+            has_more = headers
+                .get("x-hasmore")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
+                .unwrap_or(false);
 
-                let request = self.client.get(issues_url).build()?;
+            let result = response.error_for_status()?;
+            let issues: Vec<GiteaIssue> = result.json().await?;
+
+            for issue in issues.iter() {
+                let pr_url =
+                    self.base_url.join(&format!("pulls/{}", issue.number))?;
+                let request = self.client.get(pr_url).build()?;
                 let response = self.client.execute(request).await?;
-                let headers = response.headers();
-
-                has_more = headers
-                    .get("x-hasmore")
-                    .map(|h| h.to_str().unwrap_or_default() == "true")
-                    .unwrap_or(false);
-
                 let result = response.error_for_status()?;
-                let issues: Vec<GiteaIssue> = result.json().await?;
-
-                for issue in issues.iter() {
-                    let pr_url = self
-                        .base_url
-                        .join(&format!("pulls/{}", issue.number))?;
-                    let request = self.client.get(pr_url).build()?;
-                    let response = self.client.execute(request).await?;
-                    let result = response.error_for_status()?;
-                    let found_pr: GiteaPullRequest = result.json().await?;
-                    if found_pr.head.label == req.head_branch {
-                        found_prs.push(PullRequest {
-                            number: found_pr.number,
-                            sha: found_pr.head.sha,
-                            body: found_pr.body,
-                        });
-                    }
+                let found_pr: GiteaPullRequest = result.json().await?;
+                if found_pr.head.label == req.head_branch {
+                    found_prs.push(PullRequest {
+                        number: found_pr.number,
+                        sha: found_pr.head.sha,
+                        body: found_pr.body,
+                    });
                 }
-
-                page += 1;
             }
+
+            page += 1;
         }
 
         if found_prs.is_empty() {
@@ -728,83 +716,75 @@ impl Forge for Gitea {
         &self,
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
+        if !self.pending_label_exists().await? {
+            return Ok(None);
+        }
+
         let mut found_prs = vec![];
+        let mut has_more = true;
+        let mut page = 1;
+        let page_limit = DEFAULT_PAGE_SIZE.to_string();
 
-        // Try the current label first, then fall back to the
-        // legacy single-colon label for users upgrading from an
-        // older version of releasaurus.
-        for pending_label in self.pending_labels_to_query().await? {
-            if !found_prs.is_empty() {
-                break;
-            }
+        while has_more {
+            // Search for closed issues with the pending label
+            let mut issues_url = self.base_url.join(&format!(
+                "issues?state=closed&labels={}",
+                PENDING_LABEL
+            ))?;
 
-            let mut has_more = true;
-            let mut page = 1;
-            let page_limit = DEFAULT_PAGE_SIZE.to_string();
+            issues_url
+                .query_pairs_mut()
+                .append_pair("limit", &page_limit.to_string())
+                .append_pair("page", &page.to_string());
 
-            while has_more {
-                // Search for closed issues with the pending label
-                let mut issues_url = self.base_url.join(&format!(
-                    "issues?state=closed&labels={}",
-                    pending_label
-                ))?;
+            let request = self.client.get(issues_url).build()?;
+            let response = self.client.execute(request).await?;
+            let headers = response.headers();
 
-                issues_url
-                    .query_pairs_mut()
-                    .append_pair("limit", &page_limit.to_string())
-                    .append_pair("page", &page.to_string());
+            has_more = headers
+                .get("x-hasmore")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
+                .unwrap_or(false);
 
-                let request = self.client.get(issues_url).build()?;
-                let response = self.client.execute(request).await?;
-                let headers = response.headers();
+            let result = response.error_for_status()?;
+            let issues: Vec<GiteaIssue> = result.json().await?;
 
-                has_more = headers
-                    .get("x-hasmore")
-                    .map(|h| h.to_str().unwrap_or_default() == "true")
+            for issue in issues.iter() {
+                let is_merged = issue
+                    .pull_request
+                    .as_ref()
+                    .map(|pr| pr.merged)
                     .unwrap_or(false);
-
-                let result = response.error_for_status()?;
-                let issues: Vec<GiteaIssue> = result.json().await?;
-
-                for issue in issues.iter() {
-                    let is_merged = issue
-                        .pull_request
-                        .as_ref()
-                        .map(|pr| pr.merged)
-                        .unwrap_or(false);
-                    if !is_merged {
-                        log::warn!(
-                            "found unmerged closed pr {} with pending label: skipping",
-                            issue.number
-                        );
-                        continue;
-                    }
-
-                    let pr_url = self
-                        .base_url
-                        .join(&format!("pulls/{}", issue.number))?;
-                    let request = self.client.get(pr_url).build()?;
-                    let response = self.client.execute(request).await?;
-                    let result = response.error_for_status()?;
-                    let found_pr: GiteaPullRequest = result.json().await?;
-                    if found_pr.head.label == req.head_branch {
-                        let sha =
-                            found_pr.merge_commit_sha.ok_or_else(|| {
-                                ReleasaurusError::forge(format!(
-                                    "no merge_commit_sha found for pr {}",
-                                    found_pr.number
-                                ))
-                            })?;
-                        found_prs.push(PullRequest {
-                            number: found_pr.number,
-                            sha,
-                            body: found_pr.body,
-                        });
-                    }
+                if !is_merged {
+                    log::warn!(
+                        "found unmerged closed pr {} with pending label: skipping",
+                        issue.number
+                    );
+                    continue;
                 }
 
-                page += 1;
+                let pr_url =
+                    self.base_url.join(&format!("pulls/{}", issue.number))?;
+                let request = self.client.get(pr_url).build()?;
+                let response = self.client.execute(request).await?;
+                let result = response.error_for_status()?;
+                let found_pr: GiteaPullRequest = result.json().await?;
+                if found_pr.head.label == req.head_branch {
+                    let sha = found_pr.merge_commit_sha.ok_or_else(|| {
+                        ReleasaurusError::forge(format!(
+                            "no merge_commit_sha found for pr {}",
+                            found_pr.number
+                        ))
+                    })?;
+                    found_prs.push(PullRequest {
+                        number: found_pr.number,
+                        sha,
+                        body: found_pr.body,
+                    });
+                }
             }
+
+            page += 1;
         }
 
         if found_prs.is_empty() {
@@ -918,7 +898,7 @@ mod tests {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
-    use crate::forge::config::{RepoUrl, Scheme};
+    use crate::forge::config::{PENDING_LABEL, RepoUrl, Scheme};
     use crate::forge::traits::Forge;
 
     use super::Gitea;
@@ -965,8 +945,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pending_labels_to_query_returns_empty_when_no_pending_labels_exist()
-     {
+    async fn pending_label_exists_returns_false_when_no_pending_labels_exist() {
         let server = MockServer::start().await;
         let gitea = make_gitea(&server, "foo", "bar").await;
 
@@ -987,12 +966,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let labels = gitea.pending_labels_to_query().await.unwrap();
+        let exists = gitea.pending_label_exists().await.unwrap();
 
-        assert!(
-            labels.is_empty(),
-            "expected empty vec when no pending labels exist, got: {labels:?}"
-        );
+        assert!(!exists, "expected false when no pending labels exist");
     }
 
     #[tokio::test]
@@ -1042,7 +1018,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pending_labels_to_query_includes_legacy_when_present() {
+    async fn pending_label_exists_returns_true_when_label_exists() {
         let server = MockServer::start().await;
         let gitea = make_gitea(&server, "foo", "bar").await;
 
@@ -1052,7 +1028,7 @@ mod tests {
                 serde_json::json!([
                     {
                         "id": 2,
-                        "name": "releasaurus:pending",
+                        "name": PENDING_LABEL,
                         "color": "a47dab",
                         "description": "",
                         "exclusive": false,
@@ -1063,12 +1039,8 @@ mod tests {
             .mount(&server)
             .await;
 
-        let labels = gitea.pending_labels_to_query().await.unwrap();
+        let exists = gitea.pending_label_exists().await.unwrap();
 
-        assert_eq!(
-            labels,
-            vec!["releasaurus:pending"],
-            "expected only the legacy label to be returned"
-        );
+        assert!(exists, "expected pending_label_exists to return true");
     }
 }
