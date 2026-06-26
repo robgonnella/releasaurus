@@ -6,7 +6,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::{prerelease::PrereleaseConfig, release_type::ReleaseType},
+    config::{
+        changelog::ChangelogConfig, prerelease::PrereleaseConfig,
+        release_type::ReleaseType,
+    },
     result::{ReleasaurusError, Result},
 };
 
@@ -151,6 +154,8 @@ pub struct PackageConfig {
     /// minor bumps regardless of this setting. In TOML double-quoted strings,
     /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
     pub custom_minor_increment_regex: Option<String>,
+    /// Changelog generation settings applied to target package.
+    pub changelog: Option<ChangelogConfig>,
 }
 
 impl Default for PackageConfig {
@@ -170,6 +175,7 @@ impl Default for PackageConfig {
             features_always_increment_minor: None,
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
+            changelog: None,
         }
     }
 }

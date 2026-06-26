@@ -12,7 +12,6 @@ use semver::Version as SemVer;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
-    config::changelog::DEFAULT_PARSERS,
     forge::request::{ForgeCommit, Tag},
 };
 
@@ -23,7 +22,7 @@ fn test_breaking_always_increment_major_disabled() {
         ..AnalyzerConfig::default()
     };
 
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -54,7 +53,7 @@ fn test_custom_major_regex_works_with_breaking_syntax() {
         ..AnalyzerConfig::default()
     };
 
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -85,7 +84,7 @@ fn test_custom_major_increment_regex() {
         ..AnalyzerConfig::default()
     };
 
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -114,7 +113,7 @@ fn test_features_always_increment_minor_disabled() {
         features_always_increment_minor: false,
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -144,7 +143,7 @@ fn test_custom_minor_increment_regex() {
         custom_minor_increment_regex: Some("^ci".to_string()),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -173,7 +172,7 @@ fn test_custom_minor_regex_works_with_feat_syntax() {
         custom_minor_increment_regex: Some("ci".to_string()),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -203,7 +202,7 @@ fn test_both_boolean_flags_disabled_minor_bump() {
         breaking_always_increment_major: false,
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -248,7 +247,7 @@ fn test_both_boolean_flags_disabled_patch_bump() {
         breaking_always_increment_major: false,
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -286,7 +285,7 @@ fn test_custom_regex_matches_non_conventional_commit() {
         custom_major_increment_regex: Some("wow".to_string()),
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),

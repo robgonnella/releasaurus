@@ -11,7 +11,9 @@
 //! Legacy-format tests are in `release_workflow_legacy.rs`.
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+    },
     forge::{
         request::{Commit, GetPrRequest, PullRequest, Tag},
         traits::MockForge,
@@ -127,7 +129,10 @@ async fn create_releases_handles_separate_pull_requests() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 
@@ -192,7 +197,10 @@ async fn create_releases_targets_specific_package() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 

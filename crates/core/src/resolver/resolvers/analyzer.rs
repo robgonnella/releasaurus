@@ -4,11 +4,18 @@
 //! handling complex interactions between global config, package
 //! config, and CLI overrides.
 
-use std::rc::Rc;
+use url::Url;
 
 use crate::{
     analyzer::config::AnalyzerConfig,
-    config::{prerelease::PrereleaseConfig, resolved::ResolvedConfig},
+    config::{
+        changelog::{
+            ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR,
+            DEFAULT_SKIP_MERGE_COMMITS,
+        },
+        prerelease::PrereleaseConfig,
+        resolved::CommitModifiers,
+    },
 };
 
 /// Parameters for building an analyzer configuration.
@@ -17,10 +24,13 @@ use crate::{
 /// package configuration into the analyzer config builder.
 #[derive(Debug)]
 pub struct AnalyzerParams {
-    pub config: Rc<ResolvedConfig>,
+    pub changelog_config: ChangelogConfig,
     pub package_name: String,
     pub prerelease: Option<PrereleaseConfig>,
     pub tag_prefix: String,
+    pub release_link_base_url: Option<Url>,
+    pub compare_link_base_url: Option<Url>,
+    pub commit_modifiers: CommitModifiers,
     pub breaking_always_increment_major: bool,
     pub custom_major_increment_regex: Option<String>,
     pub features_always_increment_minor: bool,
@@ -34,21 +44,32 @@ pub struct AnalyzerParams {
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
     AnalyzerConfig {
-        body: params.config.changelog.body.clone(),
+        body: params
+            .changelog_config
+            .body
+            .clone()
+            .unwrap_or(DEFAULT_BODY.into()),
         breaking_always_increment_major: params.breaking_always_increment_major,
         custom_major_increment_regex: params.custom_major_increment_regex,
         custom_minor_increment_regex: params.custom_minor_increment_regex,
         features_always_increment_minor: params.features_always_increment_minor,
-        include_author: params.config.changelog.include_author,
+        include_author: params
+            .changelog_config
+            .include_author
+            .unwrap_or(DEFAULT_INCLUDE_AUTHOR),
         prerelease: params.prerelease,
-        release_link_base_url: Some(
-            params.config.release_link_base_url.clone(),
-        ),
-        compare_link_base_url: Some(
-            params.config.compare_link_base_url.clone(),
-        ),
-        skip_merge_commits: params.config.changelog.skip_merge_commits,
+        release_link_base_url: params.release_link_base_url,
+        compare_link_base_url: params.compare_link_base_url,
+        skip_merge_commits: params
+            .changelog_config
+            .skip_merge_commits
+            .unwrap_or(DEFAULT_SKIP_MERGE_COMMITS),
         tag_prefix: Some(params.tag_prefix),
-        commit_modifiers: params.config.commit_modifiers.clone(),
+        commit_modifiers: params.commit_modifiers.clone(),
+        named_parsers: params
+            .changelog_config
+            .named_parsers
+            .unwrap_or_default(),
+        custom_parsers: params.changelog_config.custom_parsers,
     }
 }

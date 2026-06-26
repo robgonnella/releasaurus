@@ -1,13 +1,18 @@
 #:schema ./schema/schema.json
 
+[repository]
 tag_search_depth = 25
 
-[changelog]
+[global.changelog]
 include_author = true
 aggregate_prereleases = true
-default_parsers = { ci.skip = true, chore.skip = true, miscellaneous.skip = false }
 
-[prerelease]
+[global.changelog.named_parsers]
+ci.skip = true
+chore.skip = true
+miscellaneous.skip = false
+
+[global.prerelease]
 strategy = "versioned"
 suffix = "rc"
 

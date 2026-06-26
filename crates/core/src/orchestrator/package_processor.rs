@@ -177,9 +177,7 @@ impl PackageProcessor {
                 &commits,
             );
 
-            if self.config.changelog.aggregate_prereleases
-                && is_graduating_to_stable
-            {
+            if package.aggregate_prereleases && is_graduating_to_stable {
                 let additional = self
                     .commit_fetcher
                     .fetch_additional_commits_for_prerelease_aggregation(
@@ -214,11 +212,7 @@ impl PackageProcessor {
 
         for pkg in packages.into_iter() {
             let config = self.package_configs.get(&pkg.name)?;
-            let analyzer = Analyzer::new(
-                &config.analyzer_config,
-                &self.config.changelog.default_parsers,
-                &self.config.changelog.custom_parsers,
-            )?;
+            let analyzer = Analyzer::new(&config.analyzer_config)?;
             let release = analyzer.analyze(pkg.commits, pkg.current_tag)?;
             let analyzed = AnalyzedPackage {
                 name: pkg.name.clone(),

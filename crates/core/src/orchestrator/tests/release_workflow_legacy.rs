@@ -7,7 +7,9 @@
 //! - Targeting a specific package with legacy body
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+    },
     forge::{
         config::TAGGED_LABEL,
         request::{Commit, GetPrRequest, PullRequest, Tag},
@@ -192,7 +194,10 @@ Release B
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 
@@ -255,7 +260,10 @@ Release A
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 

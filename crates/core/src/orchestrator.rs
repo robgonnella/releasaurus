@@ -118,11 +118,13 @@ impl Orchestrator {
         let mut packages: Vec<SerializableReleasablePackage> =
             serde_json::from_str(&content)?;
 
-        // Compile template once before loop to avoid O(n) template compilation
-        let mut tera = tera::Tera::default();
-        tera.add_raw_template("changelog", &self.config.changelog.body)?;
-
         for package in packages.iter_mut() {
+            let pkg_config = self.package_configs.get(&package.name)?;
+            let mut tera = tera::Tera::default();
+            tera.add_raw_template(
+                "changelog",
+                &pkg_config.analyzer_config.body,
+            )?;
             let context = tera::Context::from_serialize(&package.release)?;
             package.release.notes = tera.render("changelog", &context)?;
         }

@@ -2,13 +2,14 @@
 
 Releasaurus generates changelogs from conventional commits. Control what
 appears with the filtering options, and how it's formatted with a Tera
-template — both in the `[changelog]` section of `releasaurus.toml`.
+template — both in the `[global.changelog]` section of `releasaurus.toml`
+(or [per package](#per-package-changelog)).
 
 ## Commit Groups & Filtering
 
 Each commit is matched against a set of **parsers**. A parser decides
 which `group` (changelog heading) a commit belongs to, and whether the
-commit is skipped entirely. Configure them in `[changelog]`.
+commit is skipped entirely. Configure them in `[global.changelog]`.
 
 A parser has three fields:
 
@@ -18,7 +19,7 @@ A parser has three fields:
 | `title`   | string | The changelog heading commits in this group appear under                                      |
 | `skip`    | bool   | When `true`, matching commits are dropped from **both** the changelog and version calculation |
 
-### Built-in groups (`default_parsers`)
+### Built-in groups (`named_parsers`)
 
 Releasaurus ships with these default parsers:
 
@@ -45,35 +46,32 @@ conventional-commit syntax, so a `feat!:` still bumps major even if your
 pattern routes it under another group.
 
 Override only the fields you want to change under
-`[changelog.default_parsers]`; everything you omit falls back to the
+`[global.changelog.named_parsers]`; everything you omit falls back to the
 built-in default. For example, to drop CI and chore commits — the only
 change needed is `skip`:
 
 ```toml
-[changelog.default_parsers]
+[global.changelog.named_parsers]
 ci.skip = true
 chore.skip = true
 ```
 
-This is the modern replacement for the old `skip_ci`, `skip_chore`,
-`skip_doc`, `skip_test`, `skip_style`, `skip_refactor`, `skip_perf`,
-`skip_revert`, and `skip_miscellaneous` flags. To skip a group, set its
-`skip = true`. You can also retitle a group or change its matching
-pattern the same way:
+To skip a group, set its `skip = true`. You can also retitle a group or
+change its matching pattern the same way:
 
 ```toml
-[changelog.default_parsers]
+[global.changelog.named_parsers]
 feature.title = "<!-- 01 -->✨ New Stuff"
 ```
 
 ### Custom groups (`custom_parsers`)
 
-Define entirely new groups with `[[changelog.custom_parsers]]`. Each
-custom parser is checked **before** the built-in parsers, so it takes
-precedence over the defaults:
+Define entirely new groups with `[[global.changelog.custom_parsers]]`.
+Each custom parser is checked **before** the built-in parsers, so it
+takes precedence over the defaults:
 
 ```toml
-[[changelog.custom_parsers]]
+[[global.changelog.custom_parsers]]
 pattern = "^deps"
 title = "<!-- 02 -->📦 Dependencies"
 skip = false
@@ -104,31 +102,35 @@ renders as just `📦 Dependencies`. See
 | `include_author`        | `false` | Adds the commit author's name to each entry                                                                                                           |
 | `aggregate_prereleases` | `false` | When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see [Prereleases](./configuration.md#prereleases)) |
 
-### Dropping or rewriting individual commits
+To drop specific commits entirely or rewrite their messages — which also
+affects the version bump — see "Skipping or Rewording Commits" in the
+[configuration guide](./configuration.md#skipping-or-rewording-commits).
 
-`skip_shas` removes specific commits by SHA prefix (use 7+ characters).
-Handy for commits that shouldn't affect versioning or appear in the
-changelog:
+## Per-package changelog
 
-```toml
-[changelog]
-skip_shas = ["abc123d", "def456e"]
-```
-
-`reword` rewrites a commit's message in the changelog. The new message
-affects **both** the changelog text **and** the version bump — changing
-`fix:` to `feat:`, for example, bumps minor instead of patch:
+Everything on this page lives under `[global.changelog]` and applies to
+every package. To customize the changelog for a single package, set the
+same fields on that package's `changelog` key.
+Packages are an array of tables (`[[package]]`), so use an **inline
+table** to keep it scoped to the right entry:
 
 ```toml
-[[changelog.reword]]
-sha = "abc123d"
-message = "feat: added user authentication"
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = true, named_parsers = { ci = { skip = true } } }
 ```
 
-Both have CLI equivalents for one-off runs: `--skip-sha <sha>` and
-`--reword <sha>=<message>`. The
-[Configuration Reference](./configuration-reference.md#changelog) lists
-these options again in terse lookup form.
+A package `changelog` **merges field-by-field** with `[global.changelog]`:
+any field you set on the package wins, and any field you omit is inherited
+from your global config (falling back to the built-in default). Global and
+package `custom_parsers` are combined, and `named_parsers` overrides apply
+per group — so the example above turns on `include_author` and skips `ci`
+for `frontend` while still inheriting every other global setting and
+default. See
+[Per-package changelog](./configuration-reference.md#per-package-changelog)
+in the reference for the exact precedence rules.
 
 ## The `body` Template
 
@@ -137,7 +139,7 @@ per release. The default groups commits by type, links each commit, and
 highlights breaking changes:
 
 ```toml
-[changelog]
+[global.changelog]
 body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
@@ -160,7 +162,7 @@ body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% 
 A simpler custom template:
 
 ```toml
-[changelog]
+[global.changelog]
 body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
 
 {% for group, commits in commits | group_by(attribute="group") %}

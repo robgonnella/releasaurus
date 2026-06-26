@@ -4,21 +4,52 @@ Complete reference for `releasaurus.toml`, environment variables, and
 supported languages. For guidance and examples, see
 [Configuration](./configuration.md).
 
-## Global Settings
+Configuration is grouped under three top-level tables: `[repository]`
+(repo-wide settings), `[global]` (release defaults for every package,
+including `[global.prerelease]` and `[global.changelog]`), and one or
+more `[[package]]` entries. All keys are optional.
 
-Top-level keys, all optional:
+## `[repository]`
 
-| Key                               | Type    | Default      | Description                                                                                       |
-| --------------------------------- | ------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| `base_branch`                     | string  | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                        |
-| `first_release_search_depth`      | integer | `400`        | Commits to analyze for the **first** release (when no matching tag exists).                       |
-| `tag_search_depth`                | integer | `100`        | Max tags fetched when searching for a previous release. `0` = all tags.                           |
-| `separate_pull_requests`          | bool    | `false`      | One PR per package (`true`) vs. a single combined PR (`false`).                                   |
-| `auto_start_next`                 | bool    | `false`      | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)). |
-| `breaking_always_increment_major` | bool    | `true`       | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                       |
-| `features_always_increment_minor` | bool    | `true`       | `feat:` commits bump minor.                                                                       |
-| `custom_major_increment_regex`    | string  | none         | Additional regex that triggers a major bump.                                                      |
-| `custom_minor_increment_regex`    | string  | none         | Additional regex that triggers a minor bump.                                                      |
+Repository-wide settings:
+
+| Key                          | Type     | Default      | Description                                                                                                  |
+| ---------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `base_branch`                | string   | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                                   |
+| `first_release_search_depth` | integer  | `400`        | Commits to analyze for the **first** release (when no matching tag exists).                                  |
+| `tag_search_depth`           | integer  | `100`        | Max tags fetched when searching for a previous release. `0` = all tags.                                      |
+| `separate_pull_requests`     | bool     | `false`      | One PR per package (`true`) vs. a single combined PR (`false`).                                              |
+| `skip_shas`                  | string[] | none         | Skip commits by SHA prefix (7+ chars); affects changelog **and** version bump. Repo-wide. CLI: `--skip-sha`. |
+| `reword`                     | object[] | none         | Rewrite commit messages (affects changelog **and** version bump). Repo-wide. CLI: `--reword`.                |
+
+`skip_shas` and `reword` operate on the repository's shared commit history,
+so they are repo-wide and cannot be overridden per package. A `--reword` for
+a SHA already listed in config takes precedence over the config entry.
+
+```toml
+[repository]
+base_branch = "main"
+tag_search_depth = 100
+separate_pull_requests = false
+skip_shas = ["abc123d", "def456e"]
+
+[[repository.reword]]
+sha = "abc123d"
+message = "fix: corrected description"
+```
+
+## `[global]`
+
+Release defaults applied to every package. Each package may override
+these individually (see [`[[package]]`](#package)).
+
+| Key                               | Type   | Default | Description                                                                                       |
+| --------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------- |
+| `auto_start_next`                 | bool   | `false` | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)). |
+| `breaking_always_increment_major` | bool   | `true`  | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                       |
+| `features_always_increment_minor` | bool   | `true`  | `feat:` commits bump minor.                                                                       |
+| `custom_major_increment_regex`    | string | none    | Additional regex that triggers a major bump.                                                      |
+| `custom_minor_increment_regex`    | string | none    | Additional regex that triggers a minor bump.                                                      |
 
 ### Custom increment regexes
 
@@ -28,11 +59,12 @@ bumps minor regardless. The pattern is matched against the full commit
 message. In TOML double-quoted strings, escape backslashes (`\\`):
 
 ```toml
+[global]
 custom_major_increment_regex = "\\[MAJOR\\]"   # matches "[MAJOR]"
 custom_minor_increment_regex = "FEATURE"        # no escaping needed
 ```
 
-## `[prerelease]`
+## `[global.prerelease]`
 
 Global prerelease config; can be overridden per package via a package
 `prerelease` table. See [Prereleases](./configuration.md#prereleases).
@@ -43,38 +75,32 @@ Global prerelease config; can be overridden per package via a package
 | `strategy` | string | `versioned`   | `versioned` (adds `.1`, `.2`, …) or `static` (suffix as-is). Override: `--prerelease-strategy`. |
 
 ```toml
-[prerelease]
+[global.prerelease]
 suffix = "beta"
 strategy = "versioned"
 ```
 
-## `[changelog]`
+## `[global.changelog]`
 
 Controls changelog generation. See
 [Changelog Customization](./changelog.md) for the template and variables.
 
-| Key                     | Type     | Default           | Description                                                                                                                                   |
-| ----------------------- | -------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default_parsers`       | table    | built-in groups   | Override built-in commit groups (`pattern`/`title`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
-| `custom_parsers`        | array    | none              | Define additional commit groups, checked before the defaults.                                                                                 |
-| `skip_merge_commits`    | bool     | `true`            | Exclude merge commits.                                                                                                                        |
-| `include_author`        | bool     | `false`           | Include commit author names.                                                                                                                  |
-| `aggregate_prereleases` | bool     | `false`           | On graduation, fold prior prerelease notes into the stable release.                                                                           |
-| `skip_shas`             | string[] | none              | Skip commits by SHA prefix (7+ chars). CLI: `--skip-sha`.                                                                                     |
-| `reword`                | object[] | none              | Rewrite commit messages (affects changelog **and** version bump). CLI: `--reword`.                                                            |
-| `body`                  | string   | standard template | Tera template for the changelog body.                                                                                                         |
+| Key                     | Type   | Default           | Description                                                                                                                                   |
+| ----------------------- | ------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `named_parsers`         | table  | built-in groups   | Override built-in commit groups (`pattern`/`title`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
+| `custom_parsers`        | array  | none              | Define additional commit groups, checked before the defaults.                                                                                 |
+| `skip_merge_commits`    | bool   | `true`            | Exclude merge commits.                                                                                                                        |
+| `include_author`        | bool   | `false`           | Include commit author names.                                                                                                                  |
+| `aggregate_prereleases` | bool   | `false`           | On graduation, fold prior prerelease notes into the stable release.                                                                           |
+| `body`                  | string | standard template | Tera template for the changelog body.                                                                                                         |
 
 ```toml
-[changelog]
+[global.changelog]
 include_author = true
 
-[changelog.default_parsers]
+[global.changelog.named_parsers]
 ci.skip = true
 chore.skip = true
-
-[[changelog.reword]]
-sha = "abc123d"
-message = "fix: corrected description"
 ```
 
 ## `[[package]]`
@@ -97,6 +123,7 @@ One entry per package; repeatable.
 | `features_always_increment_minor` | bool                | inherits global                  | Per-package override.                                                                                                     |
 | `custom_major_increment_regex`    | string              | inherits global                  | Per-package override.                                                                                                     |
 | `custom_minor_increment_regex`    | string              | inherits global                  | Per-package override.                                                                                                     |
+| `changelog`                       | table               | inherits `[global.changelog]`    | Per-package changelog override (see [Per-package changelog](#per-package-changelog)).                                     |
 
 `sub_packages` entries take `name`, `path`, and `release_type`.
 
@@ -124,25 +151,55 @@ The default regex matches common forms like `version = "1.0.0"`,
 only that group is replaced. Files without a match are skipped; an invalid
 regex errors during config resolution.
 
+### Per-package changelog
+
+A package can carry its own changelog config in its `changelog` key, using
+exactly the same fields as [`[global.changelog]`](#globalchangelog)
+(`body`, `include_author`, `named_parsers`, `custom_parsers`, etc.).
+Because packages are an array of tables (`[[package]]`), set it as an
+**inline table** on the package itself so it is unambiguously scoped to
+that entry — a separate `[package.changelog]` header would only ever bind
+to the most-recently-declared package:
+
+```toml
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = true, named_parsers = { ci = { skip = true } } }
+```
+
+**A package `changelog` merges field-by-field with `[global.changelog]`.**
+Any field you set on the package wins; any field you omit is inherited from
+your `[global.changelog]` value, falling back to the built-in default only
+when global doesn't set it either. So if global enables `include_author`
+and a package sets its own `changelog` without it, that package keeps
+`include_author = true`. Global and package `custom_parsers` are combined,
+and `named_parsers` overrides apply per group — each group you list is
+merged onto the global/built-in default for that group, so you only specify
+the fields you want to change.
+
 ## Complete Example
 
 ```toml
-# Global settings
+[repository]
 base_branch = "main"
 first_release_search_depth = 400
 separate_pull_requests = false
+
+[global]
 auto_start_next = false
 breaking_always_increment_major = true
 features_always_increment_minor = true
 
-[prerelease]
+[global.prerelease]
 suffix = "beta"
 strategy = "versioned"
 
-[changelog]
+[global.changelog]
 include_author = false
 
-[changelog.default_parsers]
+[global.changelog.named_parsers]
 ci.skip = true
 chore.skip = true
 
@@ -151,6 +208,8 @@ name = "frontend"
 path = "./apps/web"
 release_type = "node"
 tag_prefix = "web-v"
+# Per-package changelog override (merges over [global.changelog]).
+changelog = { include_author = true }
 
 [[package]]
 name = "backend"

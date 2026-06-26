@@ -7,7 +7,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use strum::Display;
 
-pub static DEFAULT_PARSERS: LazyLock<IndexMap<Group, Parser>> =
+pub const DEFAULT_SKIP_MERGE_COMMITS: bool = true;
+pub const DEFAULT_INCLUDE_AUTHOR: bool = false;
+pub const DEFAULT_AGGREGATE_PRERELEASES: bool = false;
+
+pub static NAMED_PARSERS: LazyLock<IndexMap<Group, Parser>> =
     LazyLock::new(|| {
         let chore_regex = Regex::new(r"^chore").unwrap();
         let ci_regex = Regex::new(r"^ci").unwrap();
@@ -206,41 +210,50 @@ impl Parser {
     }
 }
 
-/// Rewords messages in changelog for targeted commit shas
-#[derive(
-    Debug, Clone, Default, JsonSchema, Serialize, Deserialize, Builder,
-)]
-#[builder(setter(into))]
-pub struct RewordedCommit {
-    /// Sha (or prefix) of the commit to reword. Matches any commit whose SHA
-    /// starts with this value
-    pub sha: String,
-    /// The new message to display in changelog
-    pub message: String,
+fn default_body() -> String {
+    DEFAULT_BODY.into()
+}
+
+fn default_skip_merge_commits() -> bool {
+    DEFAULT_SKIP_MERGE_COMMITS
+}
+
+fn default_include_author() -> bool {
+    DEFAULT_INCLUDE_AUTHOR
+}
+
+fn default_aggregate_prereleases() -> bool {
+    DEFAULT_AGGREGATE_PRERELEASES
+}
+
+fn default_named_parsers() -> IndexMap<Group, Parser> {
+    NAMED_PARSERS.clone()
 }
 
 /// Changelog configuration (applies to all packages)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, JsonSchema, Builder, Merge,
+)]
 #[builder(setter(into, strip_option), default)]
 #[serde(default)] // Use default for missing fields
 pub struct ChangelogConfig {
     /// Main changelog body template.
-    pub body: String,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_body")]
+    pub body: Option<String>,
     /// Skips including merge commits in changelog
-    pub skip_merge_commits: bool,
-    /// Skips targeted commit shas (or prefixes) when generating next version
-    /// and changelog. Each value matches any commit whose SHA starts with the
-    /// provided value
-    pub skip_shas: Option<Vec<String>>,
-    /// Rewords commit messages for targeted shas when generated changelog.
-    /// Each SHA can be a prefix - matches any commit whose SHA starts with the
-    /// provided value
-    pub reword: Option<Vec<RewordedCommit>>,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_skip_merge_commits")]
+    pub skip_merge_commits: Option<bool>,
     /// Includes commit author name in default body template
-    pub include_author: bool,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_include_author")]
+    pub include_author: Option<bool>,
     /// Aggregates changelogs from prior prereleases when graduating
-    pub aggregate_prereleases: bool,
-    /// Default parsers for organizing commits into common groups e.g. feature,
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "default_aggregate_prereleases")]
+    pub aggregate_prereleases: Option<bool>,
+    /// Named parsers for organizing commits into common groups e.g. feature,
     /// bug, etc. These can be turned off by setting the "skip" field to "true".
     /// Additionally you can modify the order by changing the tags in titles.
     /// For example to show bug fixes before features, change the fix group
@@ -250,25 +263,13 @@ pub struct ChangelogConfig {
     /// to only skip just CI commits, you only need to define the "ci" parser
     /// and set the "skip" field to true. All other parsers will remain as
     /// default.
-    pub default_parsers: IndexMap<Group, Parser>,
+    #[merge(skip)]
+    #[schemars(default = "default_named_parsers")]
+    pub named_parsers: Option<IndexMap<Group, Parser>>,
     /// Additional parsers for grouping commits into non-default groups
     /// e.g. pattern="^special:" title="<!-- 00 -->Special" skip=false
+    #[merge(strategy = merge::vec::append)]
     pub custom_parsers: Vec<Parser>,
-}
-
-impl Default for ChangelogConfig {
-    fn default() -> Self {
-        Self {
-            body: DEFAULT_BODY.into(),
-            skip_merge_commits: true,
-            skip_shas: None,
-            reword: None,
-            include_author: false,
-            aggregate_prereleases: false,
-            default_parsers: DEFAULT_PARSERS.clone(),
-            custom_parsers: vec![],
-        }
-    }
 }
 
 #[cfg(test)]

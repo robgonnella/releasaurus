@@ -18,7 +18,8 @@ use semver::Version as SemVer;
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
     config::{
-        changelog::{DEFAULT_PARSERS, Group, RewordedCommit},
+        changelog::{Group, NAMED_PARSERS},
+        repository::RewordedCommit,
         resolved::CommitModifiers,
     },
     forge::request::{ForgeCommit, Tag},
@@ -36,12 +37,15 @@ fn make_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
 
 #[test]
 fn test_skip_ci_filters_ci_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::CI).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::CI).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -68,9 +72,12 @@ fn test_skip_ci_filters_ci_commits() {
 
 #[test]
 fn test_skip_ci_false_includes_ci_commits() {
-    let default_parsers = DEFAULT_PARSERS.clone();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let named_parsers = NAMED_PARSERS.clone();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -84,12 +91,15 @@ fn test_skip_ci_false_includes_ci_commits() {
 
 #[test]
 fn test_skip_chore_filters_chore_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Chore).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Chore).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -116,9 +126,12 @@ fn test_skip_chore_filters_chore_commits() {
 
 #[test]
 fn test_skip_chore_false_includes_chore_commits() {
-    let default_parsers = DEFAULT_PARSERS.clone();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let named_parsers = NAMED_PARSERS.clone();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -132,12 +145,15 @@ fn test_skip_chore_false_includes_chore_commits() {
 
 #[test]
 fn test_skip_miscellaneous_filters_non_conventional_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
     target_parser.skip = Some(true);
     let expected_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -164,9 +180,12 @@ fn test_skip_miscellaneous_filters_non_conventional_commits() {
 
 #[test]
 fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
-    let default_parsers = DEFAULT_PARSERS.clone();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let named_parsers = NAMED_PARSERS.clone();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -180,12 +199,15 @@ fn test_skip_miscellaneous_false_includes_non_conventional_commits() {
 
 #[test]
 fn test_skip_docs_filters_docs_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Documentation).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Documentation).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -211,9 +233,12 @@ fn test_skip_docs_filters_docs_commits() {
 
 #[test]
 fn test_skip_docs_false_includes_docs_commits() {
-    let default_parsers = DEFAULT_PARSERS.clone();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let named_parsers = NAMED_PARSERS.clone();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -227,22 +252,25 @@ fn test_skip_docs_false_includes_docs_commits() {
 
 #[test]
 fn test_skip_multiple_types_combined() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
+    let mut named_parsers = NAMED_PARSERS.clone();
 
-    let ci_parser = default_parsers.get_mut(&Group::CI).unwrap();
+    let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
     ci_parser.skip = Some(true);
     let ci_title = ci_parser.title.clone().unwrap();
 
-    let chore_parser = default_parsers.get_mut(&Group::Chore).unwrap();
+    let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
     chore_parser.skip = Some(true);
     let chore_title = chore_parser.title.clone().unwrap();
 
-    let misc_parser = default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
     misc_parser.skip = Some(true);
     let misc_title = misc_parser.title.clone().unwrap();
 
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -277,7 +305,7 @@ fn test_include_author_sets_release_flag() {
         include_author: true,
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![make_commit("abc123", "feat: new feature", 1000)];
 
@@ -289,7 +317,7 @@ fn test_include_author_sets_release_flag() {
 #[test]
 fn test_include_author_false_by_default() {
     let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![make_commit("abc123", "feat: new feature", 1000)];
 
@@ -300,11 +328,14 @@ fn test_include_author_false_by_default() {
 
 #[test]
 fn test_skip_ci_with_no_ci_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::CI).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::CI).unwrap();
     target_parser.skip = Some(true);
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -317,19 +348,23 @@ fn test_skip_ci_with_no_ci_commits() {
 
 #[test]
 fn test_skip_all_types_results_in_no_release() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
+    let mut named_parsers = NAMED_PARSERS.clone();
 
-    let ci_parser = default_parsers.get_mut(&Group::CI).unwrap();
+    let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
     ci_parser.skip = Some(true);
 
-    let chore_parser = default_parsers.get_mut(&Group::Chore).unwrap();
+    let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
     chore_parser.skip = Some(true);
 
-    let misc_parser = default_parsers.get_mut(&Group::Miscellaneous).unwrap();
+    let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
     misc_parser.skip = Some(true);
 
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -360,7 +395,7 @@ fn test_skip_shas_filters_commits_by_sha() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -386,7 +421,7 @@ fn test_skip_shas_matches_by_prefix() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit(
@@ -413,7 +448,7 @@ fn test_skip_shas_with_no_matching_commits() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -434,7 +469,7 @@ fn test_skip_shas_all_commits_results_in_no_release() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -458,7 +493,7 @@ fn test_reword_changes_commit_message() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -488,7 +523,7 @@ fn test_reword_matches_by_prefix() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![make_commit(
         "abc123def456789012345678901234567890abcd",
@@ -515,7 +550,7 @@ fn test_reword_with_multiline_message() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![make_commit("abc123", "feat: original", 1000)];
 
@@ -540,7 +575,7 @@ fn test_reword_changes_version_calculation() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -573,7 +608,7 @@ fn test_reword_with_no_matching_commits() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![make_commit("abc123", "fix: bug fix", 1000)];
 
@@ -596,7 +631,7 @@ fn test_skip_shas_and_reword_combined() {
         },
         ..AnalyzerConfig::default()
     };
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: first feature", 1000),
@@ -616,12 +651,15 @@ fn test_skip_shas_and_reword_combined() {
 
 #[test]
 fn test_skip_test_filters_test_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Test).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Test).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -648,8 +686,11 @@ fn test_skip_test_filters_test_commits() {
 
 #[test]
 fn test_skip_test_false_includes_test_commits() {
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -663,12 +704,15 @@ fn test_skip_test_false_includes_test_commits() {
 
 #[test]
 fn test_skip_style_filters_style_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Style).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Style).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -694,8 +738,11 @@ fn test_skip_style_filters_style_commits() {
 
 #[test]
 fn test_skip_style_false_includes_style_commits() {
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -709,12 +756,15 @@ fn test_skip_style_false_includes_style_commits() {
 
 #[test]
 fn test_skip_refactor_filters_refactor_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Refactor).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Refactor).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -740,8 +790,11 @@ fn test_skip_refactor_filters_refactor_commits() {
 
 #[test]
 fn test_skip_refactor_false_includes_refactor_commits() {
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -755,12 +808,15 @@ fn test_skip_refactor_false_includes_refactor_commits() {
 
 #[test]
 fn test_skip_perf_filters_perf_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Performance).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Performance).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -786,8 +842,11 @@ fn test_skip_perf_filters_perf_commits() {
 
 #[test]
 fn test_skip_perf_false_includes_perf_commits() {
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),
@@ -801,12 +860,15 @@ fn test_skip_perf_false_includes_perf_commits() {
 
 #[test]
 fn test_skip_revert_filters_revert_commits() {
-    let mut default_parsers = DEFAULT_PARSERS.clone();
-    let target_parser = default_parsers.get_mut(&Group::Revert).unwrap();
+    let mut named_parsers = NAMED_PARSERS.clone();
+    let target_parser = named_parsers.get_mut(&Group::Revert).unwrap();
     target_parser.skip = Some(true);
     let target_title = target_parser.title.clone().unwrap();
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &default_parsers, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
@@ -832,8 +894,11 @@ fn test_skip_revert_filters_revert_commits() {
 
 #[test]
 fn test_skip_revert_false_includes_revert_commits() {
-    let config = AnalyzerConfig::default();
-    let analyzer = Analyzer::new(&config, &DEFAULT_PARSERS, &[]).unwrap();
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
 
     let commits = vec![
         make_commit("abc123", "feat: add feature", 1000),

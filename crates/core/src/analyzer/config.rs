@@ -1,9 +1,14 @@
 //! Configuration for changelog generation and commit analysis.
 
 use derive_builder::Builder;
+use indexmap::IndexMap;
 use url::Url;
 
-use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
+use crate::config::{
+    changelog::{Group, Parser},
+    prerelease::PrereleaseConfig,
+    resolved::CommitModifiers,
+};
 
 /// Configuration for commit analysis and changelog generation.
 #[derive(Debug, Clone, Builder)]
@@ -34,6 +39,12 @@ pub struct AnalyzerConfig {
     /// Custom commit modifiers to skip commit shas or reword commit messages
     /// when generating changelog content
     pub commit_modifiers: CommitModifiers,
+    /// Default parsers for organizing commits into common groups e.g. feature,
+    /// bug, etc. These can be turned off by setting the "skip" field to "true".
+    pub named_parsers: IndexMap<Group, Parser>,
+    /// Additional parsers for grouping commits into non-default groups
+    /// e.g. pattern="^special:" title="<!-- 00 -->Special" skip=false
+    pub custom_parsers: Vec<Parser>,
 }
 
 impl Default for AnalyzerConfig {
@@ -51,6 +62,8 @@ impl Default for AnalyzerConfig {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             commit_modifiers: CommitModifiers::default(),
+            named_parsers: IndexMap::new(),
+            custom_parsers: Vec::new(),
         }
     }
 }

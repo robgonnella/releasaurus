@@ -14,8 +14,8 @@ use url::Url;
 
 use crate::{
     config::{
-        Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE,
-        DEFAULT_TAG_SEARCH_DEPTH,
+        Config, DEFAULT_CONFIG_FILE,
+        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
     },
     forge::{
         config::{

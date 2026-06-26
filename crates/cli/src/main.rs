@@ -116,14 +116,14 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
             .await?,
     );
 
-    forge.set_commit_search_depth(config.first_release_search_depth);
-    forge.set_tag_search_depth(config.tag_search_depth);
+    forge.set_commit_search_depth(config.repository.first_release_search_depth);
+    forge.set_tag_search_depth(config.repository.tag_search_depth);
 
     let forge_manager = ForgeManager::new(forge, ForgeOptions { dry_run });
 
-    log::debug!("global overrides: {:#?}", global_overrides);
-    log::debug!("package overrides: {:#?}", package_overrides);
-    log::debug!("commit modifiers: {:#?}", commit_modifiers);
+    log::debug!("cli global overrides: {:#?}", global_overrides);
+    log::debug!("cli package overrides: {:#?}", package_overrides);
+    log::debug!("cli commit modifiers: {:#?}", commit_modifiers);
 
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch();

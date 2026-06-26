@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 
 use crate::{
     analyzer::release::Release,
-    config::Config,
+    config::{Config, changelog::ChangelogConfig, package::PackageConfig},
     forge::{request::Tag, traits::MockForge},
     packages::releasable::SerializableReleasablePackage,
 };
@@ -40,7 +40,7 @@ async fn recompile_notes_from_release_file_returns_rendered_notes() {
     // Create temporary file with valid JSON
     let mut temp_file = NamedTempFile::new().unwrap();
     let package = SerializableReleasablePackage {
-        name: "test-package".to_string(),
+        name: TEST_PKG_NAME.to_string(),
         path: PathBuf::from("."),
         release: create_test_release("1.0.0", "Existing notes"),
         ..Default::default()
@@ -56,7 +56,7 @@ async fn recompile_notes_from_release_file_returns_rendered_notes() {
         .unwrap();
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0].name, "test-package");
+    assert_eq!(result[0].name, TEST_PKG_NAME);
     assert!(!result[0].release.notes.is_empty());
 }
 
@@ -64,7 +64,21 @@ async fn recompile_notes_from_release_file_returns_rendered_notes() {
 async fn recompile_notes_from_release_file_handles_multiple_packages() {
     let mock_forge = MockForge::new();
 
-    let orchestrator = create_test_orchestrator(mock_forge);
+    let pkg_1 = PackageConfig {
+        name: "package-one".into(),
+        ..PackageConfig::default()
+    };
+
+    let pkg_2 = PackageConfig {
+        name: "package-two".into(),
+        ..PackageConfig::default()
+    };
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![pkg_1, pkg_2],
+        None,
+    );
 
     let mut temp_file = NamedTempFile::new().unwrap();
     let packages = vec![
@@ -104,14 +118,20 @@ async fn recompile_notes_from_release_file_renders_with_custom_template() {
 
     // Create custom config with specific template
     let mut config = Config::default();
-    config.changelog.body = "Version: {{ version }}".to_string();
+    config.global.changelog = Some(ChangelogConfig {
+        body: Some("Version: {{ version }}".to_string()),
+        ..ChangelogConfig::default()
+    });
 
-    let orchestrator =
-        create_test_orchestrator_with_config(mock_forge, vec![], Some(config));
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![PackageConfig::default()],
+        Some(config),
+    );
 
     let mut temp_file = NamedTempFile::new().unwrap();
     let package = SerializableReleasablePackage {
-        name: "test-pkg".to_string(),
+        name: "test-repo".into(),
         path: PathBuf::from("."),
         release: create_test_release("3.2.1", "Release notes"),
         ..Default::default()
@@ -186,7 +206,10 @@ async fn recompile_notes_from_release_file_fails_with_invalid_template() {
 
     let mut config = Config::default();
     // Invalid template syntax
-    config.changelog.body = "{{ unclosed_variable".to_string();
+    config.global.changelog = Some(ChangelogConfig {
+        body: Some("{{ unclosed_variable".to_string()),
+        ..ChangelogConfig::default()
+    });
 
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, vec![], Some(config));

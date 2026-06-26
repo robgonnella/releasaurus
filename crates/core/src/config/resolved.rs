@@ -5,8 +5,9 @@ use merge::Merge;
 use url::Url;
 
 use crate::config::{
-    changelog::{ChangelogConfig, RewordedCommit},
+    changelog::ChangelogConfig,
     prerelease::{PrereleaseConfig, PrereleaseStrategy},
+    repository::RewordedCommit,
 };
 
 /// Runtime overrides for a specific named package.
@@ -40,19 +41,20 @@ pub struct GlobalOverrides {
     pub prerelease_strategy: Option<PrereleaseStrategy>,
 }
 
-/// Package name used as the key in override and config maps.
-pub type PackageName = String;
-
 #[derive(Debug, Clone, Default)]
 pub struct CommitModifiers {
     /// Commit sha (or prefix) to skip when calculating next version and
     /// generating changelog. Matches any commit whose SHA starts with the
     /// provided value
     pub skip_shas: Vec<String>,
-    /// Rewords a commit message when generating changelog. The SHA can be a
-    /// prefix - matches any commit whose SHA starts with the provided value.
+    /// Rewords commit messages for targeted shas when generated changelog.
+    /// Each SHA can be a prefix - matches any commit whose SHA starts with the
+    /// provided value
     pub reword: Vec<RewordedCommit>,
 }
+
+/// Package name used as the key in override and config maps.
+pub type PackageName = String;
 
 /// Fully resolved runtime configuration for the release pipeline.
 ///
