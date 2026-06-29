@@ -8,11 +8,6 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
-pub(crate) static METADATA_REGEX_LEGACY: LazyLock<Regex> =
-    LazyLock::new(|| {
-        Regex::new(r#"(?ms)^<!--(?<metadata>.*?)-->\n*<details"#).unwrap()
-    });
-
 pub(crate) static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?ms)^<!--\s*(?<metadata>\{.*?\})\s*-->"#).unwrap()
 });
@@ -224,47 +219,6 @@ pub fn parse_pr_body(
     Ok((pkg_tag.to_string(), release_notes))
 }
 
-pub fn parse_legacy_pr_body(
-    package_name: &str,
-    pr_number: u64,
-    body: &str,
-) -> Result<Option<(String, String)>> {
-    let meta_caps = METADATA_REGEX_LEGACY.captures_iter(body);
-
-    for cap in meta_caps {
-        let metadata_str = cap
-            .name("metadata")
-            .ok_or(ReleasaurusError::Other(eyre!(
-                "failed to parse metadata from PR body: pkg={} pr={}",
-                package_name,
-                pr_number
-            )))?
-            .as_str();
-
-        log::debug!("parsing legacy metadata string: {:#?}", metadata_str);
-
-        let json: PRMetadata = serde_json::from_str(metadata_str)?;
-
-        if let Some(name) = json.metadata.name.as_deref()
-            && name == package_name
-        {
-            let tag = json.metadata.tag.ok_or(ReleasaurusError::Other(
-              eyre!(
-                "failed to find tag in legacy metadata: pkg={package_name} pr={pr_number}"
-              )
-            ))?;
-            let notes = json.metadata.notes.ok_or(ReleasaurusError::Other(
-              eyre!(
-                "failed to find notes in legacy metadata: pkg={package_name} pr={pr_number}"
-              )
-            ))?;
-            return Ok(Some((tag, notes)));
-        }
-    }
-
-    Ok(None)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::orchestrator::tests::common::{PrBodyInput, make_pr_body};
@@ -469,64 +423,5 @@ notes
 notes
 </div>"#;
         assert!(parse_pr_body("test-pkg", 1, body).is_err());
-    }
-
-    // parse_legacy_pr_body
-
-    #[test]
-    fn parse_legacy_pr_body_returns_match() {
-        let body = r#"
-<!--{"metadata":{"name":"test-pkg","tag":"v1.0.0","notes":"Release notes"}}-->
-<details><summary>v1.0.0</summary>
-Release notes
-</details>"#;
-        let result = parse_legacy_pr_body("test-pkg", 1, body).unwrap();
-        let (tag, notes) = result.unwrap();
-        assert_eq!(tag, "v1.0.0");
-        assert_eq!(notes, "Release notes");
-    }
-
-    #[test]
-    fn parse_legacy_pr_body_returns_none_for_missing_package() {
-        let body = r#"
-<!--{"metadata":{"name":"other-pkg","tag":"v1.0.0","notes":"Notes"}}-->
-<details><summary>v1.0.0</summary>
-</details>"#;
-        let result = parse_legacy_pr_body("test-pkg", 1, body).unwrap();
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn parse_legacy_pr_body_finds_correct_block_among_multiple() {
-        let body = r#"
-<!--{"metadata":{"name":"pkg-a","tag":"v1.0.0","notes":"Notes A"}}-->
-<details><summary>v1.0.0</summary>
-</details>
-
-<!--{"metadata":{"name":"pkg-b","tag":"v2.0.0","notes":"Notes B"}}-->
-<details><summary>v2.0.0</summary>
-</details>"#;
-        let result = parse_legacy_pr_body("pkg-b", 1, body).unwrap();
-        let (tag, notes) = result.unwrap();
-        assert_eq!(tag, "v2.0.0");
-        assert_eq!(notes, "Notes B");
-    }
-
-    #[test]
-    fn parse_legacy_pr_body_error_missing_tag_field() {
-        let body = r#"
-<!--{"metadata":{"name":"test-pkg","notes":"Notes"}}-->
-<details><summary>v1.0.0</summary>
-</details>"#;
-        assert!(parse_legacy_pr_body("test-pkg", 1, body).is_err());
-    }
-
-    #[test]
-    fn parse_legacy_pr_body_error_missing_notes_field() {
-        let body = r#"
-<!--{"metadata":{"name":"test-pkg","tag":"v1.0.0"}}-->
-<details><summary>v1.0.0</summary>
-</details>"#;
-        assert!(parse_legacy_pr_body("test-pkg", 1, body).is_err());
     }
 }

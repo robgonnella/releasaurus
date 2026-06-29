@@ -35,8 +35,8 @@ use crate::{
             RefUpdate, UpdatePullRequest,
         },
         config::{
-            DEFAULT_PAGE_SIZE, LEGACY_PENDING_LABEL, PENDING_LABEL, RepoUrl,
-            TokenVar, USER_AGENT, resolve_token,
+            DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl, TokenVar, USER_AGENT,
+            resolve_token,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -831,12 +831,8 @@ impl Forge for AzureDevops {
             if pr.target_ref_name != target {
                 continue;
             }
-            // Match by either current or legacy pending label.
             let pending =
-                self.pr_has_label(pr.pull_request_id, PENDING_LABEL).await?
-                    || self
-                        .pr_has_label(pr.pull_request_id, LEGACY_PENDING_LABEL)
-                        .await?;
+                self.pr_has_label(pr.pull_request_id, PENDING_LABEL).await?;
             if !pending {
                 continue;
             }
@@ -876,10 +872,7 @@ impl Forge for AzureDevops {
                 continue;
             }
             let pending =
-                self.pr_has_label(pr.pull_request_id, PENDING_LABEL).await?
-                    || self
-                        .pr_has_label(pr.pull_request_id, LEGACY_PENDING_LABEL)
-                        .await?;
+                self.pr_has_label(pr.pull_request_id, PENDING_LABEL).await?;
             if !pending {
                 continue;
             }
