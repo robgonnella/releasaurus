@@ -254,7 +254,7 @@ async fn create_releases_triggers_auto_start_next() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| {
+        .returning(|_, _, _| {
             Ok(vec![Tag {
                 semver: Version::parse("1.0.0").unwrap(),
                 ..Default::default()

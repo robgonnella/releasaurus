@@ -22,7 +22,7 @@ async fn get_current_releases_retrieves_release_data() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| {
+        .returning(|_, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
                 ..Default::default()
@@ -55,7 +55,7 @@ async fn get_next_releases_filters_by_package_name() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| Ok(vec![]));
+        .returning(|_, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![

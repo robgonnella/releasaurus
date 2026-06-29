@@ -170,8 +170,11 @@ impl Forge for Forgejo {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        self.gitea.get_latest_tags_for_prefix(prefix, branch).await
+        self.gitea
+            .get_latest_tags_for_prefix(prefix, branch, starting_sha)
+            .await
     }
 
     async fn get_commits(

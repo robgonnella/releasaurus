@@ -356,6 +356,7 @@ impl Forge for Gitea {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut has_more = true;
@@ -399,6 +400,18 @@ impl Forge for Gitea {
                             .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
                             .await?
                     {
+                        // Reached the starting SHA (e.g. last stable tag):
+                        // stop paging entirely, not just this page. Tag
+                        // ordering from the API is not guaranteed, so this is
+                        // a best-effort bound; downstream callers re-sort and
+                        // filter by SHA membership.
+                        if let Some(sha) = starting_sha.as_ref()
+                            && tag.commit.sha == *sha
+                        {
+                            has_more = false;
+                            break;
+                        }
+
                         tags.push(Tag {
                             name: tag.name,
                             semver: sver,

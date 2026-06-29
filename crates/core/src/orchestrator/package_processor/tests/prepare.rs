@@ -26,7 +26,7 @@ async fn generate_prepared_with_dummy_commit_skips_untagged_packages() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| Ok(vec![])); // No tags exist
+        .returning(|_, _, _| Ok(vec![])); // No tags exist
 
     let processor = create_package_processor(mock_forge, None, None);
 
@@ -56,7 +56,7 @@ async fn generate_prepared_with_dummy_commit_filters_by_targets() {
     let mut mock_forge = MockForge::new();
 
     mock_forge.expect_get_latest_tags_for_prefix().returning(
-        |prefix, _branch| {
+        |prefix, _branch, _sha| {
             Ok(vec![Tag {
                 name: format!("{prefix}1.0.0"),
                 timestamp: Some(1000),
@@ -141,7 +141,7 @@ async fn aggregate_prereleases_disabled_skips_extra_fetch() {
 
     mock.expect_get_latest_tags_for_prefix()
         .times(1)
-        .returning(move |_, _| Ok(vec![pre_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![pre_tag.clone()]));
     mock.expect_get_commits()
         .times(1)
         .returning(|_, _| Ok(vec![]));
@@ -162,7 +162,7 @@ async fn aggregate_prereleases_enabled_not_graduating_skips_extra_fetch() {
 
     mock.expect_get_latest_tags_for_prefix()
         .times(1)
-        .returning(move |_, _| Ok(vec![s_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![s_tag.clone()]));
     mock.expect_get_commits()
         .times(1)
         .returning(|_, _| Ok(vec![]));
@@ -196,7 +196,7 @@ async fn aggregate_prereleases_enabled_and_graduating_merges_commits() {
     mock.expect_get_latest_tags_for_prefix()
         .once()
         .in_sequence(&mut seq)
-        .returning(move |_, _| Ok(vec![pre_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![pre_tag.clone()]));
 
     // Step 2: fetch commits since the prerelease tag SHA
     mock.expect_get_commits()
@@ -208,7 +208,15 @@ async fn aggregate_prereleases_enabled_and_graduating_merges_commits() {
     mock.expect_get_latest_tags_for_prefix()
         .once()
         .in_sequence(&mut seq)
-        .returning(move |_, _| Ok(vec![s_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![s_tag.clone()]));
+
+    // Step 3b: fetch prerelease tags since the stable SHA so their release
+    // commits can be omitted. None of the window commits are release
+    // commits here, so return no tags.
+    mock.expect_get_latest_tags_for_prefix()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _, _| Ok(vec![]));
 
     // Step 4: fetch commits since the stable tag SHA (historical range)
     mock.expect_get_commits()
@@ -247,7 +255,7 @@ async fn aggregate_prereleases_deduplicates_overlapping_commits() {
     mock.expect_get_latest_tags_for_prefix()
         .once()
         .in_sequence(&mut seq)
-        .returning(move |_, _| Ok(vec![pre_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![pre_tag.clone()]));
 
     mock.expect_get_commits()
         .once()
@@ -257,7 +265,14 @@ async fn aggregate_prereleases_deduplicates_overlapping_commits() {
     mock.expect_get_latest_tags_for_prefix()
         .once()
         .in_sequence(&mut seq)
-        .returning(move |_, _| Ok(vec![s_tag.clone()]));
+        .returning(move |_, _, _| Ok(vec![s_tag.clone()]));
+
+    // Fetch prerelease tags since the stable SHA for release-commit
+    // omission. None of the window commits are release commits here.
+    mock.expect_get_latest_tags_for_prefix()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _, _| Ok(vec![]));
 
     // Historical window contains ONLY the same commit as current window.
     mock.expect_get_commits()
@@ -279,4 +294,74 @@ async fn aggregate_prereleases_deduplicates_overlapping_commits() {
         "duplicate commit should appear only once"
     );
     assert_eq!(prepared[0].commits[0].id, "current");
+}
+
+#[tokio::test]
+async fn aggregate_prereleases_omits_prerelease_release_commits() {
+    // A prerelease "release" commit (whose SHA matches a prerelease tag that
+    // points at it) must be omitted from the aggregated changelog, while
+    // ordinary commits in the same window are retained.
+    let mut mock = MockForge::new();
+    let mut seq = mockall::Sequence::new();
+
+    let pre_tag = prerelease_tag();
+    let s_tag = stable_tag();
+
+    // Tag and commit share a SHA: this is a prerelease release commit.
+    let rc_release_tag = Tag {
+        name: "v1.0.0-rc.1".to_string(),
+        semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+        sha: "sha-rc-release".to_string(),
+        timestamp: Some(800),
+    };
+    let release_commit = pkg_commit("sha-rc-release", 800);
+    let feature = pkg_commit("feature", 600);
+
+    // Step 1: collect current tag for the package
+    mock.expect_get_latest_tags_for_prefix()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _, _| Ok(vec![pre_tag.clone()]));
+
+    // Step 2: current window has no new commits
+    mock.expect_get_commits()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(|_, _| Ok(vec![]));
+
+    // Step 3: look up last stable tag for aggregation
+    mock.expect_get_latest_tags_for_prefix()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _, _| Ok(vec![s_tag.clone()]));
+
+    // Step 3b: prerelease tags since the stable SHA — the release commit's
+    // tag is returned so its commit gets omitted.
+    mock.expect_get_latest_tags_for_prefix()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _, _| Ok(vec![rc_release_tag.clone()]));
+
+    // Step 4: historical window contains the release commit and a feature.
+    mock.expect_get_commits()
+        .once()
+        .in_sequence(&mut seq)
+        .returning(move |_, _| {
+            Ok(vec![release_commit.clone(), feature.clone()])
+        });
+
+    let processor = create_package_processor(
+        mock,
+        Some(vec![graduating_pkg()]),
+        Some(aggregate_config()),
+    );
+
+    let prepared = processor.prepare_packages(None).await.unwrap();
+    assert_eq!(prepared.len(), 1);
+    assert_eq!(
+        prepared[0].commits.len(),
+        1,
+        "prerelease release commit should be omitted"
+    );
+    assert_eq!(prepared[0].commits[0].id, "feature");
 }

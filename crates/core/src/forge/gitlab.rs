@@ -354,6 +354,7 @@ impl Forge for Gitlab {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
@@ -378,6 +379,12 @@ impl Forge for Gitlab {
                         .is_tag_ancestor_of_branch(&tag.commit.id, branch)
                         .await?
                 {
+                    if let Some(sha) = starting_sha.as_ref()
+                        && tag.commit.id == *sha
+                    {
+                        break;
+                    }
+
                     tags.push(Tag {
                         name: tag.name,
                         semver: sver,
