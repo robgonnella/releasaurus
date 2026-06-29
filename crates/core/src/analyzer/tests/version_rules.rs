@@ -18,7 +18,7 @@ use crate::{
 #[test]
 fn test_breaking_always_increment_major_disabled() {
     let config = AnalyzerConfig {
-        breaking_always_increment_major: false,
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
 
@@ -110,7 +110,7 @@ fn test_custom_major_increment_regex() {
 #[test]
 fn test_features_always_increment_minor_disabled() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
+        features_always_increment_minor: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -198,8 +198,8 @@ fn test_custom_minor_regex_works_with_feat_syntax() {
 #[test]
 fn test_both_boolean_flags_disabled_minor_bump() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
-        breaking_always_increment_major: false,
+        features_always_increment_minor: Some(false),
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -243,8 +243,8 @@ fn test_both_boolean_flags_disabled_minor_bump() {
 #[test]
 fn test_both_boolean_flags_disabled_patch_bump() {
     let config = AnalyzerConfig {
-        features_always_increment_minor: false,
-        breaking_always_increment_major: false,
+        features_always_increment_minor: Some(false),
+        breaking_always_increment_major: Some(false),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
