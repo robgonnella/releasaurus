@@ -1,7 +1,6 @@
 //! Configuration for changelog generation and commit analysis.
 
 use derive_builder::Builder;
-use regex::Regex;
 use url::Url;
 
 use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
@@ -42,8 +41,6 @@ pub struct AnalyzerConfig {
     pub compare_link_base_url: Option<Url>,
     /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
-    /// regex to match and exclude release commits
-    pub release_commit_matcher: Option<Regex>,
     /// Always increments major version on breaking commits
     pub breaking_always_increment_major: bool,
     /// Always increments minor version on feature commits
@@ -76,7 +73,6 @@ impl Default for AnalyzerConfig {
             release_link_base_url: None,
             compare_link_base_url: None,
             prerelease: None,
-            release_commit_matcher: None,
             breaking_always_increment_major: true,
             features_always_increment_minor: true,
             custom_major_increment_regex: None,

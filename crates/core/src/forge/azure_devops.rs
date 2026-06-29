@@ -615,6 +615,7 @@ impl Forge for AzureDevops {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut url = self.base_url.join("refs")?;
@@ -639,6 +640,11 @@ impl Forge for AzureDevops {
             // Only return tags reachable from the target branch.
             if !self.is_ancestor_of_branch(&r.object_id, branch).await? {
                 continue;
+            }
+            if let Some(sha) = starting_sha.as_ref()
+                && r.object_id == *sha
+            {
+                break;
             }
             let timestamp = self.get_commit_timestamp(&r.object_id).await.ok();
             tags.push(Tag {

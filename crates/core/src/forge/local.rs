@@ -440,6 +440,7 @@ impl Forge for LocalRepo {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let regex_prefix = format!(r"^{}", prefix);
         let tag_prefix_regex = Regex::new(&regex_prefix)?;
@@ -465,6 +466,14 @@ impl Forge for LocalRepo {
                     && tag_prefix_regex.is_match(stripped)
                 {
                     let commit = reference.peel_to_commit()?;
+                    let commit_id = commit.id().to_string();
+
+                    if let Some(sha) = starting_sha.as_ref()
+                        && commit_id == *sha
+                    {
+                        break;
+                    }
+
                     let Ok(semver) = semver::Version::parse(
                         tag_prefix_regex.replace_all(stripped, "").as_ref(),
                     ) else {
@@ -818,7 +827,7 @@ mod tests {
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let mut result = forge
-            .get_latest_tags_for_prefix("v", &branch)
+            .get_latest_tags_for_prefix("v", &branch, None)
             .await
             .unwrap();
         result.sort_by(|a, b| b.semver.cmp(&a.semver));
@@ -1267,7 +1276,7 @@ tag_search_depth = 10
         // Querying main_branch must return v1.0.0 only; v2.0.0 is
         // not in main_branch's history.
         let mut result = forge
-            .get_latest_tags_for_prefix("v", &main_branch)
+            .get_latest_tags_for_prefix("v", &main_branch, None)
             .await
             .unwrap();
         result.sort_by(|a, b| b.semver.cmp(&a.semver));

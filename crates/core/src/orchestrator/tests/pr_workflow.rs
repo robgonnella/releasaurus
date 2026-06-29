@@ -27,7 +27,7 @@ async fn create_release_prs_succeeds_when_no_commits_since_last_tag() {
     // Has tag, but no new commits
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| {
+        .returning(|_, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
                 semver: Version::parse("1.0.0").unwrap(),
@@ -56,7 +56,7 @@ async fn create_release_prs_returns_error_when_merged_pr_not_yet_released() {
     // No tags exist yet
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| Ok(vec![]));
+        .returning(|_, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -105,7 +105,7 @@ async fn create_release_prs_creates_new_prs() {
     // No tags exist yet
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| Ok(vec![]));
+        .returning(|_, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -204,7 +204,7 @@ async fn create_release_prs_targets_specific_package() {
     // No tags exist yet
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| Ok(vec![]));
+        .returning(|_, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -330,7 +330,7 @@ async fn create_release_prs_updates_existing_prs() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _| {
+        .returning(|_, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
                 semver: Version::parse("1.0.0").unwrap(),

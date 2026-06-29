@@ -69,6 +69,7 @@ pub trait Forge: Any + Send + Sync {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>>;
     /// Fetch commits for a package path, optionally starting from a specific
     /// SHA. Commits are returned newest-first; callers (e.g. the analyzer)

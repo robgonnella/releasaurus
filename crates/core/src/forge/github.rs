@@ -378,6 +378,7 @@ impl Forge for Github {
         &self,
         prefix: &str,
         branch: &str,
+        starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
 
@@ -420,6 +421,18 @@ impl Forge for Github {
                             .as_ref()
                             .map(|t| t.oid.clone())
                             .unwrap_or(tag.target.oid.clone());
+
+                        // Reached the starting SHA (e.g. last stable tag):
+                        // stop paging entirely, not just this page. Tag
+                        // ordering from the API is not guaranteed, so this is
+                        // a best-effort bound; downstream callers re-sort and
+                        // filter by SHA membership.
+                        if let Some(start) = starting_sha.as_ref()
+                            && sha == *start
+                        {
+                            has_next_page = false;
+                            break;
+                        }
 
                         if self.is_tag_ancestor_of_branch(&sha, branch).await? {
                             let committed_date =

@@ -120,7 +120,7 @@ impl ForgeManager {
     ) -> Result<Option<Tag>> {
         let mut tags = self
             .forge
-            .get_latest_tags_for_prefix(prefix, branch)
+            .get_latest_tags_for_prefix(prefix, branch, None)
             .await?;
 
         if tags.is_empty() {
@@ -135,6 +135,21 @@ impl ForgeManager {
         Ok(tags.into_iter().next())
     }
 
+    pub async fn get_tags_for_prefix_since(
+        &self,
+        prefix: &str,
+        branch: &str,
+        starting_sha: &str,
+    ) -> Result<Vec<Tag>> {
+        self.forge
+            .get_latest_tags_for_prefix(
+                prefix,
+                branch,
+                Some(starting_sha.to_string()),
+            )
+            .await
+    }
+
     pub async fn get_latest_stable_release_tag(
         &self,
         prefix: &str,
@@ -142,7 +157,7 @@ impl ForgeManager {
     ) -> Result<Option<Tag>> {
         let mut tags = self
             .forge
-            .get_latest_tags_for_prefix(prefix, branch)
+            .get_latest_tags_for_prefix(prefix, branch, None)
             .await?;
 
         if tags.is_empty() {
@@ -431,7 +446,7 @@ mod tests {
     fn mock_returning_tags(tags: Vec<Tag>) -> MockForge {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(move |_, _| Ok(tags.clone()));
+            .returning(move |_, _, _| Ok(tags.clone()));
         mock
     }
 

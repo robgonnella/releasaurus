@@ -122,17 +122,6 @@ impl Commit {
                     );
                     return None;
                 }
-                if let Some(matcher) = config.release_commit_matcher.as_ref()
-                    && matcher.is_match(&commit.raw_title)
-                {
-                    log::debug!(
-                        "omitting release commit: {} : {}",
-                        commit.short_id,
-                        commit.raw_title
-                    );
-
-                    return None;
-                }
 
                 Some(commit)
             }
@@ -192,8 +181,6 @@ fn trim_to_cow(s: &str) -> Cow<'_, str> {
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
-
     use crate::forge::request::ForgeCommitBuilder;
 
     use super::*;
@@ -458,36 +445,6 @@ mod tests {
         assert_eq!(commit.title, "Merge pull request #123 from feature/auth");
         assert_eq!(commit.author_name, "GitHub");
         assert_eq!(commit.author_email, "noreply@github.com");
-    }
-
-    #[test]
-    fn test_parses_and_omits_release_commit() {
-        let analyzer_config = AnalyzerConfig {
-            skip_chore: false,
-            release_commit_matcher: Some(
-                Regex::new(r#"^chore\(main\):\srelease.+"#).unwrap(),
-            ),
-            tag_prefix: Some("test-package-v".into()),
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
-        let forge_commit = ForgeCommitBuilder::default()
-            .id("vwx234")
-            .message("chore(main): release test-package test-package-v1.0.0")
-            .author_name("GitHub")
-            .author_email("noreply@github.com")
-            .timestamp(1640995900)
-            .merge_commit(false)
-            .build()
-            .unwrap();
-
-        let commit = Commit::parse_forge_commit(
-            &group_parser,
-            &forge_commit,
-            &analyzer_config,
-        );
-
-        assert!(commit.is_none());
     }
 
     #[test]
