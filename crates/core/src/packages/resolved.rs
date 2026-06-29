@@ -36,5 +36,6 @@ pub struct ResolvedPackage {
     pub auto_start_next: bool,
     pub normalized_additional_paths: Vec<PathBuf>,
     pub compiled_additional_manifests: Vec<CompiledAdditionalManifest>,
+    pub aggregate_prereleases: bool,
     pub analyzer_config: AnalyzerConfig,
 }

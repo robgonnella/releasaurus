@@ -16,8 +16,8 @@ use url::Url;
 
 use crate::{
     config::{
-        Config, DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_CONFIG_FILE,
-        DEFAULT_TAG_SEARCH_DEPTH,
+        Config, DEFAULT_CONFIG_FILE,
+        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
     },
     forge::{
         config::RepoUrl,
@@ -1096,6 +1096,7 @@ mod tests {
         std::fs::write(
             &custom_toml,
             r#"
+[repository]
 base_branch = "develop"
 first_release_search_depth = 50
 tag_search_depth = 10
@@ -1109,9 +1110,9 @@ tag_search_depth = 10
             .await
             .unwrap();
 
-        assert_eq!(config.base_branch, Some("develop".to_string()));
-        assert_eq!(config.first_release_search_depth, 50);
-        assert_eq!(config.tag_search_depth, 10);
+        assert_eq!(config.repository.base_branch, Some("develop".to_string()));
+        assert_eq!(config.repository.first_release_search_depth, 50);
+        assert_eq!(config.repository.tag_search_depth, 10);
     }
 
     /// `load_config` with no config path reads the default
@@ -1127,6 +1128,7 @@ tag_search_depth = 10
         std::fs::write(
             &default_toml,
             r#"
+[repository]
 base_branch = "develop"
 first_release_search_depth = 50
 tag_search_depth = 10
@@ -1137,9 +1139,9 @@ tag_search_depth = 10
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let config = forge.load_config(None, None).await.unwrap();
 
-        assert_eq!(config.base_branch, Some("develop".to_string()));
-        assert_eq!(config.first_release_search_depth, 50);
-        assert_eq!(config.tag_search_depth, 10);
+        assert_eq!(config.repository.base_branch, Some("develop".to_string()));
+        assert_eq!(config.repository.first_release_search_depth, 50);
+        assert_eq!(config.repository.tag_search_depth, 10);
     }
 
     /// `load_config` with a non-existent custom path returns an error.
@@ -1176,23 +1178,29 @@ tag_search_depth = 10
         let config = forge.load_config(None, None).await.unwrap();
 
         let default = Config::default();
-        assert_eq!(config.base_branch, default.base_branch);
         assert_eq!(
-            config.first_release_search_depth,
-            default.first_release_search_depth
-        );
-        assert_eq!(config.tag_search_depth, default.tag_search_depth);
-        assert_eq!(
-            config.separate_pull_requests,
-            default.separate_pull_requests
+            config.repository.base_branch,
+            default.repository.base_branch
         );
         assert_eq!(
-            config.breaking_always_increment_major,
-            default.breaking_always_increment_major
+            config.repository.first_release_search_depth,
+            default.repository.first_release_search_depth
         );
         assert_eq!(
-            config.features_always_increment_minor,
-            default.features_always_increment_minor
+            config.repository.tag_search_depth,
+            default.repository.tag_search_depth
+        );
+        assert_eq!(
+            config.repository.separate_pull_requests,
+            default.repository.separate_pull_requests
+        );
+        assert_eq!(
+            config.global.breaking_always_increment_major,
+            default.global.breaking_always_increment_major
+        );
+        assert_eq!(
+            config.global.features_always_increment_minor,
+            default.global.features_always_increment_minor
         );
     }
 

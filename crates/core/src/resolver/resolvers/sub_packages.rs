@@ -56,6 +56,7 @@ pub fn resolve_sub_packages_full(
                 tag_prefix: tag_prefix.to_string(),
                 sub_packages: vec![],
                 prerelease: prerelease.clone(),
+                aggregate_prereleases: false,
                 auto_start_next: auto_start,
                 normalized_additional_paths: vec![],
                 compiled_additional_manifests: vec![],
@@ -71,9 +72,9 @@ mod tests {
     use url::Url;
 
     use crate::config::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
         changelog::ChangelogConfig,
         package::{PackageConfigBuilder, SubPackage},
+        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
         resolved::{CommitModifiers, GlobalOverrides},
     };
 

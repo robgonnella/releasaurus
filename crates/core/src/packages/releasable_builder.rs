@@ -86,6 +86,7 @@ mod tests {
             tag_prefix: "v".to_string(),
             sub_packages: vec![],
             prerelease: None,
+            aggregate_prereleases: false,
             auto_start_next: false,
             normalized_additional_paths: vec![],
             compiled_additional_manifests: vec![],

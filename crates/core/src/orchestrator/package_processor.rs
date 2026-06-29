@@ -177,9 +177,7 @@ impl PackageProcessor {
                 &commits,
             );
 
-            if self.config.changelog.aggregate_prereleases
-                && is_graduating_to_stable
-            {
+            if package.aggregate_prereleases && is_graduating_to_stable {
                 let additional = self
                     .commit_fetcher
                     .fetch_additional_commits_for_prerelease_aggregation(

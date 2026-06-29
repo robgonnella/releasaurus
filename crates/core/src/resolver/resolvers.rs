@@ -8,6 +8,7 @@
 pub mod analyzer;
 pub mod auto_start;
 pub mod base_branch;
+pub mod changelog;
 pub mod commit_modifiers;
 pub mod manifest;
 pub mod package;

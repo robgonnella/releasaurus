@@ -1,11 +1,15 @@
 use std::rc::Rc;
 
 use crate::{
-    config::{package::PackageConfig, resolved::ResolvedConfig},
+    config::{
+        changelog::DEFAULT_AGGREGATE_PRERELEASES, package::PackageConfig,
+        resolved::ResolvedConfig,
+    },
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
         analyzer::{AnalyzerParams, build_analyzer_config},
         auto_start::resolve_auto_start_next,
+        changelog::resolve_changelog_config,
         manifest::compile_additional_manifests,
         package_name::resolve_package_name,
         path_utils::{normalize_additional_paths, normalize_package_paths},
@@ -70,9 +74,23 @@ pub fn resolve_package(
     let normalized_additional_paths =
         normalize_additional_paths(&package_config);
 
+    let changelog_config =
+        resolve_changelog_config(&package_config, &resolved_config.changelog);
+
+    let aggregate_prereleases = changelog_config
+        .aggregate_prereleases
+        .unwrap_or(DEFAULT_AGGREGATE_PRERELEASES);
+
     // Build analyzer config
     let analyzer_config = build_analyzer_config(AnalyzerParams {
-        config: Rc::clone(&resolved_config),
+        changelog_config,
+        commit_modifiers: resolved_config.commit_modifiers.clone(),
+        compare_link_base_url: Some(
+            resolved_config.compare_link_base_url.clone(),
+        ),
+        release_link_base_url: Some(
+            resolved_config.release_link_base_url.clone(),
+        ),
         package_name: name.clone(),
         prerelease: prerelease.clone(),
         tag_prefix: tag_prefix.clone(),
@@ -103,6 +121,7 @@ pub fn resolve_package(
         tag_prefix,
         sub_packages,
         prerelease,
+        aggregate_prereleases,
         auto_start_next: auto_start,
         normalized_additional_paths,
         compiled_additional_manifests,

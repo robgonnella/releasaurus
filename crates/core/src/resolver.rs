@@ -54,46 +54,59 @@ impl Resolver {
         packages: Vec<PackageConfig>,
     ) -> Result<(Rc<ResolvedConfig>, ResolvedPackageHash)> {
         let base_branch = resolve_base_branch(
-            &self.toml_config,
+            &self.toml_config.repository,
             &self.global_overrides,
             &self.repo_default_branch,
         );
 
         let commit_modifiers = resolve_commit_modifiers(
-            &self.toml_config,
+            &self.toml_config.repository,
             &self.commit_modifiers,
         )?;
 
         let resolved_config = Rc::new(ResolvedConfig {
-            auto_start_next: self.toml_config.auto_start_next,
+            auto_start_next: self.toml_config.global.auto_start_next,
             base_branch,
+            commit_modifiers,
             breaking_always_increment_major: self
                 .toml_config
+                .global
                 .breaking_always_increment_major,
-            changelog: self.toml_config.changelog.clone(),
-            commit_modifiers,
+            changelog: self
+                .toml_config
+                .global
+                .changelog
+                .clone()
+                .unwrap_or_default(),
             custom_major_increment_regex: self
                 .toml_config
+                .global
                 .custom_major_increment_regex
                 .clone(),
             custom_minor_increment_regex: self
                 .toml_config
+                .global
                 .custom_minor_increment_regex
                 .clone(),
             features_always_increment_minor: self
                 .toml_config
+                .global
                 .features_always_increment_minor,
             first_release_search_depth: self
                 .toml_config
+                .repository
                 .first_release_search_depth,
-            tag_search_depth: self.toml_config.tag_search_depth,
+            tag_search_depth: self.toml_config.repository.tag_search_depth,
             global_overrides: self.global_overrides.clone(),
             package_overrides: self.package_overrides.clone(),
-            prerelease: self.toml_config.prerelease.clone(),
+            prerelease: self.toml_config.global.prerelease.clone(),
             release_link_base_url: self.release_link_base_url.clone(),
             compare_link_base_url: self.compare_link_base_url.clone(),
             repo_name: self.repo_name.clone(),
-            separate_pull_requests: self.toml_config.separate_pull_requests,
+            separate_pull_requests: self
+                .toml_config
+                .repository
+                .separate_pull_requests,
         });
 
         let mut resolved_packages = vec![];

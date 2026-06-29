@@ -1,9 +1,14 @@
 //! Configuration for changelog generation and commit analysis.
 
 use derive_builder::Builder;
+use indexmap::IndexMap;
 use url::Url;
 
-use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
+use crate::config::{
+    changelog::{Group, Parser},
+    prerelease::PrereleaseConfig,
+    resolved::CommitModifiers,
+};
 
 /// Configuration for commit analysis and changelog generation.
 #[derive(Debug, Clone, Builder)]
@@ -11,24 +16,6 @@ use crate::config::{prerelease::PrereleaseConfig, resolved::CommitModifiers};
 pub struct AnalyzerConfig {
     /// Tera template string for changelog body format.
     pub body: String,
-    /// Skips including ci commits in changelog (default: false)
-    pub skip_ci: bool,
-    /// Skips including chore commits in changelog (default: false)
-    pub skip_chore: bool,
-    /// Skips including doc commits in changelog (default: false)
-    pub skip_doc: bool,
-    /// Skips including test commits in changelog (default: false)
-    pub skip_test: bool,
-    /// Skips including style commits in changelog (default: false)
-    pub skip_style: bool,
-    /// Skips including refactor commits in changelog (default: false)
-    pub skip_refactor: bool,
-    /// Skips including perf commits in changelog (default: false)
-    pub skip_perf: bool,
-    /// Skips including revert commits in changelog (default: false)
-    pub skip_revert: bool,
-    /// Skips including miscellaneous commits in changelog (default: false)
-    pub skip_miscellaneous: bool,
     /// Skips including merge commits in changelog (default: true)
     pub skip_merge_commits: bool,
     /// Includes commit author in default body template (default: false)
@@ -52,21 +39,18 @@ pub struct AnalyzerConfig {
     /// Custom commit modifiers to skip commit shas or reword commit messages
     /// when generating changelog content
     pub commit_modifiers: CommitModifiers,
+    /// Default parsers for organizing commits into common groups e.g. feature,
+    /// bug, etc. These can be turned off by setting the "skip" field to "true".
+    pub named_parsers: IndexMap<Group, Parser>,
+    /// Additional parsers for grouping commits into non-default groups
+    /// e.g. pattern="^special:" title="<!-- 00 -->Special" skip=false
+    pub custom_parsers: Vec<Parser>,
 }
 
 impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
             body: "".into(),
-            skip_ci: false,
-            skip_chore: false,
-            skip_doc: false,
-            skip_test: false,
-            skip_style: false,
-            skip_refactor: false,
-            skip_perf: false,
-            skip_revert: false,
-            skip_miscellaneous: false,
             skip_merge_commits: true,
             include_author: false,
             tag_prefix: None,
@@ -78,6 +62,8 @@ impl Default for AnalyzerConfig {
             custom_major_increment_regex: None,
             custom_minor_increment_regex: None,
             commit_modifiers: CommitModifiers::default(),
+            named_parsers: IndexMap::new(),
+            custom_parsers: Vec::new(),
         }
     }
 }

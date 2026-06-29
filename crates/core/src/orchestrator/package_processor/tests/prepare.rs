@@ -10,6 +10,7 @@ use crate::{
     config::{
         Config,
         changelog::ChangelogConfig,
+        global::GlobalConfig,
         package::{PackageConfig, PackageConfigBuilder},
     },
     forge::{
@@ -116,9 +117,12 @@ fn pkg_commit(id: &str, ts: i64) -> ForgeCommit {
 
 fn aggregate_config() -> Config {
     Config {
-        changelog: ChangelogConfig {
-            aggregate_prereleases: true,
-            ..ChangelogConfig::default()
+        global: GlobalConfig {
+            changelog: Some(ChangelogConfig {
+                aggregate_prereleases: Some(true),
+                ..ChangelogConfig::default()
+            }),
+            ..GlobalConfig::default()
         },
         ..Config::default()
     }

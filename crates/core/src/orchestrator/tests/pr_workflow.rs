@@ -7,7 +7,9 @@
 //! - Handling empty releasable packages
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+    },
     forge::{
         config::PENDING_LABEL,
         request::{
@@ -173,7 +175,10 @@ async fn create_release_prs_creates_new_prs() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 
@@ -268,7 +273,10 @@ async fn create_release_prs_targets_specific_package() {
         .returning(|_| Ok(()));
 
     let config = Config {
-        separate_pull_requests: true,
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
         ..Default::default()
     };
 

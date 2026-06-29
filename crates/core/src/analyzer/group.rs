@@ -1,183 +1,102 @@
-use std::fmt;
-use std::sync::LazyLock;
+use indexmap::IndexMap;
 
-use regex::Regex;
-use serde::{Deserialize, Serialize};
+use crate::{
+    analyzer::commit::Commit,
+    config::changelog::{Group, Parser},
+};
 
-use crate::analyzer::commit::Commit;
-
-/// Commit categories based on conventional commit types, used for grouping
-/// changes in the changelog.
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-)]
-pub enum Group {
-    #[serde(rename = "<!-- 00 -->❌ Breaking")]
-    Breaking,
-    #[serde(rename = "<!-- 01 -->🚀 Features")]
-    Feat,
-    #[serde(rename = "<!-- 02 -->🐛 Bug Fixes")]
-    Fix,
-    #[serde(rename = "<!-- 03 -->◀️ Revert")]
-    Revert,
-    #[serde(rename = "<!-- 04 -->🚜 Refactor")]
-    Refactor,
-    #[serde(rename = "<!-- 05 -->⚡ Performance")]
-    Perf,
-    #[serde(rename = "<!-- 06 -->📚 Documentation")]
-    Doc,
-    #[serde(rename = "<!-- 07 -->🎨 Styling")]
-    Style,
-    #[serde(rename = "<!-- 08 -->🧪 Testing")]
-    Test,
-    #[serde(rename = "<!-- 09 -->🧹 Chore")]
-    Chore,
-    #[serde(rename = "<!-- 10 -->⏩ CI/CD")]
-    Ci,
-    #[serde(rename = "<!-- 11 -->⚙️ Miscellaneous Tasks")]
-    #[default]
-    Miscellaneous,
+/// Determines which changelog category a commit belongs to by matching
+/// against conventional commit type patterns.
+pub struct GroupParser<'a> {
+    named_parsers: &'a IndexMap<Group, Parser>,
+    custom_parsers: &'a [Parser],
 }
 
-impl fmt::Display for Group {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Group::Breaking => "breaking",
-            Group::Feat => "feat",
-            Group::Fix => "fix",
-            Group::Revert => "revert",
-            Group::Refactor => "refactor",
-            Group::Perf => "perf",
-            Group::Doc => "doc",
-            Group::Style => "style",
-            Group::Test => "test",
-            Group::Chore => "chore",
-            Group::Ci => "ci",
-            Group::Miscellaneous => "miscellaneous",
-        };
-        write!(f, "{s}")
-    }
-}
-
-// Parser data structure that can parse groups from commit message patterns
-struct Parser {
-    pattern: Regex,
-    target_group: Group,
-}
-
-impl Parser {
-    fn new(pattern: Regex, target_group: Group) -> Self {
+impl<'a> GroupParser<'a> {
+    pub fn new(
+        named_parsers: &'a IndexMap<Group, Parser>,
+        custom_parsers: &'a [Parser],
+    ) -> Self {
         Self {
-            pattern,
-            target_group,
+            named_parsers,
+            custom_parsers,
         }
     }
 
-    pub fn parse(&self, c: &Commit) -> Option<Group> {
-        if self.pattern.is_match(c.raw_message.trim()) {
-            return Some(self.target_group);
+    /// Determine the changelog category for a commit by checking breaking
+    /// changes first, then matching commit type prefixes.
+    pub fn parse(&self, commit: &Commit) -> Option<(String, bool)> {
+        let msg = commit.raw_message.trim();
+
+        // custom parsers always take precedence
+        for parser in self.custom_parsers.iter() {
+            if parser.is_match(msg) {
+                return Some(parser.title_and_skip());
+            }
+        }
+
+        // Handle breaking first as this one doesn't always have a pattern
+        // matcher since we mostly rely on conventional commit parsing for
+        // this group.
+        let breaking_parser = self.named_parsers.get(&Group::Breaking);
+
+        // If there is a user defined breaking parser i.e. pattern is some,
+        // use it
+        if let Some(parser) = breaking_parser
+            && let Some(pattern) = parser.pattern.as_ref()
+            && pattern.is_match(msg)
+        {
+            return Some(parser.title_and_skip());
+        }
+
+        // If no user defined breaking parser is defined, use conventional
+        // commit parsing to determine breaking group
+        if commit.breaking
+            && let Some(parser) = self.named_parsers.get(&Group::Breaking)
+            && parser.pattern.is_none()
+        {
+            return Some(parser.title_and_skip());
+        }
+
+        for (group, parser) in self.named_parsers.iter() {
+            if matches!(group, Group::Breaking)
+                || matches!(group, Group::Miscellaneous)
+            {
+                // breaking already handled above and
+                // miscellaneous is handled below
+                continue;
+            }
+            if parser.is_match(msg) {
+                return Some(parser.title_and_skip());
+            }
+        }
+
+        // Always handle miscellaneous group last as its regex pattern
+        // is likely .* and we want to give precedence to other more
+        // restrictive patterns.
+        if let Some(parser) = self.named_parsers.get(&Group::Miscellaneous)
+            && parser.is_match(msg)
+        {
+            return Some(parser.title_and_skip());
         }
 
         None
     }
 }
 
-// CHORE
-static CHORE_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^chore").unwrap(), Group::Chore));
-
-// CI
-static CI_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^ci").unwrap(), Group::Ci));
-
-// DOC
-static DOC_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^doc").unwrap(), Group::Doc));
-
-// FEAT
-static FEAT_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^feat").unwrap(), Group::Feat));
-
-// FIX
-static FIX_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^fix").unwrap(), Group::Fix));
-
-// PERF
-static PERF_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^perf").unwrap(), Group::Perf));
-
-// REFACTOR
-static REFACTOR_PARSER: LazyLock<Parser> = LazyLock::new(|| {
-    Parser::new(Regex::new(r"^refactor").unwrap(), Group::Refactor)
-});
-
-// REVERT
-static REVERT_PARSER: LazyLock<Parser> = LazyLock::new(|| {
-    Parser::new(Regex::new(r"^revert").unwrap(), Group::Revert)
-});
-
-// STYLE
-static STYLE_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^style").unwrap(), Group::Style));
-
-// TEST
-static TEST_PARSER: LazyLock<Parser> =
-    LazyLock::new(|| Parser::new(Regex::new(r"^test").unwrap(), Group::Test));
-
-static GROUP_PARSERS: [&LazyLock<Parser>; 10] = [
-    &FEAT_PARSER,
-    &FIX_PARSER,
-    &REVERT_PARSER,
-    &REFACTOR_PARSER,
-    &PERF_PARSER,
-    &DOC_PARSER,
-    &STYLE_PARSER,
-    &TEST_PARSER,
-    &CHORE_PARSER,
-    &CI_PARSER,
-];
-
-/// Determines which changelog category a commit belongs to by matching
-/// against conventional commit type patterns.
-#[derive(Default)]
-pub struct GroupParser {}
-
-impl GroupParser {
-    /// Determine the changelog category for a commit by checking breaking
-    /// changes first, then matching commit type prefixes.
-    pub fn parse(&self, commit: &Commit) -> Group {
-        if commit.breaking {
-            return Group::Breaking;
-        }
-
-        for parser in GROUP_PARSERS {
-            if let Some(group) = parser.parse(commit) {
-                return group;
-            }
-        }
-
-        Group::default()
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use regex::Regex;
+
+    use crate::config::changelog::NAMED_PARSERS;
+
     use super::*;
 
     fn create_test_commit(raw_message: &str, breaking: bool) -> Commit {
         Commit {
             id: "abc123".to_string(),
             short_id: "abc".to_string(),
-            group: Group::default(),
+            group: "".into(),
             scope: None,
             title: "test message".to_string(),
             body: None,
@@ -194,255 +113,337 @@ mod tests {
     }
 
     #[test]
-    fn test_group_default() {
-        let group = Group::default();
-        assert_eq!(group, Group::Miscellaneous);
-    }
-
-    #[test]
-    fn test_group_equality() {
-        assert_eq!(Group::Feat, Group::Feat);
-        assert_eq!(Group::Fix, Group::Fix);
-        assert_eq!(Group::Breaking, Group::Breaking);
-        assert_ne!(Group::Feat, Group::Fix);
-        assert_ne!(Group::Breaking, Group::Miscellaneous);
-    }
-
-    #[test]
-    fn test_group_ordering() {
-        // Test that Breaking comes first in sort order
-        let mut groups = [Group::Fix, Group::Breaking, Group::Feat];
-        groups.sort();
-        assert_eq!(groups[0], Group::Breaking);
-
-        // Test other orderings
-        assert!(Group::Breaking < Group::Feat);
-        assert!(Group::Feat < Group::Fix);
-        assert!(Group::Miscellaneous > Group::Ci); // Other should be last
-    }
-
-    #[test]
-    fn test_group_serialization() {
-        let test_cases = vec![
-            (Group::Breaking, "❌ Breaking"),
-            (Group::Feat, "🚀 Features"),
-            (Group::Fix, "🐛 Bug Fixes"),
-            (Group::Revert, "◀️ Revert"),
-            (Group::Refactor, "🚜 Refactor"),
-            (Group::Perf, "⚡ Performance"),
-            (Group::Doc, "📚 Documentation"),
-            (Group::Style, "🎨 Styling"),
-            (Group::Test, "🧪 Testing"),
-            (Group::Chore, "🧹 Chore"),
-            (Group::Ci, "⏩ CI/CD"),
-            (Group::Miscellaneous, "⚙️ Miscellaneous Tasks"),
-        ];
-
-        for (group, expected) in test_cases {
-            let json = serde_json::to_string(&group)
-                .expect("Failed to serialize group");
-            assert!(
-                json.contains(expected),
-                "Group {:?} should serialize to contain '{}'",
-                group,
-                expected
-            );
-        }
-    }
-
-    #[test]
     fn test_group_parser_breaking_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
         let commit = create_test_commit("feat!: breaking change", true);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Breaking);
+        let breaking_parser =
+            NAMED_PARSERS.get(&Group::Breaking).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, breaking_parser.title.unwrap());
+        assert_eq!(skip, breaking_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_feat_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("feat: add new feature", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Feat);
+        let feature_parser =
+            NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, feature_parser.title.unwrap());
+        assert_eq!(skip, feature_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_fix_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("fix: resolve bug", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Fix);
+        let fix_parser = NAMED_PARSERS.get(&Group::Fix).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, fix_parser.title.unwrap());
+        assert_eq!(skip, fix_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_chore_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("chore: update dependencies", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Chore);
+        let chore_parser = NAMED_PARSERS.get(&Group::Chore).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, chore_parser.title.unwrap());
+        assert_eq!(skip, chore_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_ci_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("ci: update workflow", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Ci);
+        let ci_parser = NAMED_PARSERS.get(&Group::CI).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, ci_parser.title.unwrap());
+        assert_eq!(skip, ci_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_doc_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("doc: update readme", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Doc);
+        let doc_parser =
+            NAMED_PARSERS.get(&Group::Documentation).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, doc_parser.title.unwrap());
+        assert_eq!(skip, doc_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_perf_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("perf: optimize algorithm", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Perf);
+        let perf_parser =
+            NAMED_PARSERS.get(&Group::Performance).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, perf_parser.title.unwrap());
+        assert_eq!(skip, perf_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_refactor_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("refactor: clean up code", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Refactor);
+        let refactor_parser =
+            NAMED_PARSERS.get(&Group::Refactor).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, refactor_parser.title.unwrap());
+        assert_eq!(skip, refactor_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_revert_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("revert: undo previous change", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Revert);
+        let revert_parser = NAMED_PARSERS.get(&Group::Revert).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, revert_parser.title.unwrap());
+        assert_eq!(skip, revert_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_style_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("style: format code", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Style);
+        let style_parser = NAMED_PARSERS.get(&Group::Style).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, style_parser.title.unwrap());
+        assert_eq!(skip, style_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_test_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("test: add unit tests", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Test);
+        let test_parser = NAMED_PARSERS.get(&Group::Test).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, test_parser.title.unwrap());
+        assert_eq!(skip, test_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_unknown_commit() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("random: unknown type", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Miscellaneous);
+        let misc_parser =
+            NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, misc_parser.title.unwrap());
+        assert_eq!(skip, misc_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_empty_message() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Miscellaneous);
+        let misc_parser =
+            NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, misc_parser.title.unwrap());
+        assert_eq!(skip, misc_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_whitespace_handling() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit =
             create_test_commit("  feat: feature with leading spaces", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Feat);
+        let feature_parser =
+            NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, feature_parser.title.unwrap());
+        assert_eq!(skip, feature_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_case_sensitivity() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
 
         // Lowercase should match
         let commit1 = create_test_commit("feat: lowercase", false);
-        assert_eq!(parser.parse(&commit1), Group::Feat);
+        let feature_parser =
+            NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit1).unwrap();
+        assert_eq!(title, feature_parser.title.unwrap());
+        assert_eq!(skip, feature_parser.skip.unwrap());
 
         // Uppercase should not match (our regexes are case-sensitive)
         let commit2 = create_test_commit("FEAT: uppercase", false);
-        assert_eq!(parser.parse(&commit2), Group::Miscellaneous);
+        let misc_parser =
+            NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit2).unwrap();
+        assert_eq!(title, misc_parser.title.unwrap());
+        assert_eq!(skip, misc_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_breaking_takes_precedence() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         // Even if it matches feat pattern, breaking should take precedence
         let commit = create_test_commit("feat!: breaking feature", true);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Breaking);
+        let breaking_parser =
+            NAMED_PARSERS.get(&Group::Breaking).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, breaking_parser.title.unwrap());
+        assert_eq!(skip, breaking_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_with_scope() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let commit = create_test_commit("feat(api): add endpoint", false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Feat);
+        let feature_parser =
+            NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, feature_parser.title.unwrap());
+        assert_eq!(skip, feature_parser.skip.unwrap());
     }
 
     #[test]
     fn test_group_parser_multiline_message() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
+
         let multiline_msg = "fix: resolve issue\n\nThis is a longer description\nwith multiple lines";
         let commit = create_test_commit(multiline_msg, false);
-        let group = parser.parse(&commit);
-        assert_eq!(group, Group::Fix);
+        let fix_parser = NAMED_PARSERS.get(&Group::Fix).cloned().unwrap();
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, fix_parser.title.unwrap());
+        assert_eq!(skip, fix_parser.skip.unwrap());
     }
 
     #[test]
     fn test_all_groups_covered() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
 
         // Test that we have parsers for all the main groups
         let test_cases = vec![
-            ("feat: test", Group::Feat),
+            ("feat: test", Group::Feature),
             ("fix: test", Group::Fix),
             ("chore: test", Group::Chore),
-            ("doc: test", Group::Doc),
+            ("doc: test", Group::Documentation),
             ("style: test", Group::Style),
             ("refactor: test", Group::Refactor),
-            ("perf: test", Group::Perf),
+            ("perf: test", Group::Performance),
             ("test: test", Group::Test),
             ("revert: test", Group::Revert),
-            ("ci: test", Group::Ci),
+            ("ci: test", Group::CI),
         ];
 
         for (message, expected_group) in test_cases {
             let commit = create_test_commit(message, false);
-            let parsed_group = parser.parse(&commit);
-            assert_eq!(
-                parsed_group, expected_group,
-                "Failed for message: {}",
-                message
-            );
+            let (title, skip) = parser.parse(&commit).unwrap();
+            let target_parser =
+                NAMED_PARSERS.get(&expected_group).cloned().unwrap();
+            assert_eq!(title, target_parser.title.unwrap());
+            assert_eq!(skip, target_parser.skip.unwrap());
         }
     }
 
     #[test]
     fn test_group_parser_order_matters() {
-        let parser = GroupParser::default();
+        let parser = GroupParser::new(&NAMED_PARSERS, &[]);
 
         // Breaking should always take precedence over other types
         let breaking_feat = create_test_commit(
             "feat: breaking feature\n\nBREAKING CHANGE: it broke",
             true,
         );
-        assert_eq!(parser.parse(&breaking_feat), Group::Breaking);
+        let breaking_parser =
+            NAMED_PARSERS.get(&Group::Breaking).cloned().unwrap();
+        let breaking_title = breaking_parser.title.unwrap();
+        let breaking_skip = breaking_parser.skip.unwrap();
+
+        let (title, skip) = parser.parse(&breaking_feat).unwrap();
+        assert_eq!(title, breaking_title);
+        assert_eq!(skip, breaking_skip);
 
         let breaking_fix = create_test_commit("fix!: breaking fix", true);
-        assert_eq!(parser.parse(&breaking_fix), Group::Breaking);
+        let (title, skip) = parser.parse(&breaking_fix).unwrap();
+        assert_eq!(title, breaking_title);
+        assert_eq!(skip, breaking_skip);
+    }
+
+    #[test]
+    fn test_group_parser_custom_parser_matches() {
+        let custom = [Parser::new(
+            Some(Regex::new(r"^deps").unwrap()),
+            "📦 Deps".into(),
+            false,
+        )];
+        let parser = GroupParser::new(&NAMED_PARSERS, &custom);
+
+        let commit = create_test_commit("deps: bump serde", false);
+        let (title, skip) = parser.parse(&commit).unwrap();
+        assert_eq!(title, "📦 Deps");
+        assert!(!skip);
+    }
+
+    #[test]
+    fn test_group_parser_custom_parser_precedence_over_default() {
+        // A custom parser whose pattern overlaps a default group (feat)
+        // takes precedence over the built-in Features group.
+        let custom = [Parser::new(
+            Some(Regex::new(r"^feat").unwrap()),
+            "Custom Features".into(),
+            false,
+        )];
+        let parser = GroupParser::new(&NAMED_PARSERS, &custom);
+
+        let commit = create_test_commit("feat: add thing", false);
+        let (title, _) = parser.parse(&commit).unwrap();
+        assert_eq!(title, "Custom Features");
+    }
+
+    #[test]
+    fn test_group_parser_user_defined_breaking_pattern() {
+        // Give the breaking parser an explicit pattern. This overrides
+        // conventional-commit breaking detection: only messages matching
+        // the pattern are classified as breaking.
+        let mut named_parsers = NAMED_PARSERS.clone();
+        let breaking_parser = named_parsers.get_mut(&Group::Breaking).unwrap();
+        breaking_parser.pattern = Some(Regex::new(r"^breaking").unwrap());
+        let breaking_title = breaking_parser.title.clone().unwrap();
+
+        let parser = GroupParser::new(&named_parsers, &[]);
+
+        // A message matching the custom pattern lands in the breaking group.
+        let matching = create_test_commit("breaking: drop legacy api", false);
+        let (title, _) = parser.parse(&matching).unwrap();
+        assert_eq!(title, breaking_title);
+
+        // A conventional `feat!:` breaking commit whose message does NOT
+        // match the custom pattern falls through to the Feature group. Once
+        // a breaking pattern is defined, it is the user's responsibility to
+        // make it match the commits they consider breaking.
+        let feat_breaking = create_test_commit("feat!: breaking feature", true);
+        let feature_title = NAMED_PARSERS
+            .get(&Group::Feature)
+            .unwrap()
+            .title
+            .clone()
+            .unwrap();
+        let (title, _) = parser.parse(&feat_breaking).unwrap();
+        assert_eq!(title, feature_title);
     }
 }

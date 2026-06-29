@@ -74,14 +74,17 @@ pub fn graduate_prerelease(version: &Version) -> Version {
 
 #[cfg(test)]
 mod tests {
-    use crate::forge::request::ForgeCommitBuilder;
+    use crate::{
+        config::changelog::{Group, NAMED_PARSERS},
+        forge::request::ForgeCommitBuilder,
+    };
 
     use super::*;
 
     #[test]
     fn test_update_release_with_commit() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let group_parser = GroupParser::new(&NAMED_PARSERS, &[]);
         let mut release = Release::default();
 
         let forge_commit1 = ForgeCommitBuilder::default()
@@ -229,11 +232,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_ci() {
-        let analyzer_config = AnalyzerConfig {
-            skip_ci: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+
+        let mut named_parsers = NAMED_PARSERS.clone();
+        let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
+        ci_parser.skip = Some(true);
+
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let ci_commit = ForgeCommitBuilder::default()
@@ -282,11 +287,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_chore() {
-        let analyzer_config = AnalyzerConfig {
-            skip_chore: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+
+        let mut named_parsers = NAMED_PARSERS.clone();
+        let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
+        chore_parser.skip = Some(true);
+
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let chore_commit = ForgeCommitBuilder::default()
@@ -335,11 +342,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_miscellaneous() {
-        let analyzer_config = AnalyzerConfig {
-            skip_miscellaneous: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+
+        let mut named_parsers = NAMED_PARSERS.clone();
+        let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
+        misc_parser.skip = Some(true);
+
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let misc_commit = ForgeCommitBuilder::default()
@@ -388,13 +397,20 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_skip_multiple_types() {
-        let analyzer_config = AnalyzerConfig {
-            skip_ci: true,
-            skip_chore: true,
-            skip_miscellaneous: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+
+        let mut named_parsers = NAMED_PARSERS.clone();
+
+        let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
+        ci_parser.skip = Some(true);
+
+        let chore_parser = named_parsers.get_mut(&Group::Chore).unwrap();
+        chore_parser.skip = Some(true);
+
+        let misc_parser = named_parsers.get_mut(&Group::Miscellaneous).unwrap();
+        misc_parser.skip = Some(true);
+
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let commits = vec![
@@ -478,7 +494,8 @@ mod tests {
     #[test]
     fn test_update_release_with_commit_preserves_author_info() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let named_parsers = NAMED_PARSERS.clone();
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let commit_with_author = ForgeCommitBuilder::default()
@@ -508,11 +525,13 @@ mod tests {
 
     #[test]
     fn test_update_release_with_commit_author_info_with_skip_options() {
-        let analyzer_config = AnalyzerConfig {
-            skip_ci: true,
-            ..AnalyzerConfig::default()
-        };
-        let group_parser = GroupParser::default();
+        let analyzer_config = AnalyzerConfig::default();
+
+        let mut named_parsers = NAMED_PARSERS.clone();
+        let ci_parser = named_parsers.get_mut(&Group::CI).unwrap();
+        ci_parser.skip = Some(true);
+
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let ci_commit = ForgeCommitBuilder::default()
@@ -563,7 +582,8 @@ mod tests {
     #[test]
     fn test_update_release_with_commit_no_skip_includes_all() {
         let analyzer_config = AnalyzerConfig::default();
-        let group_parser = GroupParser::default();
+        let named_parsers = NAMED_PARSERS.clone();
+        let group_parser = GroupParser::new(&named_parsers, &[]);
         let mut release = Release::default();
 
         let commits = vec![

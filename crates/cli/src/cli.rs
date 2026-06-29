@@ -5,8 +5,8 @@ use git_url_parse::{GitUrl, types::provider::GenericProvider};
 use merge::Merge;
 use releasaurus_core::{
     config::{
-        changelog::RewordedCommit,
         prerelease::PrereleaseStrategy,
+        repository::RewordedCommit,
         resolved::{CommitModifiers, GlobalOverrides, PackageOverrides},
     },
     forge::{

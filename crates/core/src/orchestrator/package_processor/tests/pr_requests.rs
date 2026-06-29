@@ -11,7 +11,9 @@ use semver::Version;
 use super::common::*;
 
 use crate::{
-    config::{Config, package::PackageConfigBuilder},
+    config::{
+        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+    },
     forge::{
         request::{
             Commit, CreateReleaseBranchRequest, PrMetadataBlock, PullRequest,
@@ -253,8 +255,11 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     ];
 
     let config = Config {
-        separate_pull_requests: false,
-        ..Default::default()
+        repository: RepositoryConfig {
+            separate_pull_requests: false,
+            ..RepositoryConfig::default()
+        },
+        ..Config::default()
     };
 
     expect_html_comment_encoding(&mut mock_forge);
@@ -346,8 +351,11 @@ async fn create_pr_branches_handles_separate_branches() {
     ];
 
     let config = Config {
-        separate_pull_requests: true,
-        ..Default::default()
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
+        ..Config::default()
     };
 
     expect_html_comment_encoding(&mut mock_forge);

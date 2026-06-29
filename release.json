@@ -1,0 +1,54 @@
+[
+  {
+    "name": "workspace",
+    "path": "",
+    "release_type": "rust",
+    "release": {
+      "link": "https://github.com/robgonnella/releasaurus/releases/tag/v0.21.0-rc.3",
+      "tag_compare_link": "https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.2...v0.21.0-rc.3",
+      "sha_compare_link": "https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.2...e737f878404cd167234b47db7ffc97485b4e51a0",
+      "version": "0.21.0-rc.3",
+      "tag_name": "v0.21.0-rc.3",
+      "sha": "e737f878404cd167234b47db7ffc97485b4e51a0",
+      "include_author": true,
+      "commits": [
+        {
+          "id": "e737f878404cd167234b47db7ffc97485b4e51a0",
+          "short_id": "e737f87",
+          "group": "<!-- 00 -->❌ Breaking",
+          "scope": null,
+          "title": "adds support for custom parsers for commit groups",
+          "body": "Adds the ability for users to modify a set of default parsers and define\na set of custom parsers. Each parser consists of a pattern, a title, and\na skip field. When skip is true, any commits matching the pattern will\nbe omitted from changelog and version calculation. Otherwise the commit\nwill be considered for version calculation and will appear in the\nchangelog grouped under the parser title. To order the groups, users\nshould place a tag at the start of the title with the following form\n\"<!-- <two_digit_index> --><title>\". Users can then sort groups in the\ntera template via \"sort(attribute=\"group\")\" and strip the leading tag\nwhen displaying via \"{{ group | striptags | trim }}\".",
+          "link": "",
+          "breaking": true,
+          "breaking_description": "The following changelog options have been deprecated\nin toml config in support of the new default_parsers and\ncustom_parsers fields.\n- skip_ci\n- skip_chore\n- skip_doc\n- skip_test\n- skip_style\n- skip_refactor\n- skip_perf\n- skip_revert\n- skip_miscellaneous",
+          "merge_commit": false,
+          "timestamp": 1782388077,
+          "author_name": "Rob Gonnella",
+          "author_email": "robgonnella@gmail.com",
+          "raw_title": "feat!: adds support for custom parsers for commit groups",
+          "raw_message": "feat!: adds support for custom parsers for commit groups\n\nAdds the ability for users to modify a set of default parsers and define\na set of custom parsers. Each parser consists of a pattern, a title, and\na skip field. When skip is true, any commits matching the pattern will\nbe omitted from changelog and version calculation. Otherwise the commit\nwill be considered for version calculation and will appear in the\nchangelog grouped under the parser title. To order the groups, users\nshould place a tag at the start of the title with the following form\n\"<!-- <two_digit_index> --><title>\". Users can then sort groups in the\ntera template via \"sort(attribute=\"group\")\" and strip the leading tag\nwhen displaying via \"{{ group | striptags | trim }}\".\n\nBREAKING CHANGE: The following changelog options have been deprecated\nin toml config in support of the new default_parsers and\ncustom_parsers fields.\n- skip_ci\n- skip_chore\n- skip_doc\n- skip_test\n- skip_style\n- skip_refactor\n- skip_perf\n- skip_revert\n- skip_miscellaneous\n\n[Issue #341](https://github.com/robgonnella/releasaurus/issues/341)\n"
+        },
+        {
+          "id": "88985482d3e29b16610c574222b37f226c0b2e54",
+          "short_id": "8898548",
+          "group": "<!-- 02 -->🐛 Bug Fixes",
+          "scope": null,
+          "title": "Ignore invalid semver tags for local repos",
+          "body": null,
+          "link": "",
+          "breaking": false,
+          "breaking_description": null,
+          "merge_commit": false,
+          "timestamp": 1782388019,
+          "author_name": "astrelion",
+          "author_email": "20118782+ASTRELION@users.noreply.github.com",
+          "raw_title": "fix: Ignore invalid semver tags for local repos",
+          "raw_message": "fix: Ignore invalid semver tags for local repos\n"
+        }
+      ],
+      "notes": "# [0.21.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.2...v0.21.0-rc.3) - 2026-06-25\n\n### ❌ Breaking\n\n[**breaking**]: adds support for custom parsers for commit groups [_(e737f87)_]() (Rob Gonnella)\n> Adds the ability for users to modify a set of default parsers and define\na set of custom parsers. Each parser consists of a pattern, a title, and\na skip field. When skip is true, any commits matching the pattern will\nbe omitted from changelog and version calculation. Otherwise the commit\nwill be considered for version calculation and will appear in the\nchangelog grouped under the parser title. To order the groups, users\nshould place a tag at the start of the title with the following form\n\"<!-- <two_digit_index> --><title>\". Users can then sort groups in the\ntera template via \"sort(attribute=\"group\")\" and strip the leading tag\nwhen displaying via \"{{ group | striptags | trim }}\".\n> The following changelog options have been deprecated\nin toml config in support of the new default_parsers and\ncustom_parsers fields.\n- skip_ci\n- skip_chore\n- skip_doc\n- skip_test\n- skip_style\n- skip_refactor\n- skip_perf\n- skip_revert\n- skip_miscellaneous\n\n### 🐛 Bug Fixes\n\n- Ignore invalid semver tags for local repos [_(8898548)_]() (astrelion)",
+      "timestamp": 1782388077
+    }
+  }
+]
