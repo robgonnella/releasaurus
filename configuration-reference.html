@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c2e67b0f.js";
+            window.path_to_searchindex_js = "searchindex-14b9735a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -342,20 +342,28 @@ prerelease = { suffix = "alpha", strategy = "versioned" }
 <p>Releasaurus selects the auth token automatically from the <code>--forge</code> type;
 <code>--token</code> overrides it. The <code>RELEASAURUS_*</code> variables are fallbacks for
 their matching CLI flags, and flags always win.</p>
+<p>For the auth token, each forge accepts two env vars: a
+<code>RELEASAURUS_</code>-prefixed name and the bare name. The prefixed name takes
+precedence. Prefer it on Gitea/Forgejo CI runners (including Codeberg),
+which auto-inject their own limited token into the bare <code>*_TOKEN</code> name
+and would otherwise shadow your PAT — see
+<a href="./ci-cd-integration.html">the CI/CD integration notes</a> and
+<a href="./commands.html#gitea-and-forgejo-actions-injected-token-shadows-your-pat">this known limitation</a>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Variable</th><th>Purpose</th></tr>
 </thead>
 <tbody>
-<tr><td><code>GITHUB_TOKEN</code></td><td>GitHub auth token</td></tr>
-<tr><td><code>GITLAB_TOKEN</code></td><td>GitLab auth token</td></tr>
-<tr><td><code>GITEA_TOKEN</code></td><td>Gitea auth token</td></tr>
-<tr><td><code>FORGEJO_TOKEN</code></td><td>Forgejo auth token</td></tr>
-<tr><td><code>AZURE_DEVOPS_TOKEN</code></td><td>Azure DevOps PAT (experimental)</td></tr>
+<tr><td><code>RELEASAURUS_GITHUB_TOKEN</code> / <code>GITHUB_TOKEN</code></td><td>GitHub auth token</td></tr>
+<tr><td><code>RELEASAURUS_GITLAB_TOKEN</code> / <code>GITLAB_TOKEN</code></td><td>GitLab auth token</td></tr>
+<tr><td><code>RELEASAURUS_GITEA_TOKEN</code> / <code>GITEA_TOKEN</code></td><td>Gitea auth token</td></tr>
+<tr><td><code>RELEASAURUS_FORGEJO_TOKEN</code> / <code>FORGEJO_TOKEN</code></td><td>Forgejo auth token</td></tr>
+<tr><td><code>RELEASAURUS_AZURE_DEVOPS_TOKEN</code> / <code>AZURE_DEVOPS_TOKEN</code></td><td>Azure DevOps PAT (experimental)</td></tr>
 <tr><td><code>RELEASAURUS_FORGE</code></td><td>Default <code>--forge</code></td></tr>
 <tr><td><code>RELEASAURUS_REPO</code></td><td>Default <code>--repo</code></td></tr>
 <tr><td><code>RELEASAURUS_LOCAL_PATH</code></td><td>Default <code>--local-path</code> (hybrid mode)</td></tr>
+<tr><td><code>RELEASAURUS_CONFIG</code></td><td>Default <code>--config</code></td></tr>
 <tr><td><code>RELEASAURUS_DEBUG</code></td><td>Enable debug logging when set to any non-empty value</td></tr>
 <tr><td><code>RELEASAURUS_DRY_RUN</code></td><td>Enable dry-run (auto-enables debug) when set to any non-empty value</td></tr>
 </tbody>

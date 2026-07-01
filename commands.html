@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c2e67b0f.js";
+            window.path_to_searchindex_js = "searchindex-14b9735a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -282,10 +282,11 @@ releasaurus get notes --file releases.json \
 <tbody>
 <tr><td><code>--repo &lt;url&gt;</code></td><td><code>RELEASAURUS_REPO</code></td><td>Repository URL</td></tr>
 <tr><td><code>--forge &lt;forge&gt;</code></td><td><code>RELEASAURUS_FORGE</code></td><td>Forge type (see below)</td></tr>
-<tr><td><code>--token &lt;token&gt;</code></td><td><code>GITHUB_TOKEN</code>, etc.</td><td>Auth token</td></tr>
+<tr><td><code>--token &lt;token&gt;</code></td><td><code>RELEASAURUS_&lt;FORGE&gt;_TOKEN</code>, <code>&lt;FORGE&gt;_TOKEN</code></td><td>Auth token</td></tr>
 <tr><td><code>--local-path &lt;path&gt;</code></td><td><code>RELEASAURUS_LOCAL_PATH</code></td><td>Local clone for hybrid mode</td></tr>
 <tr><td><code>--base-branch &lt;branch&gt;</code></td><td>—</td><td>Override the base branch</td></tr>
 <tr><td><code>--debug</code></td><td><code>RELEASAURUS_DEBUG</code></td><td>Verbose logging</td></tr>
+<tr><td><code>--config</code></td><td><code>RELEASAURUS_CONFIG</code></td><td>Custom file path location</td></tr>
 </tbody>
 </table>
 </div>
@@ -402,6 +403,36 @@ leaves a closed PR behind. Use
 avoid this. A patch to Forgejo to allow force pushing the release branch has
 been accepted and will be available in v16.
 <a href="https://codeberg.org/forgejo/forgejo/pulls/12663">https://codeberg.org/forgejo/forgejo/pulls/12663</a></p>
+<h3 id="gitea-and-forgejo-actions-injected-token-shadows-your-pat"><a class="header" href="#gitea-and-forgejo-actions-injected-token-shadows-your-pat">Gitea and Forgejo Actions: Injected Token Shadows Your PAT</a></h3>
+<p>Gitea and Forgejo Actions runners (including Codeberg) automatically
+inject an ephemeral, limited per-job token into the job environment
+under the names <code>GITHUB_TOKEN</code>, <code>GITEA_TOKEN</code>, and <code>FORGEJO_TOKEN</code>. If
+you supply your own token through one of those environment variables
+— for example <code>env: FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}</code> — the
+runner’s injected value can take precedence inside the action, and
+Releasaurus authenticates with the limited token instead of your PAT.</p>
+<p>That injected token can usually <em>read</em> the repository, so startup
+succeeds, but it cannot create a pull request on a <strong>private</strong> repo.
+Gitea/Forgejo return <code>404 Not Found</code> for the unauthorized write
+against the <code>.../pulls</code> endpoint, which is easy to misread as a
+missing repository. Public repos hide the problem because reads are
+anonymous.</p>
+<p><strong>Fix (recommended):</strong> supply your token through the
+<code>RELEASAURUS_</code>-prefixed environment variable — e.g.
+<code>RELEASAURUS_FORGEJO_TOKEN</code> for Forgejo, <code>RELEASAURUS_GITEA_TOKEN</code> for
+Gitea. Releasaurus reads it <em>before</em> the bare <code>*_TOKEN</code> name, and the
+runner does not inject the prefixed name, so it can’t be shadowed:</p>
+<pre><code class="language-yaml">env:
+  RELEASAURUS_FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+</code></pre>
+<p><strong>Alternative:</strong> pass the token on the command line with <code>--token</code>,
+which takes precedence over every environment variable. Note that
+command arguments are more likely to appear in CI logs than env vars:</p>
+<pre><code class="language-yaml">command_args: &gt;-
+  --forge forgejo
+  --repo ${{ github.server_url }}/${{ github.repository }}
+  --token ${{ secrets.RELEASE_TOKEN }}
+</code></pre>
 <h3 id="azure-devops-release-branch-requires-allow-rewriting-history"><a class="header" href="#azure-devops-release-branch-requires-allow-rewriting-history">Azure DevOps: Release Branch Requires “Allow rewriting history”</a></h3>
 <p>When updating a release PR, Releasaurus resets the release branch to the
 tip of the base branch and replays the changelog commit. If the existing

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c2e67b0f.js";
+            window.path_to_searchindex_js = "searchindex-14b9735a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -211,6 +211,18 @@ Actions workflows. See the
 <a href="https://github.com/robgonnella/releasaurus/tree/main/action">action README</a>
 for inputs, usage examples, and fetch depth configuration for
 <code>--local-path</code>.</p>
+<blockquote>
+<p><strong>Gitea / Forgejo runners (including Codeberg):</strong> supply your token
+through <code>env: RELEASAURUS_FORGEJO_TOKEN</code> (or
+<code>RELEASAURUS_GITEA_TOKEN</code>) rather than the bare <code>FORGEJO_TOKEN</code> /
+<code>GITEA_TOKEN</code>. These runners auto-inject their own limited per-job
+token under the bare names, which shadows your PAT and makes
+private-repo PR creation fail with an opaque <code>404 Not Found</code>.
+Releasaurus reads the <code>RELEASAURUS_</code>-prefixed name first, and the
+runner doesn’t inject it, so it can’t be shadowed. Passing <code>--token</code>
+works too (it beats every env var). See
+<a href="./commands.html#gitea-and-forgejo-actions-injected-token-shadows-your-pat">Gitea and Forgejo Actions: Injected Token Shadows Your PAT</a>.</p>
+</blockquote>
 <h2 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h2>
 <p>Use the Releasaurus Docker image directly in your <code>.gitlab-ci.yml</code>.
 You may provide an authentication token either by specifying a CI/CD
