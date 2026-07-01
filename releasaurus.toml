@@ -9,9 +9,9 @@ skip_miscellaneous = false
 include_author = true
 aggregate_prereleases = true
 
-[prerelease]
-strategy = "versioned"
-suffix = "rc"
+# [prerelease]
+# strategy = "versioned"
+# suffix = "rc"
 
 [[package]]
 name = "workspace"
