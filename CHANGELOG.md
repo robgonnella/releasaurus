@@ -1,3 +1,49 @@
+# [0.21.0](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.3...v0.21.0) - 2026-07-01
+
+### 🚀 Features
+
+- add configurable config path [_(10a7b17)_](https://github.com/robgonnella/releasaurus/commit/10a7b1761d768140cecacb5f9104549ea3e5e94c) (astrelion)
+
+- support token env vars prefixed with RELEASAURUS_ [_(05ebf75)_](https://github.com/robgonnella/releasaurus/commit/05ebf75a7d0e1d13076d8a86323e4793169d0d2f) (Rob Gonnella)
+
+### 🐛 Bug Fixes
+
+- Ignore invalid semver tags for local repos [_(8898548)_](https://github.com/robgonnella/releasaurus/commit/88985482d3e29b16610c574222b37f226c0b2e54) (astrelion)
+
+- return error when custom config not found [_(6d1c9a4)_](https://github.com/robgonnella/releasaurus/commit/6d1c9a473914b9723c5bd1244c0ff7204d44ae09) (astrelion)
+
+- use deref [_(4b2c739)_](https://github.com/robgonnella/releasaurus/commit/4b2c73963f40beb31cb07099f3f6556ad7f52700) (astrelion)
+
+- force gpgsign to false in tests [_(a247628)_](https://github.com/robgonnella/releasaurus/commit/a247628c9053052d882507f96b0beebbe10a963b) (astrelion)
+
+- fixes issue in gitea is_ancestor_of_branch check [_(812c281)_](https://github.com/robgonnella/releasaurus/commit/812c2813acfca59cd7a8a0f81ff091c8136fa7e0) (Rob Gonnella)
+
+- fixes issue with using --local-path [_(8a19d2d)_](https://github.com/robgonnella/releasaurus/commit/8a19d2d579c05df0e37d5ec676eb79e9bcdb6c55) (Rob Gonnella)
+
+- only filter Gitea release PRs by labels that exist [_(fabd951)_](https://github.com/robgonnella/releasaurus/commit/fabd951beb09bba2267f090e98e2d1133d768a09) (Stephan Peijnik-Steinwender)
+
+- fixes extra tailing new line at end of changelog [_(23bdbbc)_](https://github.com/robgonnella/releasaurus/commit/23bdbbcc4a7772b4f23f1eba6db280359a1729d0) (Rob Gonnella)
+
+- remove trailing blank line from generated CHANGELOG [_(de31897)_](https://github.com/robgonnella/releasaurus/commit/de3189731a7a19fd8269ae16469a8e3a5c7fb305) (Nicholas Blair)
+
+### ◀️ Revert
+
+- reverts de31897 to fix changelog formatting [_(d4b09f0)_](https://github.com/robgonnella/releasaurus/commit/d4b09f00228cb605611e4f67fa702477856aa8d3) (Rob Gonnella)
+
+### 🚜 Refactor
+
+- refactors how release commits are omitted from releases [_(abf3e88)_](https://github.com/robgonnella/releasaurus/commit/abf3e88551bec81df880643c281628d9ef90f940) (Rob Gonnella)
+
+### 📚 Documentation
+
+- add config options to docs [_(7520a61)_](https://github.com/robgonnella/releasaurus/commit/7520a615f03e47b1afecc67d95eef33384de5894) (astrelion)
+
+- updates documentation for gitea/forgejo action issue [_(e2d36af)_](https://github.com/robgonnella/releasaurus/commit/e2d36afd93c5150af750ef8187e7b4f9e1743c5e) (Rob Gonnella)
+
+### 🧪 Testing
+
+- add custom config path tests [_(b562cc9)_](https://github.com/robgonnella/releasaurus/commit/b562cc9e900d7cc30294bdd617f4be3c78fedb89) (astrelion)
+
 # [0.21.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.2...v0.21.0-rc.3) - 2026-06-25
 
 ### 🐛 Bug Fixes
