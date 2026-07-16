@@ -1,3 +1,9 @@
+# [0.22.0](https://github.com/robgonnella/releasaurus/compare/v0.21.0...v0.22.0) - 2026-07-16
+
+### 🚀 Features
+
+- _(forgejo)_ force push release branch [_(13f1fb2)_](https://github.com/robgonnella/releasaurus/commit/13f1fb2ad0373779b0c3e5688ff1886f60b91996) (Rob Gonnella)
+
 # [0.21.0](https://github.com/robgonnella/releasaurus/compare/v0.21.0-rc.3...v0.21.0) - 2026-07-01
 
 ### 🚀 Features
