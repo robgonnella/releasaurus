@@ -15,8 +15,8 @@
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-0392ca55.css">
-        <link rel="stylesheet" href="css/chrome-fc474251.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-14b9735a.js";
+            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-67bafc63.js"></script>
@@ -394,15 +394,17 @@ releasaurus release-pr --skip-sha abc123d \
 </code></pre>
 <p>See <a href="./configuration.html">Configuration</a> for what these settings mean.</p>
 <h2 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h2>
-<h3 id="forgejo-closed-release-prs-on-repeated-runs"><a class="header" href="#forgejo-closed-release-prs-on-repeated-runs">Forgejo: Closed Release PRs on Repeated Runs</a></h3>
-<p>Forgejo’s API does not support force-pushing a branch. As a workaround,
-Releasaurus deletes and re-creates the release branch on each run;
-Forgejo auto-closes the PR targeting the deleted branch, so each run
-leaves a closed PR behind. Use
-<a href="#hybrid-mode-local-git--remote-forge">hybrid mode</a> (<code>--local-path</code>) to
-avoid this. A patch to Forgejo to allow force pushing the release branch has
-been accepted and will be available in v16.
-<a href="https://codeberg.org/forgejo/forgejo/pulls/12663">https://codeberg.org/forgejo/forgejo/pulls/12663</a></p>
+<h3 id="gitea--v126--forgejo--v16-force-push-not-supported"><a class="header" href="#gitea--v126--forgejo--v16-force-push-not-supported">Gitea &lt; v1.26 / Forgejo &lt; v16: Force Push Not Supported</a></h3>
+<p>Releasaurus force-pushes the release branch on each run so repeated
+runs update the existing release PR in place rather than piling up new
+ones. On Gitea and Forgejo this relies on a force-overwrite option on
+the <code>/contents</code> API route that was only added in <strong>Gitea v1.26</strong> and
+<strong>Forgejo v16</strong>.</p>
+<p><strong>Fix (recommended):</strong> upgrade your Gitea/Forgejo instance to v1.26 /
+v16 or later. <strong>Alternative:</strong> use
+<a href="#hybrid-mode-local-git--remote-forge">hybrid mode</a> (<code>--local-path</code>),
+which pushes the release branch over git and avoids the API limitation
+entirely.</p>
 <h3 id="gitea-and-forgejo-actions-injected-token-shadows-your-pat"><a class="header" href="#gitea-and-forgejo-actions-injected-token-shadows-your-pat">Gitea and Forgejo Actions: Injected Token Shadows Your PAT</a></h3>
 <p>Gitea and Forgejo Actions runners (including Codeberg) automatically
 inject an ephemeral, limited per-job token into the job environment
@@ -498,7 +500,7 @@ releasaurus --version       # version information
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-c22b7243.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
 
