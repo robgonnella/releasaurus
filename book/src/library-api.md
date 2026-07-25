@@ -18,18 +18,18 @@ tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 ```text
 Orchestrator            (pipeline entry point)
   └─ ResolvedConfig     (merged settings)
-  └─ ResolvedPackageHash (resolved package configs)
+       └─ ResolvedPackageHash (resolved package configs)
   └─ ForgeManager       (caching + dry-run wrapper)
        └─ Forge         (GitHub / GitLab / Gitea / Local)
 ```
 
-All operations go through `Orchestrator`, which needs three pieces:
+All operations go through `Orchestrator`, which needs two pieces:
 
 1. A **`ForgeManager`** wrapping a concrete `Forge`.
-2. A **`ResolvedConfig`** — built by `Resolver::builder()` from the loaded
-   TOML plus any runtime overrides.
-3. A **`ResolvedPackageHash`** — the resolved packages, produced alongside
-   `ResolvedConfig` by `Resolver::resolve()`.
+2. A **`ResolvedConfig`** — built by `Resolver::builder()` from the
+   loaded TOML plus any runtime overrides, then produced by
+   `Resolver::resolve()`. It carries the base branch, the PR-splitting
+   flag, and a `ResolvedPackageHash` of the resolved packages.
 
 See the [crate-level quick start on docs.rs][docs-rs] for the full builder
 chain with per-step comments.

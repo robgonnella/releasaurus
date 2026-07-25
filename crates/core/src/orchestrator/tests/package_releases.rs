@@ -48,7 +48,11 @@ async fn create_package_release_parses_metadata_from_pr_body() {
     // Then create orchestrator with the mock
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    let package = orchestrator.package_configs.get(TEST_PKG_NAME).unwrap();
+    let package = orchestrator
+        .config
+        .package_configs
+        .get(TEST_PKG_NAME)
+        .unwrap();
 
     orchestrator
         .create_package_release(package, &merged_pr)
@@ -75,7 +79,11 @@ Release notes here
     let mock_forge = MockForge::new();
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    let package = orchestrator.package_configs.get(TEST_PKG_NAME).unwrap();
+    let package = orchestrator
+        .config
+        .package_configs
+        .get(TEST_PKG_NAME)
+        .unwrap();
     let result = orchestrator
         .create_package_release(package, &merged_pr)
         .await;
@@ -127,7 +135,11 @@ async fn create_package_release_matches_correct_package_by_name() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    let package = orchestrator.package_configs.get(TEST_PKG_NAME).unwrap();
+    let package = orchestrator
+        .config
+        .package_configs
+        .get(TEST_PKG_NAME)
+        .unwrap();
 
     orchestrator
         .create_package_release(package, &merged_pr)
@@ -164,7 +176,11 @@ async fn create_package_release_trims_notes() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    let package = orchestrator.package_configs.get(TEST_PKG_NAME).unwrap();
+    let package = orchestrator
+        .config
+        .package_configs
+        .get(TEST_PKG_NAME)
+        .unwrap();
     let result = orchestrator
         .create_package_release(package, &merged_pr)
         .await;

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use crate::config::{
+    overrides::{GlobalOverrides, PackageOverridesHash},
     package::{DEFAULT_TAG_PREFIX, PackageConfig},
-    resolved::{GlobalOverrides, PackageOverrides},
 };
 
 /// Resolves the tag prefix for a package.
@@ -14,7 +12,7 @@ use crate::config::{
 pub fn resolve_tag_prefix(
     resolved_name: &str,
     package: &PackageConfig,
-    package_overrides: &HashMap<String, PackageOverrides>,
+    package_overrides: &PackageOverridesHash,
     global_overrides: &GlobalOverrides,
 ) -> String {
     if let Some(overrides) = package_overrides.get(resolved_name)
@@ -40,7 +38,10 @@ pub fn resolve_tag_prefix(
 
 #[cfg(test)]
 mod tests {
-    use crate::resolver::resolvers::test_helper::create_test_package;
+    use crate::{
+        config::overrides::PackageOverrides,
+        resolver::resolvers::test_helper::create_test_package,
+    };
 
     use super::*;
 
@@ -49,7 +50,7 @@ mod tests {
         let mut pkg = create_test_package("test");
         pkg.tag_prefix = Some("custom-v".to_string());
         let resolved_name = pkg.name.clone();
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
         let global_overrides = GlobalOverrides::default();
         assert_eq!(
             resolve_tag_prefix(
@@ -67,7 +68,7 @@ mod tests {
         let mut pkg = create_test_package("api");
         pkg.path = "packages/api".to_string();
         let resolved_name = pkg.name.clone();
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
         let global_overrides = GlobalOverrides::default();
         assert_eq!(
             resolve_tag_prefix(
@@ -84,7 +85,7 @@ mod tests {
     fn resolve_tag_prefix_uses_default_at_root() {
         let pkg = create_test_package("test");
         let resolved_name = pkg.name.clone();
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
         let global_overrides = GlobalOverrides::default();
         assert_eq!(
             resolve_tag_prefix(
@@ -102,7 +103,7 @@ mod tests {
         let mut pkg = create_test_package("my-pkg");
         pkg.tag_prefix = Some("config-v".to_string());
 
-        let mut package_overrides = HashMap::new();
+        let mut package_overrides = PackageOverridesHash::new();
         package_overrides.insert(
             "my-pkg".to_string(),
             PackageOverrides {
@@ -133,7 +134,7 @@ mod tests {
         let mut pkg = create_test_package("my-pkg");
         pkg.tag_prefix = Some("config-v".to_string());
 
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
         let global_overrides = GlobalOverrides {
             tag_prefix: Some("global-v".to_string()),
             ..GlobalOverrides::default()

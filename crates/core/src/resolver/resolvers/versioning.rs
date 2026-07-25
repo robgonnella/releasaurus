@@ -3,8 +3,8 @@ use merge::Merge;
 
 use crate::{
     config::{
+        overrides::{GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
-        resolved::ResolvedConfig,
         versioning::{
             Group, MAX_PARSER_ORDER, NAMED_PARSERS, Parser, VersioningConfig,
         },
@@ -15,10 +15,11 @@ use crate::{
 
 /// Resolves all versioning config with package config taking precedence
 pub fn resolve_versioning(
-    resolved_config: &ResolvedConfig,
     package_config: &PackageConfig,
+    default_versioning: Option<&VersioningConfig>,
+    package_overrides: &PackageOverridesHash,
+    global_overrides: &GlobalOverrides,
 ) -> Result<VersioningConfig> {
-    let default_versioning = resolved_config.versioning.as_ref();
     let package_versioning = package_config.versioning.as_ref();
 
     // Package config is the left side of the merge. Every scalar field uses
@@ -39,8 +40,8 @@ pub fn resolve_versioning(
         &default_versioning
             .and_then(|v| v.prerelease.clone())
             .unwrap_or_default(),
-        &resolved_config.global_overrides,
-        &resolved_config.package_overrides,
+        global_overrides,
+        package_overrides,
     );
 
     // Parsers merge per group and per field rather than whole-value, so they
@@ -207,39 +208,12 @@ fn validate_custom_parsers(versioning: &VersioningConfig) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use regex::Regex;
     use std::collections::HashMap;
 
-    use regex::Regex;
-    use url::Url;
-
-    use crate::config::{
-        changelog::ChangelogConfig,
-        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
-        resolved::{CommitModifiers, GlobalOverrides},
-        versioning::ParserList,
-    };
+    use crate::config::{overrides::GlobalOverrides, versioning::ParserList};
 
     use super::*;
-
-    fn make_resolved_config(
-        versioning: Option<VersioningConfig>,
-    ) -> ResolvedConfig {
-        ResolvedConfig {
-            repo_name: "test-repo".into(),
-            base_branch: "main".into(),
-            release_link_base_url: Url::parse("https://example.com/").unwrap(),
-            compare_link_base_url: Url::parse("https://example.com/compare/")
-                .unwrap(),
-            package_overrides: HashMap::default(),
-            global_overrides: GlobalOverrides::default(),
-            commit_modifiers: CommitModifiers::default(),
-            first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
-            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
-            separate_pull_requests: true,
-            changelog: ChangelogConfig::default(),
-            versioning,
-        }
-    }
 
     fn package_with_versioning(versioning: VersioningConfig) -> PackageConfig {
         PackageConfig {
@@ -252,29 +226,33 @@ mod tests {
     fn resolve_versioning_precedence() {
         // Package (global empty)
         let resolved = resolve_versioning(
-            &make_resolved_config(None),
             &package_with_versioning(VersioningConfig {
                 skip_merge_commits: Some(false),
                 ..VersioningConfig::default()
             }),
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
         assert_eq!(resolved.skip_merge_commits, Some(false));
 
         // Package (global not empty) - package wins
-        let global = VersioningConfig {
+        let default_versionging = VersioningConfig {
             skip_merge_commits: Some(true),
             features_always_increment_minor: Some(true),
             ..VersioningConfig::default()
         };
 
         let resolved = resolve_versioning(
-            &make_resolved_config(Some(global.clone())),
             &package_with_versioning(VersioningConfig {
                 skip_merge_commits: Some(false),
                 ..VersioningConfig::default()
             }),
+            Some(&default_versionging),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -284,8 +262,10 @@ mod tests {
 
         // Global (package empty)
         let resolved = resolve_versioning(
-            &make_resolved_config(Some(global)),
             &PackageConfig::default(),
+            Some(&default_versionging),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -293,8 +273,10 @@ mod tests {
 
         // Default (both empty)
         let resolved = resolve_versioning(
-            &make_resolved_config(None),
             &PackageConfig::default(),
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -303,7 +285,7 @@ mod tests {
 
     #[test]
     fn resolve_versioning_package_increment_flags_win_over_global() {
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             breaking_always_increment_major: Some(false),
             custom_minor_increment_regex: Some("^global".into()),
             auto_start_next: Some(false),
@@ -311,13 +293,15 @@ mod tests {
         };
 
         let resolved = resolve_versioning(
-            &make_resolved_config(Some(global)),
             &package_with_versioning(VersioningConfig {
                 breaking_always_increment_major: Some(true),
                 custom_minor_increment_regex: Some("^package".into()),
                 auto_start_next: Some(true),
                 ..VersioningConfig::default()
             }),
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -332,8 +316,10 @@ mod tests {
     #[test]
     fn resolve_versioning_fills_all_named_parsers_with_defaults() {
         let resolved = resolve_versioning(
-            &make_resolved_config(None),
             &PackageConfig::default(),
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -350,9 +336,9 @@ mod tests {
 
     #[test]
     fn resolve_versioning_named_parsers_merge_field_by_field() {
-        // Global skips CI, package only retitles it. The package must keep
+        // Default skips CI, package only retitles it. The package must keep
         // the global skip rather than resetting it to the built-in default.
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             named_parsers: Some(IndexMap::from([(
                 Group::CI,
                 Parser {
@@ -378,9 +364,13 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let resolved =
-            resolve_versioning(&make_resolved_config(Some(global)), &package)
-                .unwrap();
+        let resolved = resolve_versioning(
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
 
         let ci = resolved
             .named_parsers
@@ -403,7 +393,7 @@ mod tests {
 
     #[test]
     fn resolve_versioning_package_named_parser_overrides_global() {
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             named_parsers: Some(IndexMap::from([(
                 Group::Chore,
                 Parser {
@@ -429,9 +419,13 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let resolved =
-            resolve_versioning(&make_resolved_config(Some(global)), &package)
-                .unwrap();
+        let resolved = resolve_versioning(
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
 
         let chore = resolved
             .named_parsers
@@ -447,7 +441,7 @@ mod tests {
     fn resolve_versioning_named_parsers_always_in_default_order() {
         // Only `chore` is customized, but the resolved map must still be in
         // NAMED_PARSERS order so match order is independent of TOML order.
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             named_parsers: Some(IndexMap::from([(
                 Group::Chore,
                 Parser {
@@ -461,8 +455,10 @@ mod tests {
         };
 
         let resolved = resolve_versioning(
-            &make_resolved_config(Some(global)),
             &PackageConfig::default(),
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -476,7 +472,7 @@ mod tests {
 
     #[test]
     fn resolve_versioning_combines_global_and_package_custom_parsers() {
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             custom_parsers: Some(ParserList(vec![Parser::new(
                 Some(Regex::new("^global").unwrap()),
                 "Global".into(),
@@ -496,9 +492,13 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let resolved =
-            resolve_versioning(&make_resolved_config(Some(global)), &package)
-                .unwrap();
+        let resolved = resolve_versioning(
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
 
         let titles: Vec<String> = resolved
             .custom_parsers
@@ -524,7 +524,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         let err = result.unwrap_err().to_string();
         assert!(err.contains("pattern"), "unexpected error: {err}");
@@ -543,7 +548,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         let err = result.unwrap_err().to_string();
         assert!(err.contains("title"), "unexpected error: {err}");
@@ -568,7 +578,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
     }
@@ -577,7 +592,7 @@ mod tests {
     /// package can reposition a group without restating its title or skip.
     #[test]
     fn resolve_versioning_named_parser_order_merges_field_by_field() {
-        let global = VersioningConfig {
+        let default_versioning = VersioningConfig {
             named_parsers: Some(IndexMap::from([(
                 Group::Fix,
                 Parser {
@@ -605,9 +620,13 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let resolved =
-            resolve_versioning(&make_resolved_config(Some(global)), &package)
-                .unwrap();
+        let resolved = resolve_versioning(
+            &package,
+            Some(&default_versioning),
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
 
         let fix = resolved.named_parsers.unwrap()[&Group::Fix].clone();
 
@@ -620,8 +639,10 @@ mod tests {
     #[test]
     fn resolve_versioning_named_parsers_inherit_default_order() {
         let resolved = resolve_versioning(
-            &make_resolved_config(None),
             &PackageConfig::default(),
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
         )
         .unwrap();
 
@@ -649,7 +670,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
 
@@ -675,7 +701,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
     }
@@ -697,7 +728,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
     }
@@ -714,7 +750,12 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let result = resolve_versioning(&make_resolved_config(None), &package);
+        let result = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        );
 
         assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
     }
@@ -731,8 +772,13 @@ mod tests {
             ..VersioningConfig::default()
         });
 
-        let resolved =
-            resolve_versioning(&make_resolved_config(None), &package).unwrap();
+        let resolved = resolve_versioning(
+            &package,
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap();
 
         assert_eq!(resolved.custom_parsers.unwrap().0.len(), 1);
     }

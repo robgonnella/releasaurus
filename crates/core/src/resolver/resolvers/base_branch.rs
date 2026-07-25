@@ -1,4 +1,4 @@
-use crate::config::{repository::RepositoryConfig, resolved::GlobalOverrides};
+use crate::config::{overrides::GlobalOverrides, repository::RepositoryConfig};
 
 pub fn resolve_base_branch(
     config: &RepositoryConfig,

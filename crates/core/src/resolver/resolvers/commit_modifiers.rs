@@ -1,5 +1,5 @@
 use crate::{
-    config::{repository::RepositoryConfig, resolved::CommitModifiers},
+    config::{overrides::CommitModifiers, repository::RepositoryConfig},
     result::{ReleasaurusError, Result},
 };
 

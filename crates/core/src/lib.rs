@@ -9,7 +9,7 @@
 //! ```text
 //! Orchestrator          (pipeline entry point)
 //!   └─ ResolvedConfig   (merged, validated settings)
-//!   └─ ResolvedPackageHash (resolved package configs)
+//!        └─ ResolvedPackageHash (resolved package configs)
 //!   └─ ForgeManager     (caching + dry-run wrapper)
 //!        └─ Forge       (GitHub / GitLab / Gitea / Local)
 //! ```
@@ -19,7 +19,7 @@
 //! ```rust,no_run
 //! use std::{collections::HashMap, rc::Rc};
 //! use releasaurus_core::{
-//!     config::resolved::{CommitModifiers, GlobalOverrides},
+//!     config::overrides::{CommitModifiers, GlobalOverrides},
 //!     forge::{
 //!         github::Github,
 //!         manager::{ForgeManager, ForgeOptions},
@@ -54,7 +54,7 @@
 //!     );
 //!
 //!     // 3. Resolve packages and build config.
-//!     let (resolved_config, resolved_packages) = Resolver::builder()
+//!     let resolved_config = Resolver::builder()
 //!         .toml_config(Rc::clone(&config))
 //!         .repo_name(forge_manager.repo_name())
 //!         .repo_default_branch(forge_manager.default_branch())
@@ -74,7 +74,6 @@
 //!     let fm = Rc::new(forge_manager);
 //!     let orchestrator = Orchestrator::builder()
 //!         .config(resolved_config)
-//!         .package_configs(Rc::new(resolved_packages))
 //!         .forge(Rc::clone(&fm))
 //!         .build()?;
 //!
@@ -87,13 +86,14 @@
 //! - [`analyzer`] — conventional commit parsing and version
 //!   calculation
 //! - [`config`] — TOML configuration types and deserialization;
-//!   [`config::resolved`] holds runtime-resolved types
-//! - [`result`] — [`ReleasaurusError`][result::error::ReleasaurusError]
+//!   [`config::overrides`] holds the runtime override types callers
+//!   supply from CLI flags
+//! - [`result`] — [`ReleasaurusError`][result::ReleasaurusError]
 //!   and [`Result`][result::Result]
 //! - [`forge`] — [`Forge`][forge::traits::Forge] trait and platform
 //!   implementations (GitHub, GitLab, Gitea, Local)
 //! - [`resolver`] — merges TOML config, CLI overrides, and defaults
-//!   into [`config::resolved::ResolvedConfig`] and
+//!   into a [`resolver::ResolvedConfig`] holding the resolved
 //!   [`packages::resolved::ResolvedPackage`]s
 //! - [`orchestrator`] — all release operations flow through
 //!   [`Orchestrator`][orchestrator::Orchestrator]

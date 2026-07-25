@@ -1,12 +1,12 @@
+/**
+ * These are optional and provided as a way for consumers to dynamically
+ * modify config based on cli options
+ */
+use merge::Merge;
 use std::collections::HashMap;
 
-use derive_builder::Builder;
-use merge::Merge;
-use url::Url;
-
 use crate::config::{
-    changelog::ChangelogConfig, prerelease::PrereleaseStrategy,
-    repository::RewordedCommit, versioning::VersioningConfig,
+    prerelease::PrereleaseStrategy, repository::RewordedCommit,
 };
 
 /// Runtime overrides for a specific named package.
@@ -55,24 +55,5 @@ pub struct CommitModifiers {
 /// Package name used as the key in override and config maps.
 pub type PackageName = String;
 
-/// Fully resolved runtime configuration for the release pipeline.
-///
-/// Produced by [`Resolver::resolve`][crate::resolver::Resolver::resolve]
-/// from the loaded TOML config, CLI overrides, and forge metadata.
-/// All optional values have been resolved to concrete defaults.
-#[derive(Debug, Builder)]
-#[builder(setter(into))]
-pub struct ResolvedConfig {
-    pub repo_name: String,
-    pub base_branch: String,
-    pub release_link_base_url: Url,
-    pub compare_link_base_url: Url,
-    pub package_overrides: HashMap<PackageName, PackageOverrides>,
-    pub global_overrides: GlobalOverrides,
-    pub commit_modifiers: CommitModifiers,
-    pub first_release_search_depth: usize,
-    pub tag_search_depth: usize,
-    pub separate_pull_requests: bool,
-    pub changelog: ChangelogConfig,
-    pub versioning: Option<VersioningConfig>,
-}
+/// Lookup table for finding package overrides by package name
+pub type PackageOverridesHash = HashMap<PackageName, PackageOverrides>;

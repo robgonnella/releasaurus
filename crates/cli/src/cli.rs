@@ -5,9 +5,9 @@ use git_url_parse::{GitUrl, types::provider::GenericProvider};
 use merge::Merge;
 use releasaurus_core::{
     config::{
+        overrides::{CommitModifiers, GlobalOverrides, PackageOverrides},
         prerelease::PrereleaseStrategy,
         repository::RewordedCommit,
-        resolved::{CommitModifiers, GlobalOverrides, PackageOverrides},
     },
     forge::{
         azure_devops::{AzureDevops, url_parse::azure_git_url_to_repo_url},
@@ -600,7 +600,8 @@ impl Cli {
     /// Gathers the list of provided path override options, like
     /// --releasaurus.prerelease.suffix=beta, and collects them into a single
     /// struct of all allowed overrides properties for each package name.
-    /// Returns HashMap<pkg_name, Option<PackageOverrides>>
+    /// Returns a `HashMap` keyed by package name, each value a
+    /// [`CliPackageOverrides`] merged from every flag naming that package.
     pub fn get_package_overrides(
         &self,
     ) -> Result<HashMap<String, CliPackageOverrides>> {

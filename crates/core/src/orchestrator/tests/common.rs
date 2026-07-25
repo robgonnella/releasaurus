@@ -7,8 +7,8 @@ use url::Url;
 use crate::{
     config::{
         Config,
+        overrides::{CommitModifiers, GlobalOverrides},
         package::{PackageConfig, PackageConfigBuilder},
-        resolved::{CommitModifiers, GlobalOverrides},
     },
     forge::{
         manager::{ForgeManager, ForgeOptions},
@@ -89,8 +89,7 @@ pub fn create_test_orchestrator(mock_forge: MockForge) -> Orchestrator {
         .build()
         .unwrap();
 
-    let (resolved_config, resolved) =
-        resolver.resolve(vec![pkg_config]).unwrap();
+    let resolved_config = resolver.resolve(vec![pkg_config]).unwrap();
 
     let forge = Rc::new(ForgeManager::new(
         Box::new(mock_forge),
@@ -99,7 +98,6 @@ pub fn create_test_orchestrator(mock_forge: MockForge) -> Orchestrator {
 
     Orchestrator::new(OrchestratorParams {
         config: resolved_config,
-        package_configs: Rc::new(resolved),
         forge,
     })
     .unwrap()
@@ -128,7 +126,7 @@ pub fn create_test_orchestrator_with_config(
         .build()
         .unwrap();
 
-    let (resolved_config, resolved_pkgs) = resolver.resolve(packages).unwrap();
+    let resolved_config = resolver.resolve(packages).unwrap();
 
     let forge = Rc::new(ForgeManager::new(
         Box::new(mock_forge),
@@ -137,7 +135,6 @@ pub fn create_test_orchestrator_with_config(
 
     Orchestrator::new(OrchestratorParams {
         config: resolved_config,
-        package_configs: Rc::new(resolved_pkgs),
         forge,
     })
     .unwrap()

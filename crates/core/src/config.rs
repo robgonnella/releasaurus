@@ -1,16 +1,19 @@
-//! TOML configuration types and runtime-resolved variants.
+//! TOML configuration types and runtime overrides.
 //!
-//! The root TOML config is [`Config`]. After applying CLI overrides
-//! and forge metadata, [`resolved::ResolvedConfig`] is the type
-//! used throughout the pipeline.
+//! The root TOML config is [`Config`]. Callers layer runtime
+//! overrides from [`overrides`] on top of it, and
+//! [`Resolver`][crate::resolver::Resolver] merges the two with forge
+//! metadata to produce the types the pipeline actually runs on:
+//! [`ResolvedConfig`][crate::resolver::ResolvedConfig]
+//! and its [`ResolvedPackage`][crate::packages::resolved::ResolvedPackage]s.
 
 pub mod changelog;
 pub mod defaults;
+pub mod overrides;
 pub mod package;
 pub mod prerelease;
 pub mod release_type;
 pub mod repository;
-pub mod resolved;
 mod toml;
 pub mod versioning;
 

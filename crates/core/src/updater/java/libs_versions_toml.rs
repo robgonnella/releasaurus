@@ -8,7 +8,8 @@ use crate::{
 
 /// Handles gradle/libs.versions.toml (Gradle Version Catalog) parsing and
 /// version updates for Java packages. Looks for a key matching the package
-/// name in the [versions] section and updates its value to the next version.
+/// name in the `[versions]` section and updates its value to the next
+/// version.
 pub struct LibsVersionsToml {}
 
 impl LibsVersionsToml {

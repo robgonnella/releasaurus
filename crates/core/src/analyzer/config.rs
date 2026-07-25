@@ -5,8 +5,8 @@ use indexmap::IndexMap;
 use url::Url;
 
 use crate::config::{
+    overrides::CommitModifiers,
     prerelease::PrereleaseConfig,
-    resolved::CommitModifiers,
     versioning::{Group, NAMED_PARSERS, Parser},
 };
 
