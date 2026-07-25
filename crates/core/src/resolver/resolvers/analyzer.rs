@@ -10,7 +10,7 @@ use crate::{
     analyzer::config::AnalyzerConfig,
     config::{
         changelog::{ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR},
-        resolved::CommitModifiers,
+        overrides::CommitModifiers,
         versioning::{
             DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR,
             DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR, DEFAULT_SKIP_MERGE_COMMITS,

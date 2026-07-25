@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use crate::config::{
+    overrides::{GlobalOverrides, PackageOverridesHash},
     package::PackageConfig,
     prerelease::PrereleaseConfig,
-    resolved::{GlobalOverrides, PackageOverrides},
 };
 
 /// Resolves prerelease configuration with complex override logic.
@@ -19,7 +17,7 @@ pub fn resolve_prerelease(
     package: &PackageConfig,
     global_prerelease: &PrereleaseConfig,
     global_overrides: &GlobalOverrides,
-    package_overrides: &HashMap<String, PackageOverrides>,
+    package_overrides: &PackageOverridesHash,
 ) -> Option<PrereleaseConfig> {
     let mut prerelease = global_prerelease.clone();
 
@@ -72,7 +70,7 @@ mod tests {
         let pkg = create_test_package("test");
         let global = PrereleaseConfig::default();
         let global_overrides = GlobalOverrides::default();
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
 
         let result = resolve_prerelease(
             &pkg,
@@ -92,7 +90,7 @@ mod tests {
             strategy: PrereleaseStrategy::Versioned,
         };
         let global_overrides = GlobalOverrides::default();
-        let package_overrides = HashMap::new();
+        let package_overrides = PackageOverridesHash::new();
 
         let result = resolve_prerelease(
             &pkg,
@@ -132,7 +130,7 @@ mod tests {
             &pkg,
             &default,
             &GlobalOverrides::default(),
-            &HashMap::new(),
+            &PackageOverridesHash::new(),
         )
         .unwrap();
 

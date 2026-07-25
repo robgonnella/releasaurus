@@ -6,8 +6,8 @@ use url::Url;
 use crate::{
     config::{
         Config,
+        overrides::{CommitModifiers, GlobalOverrides},
         package::{PackageConfig, PackageConfigBuilder},
-        resolved::{CommitModifiers, GlobalOverrides},
     },
     forge::{
         manager::{ForgeManager, ForgeOptions},
@@ -54,8 +54,7 @@ pub fn create_package_processor(
             .unwrap(),
     ]);
 
-    let (resolved_config, resolved_pkgs) =
-        resolver.resolve(pkg_configs).unwrap();
+    let resolved_config = resolver.resolve(pkg_configs).unwrap();
 
-    PackageProcessor::new(resolved_config, forge, Rc::new(resolved_pkgs))
+    PackageProcessor::new(resolved_config, forge)
 }

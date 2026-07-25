@@ -7,7 +7,6 @@ use std::{
 
 use crate::{
     analyzer::Analyzer,
-    config::resolved::ResolvedConfig,
     forge::{
         config::DEFAULT_PR_BRANCH_PREFIX,
         manager::ForgeManager,
@@ -30,8 +29,8 @@ use crate::{
         releasable_builder::ReleasablePackageBuilder,
         release_pr::{PRBundle, ReleasePRPackage},
         resolved::ResolvedPackage,
-        resolved_hash::ResolvedPackageHash,
     },
+    resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
     updater::manager::UpdateManager,
 };
@@ -65,25 +64,15 @@ pub struct PrBranchResult {
 pub struct PackageProcessor {
     config: Rc<ResolvedConfig>,
     forge: Rc<ForgeManager>,
-    package_configs: Rc<ResolvedPackageHash>,
     commit_fetcher: CommitFetcher,
 }
 
 impl PackageProcessor {
-    pub fn new(
-        config: Rc<ResolvedConfig>,
-        forge: Rc<ForgeManager>,
-        package_configs: Rc<ResolvedPackageHash>,
-    ) -> Self {
+    pub fn new(config: Rc<ResolvedConfig>, forge: Rc<ForgeManager>) -> Self {
         Self {
             config: Rc::clone(&config),
-            commit_fetcher: CommitFetcher::new(
-                config.base_branch.clone(),
-                Rc::clone(&forge),
-                Rc::clone(&package_configs),
-            ),
+            commit_fetcher: CommitFetcher::new(config, Rc::clone(&forge)),
             forge,
-            package_configs,
         }
     }
 
@@ -93,7 +82,7 @@ impl PackageProcessor {
     ) -> Result<Vec<PreparedPackage>> {
         let mut prepared = vec![];
 
-        for (name, pkg) in self.package_configs.hash().iter() {
+        for (name, pkg) in self.config.package_configs.hash().iter() {
             // This is not added to changelog or tracked anywhere so we can just
             // use a fake dummy commit to trigger a patch version update
             let pkg_commit = ForgeCommit {
@@ -159,7 +148,7 @@ impl PackageProcessor {
 
         let commit_hash_set: HashSet<_> = commits.iter().collect();
 
-        for (name, package) in self.package_configs.hash().iter() {
+        for (name, package) in self.config.package_configs.hash().iter() {
             if let Some(target) = target
                 && package.name != target
             {
@@ -211,7 +200,7 @@ impl PackageProcessor {
         let mut analyzed_packages = vec![];
 
         for pkg in packages.into_iter() {
-            let config = self.package_configs.get(&pkg.name)?;
+            let config = self.config.package_configs.get(&pkg.name)?;
             let analyzer = Analyzer::new(&config.analyzer_config)?;
             let release = analyzer.analyze(pkg.commits, pkg.current_tag)?;
             let analyzed = AnalyzedPackage {
@@ -244,7 +233,8 @@ impl PackageProcessor {
     ) -> Result<Vec<ReleasePRPackage>> {
         let mut finalized = vec![];
         for target in packages.iter() {
-            let target_config = self.package_configs.get(&target.name)?;
+            let target_config =
+                self.config.package_configs.get(&target.name)?;
 
             let mut release_branch = format!(
                 "{}-{}",
@@ -498,7 +488,7 @@ impl PackageProcessor {
 
         for pkg in packages.into_iter() {
             if let Some(release) = pkg.release {
-                let pkg_config = self.package_configs.get(&pkg.name)?;
+                let pkg_config = self.config.package_configs.get(&pkg.name)?;
 
                 let manifest_files = UpdateManager::load_manifests_for_package(
                     pkg_config,
@@ -556,7 +546,7 @@ impl PackageProcessor {
         let mut workspace_packages = vec![];
 
         for p in others.iter() {
-            let p_config = self.package_configs.get(&p.name)?;
+            let p_config = self.config.package_configs.get(&p.name)?;
             if p.name != target.name
                 && p_config.normalized_workspace_root
                     == target_config.normalized_workspace_root

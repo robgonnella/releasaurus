@@ -691,7 +691,7 @@
           "type": "string"
         },
         "version_regex": {
-          "description": "The regex to use to match and replace versions\ndefault: (?<start>.*version\"?:?\\s*=?\\s*['\"]?)(?<version>\\d\\.\\d\\.\\d-?.*?)(?<end>['\",].*)?$",
+          "description": "The regex to use to match and replace versions.\n\nMust define a `version` capture group — config resolution\nrejects patterns without one. Only that group's text is\nsubstituted; the rest of the match is left intact. Defaults to\n[`GENERIC_VERSION_REGEX_PATTERN`] when omitted.",
           "type": [
             "string",
             "null"

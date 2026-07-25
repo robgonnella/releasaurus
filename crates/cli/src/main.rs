@@ -17,7 +17,7 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 use releasaurus::cli::{Cli, Command, GetCommand, get};
-use releasaurus_core::config::resolved::PackageOverrides;
+use releasaurus_core::config::overrides::PackageOverrides;
 use releasaurus_core::forge::manager::{ForgeManager, ForgeOptions};
 use releasaurus_core::orchestrator::Orchestrator;
 use releasaurus_core::resolver::Resolver;
@@ -146,12 +146,10 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
         .toml_config(Rc::clone(&config))
         .build()?;
 
-    let (resolved_config, resolved_packages) =
-        resolver.resolve(config.packages.clone())?;
+    let resolved_config = resolver.resolve(config.packages.clone())?;
 
     let orchestrator = Orchestrator::builder()
-        .config(Rc::clone(&resolved_config))
-        .package_configs(Rc::new(resolved_packages))
+        .config(resolved_config)
         .forge(Rc::new(forge_manager))
         .build()?;
 

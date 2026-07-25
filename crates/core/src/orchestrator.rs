@@ -9,7 +9,6 @@ use std::{
 use tokio::fs;
 
 use crate::{
-    config::resolved::ResolvedConfig,
     forge::{
         config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL, TAGGED_LABEL},
         manager::ForgeManager,
@@ -24,8 +23,8 @@ use crate::{
     },
     packages::{
         releasable::SerializableReleasablePackage, resolved::ResolvedPackage,
-        resolved_hash::ResolvedPackageHash,
     },
+    resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
 };
 
@@ -48,7 +47,6 @@ pub struct CurrentRelease {
 #[builder(setter(into), build_fn(private, name = "_build"))]
 pub struct OrchestratorParams {
     pub config: Rc<ResolvedConfig>,
-    pub package_configs: Rc<ResolvedPackageHash>,
     pub forge: Rc<ForgeManager>,
 }
 
@@ -76,7 +74,6 @@ impl OrchestratorParamsBuilder {
 /// [`ResolvedConfig`] construction.
 pub struct Orchestrator {
     config: Rc<ResolvedConfig>,
-    package_configs: Rc<ResolvedPackageHash>,
     forge: Rc<ForgeManager>,
     package_processor: PackageProcessor,
 }
@@ -89,12 +86,10 @@ impl Orchestrator {
     pub fn new(params: OrchestratorParams) -> Result<Self> {
         Ok(Self {
             config: Rc::clone(&params.config),
-            package_configs: Rc::clone(&params.package_configs),
             forge: Rc::clone(&params.forge),
             package_processor: PackageProcessor::new(
-                Rc::clone(&params.config),
+                params.config,
                 Rc::clone(&params.forge),
-                Rc::clone(&params.package_configs),
             ),
         })
     }
@@ -128,6 +123,7 @@ impl Orchestrator {
 
         for package in packages.iter_mut() {
             let body = self
+                .config
                 .package_configs
                 .get(&package.name)?
                 .analyzer_config
@@ -158,7 +154,7 @@ impl Orchestrator {
         target: Option<String>,
     ) -> Result<()> {
         if let Some(target_name) = target.as_ref()
-            && !self.package_configs.hash().contains_key(target_name)
+            && !self.config.package_configs.hash().contains_key(target_name)
         {
             return Err(ReleasaurusError::InvalidArgs(format!(
                 "unknown package: {target_name}"
@@ -231,14 +227,14 @@ impl Orchestrator {
         let base_branch = self.config.base_branch.clone();
 
         if let Some(target_name) = target.as_ref()
-            && !self.package_configs.hash().contains_key(target_name)
+            && !self.config.package_configs.hash().contains_key(target_name)
         {
             return Err(ReleasaurusError::InvalidArgs(format!(
                 "unknown package: {target_name}"
             )));
         }
 
-        for (name, package) in self.package_configs.hash().iter() {
+        for (name, package) in self.config.package_configs.hash().iter() {
             if let Some(target_name) = target.as_ref()
                 && name != target_name
             {
@@ -339,7 +335,7 @@ impl Orchestrator {
     ) -> Result<Vec<CurrentRelease>> {
         let mut releases = vec![];
 
-        for (name, package) in self.package_configs.hash().iter() {
+        for (name, package) in self.config.package_configs.hash().iter() {
             if let Some(target) = target_package.as_ref()
                 && name != target
             {

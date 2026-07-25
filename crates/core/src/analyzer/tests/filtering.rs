@@ -20,8 +20,8 @@ use semver::Version as SemVer;
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
     config::{
+        overrides::CommitModifiers,
         repository::RewordedCommit,
-        resolved::CommitModifiers,
         versioning::{Group, NAMED_PARSERS, Parser},
     },
     forge::request::{ForgeCommit, Tag},

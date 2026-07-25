@@ -81,8 +81,12 @@ impl AdditionalManifestSpec {
 pub struct AdditionalManifest {
     /// The path to the manifest file relative to package path
     pub path: String,
-    /// The regex to use to match and replace versions
-    /// default: (?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d\.\d\.\d-?.*?)(?<end>['",].*)?$
+    /// The regex to use to match and replace versions.
+    ///
+    /// Must define a `version` capture group — config resolution
+    /// rejects patterns without one. Only that group's text is
+    /// substituted; the rest of the match is left intact. Defaults to
+    /// [`GENERIC_VERSION_REGEX_PATTERN`] when omitted.
     pub version_regex: Option<String>,
 }
 

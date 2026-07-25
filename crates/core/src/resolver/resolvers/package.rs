@@ -1,9 +1,11 @@
-use std::rc::Rc;
+use url::Url;
 
 use crate::{
     config::{
-        changelog::DEFAULT_AGGREGATE_PRERELEASES, package::PackageConfig,
-        resolved::ResolvedConfig,
+        changelog::{ChangelogConfig, DEFAULT_AGGREGATE_PRERELEASES},
+        overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
+        package::PackageConfig,
+        versioning::VersioningConfig,
     },
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
@@ -19,22 +21,48 @@ use crate::{
     result::Result,
 };
 
+pub struct PackageResolverParams<'a> {
+    pub package_config: PackageConfig,
+    pub repo_name: &'a str,
+    pub default_versioning: Option<&'a VersioningConfig>,
+    pub default_changelog: &'a ChangelogConfig,
+    pub commit_modifiers: &'a CommitModifiers,
+    pub package_overrides: &'a PackageOverridesHash,
+    pub global_overrides: &'a GlobalOverrides,
+    pub compare_link_base_url: &'a Url,
+    pub release_link_base_url: &'a Url,
+}
+
 pub fn resolve_package(
-    resolved_config: Rc<ResolvedConfig>,
-    package_config: PackageConfig,
+    params: PackageResolverParams,
 ) -> Result<ResolvedPackage> {
-    let name =
-        resolve_package_name(&package_config, &resolved_config.repo_name);
+    let PackageResolverParams {
+        package_config,
+        repo_name,
+        default_versioning,
+        default_changelog,
+        commit_modifiers,
+        package_overrides,
+        global_overrides,
+        compare_link_base_url,
+        release_link_base_url,
+    } = params;
+
+    let name = resolve_package_name(&package_config, repo_name);
 
     let tag_prefix = resolve_tag_prefix(
         &name,
         &package_config,
-        &resolved_config.package_overrides,
-        &resolved_config.global_overrides,
+        package_overrides,
+        global_overrides,
     );
 
-    let versioning_config =
-        resolve_versioning(&resolved_config, &package_config)?;
+    let versioning_config = resolve_versioning(
+        &package_config,
+        default_versioning,
+        package_overrides,
+        global_overrides,
+    )?;
 
     // Normalize paths
     let (normalized_workspace_root, normalized_full_path) =
@@ -49,7 +77,7 @@ pub fn resolve_package(
         normalize_additional_paths(&package_config);
 
     let changelog_config =
-        resolve_changelog_config(&package_config, &resolved_config.changelog);
+        resolve_changelog_config(&package_config, default_changelog);
 
     let aggregate_prereleases = changelog_config
         .aggregate_prereleases
@@ -59,13 +87,9 @@ pub fn resolve_package(
     let analyzer_config = build_analyzer_config(AnalyzerParams {
         changelog: changelog_config,
         versioning: versioning_config.clone(),
-        commit_modifiers: resolved_config.commit_modifiers.clone(),
-        compare_link_base_url: Some(
-            resolved_config.compare_link_base_url.clone(),
-        ),
-        release_link_base_url: Some(
-            resolved_config.release_link_base_url.clone(),
-        ),
+        commit_modifiers: commit_modifiers.clone(),
+        compare_link_base_url: Some(compare_link_base_url.clone()),
+        release_link_base_url: Some(release_link_base_url.clone()),
         tag_prefix: tag_prefix.clone(),
     });
 
@@ -73,8 +97,8 @@ pub fn resolve_package(
 
     // Resolve sub-packages
     let sub_packages = resolve_sub_packages_full(
-        Rc::clone(&resolved_config),
         package_config,
+        repo_name,
         &normalized_workspace_root,
         &tag_prefix,
         &analyzer_config,

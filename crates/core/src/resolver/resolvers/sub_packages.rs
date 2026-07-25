@@ -1,11 +1,8 @@
-use std::{path::Path, rc::Rc};
+use std::path::Path;
 
 use crate::{
     analyzer::config::AnalyzerConfig,
-    config::{
-        package::PackageConfig, resolved::ResolvedConfig,
-        versioning::VersioningConfig,
-    },
+    config::{package::PackageConfig, versioning::VersioningConfig},
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
         package_name::resolve_sub_package_name, path_utils::normalize_path,
@@ -14,8 +11,8 @@ use crate::{
 
 /// Resolves all sub-packages for a package.
 pub fn resolve_sub_packages_full(
-    resolved_config: Rc<ResolvedConfig>,
     package_config: PackageConfig,
+    repo_name: &str,
     normalized_workspace_root: &Path,
     tag_prefix: &str,
     analyzer_config: &AnalyzerConfig,
@@ -31,11 +28,7 @@ pub fn resolve_sub_packages_full(
     sub_packages
         .iter()
         .map(|s| {
-            let name = resolve_sub_package_name(
-                s,
-                &workspace_root,
-                &resolved_config.repo_name,
-            );
+            let name = resolve_sub_package_name(s, &workspace_root, repo_name);
 
             let sub_path = normalized_workspace_root
                 .join(&s.path)
@@ -66,40 +59,12 @@ pub fn resolve_sub_packages_full(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use url::Url;
-
-    use crate::config::{
-        changelog::ChangelogConfig,
-        package::{PackageConfigBuilder, SubPackage},
-        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
-        resolved::{CommitModifiers, GlobalOverrides},
-    };
+    use crate::config::package::{PackageConfigBuilder, SubPackage};
 
     use super::*;
 
-    fn make_resolved_config(name: &str) -> ResolvedConfig {
-        ResolvedConfig {
-            repo_name: name.to_string(),
-            base_branch: "main".into(),
-            release_link_base_url: Url::parse("https://example.com/").unwrap(),
-            compare_link_base_url: Url::parse("https://example.com/compare/")
-                .unwrap(),
-            package_overrides: HashMap::default(),
-            global_overrides: GlobalOverrides::default(),
-            commit_modifiers: CommitModifiers::default(),
-            first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
-            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
-            separate_pull_requests: true,
-            changelog: ChangelogConfig::default(),
-            versioning: None,
-        }
-    }
-
     #[test]
     fn resolves_sub_packages_with_explicit_names() {
-        let resolved_config = Rc::new(make_resolved_config("test-repo"));
-
         let pkg_config = PackageConfigBuilder::default()
             .name("parent-pkg")
             .path(".")
@@ -124,8 +89,8 @@ mod tests {
         let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
-            resolved_config,
             pkg_config,
+            "test-repo",
             workspace_root,
             tag_prefix,
             &analyzer_config,
@@ -139,8 +104,6 @@ mod tests {
 
     #[test]
     fn resolves_sub_packages_with_auto_generated_names() {
-        let resolved_config = Rc::new(make_resolved_config("test-repo"));
-
         let pkg_config = PackageConfigBuilder::default()
             .name("parent-pkg")
             .path(".")
@@ -158,8 +121,8 @@ mod tests {
         let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
-            resolved_config,
             pkg_config,
+            "test-repo",
             workspace_root,
             tag_prefix,
             &analyzer_config,
@@ -173,8 +136,6 @@ mod tests {
 
     #[test]
     fn sub_packages_inherit_parent_tag_prefix() {
-        let resolved_config = Rc::new(make_resolved_config("test-repo"));
-
         let pkg_config = PackageConfigBuilder::default()
             .name("parent-pkg")
             .path(".")
@@ -193,8 +154,8 @@ mod tests {
         let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
-            resolved_config,
             pkg_config,
+            "test-repo",
             workspace_root,
             expected_tag_prefix,
             &analyzer_config,
@@ -207,8 +168,6 @@ mod tests {
 
     #[test]
     fn sub_packages_normalize_paths_correctly() {
-        let resolved_config = Rc::new(make_resolved_config("test-repo"));
-
         let pkg_config = PackageConfigBuilder::default()
             .name("parent-pkg")
             .path("workspace")
@@ -226,8 +185,8 @@ mod tests {
         let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
-            resolved_config,
             pkg_config,
+            "test-repo",
             workspace_root,
             expected_tag_prefix,
             &analyzer_config,
@@ -251,8 +210,6 @@ mod tests {
 
     #[test]
     fn handles_empty_sub_packages_list() {
-        let resolved_config = Rc::new(make_resolved_config("test-repo"));
-
         let pkg_config = PackageConfigBuilder::default()
             .name("parent-pkg")
             .path(".")
@@ -265,8 +222,8 @@ mod tests {
         let versioning_config = VersioningConfig::default();
 
         let resolved = resolve_sub_packages_full(
-            resolved_config,
             pkg_config,
+            "test-repo",
             workspace_root,
             expected_tag_prefix,
             &analyzer_config,
