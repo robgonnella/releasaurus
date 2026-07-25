@@ -64,32 +64,36 @@ pub fn resolve_versioning(
 
 /// Layers user overrides on top of [`NAMED_PARSERS`] field by field.
 ///
-/// Precedence per field is package, then global, then the built-in
-/// default. Merging per field (rather than replacing whole parsers) means
-/// a package that only re-titles a group still inherits the global `skip`
-/// and `pattern` for it.
+/// Precedence per field is package, then `[defaults]`, then the built-in
+/// parser. Merging per field (rather than replacing whole parsers) means
+/// a package that only re-titles a group still inherits the `[defaults]`
+/// `skip` and `pattern` for it.
 ///
 /// The result always contains every [`Group`], in [`NAMED_PARSERS`] order,
 /// so match order does not depend on the order keys appear in the user's
 /// TOML.
 fn resolve_named_parsers(
-    default_parsers: Option<&IndexMap<Group, Parser>>,
+    defaults_parsers: Option<&IndexMap<Group, Parser>>,
     package_parsers: Option<&IndexMap<Group, Parser>>,
 ) -> IndexMap<Group, Parser> {
     let mut parsers = IndexMap::with_capacity(NAMED_PARSERS.len());
 
-    for (group, default_parser) in NAMED_PARSERS.iter() {
+    for (group, builtin) in NAMED_PARSERS.iter() {
         let mut parser = package_parsers
             .and_then(|p| p.get(group))
             .cloned()
             .unwrap_or_default();
 
-        if let Some(default_parser) = default_parsers.and_then(|p| p.get(group))
-        {
-            parser.merge(default_parser.clone());
-        }
+        // An absent tier contributes a `Parser` of all `None`, which is a
+        // no-op under `overwrite_none` - no need to special-case it.
+        parser.merge(
+            defaults_parsers
+                .and_then(|p| p.get(group))
+                .cloned()
+                .unwrap_or_default(),
+        );
 
-        parser.merge(default_parser.clone());
+        parser.merge(builtin.clone());
 
         log::debug!("resolved parser: group={group}, parser={parser:?}");
 

@@ -62,7 +62,11 @@ impl Commit {
                     (title_cow.into_owned(), Some(body_cow.into_owned()))
                 }
             }
-            None => (raw_message.clone(), None),
+            // Single-line message: no body to split off, but the title still
+            // needs the same trim the two-part branch applies. A message that
+            // doesn't parse as a conventional commit falls back to this title
+            // verbatim.
+            None => (trim_to_cow(&raw_message).into_owned(), None),
         };
 
         // Conventional commits give us a scope, a description, and breaking
@@ -698,6 +702,68 @@ mod tests {
         assert_eq!(commit.group, target_parser.group_title());
         assert_eq!(commit.title, "add new feature");
         // Body should be None since it's just whitespace
+        assert_eq!(commit.body, None);
+    }
+
+    /// A message with no newline at all takes the single-line branch, which
+    /// has no body to split off. A non-conventional one has no parsed
+    /// description to fall back on either, so an untrimmed title here reaches
+    /// the changelog verbatim as `- Update thing    [_(id)_](link)`.
+    #[test]
+    fn test_parse_non_conventional_single_line_trims_trailing_whitespace() {
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&NAMED_PARSERS, &[]);
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("trim123")
+            .message("  Update user authentication logic   ")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let commit = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        )
+        .unwrap();
+
+        assert_eq!(commit.raw_title, "Update user authentication logic");
+        assert_eq!(commit.title, "Update user authentication logic");
+        assert_eq!(commit.body, None);
+        // the untrimmed original is still preserved for pattern matching
+        assert_eq!(commit.raw_message, "  Update user authentication logic   ");
+    }
+
+    /// The conventional-commit path trims the description itself, so this
+    /// pins that a trailing-whitespace single-line message still groups and
+    /// titles correctly rather than relying on the fallback.
+    #[test]
+    fn test_parse_conventional_single_line_trims_trailing_whitespace() {
+        let analyzer_config = AnalyzerConfig::default();
+        let group_parser = GroupParser::new(&NAMED_PARSERS, &[]);
+        let forge_commit = ForgeCommitBuilder::default()
+            .id("trim456")
+            .message("feat: add new feature   ")
+            .author_name("Test User")
+            .author_email("test@example.com")
+            .timestamp(1641000300)
+            .merge_commit(false)
+            .build()
+            .unwrap();
+        let commit = Commit::parse_forge_commit(
+            &group_parser,
+            &forge_commit,
+            &analyzer_config,
+        )
+        .unwrap();
+
+        let target_parser = NAMED_PARSERS.get(&Group::Feature).unwrap();
+
+        assert_eq!(commit.group, target_parser.group_title());
+        assert_eq!(commit.raw_title, "feat: add new feature");
+        assert_eq!(commit.title, "add new feature");
         assert_eq!(commit.body, None);
     }
 
