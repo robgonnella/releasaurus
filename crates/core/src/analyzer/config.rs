@@ -49,7 +49,12 @@ pub struct AnalyzerConfig {
     /// [`resolve_versioning`][crate::resolver::resolvers::versioning::resolve_versioning]).
     pub named_parsers: IndexMap<Group, Parser>,
     /// Additional parsers for grouping commits into non-default groups
-    /// e.g. pattern="^special:" title="<!-- 00 -->Special" skip=false
+    /// e.g. pattern="^special:" title="Special" order=0 skip=false
+    ///
+    /// Position comes from [`Parser::order`], not from the title: the
+    /// `<!-- NN -->` sort tag is synthesized by
+    /// [`Parser::group_title`][crate::config::versioning::Parser::group_title]
+    /// and config resolution rejects a title that carries one by hand.
     pub custom_parsers: Vec<Parser>,
 }
 

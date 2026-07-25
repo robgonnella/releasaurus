@@ -40,7 +40,7 @@ pub struct AnalyzerParams {
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
     AnalyzerConfig {
-        body: params.changelog.body.clone().unwrap_or(DEFAULT_BODY.into()),
+        body: params.changelog.body.unwrap_or_else(|| DEFAULT_BODY.into()),
         breaking_always_increment_major: params
             .versioning
             .breaking_always_increment_major
@@ -67,7 +67,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
             .skip_merge_commits
             .unwrap_or(DEFAULT_SKIP_MERGE_COMMITS),
         tag_prefix: Some(params.tag_prefix),
-        commit_modifiers: params.commit_modifiers.clone(),
+        commit_modifiers: params.commit_modifiers,
         // `resolve_versioning` always populates this, but an empty map would
         // classify every commit into an unnamed group and apply no `skip`, so
         // fall back to the built-in defaults rather than `IndexMap::default()`.

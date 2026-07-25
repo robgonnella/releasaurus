@@ -1,5 +1,8 @@
 use crate::{
-    config::{overrides::CommitModifiers, repository::RepositoryConfig},
+    config::{
+        overrides::CommitModifiers,
+        repository::{RepositoryConfig, RewordedCommit},
+    },
     result::{ReleasaurusError, Result},
 };
 
@@ -35,6 +38,19 @@ pub fn validate_sha(sha: &str) -> Result<String> {
     Ok(trimmed.to_lowercase())
 }
 
+/// Validates a SHA, naming `source` in the error.
+///
+/// The two inputs are merged before use, so without this the message would
+/// point at `releasaurus.toml` for a value that actually came off the command
+/// line (and vice versa).
+fn validate_sha_from(sha: &str, source: &str) -> Result<String> {
+    validate_sha(sha).map_err(|e| {
+        ReleasaurusError::invalid_config(format!(
+            "Invalid SHA in {source}: {e}"
+        ))
+    })
+}
+
 pub fn resolve_commit_modifiers(
     config: &RepositoryConfig,
     modifiers: &CommitModifiers,
@@ -45,35 +61,37 @@ pub fn resolve_commit_modifiers(
     let skip_shas = config
         .skip_shas
         .iter()
-        .chain(modifiers.skip_shas.iter())
-        .map(|sha| {
-            validate_sha(sha).map_err(|e| {
-                ReleasaurusError::invalid_config(format!(
-                    "Invalid SHA in repository.skip_shas: {}",
-                    e
-                ))
-            })
-        })
+        .map(|sha| validate_sha_from(sha, "repository.skip_shas"))
+        .chain(
+            modifiers
+                .skip_shas
+                .iter()
+                .map(|sha| validate_sha_from(sha, "--skip-sha")),
+        )
         .collect::<Result<Vec<String>>>()?;
 
-    let mut reword = config.reword.clone();
+    let mut reword = config
+        .reword
+        .iter()
+        .cloned()
+        .map(|mut entry| {
+            entry.sha = validate_sha_from(&entry.sha, "repository.reword")?;
+            Ok(entry)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     for entry in modifiers.reword.iter() {
+        let sha = validate_sha_from(&entry.sha, "--reword")?;
+
         // cli overrides existing config for same sha
-        if let Some(r) = reword.iter_mut().find(|e| e.sha == entry.sha) {
+        if let Some(r) = reword.iter_mut().find(|e| e.sha == sha) {
             r.message = entry.message.clone();
         } else {
-            reword.push(entry.clone());
+            reword.push(RewordedCommit {
+                sha,
+                message: entry.message.clone(),
+            });
         }
-    }
-
-    for entry in reword.iter_mut() {
-        entry.sha = validate_sha(&entry.sha).map_err(|e| {
-            ReleasaurusError::invalid_config(format!(
-                "Invalid SHA in repository.reword: {}",
-                e
-            ))
-        })?;
     }
 
     Ok(CommitModifiers { skip_shas, reword })
@@ -166,5 +184,78 @@ mod tests {
                 .unwrap_err();
 
         assert!(err.to_string().contains("repository.reword"));
+    }
+
+    /// The two sources are merged before use, so the error has to name the
+    /// one the bad value actually came from - pointing a `--skip-sha` typo at
+    /// `releasaurus.toml` sends the user to the wrong file.
+    #[test]
+    fn resolve_commit_modifiers_names_cli_as_source_for_invalid_skip_sha() {
+        let cli = CommitModifiers {
+            skip_shas: vec!["abc".to_string()], // too short
+            ..Default::default()
+        };
+
+        let result =
+            resolve_commit_modifiers(&RepositoryConfig::default(), &cli);
+
+        assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
+
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("--skip-sha"), "unexpected error: {err}");
+        assert!(
+            !err.contains("repository.skip_shas"),
+            "error blames the config file: {err}"
+        );
+    }
+
+    #[test]
+    fn resolve_commit_modifiers_names_cli_as_source_for_invalid_reword_sha() {
+        let cli = CommitModifiers {
+            reword: vec![RewordedCommit {
+                sha: "zzzzzzz".to_string(), // not hexadecimal
+                message: "x".to_string(),
+            }],
+            ..Default::default()
+        };
+
+        let result =
+            resolve_commit_modifiers(&RepositoryConfig::default(), &cli);
+
+        assert!(matches!(result, Err(ReleasaurusError::InvalidConfig(_))));
+
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("--reword"), "unexpected error: {err}");
+        assert!(
+            !err.contains("repository.reword"),
+            "error blames the config file: {err}"
+        );
+    }
+
+    /// SHAs are normalized before the override lookup, so a CLI entry that
+    /// differs from the config entry only in case still overrides it rather
+    /// than pushing a duplicate that later loses to the config value.
+    #[test]
+    fn resolve_commit_modifiers_cli_reword_overrides_config_across_sha_case() {
+        let config = RepositoryConfig {
+            reword: vec![RewordedCommit {
+                sha: "abc1234".to_string(),
+                message: "from config".to_string(),
+            }],
+            ..Default::default()
+        };
+        let cli = CommitModifiers {
+            reword: vec![RewordedCommit {
+                sha: "ABC1234".to_string(),
+                message: "from cli".to_string(),
+            }],
+            ..Default::default()
+        };
+
+        let result = resolve_commit_modifiers(&config, &cli).unwrap();
+
+        assert_eq!(result.reword.len(), 1);
+        assert_eq!(result.reword[0].sha, "abc1234");
+        assert_eq!(result.reword[0].message, "from cli");
     }
 }

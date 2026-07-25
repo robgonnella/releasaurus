@@ -23,8 +23,6 @@ pub const DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR: bool = true;
     Display,
     PartialEq,
     Eq,
-    PartialOrd,
-    Ord,
     Serialize,
     Deserialize,
     JsonSchema,
@@ -225,7 +223,10 @@ pub struct ParserList(#[merge(strategy = merge::vec::append)] pub Vec<Parser>);
 #[serde(deny_unknown_fields)]
 pub struct VersioningConfig {
     /// Prerelease configuration (suffix + strategy)
-    #[merge(strategy = merge::option::overwrite_none)]
+    // Excluded from the merge: `resolve_prerelease` has its own precedence
+    // chain (config, then global CLI overrides, then per-package ones) and
+    // assigns over whatever the surrounding merge produced.
+    #[merge(skip)]
     pub prerelease: Option<PrereleaseConfig>,
     /// Auto-starts next release by creating a release PR with a patch version
     /// bump immediately after creating a release
@@ -289,19 +290,6 @@ mod tests {
         assert_eq!(Group::Breaking, Group::Breaking);
         assert_ne!(Group::Feature, Group::Fix);
         assert_ne!(Group::Breaking, Group::Miscellaneous);
-    }
-
-    #[test]
-    fn test_group_ordering() {
-        // Test that Breaking comes first in sort order
-        let mut groups = [Group::Fix, Group::Breaking, Group::Feature];
-        groups.sort();
-        assert_eq!(groups[0], Group::Breaking);
-
-        // Test other orderings
-        assert!(Group::Breaking < Group::Feature);
-        assert!(Group::Feature < Group::Fix);
-        assert!(Group::Miscellaneous > Group::CI); // Other should be last
     }
 
     #[test]

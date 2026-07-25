@@ -198,27 +198,21 @@ impl CommitFetcher {
             let graduating_to_stable = tag
                 .as_ref()
                 .map(|t| {
-                    // check if current tag has pre-release identifier and
-                    // pre-release configuration is empty, or suffix is empty,
-                    // indicating we are graduating from pre-release to stable
-                    // version
+                    // We are graduating when the current tag carries a
+                    // pre-release identifier but the package no longer asks
+                    // for one.
                     if t.semver.pre.is_empty() {
                         // current tag does not have pre-release identifier
                         // so nothing to graduate from
                         return false;
                     }
 
-                    // current tag has a pre-release identifier - check config
-
-                    if let Some(prerelease_config) =
-                        package.versioning_config.prerelease.as_ref()
-                    {
-                        // suffix is empty = graduating
-                        prerelease_config.suffix.is_empty()
-                    } else {
-                        // prerelease config is none = graduating
-                        true
-                    }
+                    // `resolve_prerelease` trims the suffix and returns `None`
+                    // when it is empty, so a `Some` here always carries a real
+                    // suffix. `None` is the only way to ask for stable - it
+                    // covers both "no prerelease config" and "suffix cleared
+                    // to graduate".
+                    package.versioning_config.prerelease.is_none()
                 })
                 .unwrap_or_default();
 
@@ -947,10 +941,12 @@ mod tests {
         );
     }
 
+    /// A cleared suffix reaches this code as `prerelease: None`, not as a
+    /// `Some` carrying an empty string: `resolve_prerelease` trims and drops
+    /// it during resolution. This pins that end of the contract - clearing
+    /// the suffix in config is what makes the package graduate.
     #[tokio::test]
     async fn graduating_to_stable_true_when_prerelease_tag_and_empty_suffix() {
-        // Current tag is a prerelease and the package config has an empty
-        // suffix — the user has cleared the suffix to graduate to stable.
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
             .returning(|_, _, _| {
@@ -980,6 +976,16 @@ mod tests {
             .unwrap();
 
         let commit_fetcher = make_commit_fetcher_with_package(mock, pkg);
+
+        // the empty suffix must not survive resolution
+        assert!(
+            commit_fetcher.config.package_configs.hash()["test-pkg"]
+                .versioning_config
+                .prerelease
+                .is_none(),
+            "expected an empty suffix to resolve to no prerelease config"
+        );
+
         let (_, tags) = commit_fetcher
             .get_commits_for_all_packages(None)
             .await
