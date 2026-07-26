@@ -235,9 +235,9 @@ CI settings.
 | `--set-package <pkg>.<property>=<value>`    | Per-package override (repeatable)              |
 
 `--set-package` takes precedence over all other overrides and config.
-Supported properties: `tag_prefix`, `prerelease.suffix`,
-`prerelease.strategy`. Setting an unsupported property prints an error
-listing valid values.
+Supported properties: `tag_prefix`, `versioning.prerelease.suffix`,
+`versioning.prerelease.strategy`. Setting an unsupported property prints an
+error listing valid values.
 
 **Precedence (highest to lowest):** `--set-package` → global CLI
 overrides → `[[package]]` config → `[defaults]` config → built-in
@@ -249,7 +249,8 @@ releasaurus release-pr --base-branch develop --prerelease-suffix beta \
   --repo "https://github.com/owner/repo"
 
 # Per-package override (e.g. only the frontend gets a beta suffix)
-releasaurus release-pr --set-package frontend.prerelease.suffix=beta \
+releasaurus release-pr \
+  --set-package frontend.versioning.prerelease.suffix=beta \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another

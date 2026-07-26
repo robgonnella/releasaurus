@@ -316,10 +316,10 @@ pub struct CliPackageOverrides {
     #[serde(rename = "tag_prefix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub tag_prefix: Option<String>,
-    #[serde(rename = "prerelease.suffix")]
+    #[serde(rename = "versioning.prerelease.suffix")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_suffix: Option<String>,
-    #[serde(rename = "prerelease.strategy")]
+    #[serde(rename = "versioning.prerelease.strategy")]
     #[merge(strategy = merge::option::overwrite_none)]
     pub prerelease_strategy: Option<PrereleaseStrategy>,
 }
@@ -337,9 +337,9 @@ impl From<CliPackageOverrides> for PackageOverrides {
 #[derive(Debug, Clone, Args)]
 pub struct SharedCommandOverrides {
     /// Override package properties using dot notation
-    /// Example: "--set-package my-pkg.prerelease.suffix=beta".
+    /// Example: "--set-package my-pkg.versioning.prerelease.suffix=beta".
     /// To disable prerelease for a package:
-    /// --set-package my-pkg.prerelease.suffix=""
+    /// --set-package my-pkg.versioning.prerelease.suffix=""
     #[arg(
         long = "set-package",
         value_parser = parse_package_override,
@@ -356,7 +356,7 @@ pub struct SharedCommandOverrides {
     /// be overridden via explicit "--set-package" override. To disable
     /// prerelease for all packages use --prerelease-suffix="". To disable
     /// prerelease for a specific package use
-    /// --set-package my-pkg.prerelease.suffix=""
+    /// --set-package my-pkg.versioning.prerelease.suffix=""
     #[arg(long)]
     prerelease_suffix: Option<String>,
 
@@ -437,7 +437,7 @@ fn parse_package_override(s: &str) -> Result<PackagePathOverride> {
 
     Ok(PackagePathOverride {
         package_name: key_parts[0].to_string(),
-        // Support nested like "prerelease.suffix"
+        // Support nested like "versioning.prerelease.suffix"
         path: key_parts[1..].join("."),
         value: value.to_string(),
     })
@@ -598,10 +598,11 @@ impl Cli {
     }
 
     /// Gathers the list of provided path override options, like
-    /// --releasaurus.prerelease.suffix=beta, and collects them into a single
-    /// struct of all allowed overrides properties for each package name.
-    /// Returns a `HashMap` keyed by package name, each value a
-    /// [`CliPackageOverrides`] merged from every flag naming that package.
+    /// `--set-package my-pkg.versioning.prerelease.suffix=beta`, and
+    /// collects them into a single struct of all allowed overrides
+    /// properties for each package name. Returns a `HashMap` keyed by
+    /// package name, each value a [`CliPackageOverrides`] merged from
+    /// every flag naming that package.
     pub fn get_package_overrides(
         &self,
     ) -> Result<HashMap<String, CliPackageOverrides>> {
@@ -615,7 +616,15 @@ impl Cli {
                     });
 
                     let mut overrides: CliPackageOverrides =
-                        serde_json::from_value(value)?;
+                        serde_json::from_value(value).map_err(|err| {
+                            ReleasaurusError::invalid_config(format!(
+                                "Invalid --set-package override \
+                                 '{}.{}': {}",
+                                path_override.package_name,
+                                path_override.path,
+                                err
+                            ))
+                        })?;
 
                     if let Some(existing) =
                         map.get(&path_override.package_name).cloned()
@@ -700,6 +709,151 @@ mod tests {
             }
             Err(err) => {
                 assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
+            }
+        }
+    }
+
+    /// The accepted `--set-package` paths exist only as serde `rename`
+    /// attributes on [`CliPackageOverrides`], so they must mirror the
+    /// TOML layout they override: `tag_prefix` is a direct package key,
+    /// prerelease options live under the package's `versioning` table.
+    #[test]
+    fn get_package_overrides_accepts_documented_paths() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--set-package",
+            "frontend.tag_prefix=fe-v",
+            "--set-package",
+            "frontend.versioning.prerelease.suffix=beta",
+            "--set-package",
+            "frontend.versioning.prerelease.strategy=versioned",
+        ])
+        .expect("documented override paths should parse");
+
+        let overrides = cli
+            .get_package_overrides()
+            .expect("documented override paths should deserialize");
+
+        let frontend = overrides
+            .get("frontend")
+            .expect("overrides should be keyed by package name");
+
+        assert_eq!(frontend.tag_prefix.as_deref(), Some("fe-v"));
+        assert_eq!(frontend.prerelease_suffix.as_deref(), Some("beta"));
+        assert_eq!(
+            frontend.prerelease_strategy,
+            Some(PrereleaseStrategy::Versioned)
+        );
+    }
+
+    #[test]
+    fn get_package_overrides_keys_each_package_separately() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--set-package",
+            "frontend.versioning.prerelease.suffix=beta",
+            "--set-package",
+            "backend.tag_prefix=api-v",
+        ])
+        .expect("per-package overrides should parse");
+
+        let overrides = cli.get_package_overrides().unwrap();
+
+        assert_eq!(overrides.len(), 2);
+        assert_eq!(
+            overrides["frontend"].prerelease_suffix.as_deref(),
+            Some("beta")
+        );
+        assert!(overrides["frontend"].tag_prefix.is_none());
+        assert_eq!(overrides["backend"].tag_prefix.as_deref(), Some("api-v"));
+    }
+
+    /// An empty suffix disables prerelease for a single package, so it
+    /// must survive as `Some("")` rather than being dropped.
+    #[test]
+    fn get_package_overrides_preserves_empty_suffix() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--set-package",
+            "frontend.versioning.prerelease.suffix=",
+        ])
+        .expect("empty suffix should parse");
+
+        let overrides = cli.get_package_overrides().unwrap();
+
+        assert_eq!(
+            overrides["frontend"].prerelease_suffix.as_deref(),
+            Some("")
+        );
+    }
+
+    /// The pre-`versioning` path is no longer accepted; it must fail as a
+    /// config error rather than being silently ignored.
+    #[test]
+    fn get_package_overrides_rejects_unknown_path() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--set-package",
+            "frontend.prerelease.suffix=beta",
+        ])
+        .expect("clap accepts any dot path; validation happens later");
+
+        let result = cli.get_package_overrides();
+
+        match result {
+            Ok(_) => unreachable!("stale override path should have errored"),
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidConfig(_)))
+            }
+        }
+    }
+
+    #[test]
+    fn parse_package_override_splits_package_from_nested_path() {
+        let parsed = parse_package_override(
+            "frontend.versioning.prerelease.suffix=beta",
+        )
+        .unwrap();
+
+        assert_eq!(parsed.package_name, "frontend");
+        assert_eq!(parsed.path, "versioning.prerelease.suffix");
+        assert_eq!(parsed.value, "beta");
+    }
+
+    /// Values may contain `=`, so only the first one separates key from
+    /// value.
+    #[test]
+    fn parse_package_override_splits_on_first_equals_only() {
+        let parsed = parse_package_override("frontend.tag_prefix=v=1").unwrap();
+
+        assert_eq!(parsed.path, "tag_prefix");
+        assert_eq!(parsed.value, "v=1");
+    }
+
+    #[test]
+    fn parse_package_override_rejects_missing_equals() {
+        let result = parse_package_override("frontend.tag_prefix");
+
+        match result {
+            Ok(_) => unreachable!("missing '=' should have errored"),
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidConfig(_)))
+            }
+        }
+    }
+
+    #[test]
+    fn parse_package_override_rejects_missing_package_name() {
+        let result = parse_package_override("tag_prefix=v");
+
+        match result {
+            Ok(_) => unreachable!("missing package name should have errored"),
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidConfig(_)))
             }
         }
     }
