@@ -156,7 +156,7 @@ Versioning options are **not** direct package keys — they live under the
 package's `versioning` table, mirroring `[defaults.versioning]`. For example,
 a per-package prerelease is
 `versioning = { prerelease = { suffix = "alpha" } }`, and the matching CLI
-override is `--set-package <name>.prerelease.suffix=`.
+override is `--set-package <name>.versioning.prerelease.suffix=`.
 
 ### `additional_manifest_files`
 
