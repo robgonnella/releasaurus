@@ -50,7 +50,10 @@ conventional-commit syntax (`feat!:`, `BREAKING CHANGE:`). Setting a
 `pattern` on `breaking` uses your pattern instead, but only for
 changelog grouping: the version bump is always computed from
 conventional-commit syntax, so a `feat!:` still bumps major even if your
-pattern routes it under another group.
+pattern routes it under another group. To make additional patterns bump
+the major version, use [`custom_major_increment_regex`][major-regex].
+
+[major-regex]: ./configuration-reference.md#custom-increment-regexes
 
 Override only the fields you want to change under
 `[defaults.versioning.named_parsers]`; everything you omit falls back to the

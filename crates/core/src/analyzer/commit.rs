@@ -102,20 +102,17 @@ impl Commit {
             author_email,
         };
 
-        let mut should_skip = false;
-        if let Some((group, skip)) = group_parser.parse(&commit) {
-            commit.group = group;
-            should_skip = skip;
-        }
-
-        if should_skip {
-            log::debug!(
-                "omitting {} commit: {} : {}",
-                commit.group,
-                commit.short_id,
-                commit.raw_title
-            );
-            return None;
+        if let Some(parsed) = group_parser.parse(&commit) {
+            commit.group = parsed.group;
+            if parsed.skip {
+                log::debug!(
+                    "omitting {} commit: {} : {}",
+                    commit.group,
+                    commit.short_id,
+                    commit.raw_title
+                );
+                return None;
+            }
         }
 
         if commit.merge_commit && config.skip_merge_commits {

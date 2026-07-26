@@ -5,6 +5,25 @@ use crate::{
     config::versioning::{Group, Parser},
 };
 
+/// The changelog group a commit was assigned to, plus whether the
+/// matching parser wants the commit dropped entirely.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Parsed {
+    /// The value for [`Commit::group`][crate::analyzer::commit::Commit]:
+    /// the group title prefixed with its `<!-- NN -->` sort tag.
+    pub group: String,
+    /// When `true` the commit is omitted from both the changelog and the
+    /// version calculation.
+    pub skip: bool,
+}
+
+impl From<&Parser> for Parsed {
+    fn from(parser: &Parser) -> Self {
+        let (group, skip) = parser.title_and_skip();
+        Self { group, skip }
+    }
+}
+
 /// Determines which changelog category a commit belongs to by matching
 /// against conventional commit type patterns.
 pub struct GroupParser<'a> {
@@ -31,13 +50,13 @@ impl<'a> GroupParser<'a> {
     /// `named_parsers` has no `Miscellaneous` entry at all, which
     /// [`resolve_named_parsers`][crate::resolver::resolvers::versioning] never
     /// produces.
-    pub fn parse(&self, commit: &Commit) -> Option<(String, bool)> {
+    pub fn parse(&self, commit: &Commit) -> Option<Parsed> {
         let msg = commit.raw_message.trim();
 
         // custom parsers always take precedence
         for parser in self.custom_parsers.iter() {
             if parser.is_match(msg) {
-                return Some(parser.title_and_skip());
+                return Some(parser.into());
             }
         }
 
@@ -52,7 +71,7 @@ impl<'a> GroupParser<'a> {
             && let Some(pattern) = parser.pattern.as_ref()
             && pattern.is_match(msg)
         {
-            return Some(parser.title_and_skip());
+            return Some(parser.into());
         }
 
         // If no user defined breaking parser is defined, use conventional
@@ -61,7 +80,7 @@ impl<'a> GroupParser<'a> {
             && let Some(parser) = breaking_parser
             && parser.pattern.is_none()
         {
-            return Some(parser.title_and_skip());
+            return Some(parser.into());
         }
 
         for (group, parser) in self.named_parsers.iter() {
@@ -73,7 +92,7 @@ impl<'a> GroupParser<'a> {
                 continue;
             }
             if parser.is_match(msg) {
-                return Some(parser.title_and_skip());
+                return Some(parser.into());
             }
         }
 
@@ -85,7 +104,7 @@ impl<'a> GroupParser<'a> {
         // only changes what it claims *early*, not that it is the fallback.
         self.named_parsers
             .get(&Group::Miscellaneous)
-            .map(Parser::title_and_skip)
+            .map(Parsed::from)
     }
 }
 
@@ -123,9 +142,9 @@ mod tests {
         let commit = create_test_commit("feat!: breaking change", true);
         let breaking_parser =
             NAMED_PARSERS.get(&Group::Breaking).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, breaking_parser.group_title());
-        assert_eq!(skip, breaking_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, breaking_parser.group_title());
+        assert_eq!(parsed.skip, breaking_parser.skip.unwrap());
     }
 
     #[test]
@@ -135,9 +154,9 @@ mod tests {
         let commit = create_test_commit("feat: add new feature", false);
         let feature_parser =
             NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, feature_parser.group_title());
-        assert_eq!(skip, feature_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, feature_parser.group_title());
+        assert_eq!(parsed.skip, feature_parser.skip.unwrap());
     }
 
     #[test]
@@ -146,9 +165,9 @@ mod tests {
 
         let commit = create_test_commit("fix: resolve bug", false);
         let fix_parser = NAMED_PARSERS.get(&Group::Fix).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, fix_parser.group_title());
-        assert_eq!(skip, fix_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, fix_parser.group_title());
+        assert_eq!(parsed.skip, fix_parser.skip.unwrap());
     }
 
     #[test]
@@ -157,9 +176,9 @@ mod tests {
 
         let commit = create_test_commit("chore: update dependencies", false);
         let chore_parser = NAMED_PARSERS.get(&Group::Chore).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, chore_parser.group_title());
-        assert_eq!(skip, chore_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, chore_parser.group_title());
+        assert_eq!(parsed.skip, chore_parser.skip.unwrap());
     }
 
     #[test]
@@ -168,9 +187,9 @@ mod tests {
 
         let commit = create_test_commit("ci: update workflow", false);
         let ci_parser = NAMED_PARSERS.get(&Group::CI).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, ci_parser.group_title());
-        assert_eq!(skip, ci_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, ci_parser.group_title());
+        assert_eq!(parsed.skip, ci_parser.skip.unwrap());
     }
 
     #[test]
@@ -180,9 +199,9 @@ mod tests {
         let commit = create_test_commit("doc: update readme", false);
         let doc_parser =
             NAMED_PARSERS.get(&Group::Documentation).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, doc_parser.group_title());
-        assert_eq!(skip, doc_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, doc_parser.group_title());
+        assert_eq!(parsed.skip, doc_parser.skip.unwrap());
     }
 
     #[test]
@@ -192,9 +211,9 @@ mod tests {
         let commit = create_test_commit("perf: optimize algorithm", false);
         let perf_parser =
             NAMED_PARSERS.get(&Group::Performance).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, perf_parser.group_title());
-        assert_eq!(skip, perf_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, perf_parser.group_title());
+        assert_eq!(parsed.skip, perf_parser.skip.unwrap());
     }
 
     #[test]
@@ -204,9 +223,9 @@ mod tests {
         let commit = create_test_commit("refactor: clean up code", false);
         let refactor_parser =
             NAMED_PARSERS.get(&Group::Refactor).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, refactor_parser.group_title());
-        assert_eq!(skip, refactor_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, refactor_parser.group_title());
+        assert_eq!(parsed.skip, refactor_parser.skip.unwrap());
     }
 
     #[test]
@@ -215,9 +234,9 @@ mod tests {
 
         let commit = create_test_commit("revert: undo previous change", false);
         let revert_parser = NAMED_PARSERS.get(&Group::Revert).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, revert_parser.group_title());
-        assert_eq!(skip, revert_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, revert_parser.group_title());
+        assert_eq!(parsed.skip, revert_parser.skip.unwrap());
     }
 
     #[test]
@@ -226,9 +245,9 @@ mod tests {
 
         let commit = create_test_commit("style: format code", false);
         let style_parser = NAMED_PARSERS.get(&Group::Style).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, style_parser.group_title());
-        assert_eq!(skip, style_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, style_parser.group_title());
+        assert_eq!(parsed.skip, style_parser.skip.unwrap());
     }
 
     #[test]
@@ -237,9 +256,9 @@ mod tests {
 
         let commit = create_test_commit("test: add unit tests", false);
         let test_parser = NAMED_PARSERS.get(&Group::Test).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, test_parser.group_title());
-        assert_eq!(skip, test_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, test_parser.group_title());
+        assert_eq!(parsed.skip, test_parser.skip.unwrap());
     }
 
     #[test]
@@ -249,9 +268,9 @@ mod tests {
         let commit = create_test_commit("random: unknown type", false);
         let misc_parser =
             NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, misc_parser.group_title());
-        assert_eq!(skip, misc_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, misc_parser.group_title());
+        assert_eq!(parsed.skip, misc_parser.skip.unwrap());
     }
 
     #[test]
@@ -261,9 +280,9 @@ mod tests {
         let commit = create_test_commit("", false);
         let misc_parser =
             NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, misc_parser.group_title());
-        assert_eq!(skip, misc_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, misc_parser.group_title());
+        assert_eq!(parsed.skip, misc_parser.skip.unwrap());
     }
 
     #[test]
@@ -274,9 +293,9 @@ mod tests {
             create_test_commit("  feat: feature with leading spaces", false);
         let feature_parser =
             NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, feature_parser.group_title());
-        assert_eq!(skip, feature_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, feature_parser.group_title());
+        assert_eq!(parsed.skip, feature_parser.skip.unwrap());
     }
 
     #[test]
@@ -287,17 +306,17 @@ mod tests {
         let commit1 = create_test_commit("feat: lowercase", false);
         let feature_parser =
             NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit1).unwrap();
-        assert_eq!(title, feature_parser.group_title());
-        assert_eq!(skip, feature_parser.skip.unwrap());
+        let parsed = parser.parse(&commit1).unwrap();
+        assert_eq!(parsed.group, feature_parser.group_title());
+        assert_eq!(parsed.skip, feature_parser.skip.unwrap());
 
         // Uppercase should not match (our regexes are case-sensitive)
         let commit2 = create_test_commit("FEAT: uppercase", false);
         let misc_parser =
             NAMED_PARSERS.get(&Group::Miscellaneous).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit2).unwrap();
-        assert_eq!(title, misc_parser.group_title());
-        assert_eq!(skip, misc_parser.skip.unwrap());
+        let parsed = parser.parse(&commit2).unwrap();
+        assert_eq!(parsed.group, misc_parser.group_title());
+        assert_eq!(parsed.skip, misc_parser.skip.unwrap());
     }
 
     #[test]
@@ -308,9 +327,9 @@ mod tests {
         let commit = create_test_commit("feat!: breaking feature", true);
         let breaking_parser =
             NAMED_PARSERS.get(&Group::Breaking).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, breaking_parser.group_title());
-        assert_eq!(skip, breaking_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, breaking_parser.group_title());
+        assert_eq!(parsed.skip, breaking_parser.skip.unwrap());
     }
 
     #[test]
@@ -320,9 +339,9 @@ mod tests {
         let commit = create_test_commit("feat(api): add endpoint", false);
         let feature_parser =
             NAMED_PARSERS.get(&Group::Feature).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, feature_parser.group_title());
-        assert_eq!(skip, feature_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, feature_parser.group_title());
+        assert_eq!(parsed.skip, feature_parser.skip.unwrap());
     }
 
     #[test]
@@ -332,9 +351,9 @@ mod tests {
         let multiline_msg = "fix: resolve issue\n\nThis is a longer description\nwith multiple lines";
         let commit = create_test_commit(multiline_msg, false);
         let fix_parser = NAMED_PARSERS.get(&Group::Fix).cloned().unwrap();
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, fix_parser.group_title());
-        assert_eq!(skip, fix_parser.skip.unwrap());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, fix_parser.group_title());
+        assert_eq!(parsed.skip, fix_parser.skip.unwrap());
     }
 
     #[test]
@@ -357,11 +376,11 @@ mod tests {
 
         for (message, expected_group) in test_cases {
             let commit = create_test_commit(message, false);
-            let (title, skip) = parser.parse(&commit).unwrap();
+            let parsed = parser.parse(&commit).unwrap();
             let target_parser =
                 NAMED_PARSERS.get(&expected_group).cloned().unwrap();
-            assert_eq!(title, target_parser.group_title());
-            assert_eq!(skip, target_parser.skip.unwrap());
+            assert_eq!(parsed.group, target_parser.group_title());
+            assert_eq!(parsed.skip, target_parser.skip.unwrap());
         }
     }
 
@@ -379,14 +398,14 @@ mod tests {
         let breaking_title = breaking_parser.group_title();
         let breaking_skip = breaking_parser.skip.unwrap();
 
-        let (title, skip) = parser.parse(&breaking_feat).unwrap();
-        assert_eq!(title, breaking_title);
-        assert_eq!(skip, breaking_skip);
+        let parsed = parser.parse(&breaking_feat).unwrap();
+        assert_eq!(parsed.group, breaking_title);
+        assert_eq!(parsed.skip, breaking_skip);
 
         let breaking_fix = create_test_commit("fix!: breaking fix", true);
-        let (title, skip) = parser.parse(&breaking_fix).unwrap();
-        assert_eq!(title, breaking_title);
-        assert_eq!(skip, breaking_skip);
+        let parsed = parser.parse(&breaking_fix).unwrap();
+        assert_eq!(parsed.group, breaking_title);
+        assert_eq!(parsed.skip, breaking_skip);
     }
 
     #[test]
@@ -400,9 +419,9 @@ mod tests {
         let parser = GroupParser::new(&NAMED_PARSERS, &custom);
 
         let commit = create_test_commit("deps: bump serde", false);
-        let (title, skip) = parser.parse(&commit).unwrap();
-        assert_eq!(title, custom[0].group_title());
-        assert!(!skip);
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, custom[0].group_title());
+        assert!(!parsed.skip);
     }
 
     #[test]
@@ -418,8 +437,8 @@ mod tests {
         let parser = GroupParser::new(&NAMED_PARSERS, &custom);
 
         let commit = create_test_commit("feat: add thing", false);
-        let (title, _) = parser.parse(&commit).unwrap();
-        assert_eq!(title, custom[0].group_title());
+        let parsed = parser.parse(&commit).unwrap();
+        assert_eq!(parsed.group, custom[0].group_title());
     }
 
     #[test]
@@ -436,8 +455,8 @@ mod tests {
 
         // A message matching the custom pattern lands in the breaking group.
         let matching = create_test_commit("breaking: drop legacy api", false);
-        let (title, _) = parser.parse(&matching).unwrap();
-        assert_eq!(title, breaking_title);
+        let parsed = parser.parse(&matching).unwrap();
+        assert_eq!(parsed.group, breaking_title);
 
         // A conventional `feat!:` breaking commit whose message does NOT
         // match the custom pattern falls through to the Feature group. Once
@@ -446,8 +465,8 @@ mod tests {
         let feat_breaking = create_test_commit("feat!: breaking feature", true);
         let feature_title =
             NAMED_PARSERS.get(&Group::Feature).unwrap().group_title();
-        let (title, _) = parser.parse(&feat_breaking).unwrap();
-        assert_eq!(title, feature_title);
+        let parsed = parser.parse(&feat_breaking).unwrap();
+        assert_eq!(parsed.group, feature_title);
     }
 
     /// Miscellaneous is the catch-all even when its pattern no longer matches
@@ -464,10 +483,10 @@ mod tests {
         let parser = GroupParser::new(&named_parsers, &[]);
 
         let commit = create_test_commit("random thing, no known prefix", false);
-        let (title, skip) = parser.parse(&commit).unwrap();
+        let parsed = parser.parse(&commit).unwrap();
 
-        assert_eq!(title, misc_title);
-        assert!(!skip);
+        assert_eq!(parsed.group, misc_title);
+        assert!(!parsed.skip);
     }
 
     /// The fallback still honors the group's `skip`, so narrowing the pattern
@@ -482,9 +501,9 @@ mod tests {
         let parser = GroupParser::new(&named_parsers, &[]);
 
         let commit = create_test_commit("random thing, no known prefix", false);
-        let (_, skip) = parser.parse(&commit).unwrap();
+        let parsed = parser.parse(&commit).unwrap();
 
-        assert!(skip);
+        assert!(parsed.skip);
     }
 
     /// A hand-built parser set with no `Miscellaneous` entry is the only way
