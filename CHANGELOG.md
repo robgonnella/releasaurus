@@ -1,3 +1,56 @@
+# [1.0.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.22.0...v1.0.0-rc.1) - 2026-07-26
+
+### ❌ Breaking
+
+[**breaking**]: cli options now mirror new toml structure [_(e707d61)_](https://github.com/robgonnella/releasaurus/commit/e707d616fdbd6bf3e4a2524c8f185b586b7cbad9) (Rob Gonnella)
+> --set-package prerelease paths now mirror the TOML
+layout. Replace <pkg>.prerelease.suffix with
+<pkg>.versioning.prerelease.suffix, and <pkg>.prerelease.strategy with
+<pkg>.versioning.prerelease.strategy.
+
+[**breaking**]: improves how config is resolved [_(94191ce)_](https://github.com/robgonnella/releasaurus/commit/94191ce43c6f420b0e6e2c70c315c1a239267c5b) (Rob Gonnella)
+> improves how config is resolved
+
+[**breaking**]: adds support for custom parsers for commit groups [_(60a7587)_](https://github.com/robgonnella/releasaurus/commit/60a758788f17a00f7c29551079d779c5044a449e) (Rob Gonnella)
+> Adds the ability for users to modify a set of named parsers and define
+a set of custom parsers. Each parser consists of a pattern, a title, a
+skip field, and an order field. When skip is true, any commits matching
+the pattern will be omitted from changelog and version calculation.
+Otherwise the commit will be considered for version calculation and will
+appear in the changelog grouped under the parser title with titles
+appearing in the order defined for each parser.
+> The following changelog options have been deprecated
+in toml config in support of the new named_parsers and
+custom_parsers fields.
+- skip_ci
+- skip_chore
+- skip_doc
+- skip_test
+- skip_style
+- skip_refactor
+- skip_perf
+- skip_revert
+- skip_miscellaneous
+Additionally, this commit reorganizes the toml config a bit to better
+support package-level config for changelog and versioning. Also
+repository specific config is now under a "repository" header, and
+default options for package releases are under a "defaults" header.
+Users can now customize changelog and versioning configuration at the
+package level for more flexibility in monorepos. Versioning config is
+broken out into a separate structure to differentiate options that
+affect versioning as opposed to those that only relate to display in the
+changelog.
+
+[**breaking**]: drops support for legacy metadata [_(c68cbde)_](https://github.com/robgonnella/releasaurus/commit/c68cbde6f03133ab6acf7408d1762e117a02b33d) (Rob Gonnella)
+> removes support for legacy metadata format
+
+[**breaking**]: drops support for legacy labels [_(1d92efb)_](https://github.com/robgonnella/releasaurus/commit/1d92efb418feee07cc09bfa102ae28972ccf4929) (Rob Gonnella)
+> removes support old legacy pending labels
+
+### 🚀 Features
+
+- adds new versioning types and strategies [_(427a2aa)_](https://github.com/robgonnella/releasaurus/commit/427a2aaaab3a1b2ee04224416479aca46628753d) (Rob Gonnella)
+
 # [0.22.0](https://github.com/robgonnella/releasaurus/compare/v0.21.0...v0.22.0) - 2026-07-16
 
 ### 🚀 Features
