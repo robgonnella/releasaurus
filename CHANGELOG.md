@@ -1,3 +1,9 @@
+# [1.0.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.1...v1.0.0-rc.2) - 2026-07-27
+
+### 🚀 Features
+
+- adds templates for commit messages and pr titles [_(8c9807c)_](https://github.com/robgonnella/releasaurus/commit/8c9807cbeea23105b19bf8e622b058de57b7b9af) (Rob Gonnella)
+
 # [1.0.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v0.22.0...v1.0.0-rc.1) - 2026-07-26
 
 ### ❌ Breaking
