@@ -180,4 +180,69 @@ mod tests {
         assert_eq!(parsers.0[0].pattern.as_ref().unwrap().as_str(), "^deps");
         assert_eq!(parsers.0[0].order, Some(3));
     }
+
+    #[test]
+    fn parses_commit_and_pr_title_templates() {
+        let raw = r#"
+            [defaults]
+            monorepo_commit_message_template = "chore: release {{ repo_name }}"
+            monorepo_pr_title_template = "Release {{ repo_name }}"
+            commit_message_template = "chore: {{ package_name }} {{ tag }}"
+            pr_title_template = "Release {{ package_name }} {{ tag }}"
+
+            [[package]]
+            name = "frontend"
+            commit_message_template = "web: {{ tag }}"
+            pr_title_template = "Web {{ tag }}"
+        "#;
+
+        let config: Config = toml::from_str(raw).unwrap();
+
+        assert_eq!(
+            config.defaults.monorepo_commit_message_template.unwrap(),
+            "chore: release {{ repo_name }}"
+        );
+        assert_eq!(
+            config.defaults.monorepo_pr_title_template.unwrap(),
+            "Release {{ repo_name }}"
+        );
+        assert_eq!(
+            config.defaults.commit_message_template.unwrap(),
+            "chore: {{ package_name }} {{ tag }}"
+        );
+        assert_eq!(
+            config.defaults.pr_title_template.unwrap(),
+            "Release {{ package_name }} {{ tag }}"
+        );
+
+        let package = &config.packages[0];
+
+        assert_eq!(
+            package.commit_message_template.as_deref().unwrap(),
+            "web: {{ tag }}"
+        );
+        assert_eq!(
+            package.pr_title_template.as_deref().unwrap(),
+            "Web {{ tag }}"
+        );
+    }
+
+    /// The `monorepo_*` templates describe a PR spanning several packages,
+    /// so there is nothing for a single package to override. Setting one
+    /// there must fail rather than be silently ignored.
+    #[test]
+    fn rejects_monorepo_template_under_package() {
+        let raw = r#"
+            [[package]]
+            name = "frontend"
+            monorepo_pr_title_template = "Release {{ repo_name }}"
+        "#;
+
+        let err = toml::from_str::<Config>(raw).unwrap_err().to_string();
+
+        assert!(
+            err.contains("monorepo_pr_title_template"),
+            "unexpected error: {err}"
+        );
+    }
 }

@@ -52,6 +52,10 @@ pub fn resolve_sub_packages_full(
                 compiled_additional_manifests: vec![],
                 analyzer_config: analyzer_config.clone(),
                 versioning_config: versioning_config.clone(),
+                // A sub-package shares its parent's release PR, so it
+                // never renders a commit message or title of its own.
+                commit_message_template: String::new(),
+                pr_title_template: String::new(),
             }
         })
         .collect()

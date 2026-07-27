@@ -16,6 +16,7 @@ pub mod path_utils;
 pub mod prerelease;
 pub mod sub_packages;
 pub mod tag_prefix;
+pub mod templates;
 pub mod versioning;
 
 #[cfg(test)]

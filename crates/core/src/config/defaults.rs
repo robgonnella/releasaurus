@@ -10,6 +10,20 @@ use crate::config::{
     },
 };
 
+pub const DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE: &str =
+    "chore({{ branch }}): release {{ package_name }} {{ tag }}";
+
+pub const DEFAULT_MONOREPO_COMMIT_AND_PR_TITLE_TEMPLATE: &str =
+    "chore({{ branch }}): release {{ repo_name }}";
+
+fn default_commit_and_pr_title() -> String {
+    DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE.into()
+}
+
+fn default_monorepo_commit_and_pr_title() -> String {
+    DEFAULT_MONOREPO_COMMIT_AND_PR_TITLE_TEMPLATE.into()
+}
+
 fn default_versioning() -> VersioningConfig {
     VersioningConfig {
         version_type: Some(DEFAULT_VERSION_TYPE),
@@ -33,6 +47,32 @@ fn default_versioning() -> VersioningConfig {
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)] // Use default for missing fields
 pub struct DefaultsConfig {
+    /// Tera template for generating release commit messages when
+    /// repository.separate_pull_requests=false and multiple packages
+    /// configured. Has the following variables available in the template
+    /// context: branch, repo_name
+    #[schemars(default = "default_monorepo_commit_and_pr_title")]
+    pub monorepo_commit_message_template: Option<String>,
+    /// Tera template for generating release PR titles when
+    /// repository.separate_pull_requests=false and multiple packages
+    /// configured. Has the following variables available in the template
+    /// context: branch, repo_name
+    #[schemars(default = "default_monorepo_commit_and_pr_title")]
+    pub monorepo_pr_title_template: Option<String>,
+    /// Tera template for generating release commit messages. When
+    /// repository.separate_pull_requests=true, or only one package configured,
+    /// this template will be used for each individual PR commit but can be
+    /// overridden at the package level. Has the following variables available
+    /// in the template context: branch, repo_name, package_name, tag, semver
+    #[schemars(default = "default_commit_and_pr_title")]
+    pub commit_message_template: Option<String>,
+    /// Tera template for generating release PR titles. When
+    /// repository.separate_pull_requests=true, or only one package configured,
+    /// this template will be used for each individual PR title but can be
+    /// overridden at the package level. Has the following variables available
+    /// in the template context: branch, repo_name, package_name, tag, semver
+    #[schemars(default = "default_commit_and_pr_title")]
+    pub pr_title_template: Option<String>,
     /// Default versioning config. Packages can override this configuration
     #[schemars(default = "default_versioning")]
     pub versioning: Option<VersioningConfig>,

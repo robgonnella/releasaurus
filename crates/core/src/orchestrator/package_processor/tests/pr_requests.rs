@@ -15,23 +15,12 @@ use crate::{
         Config, package::PackageConfigBuilder, repository::RepositoryConfig,
     },
     forge::{
-        request::{
-            Commit, CreateReleaseBranchRequest, PrMetadataBlock, PullRequest,
-            Tag,
-        },
+        request::{Commit, CreateReleaseBranchRequest, PullRequest, Tag},
         traits::MockForge,
     },
     orchestrator::tests::common::{PrBodyInput, make_pr_body},
     packages::releasable::ReleasablePackage,
 };
-
-fn expect_html_comment_encoding(mock: &mut MockForge) {
-    mock.expect_encode_pr_metadata()
-        .returning(|json| PrMetadataBlock {
-            inline_content: format!("<!--{json}-->"),
-            div_attribute: String::new(),
-        });
-}
 
 #[tokio::test]
 async fn create_pr_branches_creates_branch_before_pr_request() {
