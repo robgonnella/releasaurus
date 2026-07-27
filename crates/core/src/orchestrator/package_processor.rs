@@ -1,4 +1,5 @@
 use chrono::Utc;
+use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -277,6 +278,10 @@ impl PackageProcessor {
                 sha_compare_link: target.sha_compare_link.clone(),
                 file_changes,
                 release_branch,
+                commit_message_template: target_config
+                    .commit_message_template
+                    .clone(),
+                pr_title_template: target_config.pr_title_template.clone(),
             });
         }
 
@@ -351,14 +356,17 @@ impl PackageProcessor {
                 .flat_map(|p| p.file_changes.clone())
                 .collect();
 
-            let message =
-                self.release_message_for_pr_package_list(&bundle.packages);
+            let commit_message =
+                self.release_commit_message_for_pr_package_list(&bundle)?;
+
+            let pr_title =
+                self.release_pr_title_for_pr_package_list(&bundle)?;
 
             self.forge
                 .create_release_branch(CreateReleaseBranchRequest {
                     base_branch: self.config.base_branch.clone(),
                     release_branch: release_branch.clone(),
-                    message: message.clone(),
+                    message: commit_message,
                     file_changes,
                 })
                 .await?;
@@ -369,7 +377,7 @@ impl PackageProcessor {
             let request = CreatePrRequest {
                 base_branch: self.config.base_branch.clone(),
                 head_branch: release_branch.clone(),
-                title: message,
+                title: pr_title,
                 body: self.release_pr_body_for_pr_package_list(
                     &bundle.packages,
                     existing_body,
@@ -388,21 +396,74 @@ impl PackageProcessor {
     ////////////////////////////////////////////////////////////////////////////
     //// Private
     ////////////////////////////////////////////////////////////////////////////
-    fn release_message_for_pr_package_list(
+    fn release_commit_message_for_pr_package_list(
         &self,
-        pr_packages: &[ReleasePRPackage],
-    ) -> String {
-        let mut message =
-            format!("chore({}): release", self.config.base_branch);
+        pr_bundle: &PRBundle,
+    ) -> Result<String> {
+        self.render_release_template(
+            pr_bundle,
+            "commit message",
+            |pkg| &pkg.commit_message_template,
+            &self.config.monorepo_commit_message_template,
+        )
+    }
 
-        if pr_packages.len() == 1 {
-            message = format!(
-                "{message} {} {}",
-                pr_packages[0].name, pr_packages[0].tag.name
-            );
+    fn release_pr_title_for_pr_package_list(
+        &self,
+        pr_bundle: &PRBundle,
+    ) -> Result<String> {
+        self.render_release_template(
+            pr_bundle,
+            "PR title",
+            |pkg| &pkg.pr_title_template,
+            &self.config.monorepo_pr_title_template,
+        )
+    }
+
+    /// Renders one of the release templates for a PR bundle.
+    ///
+    /// Which template applies is decided by config alone, not by what is
+    /// being released: a repo with one configured package, or with
+    /// `separate_pull_requests` on, can only ever produce single-package
+    /// PRs, so those use the package's own template. Everything else is a
+    /// combined PR that may span several packages and uses the monorepo
+    /// template — including on runs where only one package happens to have
+    /// changes. Deciding this from config keeps the format stable from one
+    /// release to the next.
+    ///
+    /// Both templates were validated during config resolution, so a
+    /// failure here means the real values tripped something the probe
+    /// values did not.
+    fn render_release_template(
+        &self,
+        pr_bundle: &PRBundle,
+        what: &str,
+        package_template: impl Fn(&ReleasePRPackage) -> &str,
+        monorepo_template: &str,
+    ) -> Result<String> {
+        if pr_bundle.packages.is_empty() {
+            return Err(ReleasaurusError::Other(eyre!(
+                "Cannot generate {what} for empty package list"
+            )));
         }
 
-        message
+        let mut context = tera::Context::new();
+        context.insert("repo_name", &self.config.repo_name);
+        context.insert("branch", &self.config.base_branch);
+
+        let template = if self.config.separate_pull_requests
+            || self.config.package_configs.hash().len() == 1
+        {
+            let package = &pr_bundle.packages[0];
+            context.insert("package_name", &package.name);
+            context.insert("tag", &package.tag.name);
+            context.insert("semver", &package.tag.semver.to_string());
+            package_template(package)
+        } else {
+            monorepo_template
+        };
+
+        Ok(tera::Tera::one_off(template, &context, false)?)
     }
 
     fn release_pr_body_for_pr_package_list(

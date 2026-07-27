@@ -6,8 +6,8 @@ supported languages. For guidance and examples, see
 
 Configuration is grouped under three top-level tables: `[repository]`
 (repo-wide settings), `[defaults]` (release defaults for every package,
-split into `[defaults.versioning]` and `[defaults.changelog]`), and one or
-more `[[package]]` entries. All keys are optional.
+with `[defaults.versioning]` and `[defaults.changelog]` subtables), and
+one or more `[[package]]` entries. All keys are optional.
 
 Unknown keys are rejected, so a misspelled or misplaced option fails at
 config load rather than being silently ignored.
@@ -41,6 +41,33 @@ sha = "abc123d"
 message = "fix: corrected description"
 ```
 
+## `[defaults]`
+
+Keys set directly on `[defaults]`, rather than in one of its subtables.
+All four are Tera templates for the release commit message and PR title;
+see [Commit Message & PR Title Templates][pr-templates] for which one
+applies when.
+
+[pr-templates]: ./configuration.md#commit-message--pr-title-templates
+
+| Key                                | Type   | Default                                                     | Applies when                                                                           |
+| ---------------------------------- | ------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `commit_message_template`          | string | `chore({{ branch }}): release {{ package_name }} {{ tag }}` | `separate_pull_requests = true`, or one `[[package]]`. Overridable per package.        |
+| `pr_title_template`                | string | `chore({{ branch }}): release {{ package_name }} {{ tag }}` | `separate_pull_requests = true`, or one `[[package]]`. Overridable per package.        |
+| `monorepo_commit_message_template` | string | `chore({{ branch }}): release {{ repo_name }}`              | Multiple `[[package]]` with `separate_pull_requests = false`. No per-package override. |
+| `monorepo_pr_title_template`       | string | `chore({{ branch }}): release {{ repo_name }}`              | Multiple `[[package]]` with `separate_pull_requests = false`. No per-package override. |
+
+The two contexts differ: `branch` and `repo_name` are always available,
+while `package_name`, `tag`, and `semver` exist only in the per-package
+templates. Referencing a variable that isn't in scope is rejected at
+config load.
+
+```toml
+[defaults]
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }} ({{ branch }})"
+```
+
 ## `[defaults.versioning]`
 
 Everything that affects the computed version, plus the commit filtering
@@ -48,18 +75,18 @@ and grouping rules (which affect the version as well as the changelog).
 Each package may override these individually via its own `versioning`
 table (see [`[[package]]`](#package)).
 
-| Key                               | Type   | Default         | Description                                                                                                                                           |
-| --------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version_type`                    | string | `major.minor.patch` | Version format to produce. See [Version Types](./configuration.md#version-types) for the five accepted values.                                    |
-| `auto_start_next`                 | bool   | `false`         | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
-| `breaking_always_increment_major` | bool   | `true`          | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
-| `features_always_increment_minor` | bool   | `true`          | `feat:` commits bump minor.                                                                                                                           |
-| `custom_major_increment_regex`    | string | none            | Additional regex that triggers a major bump.                                                                                                          |
-| `custom_minor_increment_regex`    | string | none            | Additional regex that triggers a minor bump.                                                                                                          |
-| `skip_merge_commits`              | bool   | `true`          | Exclude merge commits.                                                                                                                                |
-| `named_parsers`                   | table  | built-in groups | Override built-in commit groups (`pattern`/`title`/`order`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
-| `custom_parser`                   | array  | none            | Define additional commit groups, checked before the defaults. Note the singular key. `pattern`, `title` and `order` are all required.                 |
-| `prerelease`                      | table  | none (stable)   | Prerelease settings; see [`[defaults.versioning.prerelease]`](#defaultsversioningprerelease).                                                         |
+| Key                               | Type   | Default             | Description                                                                                                                                           |
+| --------------------------------- | ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version_type`                    | string | `major.minor.patch` | Version format to produce. See [Version Types](./configuration.md#version-types) for the five accepted values.                                        |
+| `auto_start_next`                 | bool   | `false`             | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
+| `breaking_always_increment_major` | bool   | `true`              | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
+| `features_always_increment_minor` | bool   | `true`              | `feat:` commits bump minor.                                                                                                                           |
+| `custom_major_increment_regex`    | string | none                | Additional regex that triggers a major bump.                                                                                                          |
+| `custom_minor_increment_regex`    | string | none                | Additional regex that triggers a minor bump.                                                                                                          |
+| `skip_merge_commits`              | bool   | `true`              | Exclude merge commits.                                                                                                                                |
+| `named_parsers`                   | table  | built-in groups     | Override built-in commit groups (`pattern`/`title`/`order`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
+| `custom_parser`                   | array  | none                | Define additional commit groups, checked before the defaults. Note the singular key. `pattern`, `title` and `order` are all required.                 |
+| `prerelease`                      | table  | none (stable)       | Prerelease settings; see [`[defaults.versioning.prerelease]`](#defaultsversioningprerelease).                                                         |
 
 ### Custom increment regexes
 
@@ -152,6 +179,8 @@ One entry per package; repeatable.
 | `additional_manifest_files` | string[] / object[] | none                             | Extra files to version-bump (see below).                                                                                  |
 | `versioning`                | table               | inherits `[defaults.versioning]` | Per-package versioning override (see [Per-package overrides](#per-package-overrides)).                                    |
 | `changelog`                 | table               | inherits `[defaults.changelog]`  | Per-package changelog override (see [Per-package overrides](#per-package-overrides)).                                     |
+| `commit_message_template`   | string              | inherits `[defaults]`            | Release commit message for this package's PR (see [`[defaults]`](#defaults)).                                             |
+| `pr_title_template`         | string              | inherits `[defaults]`            | Release PR title for this package's PR (see [`[defaults]`](#defaults)).                                                   |
 
 `sub_packages` entries take `name`, `path`, and `release_type`.
 
@@ -231,6 +260,14 @@ One table replaces rather than merges:
   ask for. Restate `strategy` alongside a package-level `suffix` whenever
   your default strategy isn't the `versioned` built-in.
 
+`commit_message_template` and `pr_title_template` are plain strings rather
+than tables, so there is nothing to merge: the package's value wins, else
+the `[defaults]` value, else the built-in. Set them directly on the
+package, not inside a nested table. The `monorepo_*` templates have no
+package-level form at all — they describe a PR spanning several packages,
+so no one package owns them, and setting one on a `[[package]]` is a
+config error.
+
 ## Complete Example
 
 ```toml
@@ -238,6 +275,10 @@ One table replaces rather than merges:
 base_branch = "main"
 first_release_search_depth = 400
 separate_pull_requests = false
+
+[defaults]
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }}"
 
 [defaults.versioning]
 auto_start_next = false
@@ -276,6 +317,7 @@ path = "./services/api"
 release_type = "rust"
 tag_prefix = "api-v"
 versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
+pr_title_template = "api: {{ tag }}"
 ```
 
 ## Environment Variables

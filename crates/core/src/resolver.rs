@@ -13,6 +13,7 @@ use crate::{
         base_branch::resolve_base_branch,
         commit_modifiers::resolve_commit_modifiers,
         package::{PackageResolverParams, resolve_package},
+        templates::resolve_monorepo_templates,
     },
     result::{ReleasaurusError, Result},
 };
@@ -28,10 +29,16 @@ pub mod resolvers;
 /// [`ResolvedPackage`][crate::packages::resolved::ResolvedPackage]s
 /// held by `package_configs`.
 pub struct ResolvedConfig {
+    /// Repository name
+    pub repo_name: String,
     /// Branch release PRs target and commits are read from.
     pub base_branch: String,
     /// Whether each package gets its own release PR.
     pub separate_pull_requests: bool,
+    /// Template to use for commit messages when separate_pull_requests=false
+    pub monorepo_commit_message_template: String,
+    /// Template to use for PR titles when separate_pull_requests=false
+    pub monorepo_pr_title_template: String,
     /// Resolved per-package config, indexed by package name.
     pub package_configs: ResolvedPackageHash,
 }
@@ -80,26 +87,19 @@ impl Resolver {
             &self.commit_modifiers,
         )?;
 
-        let default_versioning = self.toml_config.defaults.versioning.as_ref();
-
-        let default_changelog = self
-            .toml_config
-            .defaults
-            .changelog
-            .clone()
-            .unwrap_or_default();
-
         let separate_pull_requests =
             self.toml_config.repository.separate_pull_requests;
 
         let mut resolved_packages = vec![];
 
+        let monorepo_templates =
+            resolve_monorepo_templates(&self.toml_config.defaults)?;
+
         for package in packages {
             let params = PackageResolverParams {
                 package_config: package,
                 repo_name: &self.repo_name,
-                default_versioning,
-                default_changelog: &default_changelog,
+                defaults: &self.toml_config.defaults,
                 commit_modifiers: &commit_modifiers,
                 package_overrides: &self.package_overrides,
                 global_overrides: &self.global_overrides,
@@ -115,9 +115,91 @@ impl Resolver {
         let resolved_hash = ResolvedPackageHash::new(resolved_packages)?;
 
         Ok(Rc::new(ResolvedConfig {
+            repo_name: self.repo_name.clone(),
             base_branch,
             package_configs: resolved_hash,
             separate_pull_requests,
+            monorepo_commit_message_template: monorepo_templates.commit_message,
+            monorepo_pr_title_template: monorepo_templates.pr_title,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::config::{defaults::DefaultsConfig, package::PackageConfig};
+
+    use super::*;
+
+    fn resolver(toml_config: Config) -> Resolver {
+        Resolver::builder()
+            .toml_config(Rc::new(toml_config))
+            .repo_name("test-repo")
+            .repo_default_branch("main")
+            .release_link_base_url(Url::parse("https://example.com/").unwrap())
+            .compare_link_base_url(
+                Url::parse("https://example.com/compare/").unwrap(),
+            )
+            .package_overrides(HashMap::new())
+            .global_overrides(GlobalOverrides::default())
+            .commit_modifiers(CommitModifiers::default())
+            .build()
+            .unwrap()
+    }
+
+    fn package(name: &str) -> PackageConfig {
+        PackageConfig {
+            name: name.into(),
+            ..PackageConfig::default()
+        }
+    }
+
+    /// `repo_name` and the two monorepo templates live on `ResolvedConfig`
+    /// rather than on a package, so nothing else in the pipeline covers
+    /// them reaching the other side of resolution.
+    #[test]
+    fn resolve_carries_repo_name_and_monorepo_templates() {
+        let resolver = resolver(Config {
+            defaults: DefaultsConfig {
+                monorepo_commit_message_template: Some("mono commit".into()),
+                monorepo_pr_title_template: Some("mono title".into()),
+                commit_message_template: Some("pkg commit".into()),
+                pr_title_template: Some("pkg title".into()),
+                ..DefaultsConfig::default()
+            },
+            ..Config::default()
+        });
+
+        let resolved = resolver.resolve(vec![package("test-pkg")]).unwrap();
+
+        assert_eq!(resolved.repo_name, "test-repo");
+        assert_eq!(resolved.monorepo_commit_message_template, "mono commit");
+        assert_eq!(resolved.monorepo_pr_title_template, "mono title");
+
+        let pkg = resolved.package_configs.get("test-pkg").unwrap();
+
+        assert_eq!(pkg.commit_message_template, "pkg commit");
+        assert_eq!(pkg.pr_title_template, "pkg title");
+    }
+
+    /// Validation runs during resolution, so a bad template stops the
+    /// release before any forge call is made.
+    #[test]
+    fn resolve_rejects_an_invalid_template() {
+        let resolver = resolver(Config {
+            defaults: DefaultsConfig {
+                monorepo_pr_title_template: Some("{{ package_name }}".into()),
+                ..DefaultsConfig::default()
+            },
+            ..Config::default()
+        });
+
+        let Err(err) = resolver.resolve(vec![package("test-pkg")]) else {
+            panic!("expected the invalid template to be rejected");
+        };
+
+        assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
     }
 }

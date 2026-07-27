@@ -69,7 +69,10 @@ impl ResolvedPackageHash {
 mod tests {
     use crate::{
         analyzer::config::AnalyzerConfig,
-        config::{release_type::ReleaseType, versioning::VersioningConfig},
+        config::{
+            defaults::DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE,
+            release_type::ReleaseType, versioning::VersioningConfig,
+        },
     };
 
     use super::*;
@@ -88,6 +91,9 @@ mod tests {
             compiled_additional_manifests: vec![],
             analyzer_config: AnalyzerConfig::default(),
             versioning_config: VersioningConfig::default(),
+            commit_message_template: DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE
+                .into(),
+            pr_title_template: DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE.into(),
         }
     }
 

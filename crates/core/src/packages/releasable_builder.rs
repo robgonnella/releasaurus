@@ -73,7 +73,13 @@ impl ReleasablePackageBuilder for SerializableReleasablePackage {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{config::release_type::ReleaseType, forge::request::Tag};
+    use crate::{
+        config::{
+            defaults::DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE,
+            release_type::ReleaseType,
+        },
+        forge::request::Tag,
+    };
 
     use super::*;
 
@@ -90,6 +96,9 @@ mod tests {
             compiled_additional_manifests: vec![],
             analyzer_config: Default::default(),
             versioning_config: Default::default(),
+            commit_message_template: DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE
+                .into(),
+            pr_title_template: DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE.into(),
         }
     }
 

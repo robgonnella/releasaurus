@@ -11,6 +11,8 @@ pub struct ReleasePRPackage {
     pub sha_compare_link: String,
     pub file_changes: Vec<FileChange>,
     pub release_branch: String,
+    pub commit_message_template: String,
+    pub pr_title_template: String,
 }
 
 /// Groups the packages sharing a release branch with the existing open PR

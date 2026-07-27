@@ -7,9 +7,12 @@
 //! - `pr_grouping`: PR grouping and branch logic tests (separate vs grouped)
 //! - `pr_requests`: PR request generation and branch creation tests
 //!   (metadata, file changes, branch creation order)
+//! - `pr_templates`: Commit message and PR title template tests
+//!   (per-package vs. monorepo selection, render context)
 
 mod analyze;
 mod common;
 mod pr_grouping;
 mod pr_requests;
+mod pr_templates;
 mod prepare;

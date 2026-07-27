@@ -102,6 +102,92 @@ tag_prefix = "backend-v"
 In either mode, target one package with `--package <name>` on `release-pr`
 and `release`.
 
+### Commit Message & PR Title Templates
+
+The release commit message and the PR title are
+[Tera](https://keats.github.io/tera/) templates. By default they match:
+
+```text
+chore(main): release my-package v1.2.3     # one package, or separate PRs
+chore(main): release my-repo               # combined PR, multiple packages
+```
+
+A PR that covers a single package can name that package and its version;
+one that covers several can't. So there are two sets of templates, and
+which set applies is fixed by your config rather than by what changed:
+
+| Your config                                                 | Commit message                     | PR title                     |
+| ----------------------------------------------------------- | ---------------------------------- | ---------------------------- |
+| `separate_pull_requests = true`                             | `commit_message_template`          | `pr_title_template`          |
+| One `[[package]]`                                           | `commit_message_template`          | `pr_title_template`          |
+| Multiple `[[package]]` and `separate_pull_requests = false` | `monorepo_commit_message_template` | `monorepo_pr_title_template` |
+
+Each package gets its own PR under `separate_pull_requests = true`, and a
+single-package repo only ever has one, so both cases can use the
+per-package pair. A combined PR across multiple packages uses the
+`monorepo_*` pair.
+
+Only top-level `[[package]]` entries count. A single package with
+[sub-packages](#grouped-releases-sub-packages) is still one package, since
+sub-packages share their parent's PR and tag.
+
+> Because the choice comes from your config, a multi-package repo with
+> `separate_pull_requests = false` uses the `monorepo_*` pair on **every**
+> run — including runs where only one package changed, and including
+> `--package <name>`. That keeps the format predictable, at the cost of
+> those PRs not naming the package. Use `separate_pull_requests = true` if
+> you want every PR titled after its package.
+
+Set them under `[defaults]`, and override the per-package pair on
+individual packages:
+
+```toml
+[defaults]
+commit_message_template = "chore({{ branch }}): release {{ package_name }} {{ semver }}"
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_commit_message_template = "chore({{ branch }}): release {{ repo_name }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }}"
+
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+# This package alone gets a ticket-scoped commit and a plainer title.
+commit_message_template = "chore(web): release {{ tag }} [skip ci]"
+pr_title_template = "Web release {{ tag }}"
+```
+
+#### Variables
+
+Available in **all four** templates:
+
+| Variable    | Description                       | Example   |
+| ----------- | --------------------------------- | --------- |
+| `branch`    | The base branch being released to | `main`    |
+| `repo_name` | Repository name                   | `my-repo` |
+
+Available in `commit_message_template` and `pr_title_template` **only**,
+because a PR spanning several packages has no single one of these:
+
+| Variable       | Description                        | Example      |
+| -------------- | ---------------------------------- | ------------ |
+| `package_name` | Name of the package being released | `frontend`   |
+| `tag`          | Full tag, including the tag prefix | `web-v1.2.3` |
+| `semver`       | Version alone, without the prefix  | `1.2.3`      |
+
+Referencing a variable that isn't in scope is an error, and it's caught
+when the config loads rather than partway through a release — so
+`monorepo_pr_title_template = "{{ package_name }}"` fails before anything
+is pushed.
+
+Filters work as they do in the changelog `body` template, so you can
+reshape a value rather than needing a variable for every form of it:
+
+```toml
+[defaults]
+pr_title_template = "Release {{ package_name | upper }} {{ tag }}"
+```
+
 ### Tracking Shared Code
 
 Use `additional_paths` so a package also releases when shared directories

@@ -144,6 +144,23 @@ pub struct PackageConfig {
     pub changelog: Option<ChangelogConfig>,
     /// Versioning config for calculating next versions of packages
     pub versioning: Option<VersioningConfig>,
+    /// Tera template for generating release commit messages. When
+    /// repository.separate_pull_requests=true, or only one package configured,
+    /// this template will be used for the package PR commit message. When
+    /// repository.separate_pull_requests=false and multiple packages
+    /// configured, the template defined for
+    /// defaults.monorepo_commit_message_template is used instead. Has the
+    /// following variables available in the template context: branch,
+    /// repo_name, package_name, tag, semver
+    pub commit_message_template: Option<String>,
+    /// Tera template for generating release PR titles. When
+    /// repository.separate_pull_requests=true, or only one package configured,
+    /// this template will be used for the package PR title. When
+    /// repository.separate_pull_requests=false and multiple packages
+    /// configured, the template defined for defaults.monorepo_pr_title_template
+    /// is used instead. Has the following variables available in the template
+    /// context: branch, repo_name, package_name, tag, semver
+    pub pr_title_template: Option<String>,
 }
 
 impl Default for PackageConfig {
@@ -159,6 +176,8 @@ impl Default for PackageConfig {
             additional_manifest_files: None,
             changelog: None,
             versioning: None,
+            commit_message_template: None,
+            pr_title_template: None,
         }
     }
 }

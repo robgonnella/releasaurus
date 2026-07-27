@@ -20,6 +20,10 @@
       "description": "Default configuration applied to every package",
       "$ref": "#/$defs/DefaultsConfig",
       "default": {
+        "monorepo_commit_message_template": null,
+        "monorepo_pr_title_template": null,
+        "commit_message_template": null,
+        "pr_title_template": null,
         "versioning": null,
         "changelog": null
       }
@@ -41,7 +45,9 @@
           "additional_paths": null,
           "additional_manifest_files": null,
           "changelog": null,
-          "versioning": null
+          "versioning": null,
+          "commit_message_template": null,
+          "pr_title_template": null
         }
       ]
     }
@@ -121,6 +127,38 @@
       "description": "Default configuration applied to every package",
       "type": "object",
       "properties": {
+        "monorepo_commit_message_template": {
+          "description": "Tera template for generating release commit messages when\nrepository.separate_pull_requests=false and multiple packages\nconfigured. Has the following variables available in the template\ncontext: branch, repo_name",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": "chore({{ branch }}): release {{ repo_name }}"
+        },
+        "monorepo_pr_title_template": {
+          "description": "Tera template for generating release PR titles when\nrepository.separate_pull_requests=false and multiple packages\nconfigured. Has the following variables available in the template\ncontext: branch, repo_name",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": "chore({{ branch }}): release {{ repo_name }}"
+        },
+        "commit_message_template": {
+          "description": "Tera template for generating release commit messages. When\nrepository.separate_pull_requests=true, or only one package configured,\nthis template will be used for each individual PR commit but can be\noverridden at the package level. Has the following variables available\nin the template context: branch, repo_name, package_name, tag, semver",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": "chore({{ branch }}): release {{ package_name }} {{ tag }}"
+        },
+        "pr_title_template": {
+          "description": "Tera template for generating release PR titles. When\nrepository.separate_pull_requests=true, or only one package configured,\nthis template will be used for each individual PR title but can be\noverridden at the package level. Has the following variables available\nin the template context: branch, repo_name, package_name, tag, semver",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": "chore({{ branch }}): release {{ package_name }} {{ tag }}"
+        },
         "versioning": {
           "description": "Default versioning config. Packages can override this configuration",
           "anyOf": [
@@ -643,6 +681,22 @@
             {
               "type": "null"
             }
+          ],
+          "default": null
+        },
+        "commit_message_template": {
+          "description": "Tera template for generating release commit messages. When\nrepository.separate_pull_requests=true, or only one package configured,\nthis template will be used for the package PR commit message. When\nrepository.separate_pull_requests=false and multiple packages\nconfigured, the template defined for\ndefaults.monorepo_commit_message_template is used instead. Has the\nfollowing variables available in the template context: branch,\nrepo_name, package_name, tag, semver",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "pr_title_template": {
+          "description": "Tera template for generating release PR titles. When\nrepository.separate_pull_requests=true, or only one package configured,\nthis template will be used for the package PR title. When\nrepository.separate_pull_requests=false and multiple packages\nconfigured, the template defined for defaults.monorepo_pr_title_template\nis used instead. Has the following variables available in the template\ncontext: branch, repo_name, package_name, tag, semver",
+          "type": [
+            "string",
+            "null"
           ],
           "default": null
         }
