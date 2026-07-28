@@ -184,6 +184,12 @@ impl PackageProcessor {
                 commits.sort_by_key(|c| std::cmp::Reverse(c.timestamp));
             }
 
+            if self.config.pr_links_enabled {
+                self.commit_fetcher
+                    .fetch_merged_commit_prs(&mut commits)
+                    .await;
+            }
+
             prepared_packages.push(PreparedPackage {
                 name: name.clone(),
                 current_tag,

@@ -42,6 +42,14 @@ impl Default for Config {
 mod tests {
     use super::*;
 
+    /// Yields the contents of each ```toml fenced block in a markdown source.
+    fn toml_blocks(source: &str) -> impl Iterator<Item = &str> {
+        source
+            .split("```toml\n")
+            .skip(1)
+            .filter_map(|rest| rest.split_once("\n```").map(|(block, _)| block))
+    }
+
     /// The repository's own config must always parse. `deny_unknown_fields`
     /// means a config key that moves without this file being updated is a
     /// hard error rather than a silent no-op.
@@ -109,14 +117,6 @@ mod tests {
 
         // guard against the extractor silently matching nothing
         assert!(checked > 10, "only found {checked} toml examples");
-    }
-
-    /// Yields the contents of each ```toml fenced block in a markdown source.
-    fn toml_blocks(source: &str) -> impl Iterator<Item = &str> {
-        source
-            .split("```toml\n")
-            .skip(1)
-            .filter_map(|rest| rest.split_once("\n```").map(|(block, _)| block))
     }
 
     /// Options removed in favor of `named_parsers` must fail loudly so

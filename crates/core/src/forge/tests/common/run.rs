@@ -267,6 +267,66 @@ pub async fn run_forge_test(
     assert!(!merged_pr.body.is_empty());
 
     ////////////////////////////////////////////////////////////////////////////
+    // get_merged_pull_request_for_commit -> the PR that introduced the commit
+    //
+    // This is the only automated coverage of the PR lookup against a live
+    // forge. We know the PR number independently here, so a forge that reads
+    // the wrong identifier or URL field fails now rather than shipping a
+    // changelog full of wrong links.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking up the PR that introduced the merge commit");
+
+    // Completing the PR lands both the release-branch commit and the merge
+    // commit on the base branch, on top of the two already asserted above.
+    let commits = forge.get_commits(None, None).await.unwrap();
+    assert_eq!(commits.len(), 4);
+
+    let commit_pr = forge
+        .get_merged_pull_request_for_commit(
+            &merged_pr.sha,
+            Some(default_branch.to_string()),
+        )
+        .await
+        .unwrap()
+        .expect("expected the merge commit to resolve to its PR");
+
+    assert_eq!(
+        commit_pr.id,
+        merged_pr.number.to_string(),
+        "PR id must be the user-visible number"
+    );
+    assert!(
+        commit_pr.link.contains(&merged_pr.number.to_string()),
+        "PR link should reference the PR number, got {}",
+        commit_pr.link
+    );
+    assert!(
+        !commit_pr.link.contains("/api/"),
+        "PR link must be a web URL, not an API URL, got {}",
+        commit_pr.link
+    );
+
+    ////////////////////////////////////////////////////////////////////////////
+    // get_merged_pull_request_for_commit -> None for a direct push
+    //
+    // `created_commit` was pushed straight to the base branch, so it has no
+    // PR. A forge that returns something here would put a bogus link on every
+    // non-PR commit.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking up a PR for a directly-pushed commit");
+    let no_pr = forge
+        .get_merged_pull_request_for_commit(
+            &created_commit.sha,
+            Some(default_branch.to_string()),
+        )
+        .await
+        .unwrap();
+    assert!(
+        no_pr.is_none(),
+        "expected no PR for a directly-pushed commit, got {no_pr:?}"
+    );
+
+    ////////////////////////////////////////////////////////////////////////////
     // get_latest_tag_for_prefix -> None
     ////////////////////////////////////////////////////////////////////////////
     log::info!("looking for non-existent tag by prefix");

@@ -5,10 +5,12 @@ use indexmap::IndexMap;
 use url::Url;
 
 use crate::config::{
+    changelog::{DEFAULT_INCLUDE_AUTHOR, DEFAULT_INCLUDE_PR_LINK},
     overrides::CommitModifiers,
     prerelease::PrereleaseConfig,
     versioning::{
-        DEFAULT_VERSION_TYPE, Group, NAMED_PARSERS, Parser, VersionType,
+        DEFAULT_SKIP_MERGE_COMMITS, DEFAULT_VERSION_TYPE, Group, NAMED_PARSERS,
+        Parser, VersionType,
     },
 };
 
@@ -22,6 +24,8 @@ pub struct AnalyzerConfig {
     pub skip_merge_commits: bool,
     /// Includes commit author in default body template (default: false)
     pub include_author: bool,
+    /// Includes commit PRs
+    pub include_pr_link: bool,
     /// Optional prefix for package tags.
     pub tag_prefix: Option<String>,
     /// Base URL for release links in changelog.
@@ -70,8 +74,9 @@ impl Default for AnalyzerConfig {
     fn default() -> Self {
         Self {
             body: "".into(),
-            skip_merge_commits: true,
-            include_author: false,
+            skip_merge_commits: DEFAULT_SKIP_MERGE_COMMITS,
+            include_author: DEFAULT_INCLUDE_AUTHOR,
+            include_pr_link: DEFAULT_INCLUDE_PR_LINK,
             tag_prefix: None,
             release_link_base_url: None,
             compare_link_base_url: None,

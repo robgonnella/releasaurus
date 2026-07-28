@@ -5,8 +5,24 @@ use std::borrow::Cow;
 
 use crate::{
     analyzer::{config::AnalyzerConfig, group::GroupParser},
-    forge::request::ForgeCommit,
+    forge::request::{ForgeCommit, ForgeCommitPR},
 };
+
+/// Represents the PR that introduced the commit to history
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CommitPR {
+    pub id: String,
+    pub link: String,
+}
+
+impl From<ForgeCommitPR> for CommitPR {
+    fn from(value: ForgeCommitPR) -> Self {
+        Self {
+            id: value.id,
+            link: value.link,
+        }
+    }
+}
 
 /// Structured commit with parsed conventional commit fields, author
 /// metadata, and changelog categorization.
@@ -20,6 +36,7 @@ pub struct Commit {
     pub title: String,
     pub body: Option<String>,
     pub link: String,
+    pub pr: Option<CommitPR>,
     pub breaking: bool,
     pub breaking_description: Option<String>,
     pub merge_commit: bool,
@@ -46,6 +63,7 @@ impl Commit {
         let raw_message = forge_commit.message.clone();
         let timestamp = forge_commit.timestamp;
         let link = forge_commit.link.clone();
+        let pr = forge_commit.pr.clone().map(CommitPR::from);
 
         // Using Cow to avoid unnecessary allocations when trim doesn't change
         // the string
@@ -97,6 +115,7 @@ impl Commit {
             raw_message,
             group: String::new(),
             link,
+            pr,
             timestamp,
             author_name,
             author_email,

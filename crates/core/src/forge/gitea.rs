@@ -23,16 +23,18 @@ use crate::{
             TokenVar, USER_AGENT, resolve_token,
         },
         gitea::types::{
-            CreateLabel, CreatePull, CreateRelease, GiteaCommitQueryObject,
-            GiteaCreatedCommit, GiteaFileChange, GiteaFileChangeOperation,
-            GiteaIssue, GiteaLabel, GiteaModifyFiles, GiteaPullRequest,
-            GiteaRelease, GiteaTag, UpdatePullBody, UpdatePullLabels,
+            CreateLabel, CreatePull, CreateRelease, GiteaCommitPR,
+            GiteaCommitQueryObject, GiteaCreatedCommit, GiteaFileChange,
+            GiteaFileChangeOperation, GiteaIssue, GiteaLabel, GiteaModifyFiles,
+            GiteaPullRequest, GiteaRelease, GiteaTag, UpdatePullBody,
+            UpdatePullLabels,
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, Tag, UpdatePrRequest,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -506,6 +508,7 @@ impl Forge for Gitea {
                     id: result.sha.clone(),
                     short_id: result.sha.chars().take(8).collect::<String>(),
                     link: result.html_url.clone(),
+                    pr: None,
                     merge_commit: result.parents.len() > 1,
                     message: result.commit.message.trim().to_string(),
                     timestamp,
@@ -524,6 +527,29 @@ impl Forge for Gitea {
         }
 
         Ok(commits)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        let branch = branch.as_deref().unwrap_or(&self.default_branch);
+        let url = self.base_url.join(&format!("commits/{commit_sha}/pull"))?;
+        let request = self.client.get(url).build()?;
+        let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let result = response.error_for_status()?;
+        let pr: GiteaCommitPR = result.json().await?;
+        if !pr.merged || pr.base.reference != branch {
+            return Ok(None);
+        }
+        Ok(Some(ForgeCommitPR {
+            id: pr.number.to_string(),
+            link: pr.html_url,
+        }))
     }
 
     async fn create_release_branch(
@@ -921,6 +947,34 @@ mod tests {
     use super::Gitea;
     use crate::forge::request::GetPrRequest;
 
+    const COMMIT_SHA: &str = "abc123def456";
+
+    fn pr_route() -> String {
+        format!("/api/v1/repos/foo/bar/commits/{COMMIT_SHA}/pull")
+    }
+
+    /// A merged PR body whose `id`/`url` deliberately differ from
+    /// `number`/`html_url`, so reading the wrong field of either pair fails.
+    fn merged_pr_body(base_ref: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": 987654,
+            "number": 42,
+            "url": "https://gitea.example.com/api/v1/repos/foo/bar/pulls/42",
+            "html_url": "https://gitea.example.com/foo/bar/pulls/42",
+            "merged": true,
+            "base": { "ref": base_ref },
+        })
+    }
+
+    async fn mount_pr(server: &MockServer, body: serde_json::Value) {
+        Mock::given(method("GET"))
+            .and(path(pr_route()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(body))
+            .expect(1)
+            .mount(server)
+            .await;
+    }
+
     /// Build a [`RepoUrl`] pointing at `server` with the given owner/name.
     fn make_repo_url(server: &MockServer, owner: &str, name: &str) -> RepoUrl {
         let uri = server.uri();
@@ -1059,5 +1113,111 @@ mod tests {
         let exists = gitea.pending_label_exists().await.unwrap();
 
         assert!(exists, "expected pending_label_exists to return true");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_returns_number_and_html_url() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+        mount_pr(&server, merged_pr_body("main")).await;
+
+        let pr = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected a PR for the commit");
+
+        // `number`, not the instance-global `id`.
+        assert_eq!(pr.id, "42");
+        // `html_url`, not the `/api/v1/` URL.
+        assert_eq!(pr.link, "https://gitea.example.com/foo/bar/pulls/42");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_falls_back_to_default_branch() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+        // `make_gitea` reports `main` as the default branch.
+        mount_pr(&server, merged_pr_body("main")).await;
+
+        let pr = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, None)
+            .await
+            .unwrap();
+
+        assert!(pr.is_some(), "expected default branch to be used");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_returns_none_when_not_found() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path(pr_route()))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&server)
+            .await;
+
+        let pr = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(pr.is_none(), "expected None for a commit with no PR");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_returns_none_when_unmerged() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        let mut body = merged_pr_body("main");
+        body["merged"] = serde_json::json!(false);
+        mount_pr(&server, body).await;
+
+        let pr = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(pr.is_none(), "expected None for an unmerged PR");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_returns_none_on_other_branch() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+        mount_pr(&server, merged_pr_body("develop")).await;
+
+        let pr = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(pr.is_none(), "expected None for a PR onto another branch");
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_errors_on_server_error() {
+        // The manager downgrades this to a warning, but the forge itself must
+        // surface it rather than reporting "no PR".
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path(pr_route()))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let result = gitea
+            .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(super::ReleasaurusError::NetworkError(_))
+        ));
     }
 }

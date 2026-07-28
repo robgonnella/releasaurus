@@ -19,8 +19,9 @@ use crate::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, Tag, UpdatePrRequest,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -213,6 +214,16 @@ impl Forge for Forgejo {
         let created: ForgejoCreatedCommit = result.json().await?;
 
         Ok(created.commit)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        self.gitea
+            .get_merged_pull_request_for_commit(commit_sha, branch)
+            .await
     }
 
     async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {

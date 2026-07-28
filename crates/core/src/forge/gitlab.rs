@@ -39,6 +39,7 @@ use url::Url;
 
 mod graphql;
 mod types;
+pub use types::GitlabCommitMergeRequestsBuilderError;
 
 use crate::{
     config::{
@@ -53,15 +54,17 @@ use crate::{
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
             types::{
-                CreatedCommit, FileInfo, GitlabCommit, GitlabRelease,
-                GitlabTag, LabelInfo, MergeRequestInfo,
+                CreatedCommit, FileInfo, GitlabCommit,
+                GitlabCommitMergeRequest, GitlabCommitMergeRequests,
+                GitlabRelease, GitlabTag, LabelInfo, MergeRequestInfo,
             },
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, Tag, UpdatePrRequest,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -419,7 +422,7 @@ impl Forge for Gitlab {
             let range = format!("{sha}..{branch}");
             builder.ref_name(range);
         } else {
-            builder.ref_name(branch);
+            builder.ref_name(branch.clone());
         }
 
         let endpoint = builder.build()?;
@@ -482,6 +485,7 @@ impl Forge for Gitlab {
                     .collect::<Vec<&str>>()
                     .join(""),
                 link: commit.web_url.clone(),
+                pr: None,
                 merge_commit: commit.parent_ids.len() > 1,
                 message: commit.message.clone().trim().into(),
                 timestamp,
@@ -490,6 +494,31 @@ impl Forge for Gitlab {
         }
 
         Ok(forge_commits)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        let branch = branch.as_deref().unwrap_or(&self.default_branch);
+        let endpoint = GitlabCommitMergeRequests::builder()
+            .project(&self.project_id)
+            .sha(commit_sha)
+            .build()?;
+        let prs: Vec<GitlabCommitMergeRequest> =
+            endpoint.query_async(&self.gl).await?;
+        if let Some(pr) = prs
+            .into_iter()
+            .find(|pr| pr.target_branch == branch && pr.state == "merged")
+        {
+            Ok(Some(ForgeCommitPR {
+                id: pr.iid.to_string(),
+                link: pr.web_url,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn create_release_branch(

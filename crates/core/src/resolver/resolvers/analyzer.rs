@@ -9,7 +9,10 @@ use url::Url;
 use crate::{
     analyzer::config::AnalyzerConfig,
     config::{
-        changelog::{ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR},
+        changelog::{
+            ChangelogConfig, DEFAULT_BODY, DEFAULT_INCLUDE_AUTHOR,
+            DEFAULT_INCLUDE_PR_LINK,
+        },
         overrides::CommitModifiers,
         versioning::{
             DEFAULT_SKIP_MERGE_COMMITS, DEFAULT_VERSION_TYPE, NAMED_PARSERS,
@@ -60,6 +63,10 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
             .changelog
             .include_author
             .unwrap_or(DEFAULT_INCLUDE_AUTHOR),
+        include_pr_link: params
+            .changelog
+            .include_pr_link
+            .unwrap_or(DEFAULT_INCLUDE_PR_LINK),
         prerelease: params.versioning.prerelease,
         release_link_base_url: params.release_link_base_url,
         compare_link_base_url: params.compare_link_base_url,

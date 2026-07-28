@@ -119,6 +119,7 @@ mod tests {
             short_sha: "abc".to_string(),
             commits: vec![],
             include_author: false,
+            include_pr_link: false,
             notes: "Test release notes".to_string(),
             timestamp: 1234567890,
         }

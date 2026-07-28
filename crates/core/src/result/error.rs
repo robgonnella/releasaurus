@@ -317,6 +317,16 @@ impl From<gitlab::api::projects::repository::commits::CommitsBuilderError>
     }
 }
 
+impl From<crate::forge::gitlab::GitlabCommitMergeRequestsBuilderError>
+    for ReleasaurusError
+{
+    fn from(
+        err: crate::forge::gitlab::GitlabCommitMergeRequestsBuilderError,
+    ) -> Self {
+        Self::Other(color_eyre::Report::msg(format!("Builder error: {}", err)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

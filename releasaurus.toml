@@ -5,6 +5,7 @@ tag_search_depth = 25
 
 [defaults.changelog]
 include_author = true
+include_pr_link = true
 aggregate_prereleases = true
 
 [defaults.versioning.named_parsers]

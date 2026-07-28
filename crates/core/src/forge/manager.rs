@@ -8,9 +8,10 @@ use crate::{
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-            GetPrRequest, PrLabelsRequest, PrMetadataBlock, PullRequest,
-            ReleaseByTagResponse, Tag, UpdatePrRequest,
+            CreateReleaseBranchRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
+            PrMetadataBlock, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::{FileLoader, Forge},
     },
@@ -195,7 +196,18 @@ impl ForgeManager {
             branch,
             sha
         );
-        self.forge.get_commits(branch, sha).await
+        self.forge.get_commits(branch.clone(), sha).await
+    }
+
+    pub async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        log::debug!("getting associated PR for commit {commit_sha}");
+        self.forge
+            .get_merged_pull_request_for_commit(commit_sha, branch)
+            .await
     }
 
     pub async fn get_open_release_pr(

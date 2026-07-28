@@ -20,5 +20,20 @@ pub struct Tree {
     pub sha: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GithubCommitPRBase {
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GithubCommitPR {
+    pub number: u64,
+    pub state: String,
+    pub merged_at: Option<String>,
+    pub html_url: String,
+    pub base: GithubCommitPRBase,
+}
+
 pub const TREE_BLOB_MODE: &str = "100644";
 pub const TREE_BLOB_TYPE: &str = "blob";
