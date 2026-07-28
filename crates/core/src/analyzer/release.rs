@@ -24,6 +24,7 @@ struct ShadowRelease {
     pub short_sha: Option<String>,
     pub tag_compare_link: Option<String>,
     pub sha_compare_link: Option<String>,
+    pub include_pr_link: Option<bool>,
 }
 
 /// Complete release package containing version tag, changelog notes, and all
@@ -50,6 +51,8 @@ pub struct Release {
     pub commits: Vec<Commit>,
     /// Whether or not to include author name for each commit in changelog
     pub include_author: bool,
+    /// Whether or not to include pr links for each commit if they exist
+    pub include_pr_link: bool,
     /// Generated release notes
     pub notes: String,
     /// Release timestamp
@@ -61,6 +64,7 @@ impl From<ShadowRelease> for Release {
         Self {
             commits: value.commits,
             include_author: value.include_author,
+            include_pr_link: value.include_pr_link.unwrap_or_default(),
             link: value.link,
             tag_compare_link: value.tag_compare_link.unwrap_or_default(),
             sha_compare_link: value.sha_compare_link.unwrap_or_default(),
@@ -89,6 +93,7 @@ impl std::fmt::Debug for Release {
             .field("sha", &self.sha)
             .field("short_sha", &self.short_sha)
             .field("include_author", &self.include_author)
+            .field("include_pr_link", &self.include_pr_link)
             .field("timestamp", &self.timestamp)
             .finish()
     }
@@ -99,7 +104,7 @@ impl Serialize for Release {
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Release", 11)?;
+        let mut s = serializer.serialize_struct("Release", 12)?;
         s.serialize_field("link", &self.link)?;
         s.serialize_field("tag_compare_link", &self.tag_compare_link)?;
         s.serialize_field("sha_compare_link", &self.sha_compare_link)?;
@@ -108,6 +113,7 @@ impl Serialize for Release {
         s.serialize_field("sha", &self.sha)?;
         s.serialize_field("short_sha", &self.short_sha)?;
         s.serialize_field("include_author", &self.include_author)?;
+        s.serialize_field("include_pr_link", &self.include_pr_link)?;
         s.serialize_field("commits", &self.commits)?;
         s.serialize_field("notes", &self.notes)?;
         s.serialize_field("timestamp", &self.timestamp)?;
@@ -231,6 +237,7 @@ mod tests {
             short_sha: "release_sh".to_string(),
             commits: vec![Commit::default()],
             include_author: true,
+            include_pr_link: true,
             notes: "Some long release notes...".to_string(),
             timestamp: 9876543210,
         };
@@ -280,6 +287,7 @@ mod tests {
             short_sha: "release_sha_4".to_string(),
             commits: vec![commit],
             include_author: true,
+            include_pr_link: true,
             notes: "# Release Notes\n\n- Added feature".to_string(),
             timestamp: 1234567890,
         };
@@ -318,6 +326,7 @@ mod tests {
             short_sha: "".to_string(),
             commits: vec![],
             include_author: false,
+            include_pr_link: false,
             notes: "".to_string(),
             timestamp: 0,
         };
@@ -356,6 +365,7 @@ mod tests {
             short_sha: "".to_string(),
             commits,
             include_author: false,
+            include_pr_link: false,
             notes: "".to_string(),
             timestamp: 0,
         };

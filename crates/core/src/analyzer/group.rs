@@ -112,25 +112,31 @@ impl<'a> GroupParser<'a> {
 mod tests {
     use regex::Regex;
 
-    use crate::config::versioning::NAMED_PARSERS;
+    use crate::{
+        analyzer::commit::CommitPR, config::versioning::NAMED_PARSERS,
+    };
 
     use super::*;
 
     fn create_test_commit(raw_message: &str, breaking: bool) -> Commit {
         Commit {
-            id: "abc123".to_string(),
-            short_id: "abc".to_string(),
+            id: "abc123".into(),
+            short_id: "abc".into(),
             group: "".into(),
             scope: None,
-            title: "test message".to_string(),
+            title: "test message".into(),
             body: None,
-            link: "https://example.com".to_string(),
+            link: "https://example.com".into(),
+            pr: Some(CommitPR {
+                id: "22".into(),
+                link: "https://example.com/pr/22".into(),
+            }),
             breaking,
             breaking_description: None,
             merge_commit: false,
             timestamp: 1640995200,
-            raw_title: "test message".to_string(),
-            raw_message: raw_message.to_string(),
+            raw_title: "test message".into(),
+            raw_message: raw_message.into(),
             author_name: "".into(),
             author_email: "".into(),
         }

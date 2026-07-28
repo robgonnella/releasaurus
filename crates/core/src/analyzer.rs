@@ -159,11 +159,12 @@ impl<'a> Analyzer<'a> {
         commits: Vec<ForgeCommit>,
     ) -> Result<release::Release> {
         // fill out and append to list of releases as we process commits
-        let mut release = release::Release::default();
-
-        if self.config.include_author {
-            release.include_author = true;
-        }
+        // include_* flags gate the optional segments of the body template
+        let mut release = release::Release {
+            include_author: self.config.include_author,
+            include_pr_link: self.config.include_pr_link,
+            ..Default::default()
+        };
 
         // commits are ordered newest-first; the release sha and timestamp
         // come from the newest commit in the range regardless of any

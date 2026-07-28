@@ -152,16 +152,23 @@ built-in position to fall back on.
 Controls how the included commits are rendered. See
 [Changelog Customization](./changelog.md) for the template and variables.
 
-| Key                     | Type   | Default           | Description                                                         |
-| ----------------------- | ------ | ----------------- | ------------------------------------------------------------------- |
-| `include_author`        | bool   | `false`           | Include commit author names.                                        |
-| `aggregate_prereleases` | bool   | `false`           | On graduation, fold prior prerelease notes into the stable release. |
-| `body`                  | string | standard template | Tera template for the changelog body.                               |
+| Key                     | Type   | Default           | Description                                                                                            |
+| ----------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `include_author`        | bool   | `false`           | Include commit author names.                                                                           |
+| `include_pr_link`       | bool   | `false`           | Link the pull request that introduced each commit. Costs extra API requests — see below.                |
+| `aggregate_prereleases` | bool   | `false`           | On graduation, fold prior prerelease notes into the stable release.                                    |
+| `body`                  | string | standard template | Tera template for the changelog body.                                                                  |
 
 ```toml
 [defaults.changelog]
 include_author = true
+include_pr_link = true
 ```
+
+`include_pr_link` has two properties worth noting. Enabling it for one
+package incurs its API cost for the whole run, even though rendering stays
+per package. And a custom `body` must carry the `commit.pr` clause itself;
+see [Pull request links](./changelog.md#pull-request-links).
 
 ## `[[package]]`
 
@@ -239,7 +246,7 @@ field you set on the package wins; any field you omit is inherited from
 `[defaults]`, falling back to the built-in default only when `[defaults]`
 doesn't set it either. So if `[defaults.changelog]` enables
 `include_author` and a package sets its own `changelog` without it, that
-package keeps `include_author = true`.
+package keeps `include_author = true`. `include_pr_link` merges the same way.
 
 Two fields compose rather than replace:
 

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Top-level response wrapper used by most Azure DevOps list endpoints.
 #[derive(Debug, Deserialize)]
@@ -66,9 +67,6 @@ pub struct AzureCommit {
     /// First line of the commit message.
     #[serde(default)]
     pub comment: String,
-    /// SHA-1 identifiers of parent commits.
-    #[serde(default)]
-    pub parents: Vec<String>,
     /// Web URL to view the commit in Azure DevOps.
     #[serde(rename = "remoteUrl", default)]
     pub remote_url: String,
@@ -188,7 +186,7 @@ pub struct UpdatePullRequest {
 }
 
 /// A pull request as returned by the Azure DevOps Pull Requests API.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AzurePullRequest {
     /// Numeric identifier of the pull request within the repository.
     #[serde(rename = "pullRequestId")]
@@ -202,13 +200,18 @@ pub struct AzurePullRequest {
     /// Merge commit produced by the last merge attempt.
     #[serde(rename = "lastMergeCommit", default)]
     pub last_merge_commit: Option<AzureCommitRef>,
+    /// Lifecycle state of the pull request: `notSet`, `active`,
+    /// `abandoned`, `completed`, or `all`. This — not `mergeStatus` — is
+    /// what says whether the PR actually merged.
+    #[serde(default)]
+    pub status: String,
     /// Pull request description (supports Markdown).
     #[serde(default)]
     pub description: Option<String>,
 }
 
 /// A lightweight commit reference (ID only) embedded in pull request responses.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AzureCommitRef {
     /// SHA-1 identifier of the referenced commit.
     #[serde(rename = "commitId")]
@@ -232,4 +235,32 @@ pub struct AzureLabel {
 pub struct CreateLabel {
     /// Name of the label to create or attach.
     pub name: String,
+}
+
+/// A single pull-request query: which commits to look up, and how.
+#[derive(Debug, Serialize)]
+pub struct PullRequestQueryInput<'a> {
+    /// Commit IDs to search for.
+    pub items: Vec<&'a str>,
+    /// `commit` finds PRs that merged the supplied commits;
+    /// `lastMergeCommit` finds PRs that *created* them.
+    #[serde(rename = "type")]
+    pub item_type: &'a str,
+}
+
+/// Request body for the `pullrequestquery` endpoint. The queries must be
+/// wrapped in this envelope — a bare [`PullRequestQueryInput`] is rejected,
+/// and Azure's schema expects `results` present even on the way in.
+#[derive(Debug, Serialize)]
+pub struct PullRequestQuery<'a> {
+    pub queries: Vec<PullRequestQueryInput<'a>>,
+    pub results: Vec<HashMap<String, Vec<AzurePullRequest>>>,
+}
+
+/// Response from `pullrequestquery`. `results[n]` corresponds to
+/// `queries[n]` and maps each requested commit ID to its pull requests.
+#[derive(Debug, Deserialize)]
+pub struct PullRequestQueryResponse {
+    #[serde(default)]
+    pub results: Vec<HashMap<String, Vec<AzurePullRequest>>>,
 }

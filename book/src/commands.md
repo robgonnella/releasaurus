@@ -336,6 +336,37 @@ _Allow_ for the identity holding the PAT. Azure DevOps `release` also only
 pushes the git tag — there is no native release object, so no release
 notes page is published.
 
+### Azure DevOps: Merge Commits Are Not Detected
+
+Azure DevOps omits the `parents` field from its commit **list** API — only
+the single-commit endpoint returns it. Releasaurus reads history in bulk, so
+recovering parents would cost one extra API request per commit. Every Azure
+commit is therefore reported as a non-merge commit.
+
+Two settings quietly have no effect as a result:
+
+- `skip_merge_commits` (default `true`) filters nothing out.
+- The default `body` template's
+  `filter(attribute="merge_commit", value=false)` clause excludes nothing.
+
+This only matters for completion strategies that create a merge commit. If
+you complete PRs with **Merge (no fast forward)** or **Semi-linear merge**,
+Azure adds a commit titled `Merged PR <n>: <PR title>` on top of the source
+branch's own commits. That commit becomes its own changelog entry, so the
+PR's change is represented twice — once by the merge commit, once by the
+commits it brought in.
+
+**Fix (recommended):** complete PRs with **Squash commit**. Azure then adds
+a single commit per PR, so there is nothing to filter and no duplication.
+**Rebase and fast-forward** is likewise unaffected, since it creates no
+merge commit.
+
+**Alternative:** drop individual merge commits with `skip_shas` (see
+[Skipping or Rewording Commits][skip-commits]). That setting applies to the
+next release only, so it has to be repeated each cycle.
+
+[skip-commits]: ./configuration.md#skipping-or-rewording-commits
+
 ## Getting Help
 
 ```bash

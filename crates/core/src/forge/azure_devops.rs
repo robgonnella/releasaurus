@@ -31,8 +31,9 @@ use crate::{
         azure_devops::types::{
             AzureCommit, AzureCommitChanges, AzureList, AzurePullRequest,
             AzureRef, AzureRepo, Change, ChangeItem, CreateLabel,
-            CreatePullRequest, NewContent, Push, PushCommit, PushResponse,
-            RefUpdate, UpdatePullRequest,
+            CreatePullRequest, NewContent, PullRequestQuery,
+            PullRequestQueryInput, PullRequestQueryResponse, Push, PushCommit,
+            PushResponse, RefUpdate, UpdatePullRequest,
         },
         config::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl, TokenVar, USER_AGENT,
@@ -41,9 +42,9 @@ use crate::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
-            PrMetadataBlock, PullRequest, ReleaseByTagResponse, Tag,
-            UpdatePrRequest,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PrMetadataBlock, PullRequest,
+            ReleaseByTagResponse, Tag, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -74,6 +75,8 @@ pub struct AzureDevops {
     tag_search_depth: usize,
     /// API base: `https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/`
     base_url: Url,
+    /// Web base: `https://dev.azure.com/{org}/{project}/_git/{repo}`
+    web_repo_url: String,
     client: Client,
     default_branch: String,
     release_link_base_url: Url,
@@ -165,6 +168,7 @@ impl AzureDevops {
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
             client,
             base_url,
+            web_repo_url,
             release_link_base_url,
             compare_link_base_url,
             default_branch,
@@ -176,6 +180,63 @@ impl AzureDevops {
         url.query_pairs_mut()
             .append_pair("api-version", API_VERSION);
         Ok(url)
+    }
+
+    /// Runs one `pullrequestquery` for `commit_sha` and returns the completed
+    /// PR that targeted `target_ref`, if this `item_type` resolves it.
+    ///
+    /// A 404 means "this item type found nothing", not a failure, so it maps
+    /// to `Ok(None)` and lets the caller try another type. Every other status
+    /// still propagates.
+    async fn query_pull_request(
+        &self,
+        commit_sha: &str,
+        item_type: &str,
+        target_ref: &str,
+    ) -> Result<Option<ForgeCommitPR>> {
+        let url = self.endpoint("pullrequestquery")?;
+
+        let body = PullRequestQuery {
+            queries: vec![PullRequestQueryInput {
+                item_type,
+                items: vec![commit_sha],
+            }],
+            results: vec![],
+        };
+
+        let response = self.client.post(url).json(&body).send().await?;
+
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        let query: PullRequestQueryResponse = read_json(response).await?;
+
+        // `results[0]` answers `queries[0]`, keyed by the commit we asked
+        // about. Azure echoes the SHA back as sent, but match
+        // case-insensitively so a differently-cased SHA still resolves.
+        let pr = query
+            .results
+            .first()
+            .and_then(|by_commit| {
+                by_commit
+                    .iter()
+                    .find(|(sha, _)| sha.eq_ignore_ascii_case(commit_sha))
+                    .map(|(_, prs)| prs)
+            })
+            .and_then(|prs| {
+                prs.iter().find(|pr| {
+                    pr.status == "completed" && pr.target_ref_name == target_ref
+                })
+            });
+
+        Ok(pr.map(|pr| ForgeCommitPR {
+            id: pr.pull_request_id.to_string(),
+            link: format!(
+                "{}/pullrequest/{}",
+                self.web_repo_url, pr.pull_request_id
+            ),
+        }))
     }
 
     /// Returns true if `commit_sha` is reachable from `branch`'s head
@@ -662,6 +723,7 @@ impl Forge for AzureDevops {
         branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
+        let branch = branch.as_deref().unwrap_or(&self.default_branch);
         let mut skip: u64 = 0;
         let page_size = cmp::min(
             u64::from(DEFAULT_PAGE_SIZE),
@@ -671,21 +733,15 @@ impl Forge for AzureDevops {
         let mut count = 0usize;
 
         loop {
-            let mut url = self.base_url.join("commits")?;
+            let mut url = self.endpoint("commits")?;
             url.query_pairs_mut()
-                .append_pair("api-version", API_VERSION)
                 .append_pair("$top", &page_size.to_string())
                 .append_pair("$skip", &skip.to_string())
-                .append_pair("searchCriteria.includeWorkItems", "false");
-            // Azure DevOps commits API without a branch filter returns commits
-            // from all refs, not just the default branch. Always filter.
-            let effective_branch =
-                branch.as_deref().unwrap_or(&self.default_branch);
-            url.query_pairs_mut()
-                .append_pair(
-                    "searchCriteria.itemVersion.version",
-                    effective_branch,
-                )
+                .append_pair("searchCriteria.includeWorkItems", "false")
+                // Azure DevOps commits API without a branch filter returns
+                // commits from all refs, not just the default branch. Always
+                // filter.
+                .append_pair("searchCriteria.itemVersion.version", branch)
                 .append_pair(
                     "searchCriteria.itemVersion.versionType",
                     "branch",
@@ -727,7 +783,13 @@ impl Forge for AzureDevops {
                     id: c.commit_id.clone(),
                     short_id: c.commit_id.chars().take(8).collect(),
                     link: c.remote_url,
-                    merge_commit: c.parents.len() > 1,
+                    pr: None,
+                    // Azure's commit *list* endpoint does not return
+                    // `parents` — only `GET /commits/{id}` does — so
+                    // merge-ness is not knowable here without a request per
+                    // commit. Reporting `false` means `skip_merge_commits`
+                    // won't filter Azure merge commits.
+                    merge_commit: false,
                     message: AZURE_MERGED_PR_RE
                         .replace(c.comment.trim_end(), "")
                         .into_owned(),
@@ -744,6 +806,32 @@ impl Forge for AzureDevops {
         }
 
         Ok(commits)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        let branch = branch.as_deref().unwrap_or(&self.default_branch);
+        let target_ref = format!("refs/heads/{branch}");
+
+        // Which item type resolves a commit depends on how it reached the
+        // branch, and the commit itself doesn't tell us: a squash completion
+        // needs `lastMergeCommit` despite having a single parent, while a
+        // source-branch commit needs `commit`. Azure's commit list omits
+        // `parents` entirely, so there is nothing to branch on up front — try
+        // the completion case first, since it is the common one, and fall
+        // back for the rest.
+        if let Some(pr) = self
+            .query_pull_request(commit_sha, "lastMergeCommit", &target_ref)
+            .await?
+        {
+            return Ok(Some(pr));
+        }
+
+        self.query_pull_request(commit_sha, "commit", &target_ref)
+            .await
     }
 
     async fn create_release_branch(
@@ -984,7 +1072,136 @@ impl Forge for AzureDevops {
 
 #[cfg(test)]
 mod tests {
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, method, path},
+    };
+
     use super::*;
+    use crate::forge::config::Scheme;
+
+    const ORG: &str = "myorg";
+    const PROJECT: &str = "myproj";
+    const REPO: &str = "myrepo";
+    const SHA: &str = "abc123def456";
+
+    fn make_jwt(header_json: &str, payload_json: &str) -> String {
+        let h = BASE64_URL_SAFE_NO_PAD.encode(header_json.as_bytes());
+        let p = BASE64_URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        format!("{h}.{p}.signature")
+    }
+
+    fn api_path(suffix: &str) -> String {
+        format!("/{ORG}/{PROJECT}/_apis/git/repositories/{REPO}/{suffix}")
+    }
+
+    /// Construct an `AzureDevops` pointed at `server`, mounting the
+    /// repo-metadata request its constructor makes.
+    async fn make_azure(server: &MockServer) -> AzureDevops {
+        Mock::given(method("GET"))
+            .and(path(api_path("")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({ "defaultBranch": "refs/heads/main" }),
+            ))
+            .mount(server)
+            .await;
+
+        let uri = server.uri();
+        let parsed = url::Url::parse(&uri).expect("valid mock uri");
+        let url = RepoUrl {
+            scheme: Scheme::Http,
+            host: parsed.host_str().unwrap_or("127.0.0.1").to_string(),
+            owner: format!("{ORG}/{PROJECT}"),
+            name: REPO.to_string(),
+            path: format!("/{ORG}/{PROJECT}/_git/{REPO}"),
+            port: parsed.port(),
+            token: None,
+        };
+
+        AzureDevops::new(url, Some(SecretString::from("dummy-pat")))
+            .await
+            .unwrap()
+    }
+
+    /// A PR entry as returned inside `results`. `mergeStatus` is
+    /// `succeeded` throughout: it describes the last *merge attempt*, so
+    /// only `status` distinguishes a merged PR from an open one.
+    fn pr(id: u64, status: &str, target: &str) -> serde_json::Value {
+        serde_json::json!({
+            "pullRequestId": id,
+            "targetRefName": target,
+            "mergeStatus": "succeeded",
+            "status": status,
+        })
+    }
+
+    /// The exact request body the lookup must send for a given item type.
+    /// Matching on this is what makes the two-query fallback observable — and
+    /// it pins the `queries` envelope and the `results` key Azure's schema
+    /// expects on the way in.
+    fn expected_body(item_type: &str) -> serde_json::Value {
+        serde_json::json!({
+            "queries": [{ "items": [SHA], "type": item_type }],
+            "results": [],
+        })
+    }
+
+    /// Mounts one query, matched on item type, responding with `prs` for our
+    /// SHA. `times` asserts how often that item type must be queried.
+    async fn mount_query_for(
+        server: &MockServer,
+        item_type: &str,
+        prs: Vec<serde_json::Value>,
+        times: u64,
+    ) {
+        Mock::given(method("POST"))
+            .and(path(api_path("pullrequestquery")))
+            .and(body_json(expected_body(item_type)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({ "results": [{ SHA: prs }] }),
+            ))
+            .expect(times)
+            .mount(server)
+            .await;
+    }
+
+    /// Mounts one query, matched on item type, responding with `status`.
+    async fn mount_query_status(
+        server: &MockServer,
+        item_type: &str,
+        status: u16,
+        times: u64,
+    ) {
+        Mock::given(method("POST"))
+            .and(path(api_path("pullrequestquery")))
+            .and(body_json(expected_body(item_type)))
+            .respond_with(ResponseTemplate::new(status))
+            .expect(times)
+            .mount(server)
+            .await;
+    }
+
+    /// Mounts the pair for a test that cares about the *outcome* rather than
+    /// the request count: `lastMergeCommit` returns `prs`, and the `commit`
+    /// fallback returns nothing however many times it is reached.
+    ///
+    /// Whether the fallback fires depends on the same predicates the
+    /// implementation applies, so asserting counts here would mean
+    /// duplicating them. The dedicated fallback tests below pin the counts
+    /// instead.
+    async fn mount_query(server: &MockServer, prs: Vec<serde_json::Value>) {
+        mount_query_for(server, "lastMergeCommit", prs, 1).await;
+
+        Mock::given(method("POST"))
+            .and(path(api_path("pullrequestquery")))
+            .and(body_json(expected_body("commit")))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "results": [{}] })),
+            )
+            .mount(server)
+            .await;
+    }
 
     #[test]
     fn normalize_path_adds_leading_slash() {
@@ -1007,12 +1224,6 @@ mod tests {
     fn strip_refs_tags_removes_prefix() {
         assert_eq!(strip_refs_tags("refs/tags/v1.0.0"), "v1.0.0");
         assert_eq!(strip_refs_tags("v1.0.0"), "v1.0.0");
-    }
-
-    fn make_jwt(header_json: &str, payload_json: &str) -> String {
-        let h = BASE64_URL_SAFE_NO_PAD.encode(header_json.as_bytes());
-        let p = BASE64_URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
-        format!("{h}.{p}.signature")
     }
 
     #[test]
@@ -1055,5 +1266,280 @@ mod tests {
     fn looks_like_jwt_rejects_invalid_base64_header() {
         // Starts with "eyJ" but contains an illegal base64url character.
         assert!(!looks_like_jwt("eyJ!!!.payload.sig"));
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_returns_completed_pr_with_composed_web_url() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(&server, vec![pr(77, "completed", "refs/heads/main")])
+            .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected a PR for the commit");
+
+        assert_eq!(found.id, "77");
+        // Azure PR objects carry no web URL, so it has to be composed.
+        assert_eq!(
+            found.link,
+            format!(
+                "{}/{ORG}/{PROJECT}/_git/{REPO}/pullrequest/77",
+                server.uri()
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_ignores_open_pr_whose_merge_attempt_succeeded()
+    {
+        // `mergeStatus: succeeded` only means "no conflicts", so an open
+        // PR reports it too. Keying off it would attach an unmerged PR.
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(&server, vec![pr(77, "active", "refs/heads/main")]).await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None for an active PR");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_ignores_abandoned_pr() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(&server, vec![pr(77, "abandoned", "refs/heads/main")])
+            .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None for an abandoned PR");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_ignores_pr_targeting_another_branch() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(&server, vec![pr(77, "completed", "refs/heads/develop")])
+            .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None for another target branch");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_picks_the_completed_pr_among_several() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(
+            &server,
+            vec![
+                pr(10, "abandoned", "refs/heads/main"),
+                pr(11, "active", "refs/heads/main"),
+                pr(12, "completed", "refs/heads/main"),
+            ],
+        )
+        .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected the completed PR");
+
+        assert_eq!(found.id, "12");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_returns_none_when_no_prs_for_commit() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_query(&server, vec![]).await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None when the query is empty");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_returns_none_when_results_omit_the_commit() {
+        // Azure returns `results: [{}]` when nothing matched.
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        Mock::given(method("POST"))
+            .and(path(api_path("pullrequestquery")))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "results": [{}] })),
+            )
+            .mount(&server)
+            .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None for an empty result map");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_matches_commit_key_case_insensitively() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        Mock::given(method("POST"))
+            .and(path(api_path("pullrequestquery")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({
+                    "results": [{
+                        SHA.to_uppercase():
+                            [pr(5, "completed", "refs/heads/main")],
+                    }],
+                }),
+            ))
+            .mount(&server)
+            .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(
+            found.is_some(),
+            "expected an upper-cased SHA key to still match"
+        );
+    }
+
+    // --- the lastMergeCommit -> commit fallback ---
+    //
+    // Nothing in a commit says which item type resolves it: a squash
+    // completion needs `lastMergeCommit` despite a single parent, a
+    // source-branch commit needs `commit`, and Azure's commit list omits
+    // `parents`. So the lookup tries the first and falls back. These pin the
+    // order and the request counts; the `.expect(n)` values are verified when
+    // the MockServer drops.
+
+    #[tokio::test]
+    async fn pull_request_query_stops_after_last_merge_commit_hit() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        mount_query_for(
+            &server,
+            "lastMergeCommit",
+            vec![pr(77, "completed", "refs/heads/main")],
+            1,
+        )
+        .await;
+        // Must not fall back once the first query resolves.
+        mount_query_for(&server, "commit", vec![], 0).await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected the first query to resolve the PR");
+
+        assert_eq!(found.id, "77");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_falls_back_to_commit_on_empty_results() {
+        // Azure answers a query that matched nothing with `results: [{}]`,
+        // not a 404, so the fallback cannot key off status alone.
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        mount_query_for(&server, "lastMergeCommit", vec![], 1).await;
+        mount_query_for(
+            &server,
+            "commit",
+            vec![pr(88, "completed", "refs/heads/main")],
+            1,
+        )
+        .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected the fallback query to resolve the PR");
+
+        assert_eq!(found.id, "88");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_falls_back_to_commit_on_not_found() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        mount_query_status(&server, "lastMergeCommit", 404, 1).await;
+        mount_query_for(
+            &server,
+            "commit",
+            vec![pr(99, "completed", "refs/heads/main")],
+            1,
+        )
+        .await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("a 404 on the first query must fall back, not error");
+
+        assert_eq!(found.id, "99");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_returns_none_when_neither_type_resolves() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        mount_query_for(&server, "lastMergeCommit", vec![], 1).await;
+        mount_query_for(&server, "commit", vec![], 1).await;
+
+        let found = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await
+            .unwrap();
+
+        assert!(found.is_none(), "expected None when neither type resolves");
+    }
+
+    #[tokio::test]
+    async fn pull_request_query_propagates_non_404_errors() {
+        // Only 404 means "this item type found nothing". A 500 is a real
+        // failure and must not be swallowed into a silent `None`, nor trigger
+        // a pointless second request.
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        mount_query_status(&server, "lastMergeCommit", 500, 1).await;
+        mount_query_for(&server, "commit", vec![], 0).await;
+
+        let result = azure
+            .get_merged_pull_request_for_commit(SHA, Some("main".into()))
+            .await;
+
+        assert!(matches!(result, Err(ReleasaurusError::NetworkError(_))));
     }
 }

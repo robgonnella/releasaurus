@@ -33,15 +33,16 @@ use crate::{
                 TAG_SEARCH_QUERY, TagSearchQueryVariables, TagSearchResult,
             },
             types::{
-                GithubTree, GithubTreeEntry, TREE_BLOB_MODE, TREE_BLOB_TYPE,
-                Tree,
+                GithubCommitPR, GithubTree, GithubTreeEntry, TREE_BLOB_MODE,
+                TREE_BLOB_TYPE, Tree,
             },
         },
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileChange, FileUpdateType,
-            ForgeCommit, GetFileContentRequest, GetPrRequest, PrLabelsRequest,
-            PullRequest, ReleaseByTagResponse, Tag, UpdatePrRequest,
+            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -580,6 +581,7 @@ impl Forge for Github {
                 id: sha,
                 short_id: short_sha,
                 link: commit.html_url,
+                pr: None,
                 author_name,
                 author_email,
                 merge_commit: commit.parents.len() > 1,
@@ -590,6 +592,39 @@ impl Forge for Github {
         }
 
         Ok(commits)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        let branch = branch.as_deref().unwrap_or(&self.default_branch);
+
+        let route = format!(
+            "/repos/{}/{}/commits/{commit_sha}/pulls",
+            self.url.owner, self.url.name
+        );
+
+        let prs = self
+            .instance
+            .get::<Vec<GithubCommitPR>, String, Option<Vec<String>>>(
+                route, None,
+            )
+            .await?;
+
+        if let Some(pr) = prs.into_iter().find(|pr| {
+            pr.base.reference == branch
+                && pr.state == "closed"
+                && pr.merged_at.is_some()
+        }) {
+            Ok(Some(ForgeCommitPR {
+                id: pr.number.to_string(),
+                link: pr.html_url,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn create_release_branch(

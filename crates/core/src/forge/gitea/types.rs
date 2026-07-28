@@ -153,3 +153,20 @@ pub struct GiteaModifyFiles {
 pub struct GiteaCreatedCommit {
     pub commit: Commit,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct GiteaCommitPRBase {
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GiteaCommitPR {
+    /// Per-repository index shown in the UI (`#42`). Distinct from `id`,
+    /// which is an instance-global database identifier.
+    pub number: u64,
+    /// Browsable web URL. Distinct from `url`, which is the API URL.
+    pub html_url: String,
+    pub merged: bool,
+    pub base: GiteaCommitPRBase,
+}

@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     path::Path,
     rc::Rc,
@@ -7,7 +8,7 @@ use std::{
 use crate::{
     forge::{
         manager::ForgeManager,
-        request::{ForgeCommit, Tag},
+        request::{ForgeCommit, ForgeCommitPR, Tag},
     },
     packages::resolved::ResolvedPackage,
     resolver::ResolvedConfig,
@@ -22,11 +23,20 @@ pub struct CurrentTagInfo {
 pub struct CommitFetcher {
     config: Rc<ResolvedConfig>,
     forge: Rc<ForgeManager>,
+    /// Memoized PR lookups keyed by commit sha. Enrichment runs once per
+    /// package, and packages share commits, so a sha is looked up once for
+    /// the whole run. Every lookup targets `config.base_branch`, so the sha
+    /// alone identifies the answer.
+    commit_prs: RefCell<HashMap<String, Option<ForgeCommitPR>>>,
 }
 
 impl CommitFetcher {
     pub fn new(config: Rc<ResolvedConfig>, forge: Rc<ForgeManager>) -> Self {
-        Self { config, forge }
+        Self {
+            config,
+            forge,
+            commit_prs: RefCell::new(HashMap::new()),
+        }
     }
 
     /// Retrieves all commits for all packages along with the latest tag for
@@ -174,6 +184,71 @@ impl CommitFetcher {
         Ok(commits)
     }
 
+    /// Attaches the PR that introduced each commit, in place.
+    ///
+    /// Call this *after* narrowing commits to a package, so no request is
+    /// spent on a commit belonging to a different one. Note this still runs
+    /// ahead of analysis, which is where `skip_shas`, skipped groups and
+    /// `skip_merge_commits` drop commits — those are enriched and then
+    /// discarded. No-op unless some package asked for PR links.
+    pub async fn fetch_merged_commit_prs(&self, commits: &mut [ForgeCommit]) {
+        if !self.config.pr_links_enabled {
+            log::debug!("commit pr links are not enabled: skipping fetch");
+            return;
+        }
+        for c in commits.iter_mut() {
+            c.pr = self.commit_pr(&c.id, c.short_id.clone()).await;
+        }
+    }
+
+    /// Looks up the PR that introduced `sha`, memoized per sha.
+    ///
+    /// A sha always has the same answer within a run, and packages share
+    /// commits, so the result is cached rather than re-requested for every
+    /// package a commit belongs to.
+    ///
+    /// PR links are cosmetic, so a failed lookup is logged and treated as
+    /// "no PR" rather than failing the release.
+    async fn commit_pr(
+        &self,
+        sha: &str,
+        short_sha: String,
+    ) -> Option<ForgeCommitPR> {
+        // Scoped so the borrow is released before the await below.
+        {
+            if let Some(cached) = self.commit_prs.borrow().get(sha) {
+                log::debug!("using cached PR for commit {short_sha}");
+                return cached.clone();
+            }
+        }
+
+        log::debug!("fetching related PR for commit {short_sha}");
+
+        let pr = match self
+            .forge
+            .get_merged_pull_request_for_commit(
+                sha,
+                Some(self.config.base_branch.clone()),
+            )
+            .await
+        {
+            Ok(pr) => pr,
+            Err(err) => {
+                log::warn!(
+                    "failed to fetch related PR for commit {short_sha}: \
+                     {err}: omitting its PR link"
+                );
+                None
+            }
+        };
+
+        self.commit_prs
+            .borrow_mut()
+            .insert(sha.to_string(), pr.clone());
+
+        pr
+    }
+
     /// Collects the latest tag for every (target-filtered) package in a
     /// single pass, returning a map keyed by package name.
     async fn collect_tags_for_packages(
@@ -294,6 +369,7 @@ mod tests {
     use crate::{
         config::{
             Config,
+            changelog::ChangelogConfig,
             overrides::{CommitModifiers, GlobalOverrides},
             package::{PackageConfig, PackageConfigBuilder},
             prerelease::{PrereleaseConfig, PrereleaseStrategy},
@@ -354,6 +430,109 @@ mod tests {
         ));
 
         CommitFetcher::new(resolved_config, forge)
+    }
+
+    // Helper: build a CommitFetcher wired to a single package with a custom
+    // mock. Used by graduating_to_stable and aggregation tests.
+    fn make_commit_fetcher_with_package(
+        mock: MockForge,
+        pkg_config: PackageConfig,
+    ) -> CommitFetcher {
+        let config = Rc::new(Config::default());
+
+        let resolver = ResolverBuilder::default()
+            .commit_modifiers(CommitModifiers::default())
+            .compare_link_base_url(
+                Url::parse("https://example.com/compare/").unwrap(),
+            )
+            .global_overrides(GlobalOverrides::default())
+            .package_overrides(HashMap::default())
+            .release_link_base_url(Url::parse("https://example.com/").unwrap())
+            .repo_default_branch("main")
+            .repo_name("test-repo")
+            .toml_config(config)
+            .build()
+            .unwrap();
+
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(mock),
+            ForgeOptions { dry_run: false },
+        ));
+
+        let config = resolver.resolve(vec![pkg_config]).unwrap();
+
+        CommitFetcher::new(config, forge)
+    }
+
+    /// Builds a fetcher whose config has `pr_links_enabled` set by routing a
+    /// real `include_pr_link` through resolution, and whose forge is `mock`.
+    fn create_pr_link_fetcher(enabled: bool, mock: MockForge) -> CommitFetcher {
+        let resolver = ResolverBuilder::default()
+            .commit_modifiers(CommitModifiers::default())
+            .compare_link_base_url(
+                Url::parse("http://compare-link-base").unwrap(),
+            )
+            .global_overrides(GlobalOverrides::default())
+            .package_overrides(HashMap::default())
+            .release_link_base_url(
+                Url::parse("http://release-link-base").unwrap(),
+            )
+            .repo_default_branch("main")
+            .repo_name("test-repo")
+            .toml_config(Rc::new(Config::default()))
+            .build()
+            .unwrap();
+
+        let pkg_config = PackageConfigBuilder::default()
+            .name("test-pkg")
+            .path("packages/pkg-a")
+            .release_type(ReleaseType::Node)
+            .changelog(ChangelogConfig {
+                include_pr_link: Some(enabled),
+                ..ChangelogConfig::default()
+            })
+            .build()
+            .unwrap();
+
+        let resolved_config = resolver.resolve(vec![pkg_config]).unwrap();
+        assert_eq!(
+            resolved_config.pr_links_enabled, enabled,
+            "test setup did not produce the intended pr_links_enabled"
+        );
+
+        let forge = Rc::new(ForgeManager::new(
+            Box::new(mock),
+            ForgeOptions { dry_run: false },
+        ));
+
+        CommitFetcher::new(resolved_config, forge)
+    }
+
+    fn pr_commits(ids: &[&str]) -> Vec<ForgeCommit> {
+        ids.iter()
+            .map(|id| {
+                ForgeCommitBuilder::default()
+                    .id(*id)
+                    .short_id(*id)
+                    .message("feat: a feature")
+                    .timestamp(1000_i64)
+                    .build()
+                    .unwrap()
+            })
+            .collect()
+    }
+
+    fn mock_returning_pr(id: &'static str) -> MockForge {
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit().returning(
+            move |sha, _| {
+                Ok(Some(ForgeCommitPR {
+                    id: format!("{id}-{sha}"),
+                    link: format!("https://example.com/pulls/{sha}"),
+                }))
+            },
+        );
+        mock
     }
 
     #[test]
@@ -771,38 +950,6 @@ mod tests {
         assert_eq!(tags.len(), 2);
     }
 
-    // Helper: build a CommitFetcher wired to a single package with a custom
-    // mock. Used by graduating_to_stable and aggregation tests.
-    fn make_commit_fetcher_with_package(
-        mock: MockForge,
-        pkg_config: PackageConfig,
-    ) -> CommitFetcher {
-        let config = Rc::new(Config::default());
-
-        let resolver = ResolverBuilder::default()
-            .commit_modifiers(CommitModifiers::default())
-            .compare_link_base_url(
-                Url::parse("https://example.com/compare/").unwrap(),
-            )
-            .global_overrides(GlobalOverrides::default())
-            .package_overrides(HashMap::default())
-            .release_link_base_url(Url::parse("https://example.com/").unwrap())
-            .repo_default_branch("main")
-            .repo_name("test-repo")
-            .toml_config(config)
-            .build()
-            .unwrap();
-
-        let forge = Rc::new(ForgeManager::new(
-            Box::new(mock),
-            ForgeOptions { dry_run: false },
-        ));
-
-        let config = resolver.resolve(vec![pkg_config]).unwrap();
-
-        CommitFetcher::new(config, forge)
-    }
-
     // --- graduating_to_stable detection ---
 
     #[tokio::test]
@@ -1150,5 +1297,134 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "pkg-commit");
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_skips_lookup_when_disabled() {
+        // The point of the switch: no package renders links, so no requests.
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .times(0)
+            .returning(|_, _| Ok(None));
+
+        let fetcher = create_pr_link_fetcher(false, mock);
+        let mut commits = pr_commits(&["aaa1111", "bbb2222"]);
+
+        fetcher.fetch_merged_commit_prs(&mut commits).await;
+
+        assert!(commits.iter().all(|c| c.pr.is_none()));
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_attaches_pr_to_each_commit() {
+        let fetcher = create_pr_link_fetcher(true, mock_returning_pr("pr"));
+        let mut commits = pr_commits(&["aaa1111", "bbb2222"]);
+
+        fetcher.fetch_merged_commit_prs(&mut commits).await;
+
+        assert_eq!(
+            commits
+                .iter()
+                .map(|c| c.pr.as_ref().map(|pr| pr.id.clone()))
+                .collect::<Vec<_>>(),
+            vec![
+                Some("pr-aaa1111".to_string()),
+                Some("pr-bbb2222".to_string()),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_memoizes_across_calls() {
+        // Enrichment now runs once per package, and packages share commits,
+        // so a sha already looked up must not be requested again.
+        //
+        // This also guards the memo's borrow discipline: the `RefCell` read
+        // is released before the forge call and the write happens after, so a
+        // second pass over the same shas would panic with a BorrowMutError if
+        // either borrow were widened across the await.
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .times(2)
+            .returning(|_, _| Ok(None));
+
+        let fetcher = create_pr_link_fetcher(true, mock);
+
+        for _ in 0..3 {
+            let mut commits = pr_commits(&["aaa1111", "bbb2222"]);
+            fetcher.fetch_merged_commit_prs(&mut commits).await;
+        }
+        // `times(2)` is verified on drop: 3 passes over 2 commits must still
+        // issue exactly 2 lookups.
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_serves_cached_value_not_just_a_hit() {
+        // A memo that returned `None` on the cache-hit path would satisfy the
+        // call-count assertion above while silently dropping links, so check
+        // that the second pass yields the same PR as the first.
+        let fetcher = create_pr_link_fetcher(true, mock_returning_pr("pr"));
+
+        let mut first = pr_commits(&["aaa1111"]);
+        fetcher.fetch_merged_commit_prs(&mut first).await;
+
+        let mut second = pr_commits(&["aaa1111"]);
+        fetcher.fetch_merged_commit_prs(&mut second).await;
+
+        assert_eq!(
+            second[0].pr.as_ref().map(|pr| pr.id.as_str()),
+            Some("pr-aaa1111")
+        );
+        assert_eq!(first[0].pr, second[0].pr);
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_survives_a_failed_lookup() {
+        // PR links are cosmetic - a failed lookup must not fail the release.
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .returning(|sha, _| {
+                if sha == "aaa1111" {
+                    Err(crate::result::ReleasaurusError::NetworkError(
+                        "boom".into(),
+                    ))
+                } else {
+                    Ok(Some(ForgeCommitPR {
+                        id: "7".into(),
+                        link: "https://example.com/pulls/7".into(),
+                    }))
+                }
+            });
+
+        let fetcher = create_pr_link_fetcher(true, mock);
+        let mut commits = pr_commits(&["aaa1111", "bbb2222"]);
+
+        fetcher.fetch_merged_commit_prs(&mut commits).await;
+
+        assert!(commits[0].pr.is_none(), "failed lookup should yield no PR");
+        assert_eq!(
+            commits[1].pr.as_ref().map(|pr| pr.id.as_str()),
+            Some("7"),
+            "one failure must not drop the others"
+        );
+    }
+
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_does_not_retry_a_failed_lookup() {
+        // The failure is cached too, so a later package doesn't re-hammer a
+        // rate-limited forge for the same commit.
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .times(1)
+            .returning(|_, _| {
+                Err(crate::result::ReleasaurusError::RateLimitExceeded)
+            });
+
+        let fetcher = create_pr_link_fetcher(true, mock);
+
+        for _ in 0..2 {
+            let mut commits = pr_commits(&["aaa1111"]);
+            fetcher.fetch_merged_commit_prs(&mut commits).await;
+        }
     }
 }

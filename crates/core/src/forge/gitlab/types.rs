@@ -1,4 +1,8 @@
+use derive_builder::Builder;
+use gitlab::api::{Endpoint, common::NameOrId};
+use reqwest::Method;
 use serde::Deserialize;
+use std::borrow::Cow;
 
 #[derive(Debug, Deserialize)]
 pub struct FileInfo {
@@ -48,4 +52,42 @@ pub struct GitlabRelease {
 #[derive(Debug, Deserialize)]
 pub struct CreatedCommit {
     pub id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitlabCommitMergeRequest {
+    pub iid: u64,
+    pub web_url: String,
+    pub target_branch: String,
+    pub state: String,
+}
+
+#[derive(Debug, Builder)]
+#[builder(setter(strip_option))]
+pub struct GitlabCommitMergeRequests<'a> {
+    #[builder(setter(into))]
+    project: NameOrId<'a>,
+
+    #[builder(setter(into))]
+    sha: &'a str,
+}
+
+impl<'a> GitlabCommitMergeRequests<'a> {
+    pub fn builder() -> GitlabCommitMergeRequestsBuilder<'a> {
+        GitlabCommitMergeRequestsBuilder::default()
+    }
+}
+
+impl Endpoint for GitlabCommitMergeRequests<'_> {
+    fn method(&self) -> Method {
+        Method::GET
+    }
+
+    fn endpoint(&self) -> Cow<'static, str> {
+        format!(
+            "projects/{}/repository/commits/{}/merge_requests",
+            self.project, self.sha
+        )
+        .into()
+    }
 }

@@ -24,8 +24,9 @@ use crate::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, FileChange, FileUpdateType,
-            ForgeCommit, GetFileContentRequest, GetPrRequest, PrLabelsRequest,
-            PullRequest, ReleaseByTagResponse, Tag, UpdatePrRequest,
+            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -522,6 +523,8 @@ impl Forge for LocalRepo {
         _branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>> {
+        let mut forge_commits = vec![];
+
         let repo = self.repo.lock().await;
 
         let mut revwalk = repo.revwalk()?;
@@ -545,8 +548,6 @@ impl Forge for LocalRepo {
             .filter_map(|id| repo.find_commit(id).ok())
             .take(limit)
             .collect();
-
-        let mut forge_commits = vec![];
 
         for commit in commits.iter() {
             // shamelessly borrowed from git-cliff-core
@@ -616,6 +617,7 @@ impl Forge for LocalRepo {
                 files,
                 id: commit.id().to_string(),
                 link: "".into(),
+                pr: None,
                 merge_commit: commit.parent_count() > 1,
                 message: commit.message().unwrap_or("").to_string(),
                 short_id: commit
@@ -630,6 +632,21 @@ impl Forge for LocalRepo {
         }
 
         Ok(forge_commits)
+    }
+
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>> {
+        if let Some(remote) = self.remote.as_ref() {
+            remote
+                .forge
+                .get_merged_pull_request_for_commit(commit_sha, branch)
+                .await
+        } else {
+            Ok(None)
+        }
     }
 
     async fn create_release_branch(

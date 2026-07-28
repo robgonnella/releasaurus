@@ -10,9 +10,9 @@ use crate::{
     config::Config,
     forge::request::{
         Commit, CreateCommitRequest, CreatePrRequest,
-        CreateReleaseBranchRequest, ForgeCommit, GetFileContentRequest,
-        GetPrRequest, PrLabelsRequest, PrMetadataBlock, PullRequest,
-        ReleaseByTagResponse, Tag, UpdatePrRequest,
+        CreateReleaseBranchRequest, ForgeCommit, ForgeCommitPR,
+        GetFileContentRequest, GetPrRequest, PrLabelsRequest, PrMetadataBlock,
+        PullRequest, ReleaseByTagResponse, Tag, UpdatePrRequest,
     },
     result::Result,
 };
@@ -79,6 +79,15 @@ pub trait Forge: Any + Send + Sync {
         branch: Option<String>,
         sha: Option<String>,
     ) -> Result<Vec<ForgeCommit>>;
+    /// Retrieves the merged PR that introduced `commit_sha`, if any.
+    ///
+    /// `branch` scopes the search to PRs that targeted it, defaulting to the
+    /// repository's default branch.
+    async fn get_merged_pull_request_for_commit(
+        &self,
+        commit_sha: &str,
+        branch: Option<String>,
+    ) -> Result<Option<ForgeCommitPR>>;
     /// Find an open release PR matching the given branch criteria.
     async fn get_open_release_pr(
         &self,

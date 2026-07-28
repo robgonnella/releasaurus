@@ -383,6 +383,7 @@ set them as inline tables so they stay scoped to that entry:
 ```toml
 [defaults.changelog]
 include_author = true
+include_pr_link = true
 
 [defaults.versioning.named_parsers]
 ci.skip = true

@@ -16,8 +16,12 @@ use crate::{
         changelog::DEFAULT_BODY,
         versioning::{Group, NAMED_PARSERS, Parser},
     },
-    forge::request::{ForgeCommit, Tag},
+    forge::request::{ForgeCommit, ForgeCommitPR, Tag},
 };
+
+/// The entry a commit renders as when no PR segment is appended.
+const BARE_ENTRY: &str = "- a bug fix \
+                          [_(aaa1111)_](https://example.com/org/repo/commit/aaa1111)";
 
 fn make_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
     ForgeCommit {
@@ -26,6 +30,31 @@ fn make_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
         message: message.to_string(),
         timestamp,
         ..ForgeCommit::default()
+    }
+}
+
+/// A commit with a real `link`, so an empty `()` in the rendered entry can
+/// only have come from the PR segment.
+fn make_linked_commit(id: &str, message: &str, timestamp: i64) -> ForgeCommit {
+    ForgeCommit {
+        link: format!("https://example.com/org/repo/commit/{id}"),
+        ..make_commit(id, message, timestamp)
+    }
+}
+
+/// A commit carrying the PR that introduced it.
+fn make_commit_with_pr(
+    id: &str,
+    message: &str,
+    timestamp: i64,
+    pr_id: &str,
+) -> ForgeCommit {
+    ForgeCommit {
+        pr: Some(ForgeCommitPR {
+            id: pr_id.to_string(),
+            link: format!("https://example.com/org/repo/pulls/{pr_id}"),
+        }),
+        ..make_linked_commit(id, message, timestamp)
     }
 }
 
@@ -45,6 +74,33 @@ fn headings(notes: &str) -> Vec<String> {
         .filter_map(|l| l.strip_prefix("### "))
         .map(|l| l.to_string())
         .collect()
+}
+
+/// Returns the `- ` commit entry lines from rendered notes.
+fn entries(notes: &str) -> Vec<String> {
+    notes
+        .lines()
+        .filter(|l| l.starts_with("- "))
+        .map(|l| l.to_string())
+        .collect()
+}
+
+fn render_with_pr_link(
+    include_pr_link: bool,
+    commits: Vec<ForgeCommit>,
+) -> String {
+    let config = AnalyzerConfig {
+        body: DEFAULT_BODY.into(),
+        include_pr_link,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    analyzer
+        .analyze(commits, Some(current_tag()))
+        .unwrap()
+        .unwrap()
+        .notes
 }
 
 #[test]
@@ -252,5 +308,86 @@ fn default_body_omits_merge_commits_from_rendered_notes() {
         !release.notes.contains("Merge pull request"),
         "merge commit leaked into notes:\n{}",
         release.notes
+    );
+}
+
+#[test]
+fn default_body_renders_pr_link_when_enabled() {
+    // Guards the whole feature: `include_pr_link` has to travel from
+    // AnalyzerConfig onto the Release for the template guard to fire, so
+    // assert on the rendered markdown rather than on the flag itself.
+    let notes = render_with_pr_link(
+        true,
+        vec![make_commit_with_pr("aaa1111", "fix: a bug fix", 1000, "42")],
+    );
+
+    // Exact line, so a wrong label, a wrong URL, or a dropped segment all
+    // fail rather than passing on a loose substring match.
+    assert_eq!(
+        entries(&notes),
+        vec![
+            "- a bug fix \
+             [_(aaa1111)_](https://example.com/org/repo/commit/aaa1111) \
+             ([PR 42](https://example.com/org/repo/pulls/42))"
+                .to_string()
+        ],
+        "unexpected entry:\n{notes}"
+    );
+}
+
+#[test]
+fn default_body_renders_pr_link_for_breaking_commits() {
+    // The breaking branch of the template is a separate line and has its own
+    // copy of the guard.
+    let notes = render_with_pr_link(
+        true,
+        vec![make_commit_with_pr(
+            "aaa1111",
+            "feat!: drop legacy api\n\nBREAKING CHANGE: the v1 api is gone",
+            1000,
+            "99",
+        )],
+    );
+
+    assert!(
+        notes.contains("[**breaking**]: drop legacy api"),
+        "missing breaking marker:\n{notes}"
+    );
+    assert!(
+        notes.contains("([PR 99](https://example.com/org/repo/pulls/99))"),
+        "PR link missing from breaking entry:\n{notes}"
+    );
+}
+
+#[test]
+fn default_body_omits_pr_link_when_disabled() {
+    // Same commit as the enabled case, PR data still attached - only the
+    // config differs, so the segment can only be gated by the flag.
+    let notes = render_with_pr_link(
+        false,
+        vec![make_commit_with_pr("aaa1111", "fix: a bug fix", 1000, "42")],
+    );
+
+    assert_eq!(
+        entries(&notes),
+        vec![BARE_ENTRY.to_string()],
+        "PR link rendered despite include_pr_link = false:\n{notes}"
+    );
+}
+
+#[test]
+fn default_body_omits_pr_link_when_commit_has_no_pr() {
+    // Enabled globally, but this commit was pushed directly. Asserting the
+    // exact line catches a stray ` ()` or ` ([PR ]())` artifact, which a
+    // `contains` check on the title would sail past.
+    let notes = render_with_pr_link(
+        true,
+        vec![make_linked_commit("aaa1111", "fix: a bug fix", 1000)],
+    );
+
+    assert_eq!(
+        entries(&notes),
+        vec![BARE_ENTRY.to_string()],
+        "unexpected entry for a commit with no PR:\n{notes}"
     );
 }

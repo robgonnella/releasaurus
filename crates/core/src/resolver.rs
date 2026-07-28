@@ -41,6 +41,10 @@ pub struct ResolvedConfig {
     pub monorepo_pr_title_template: String,
     /// Resolved per-package config, indexed by package name.
     pub package_configs: ResolvedPackageHash,
+    /// When `true`, an additional request is made per changelog commit to
+    /// attach the PR that introduced it, if one exists. True when any package
+    /// enables `include_pr_link`.
+    pub pr_links_enabled: bool,
 }
 
 #[derive(Builder)]
@@ -112,6 +116,12 @@ impl Resolver {
             resolved_packages.push(resolved_package);
         }
 
+        // If no package renders PR links there is no reason to look any up,
+        // so collapse the per-package flags into one switch here.
+        let pr_links_enabled = resolved_packages
+            .iter()
+            .any(|p| p.analyzer_config.include_pr_link);
+
         let resolved_hash = ResolvedPackageHash::new(resolved_packages)?;
 
         Ok(Rc::new(ResolvedConfig {
@@ -119,6 +129,7 @@ impl Resolver {
             base_branch,
             package_configs: resolved_hash,
             separate_pull_requests,
+            pr_links_enabled,
             monorepo_commit_message_template: monorepo_templates.commit_message,
             monorepo_pr_title_template: monorepo_templates.pr_title,
         }))
@@ -129,7 +140,10 @@ impl Resolver {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::config::{defaults::DefaultsConfig, package::PackageConfig};
+    use crate::config::{
+        changelog::ChangelogConfig, defaults::DefaultsConfig,
+        package::PackageConfig,
+    };
 
     use super::*;
 
@@ -154,6 +168,94 @@ mod tests {
             name: name.into(),
             ..PackageConfig::default()
         }
+    }
+
+    fn changelog_with_pr_link(include_pr_link: bool) -> ChangelogConfig {
+        ChangelogConfig {
+            include_pr_link: Some(include_pr_link),
+            ..ChangelogConfig::default()
+        }
+    }
+
+    /// Builds a package that sets `include_pr_link` explicitly, rather than
+    /// inheriting it from `[defaults]`.
+    fn package_with_pr_links(name: &str, enabled: bool) -> PackageConfig {
+        PackageConfig {
+            changelog: Some(changelog_with_pr_link(enabled)),
+            ..package(name)
+        }
+    }
+
+    fn resolve_pr_links(
+        defaults: Option<bool>,
+        packages: Vec<PackageConfig>,
+    ) -> bool {
+        let resolver = resolver(Config {
+            defaults: DefaultsConfig {
+                changelog: defaults.map(changelog_with_pr_link),
+                ..DefaultsConfig::default()
+            },
+            ..Config::default()
+        });
+
+        resolver.resolve(packages).unwrap().pr_links_enabled
+    }
+
+    /// `pr_links_enabled` is the single switch that decides whether the
+    /// forge is asked for PR links at all. It is derived from the *resolved*
+    /// per-package values, so it accounts for defaults merging and CLI
+    /// overrides rather than re-reading the raw TOML.
+    #[test]
+    fn pr_links_disabled_when_nothing_opts_in() {
+        assert!(!resolve_pr_links(None, vec![package("a")]));
+    }
+
+    #[test]
+    fn pr_links_enabled_when_inherited_from_defaults() {
+        // The package sets no `changelog` at all, so it inherits the default.
+        assert!(resolve_pr_links(Some(true), vec![package("a")]));
+    }
+
+    #[test]
+    fn pr_links_enabled_when_a_single_package_opts_in() {
+        // Commits are enriched per package, but one package opting in is
+        // enough to make the lookups necessary.
+        assert!(resolve_pr_links(
+            None,
+            vec![package("a"), package_with_pr_links("b", true), package("c"),]
+        ));
+    }
+
+    #[test]
+    fn pr_links_disabled_when_explicitly_off_everywhere() {
+        assert!(!resolve_pr_links(
+            Some(false),
+            vec![package_with_pr_links("a", false)]
+        ));
+    }
+
+    /// A package's `changelog` merges field-by-field over `[defaults]`, so an
+    /// explicit `false` wins. With every package opted out there is nothing
+    /// left to render links for, so no lookups should happen either.
+    #[test]
+    fn pr_links_disabled_when_defaults_on_but_every_package_opts_out() {
+        assert!(!resolve_pr_links(
+            Some(true),
+            vec![
+                package_with_pr_links("a", false),
+                package_with_pr_links("b", false),
+            ]
+        ));
+    }
+
+    /// The inverse of the above: one package keeping the inherited default is
+    /// enough, even when its siblings opt out.
+    #[test]
+    fn pr_links_enabled_when_one_package_keeps_the_default() {
+        assert!(resolve_pr_links(
+            Some(true),
+            vec![package_with_pr_links("a", false), package("b")]
+        ));
     }
 
     /// `repo_name` and the two monorepo templates live on `ResolvedConfig`

@@ -135,11 +135,33 @@ In `[defaults.changelog]`:
 | Option                  | Default | Effect                                                                                                                                                |
 | ----------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `include_author`        | `false` | Adds the commit author's name to each entry                                                                                                           |
+| `include_pr_link`       | `false` | Adds a link to the pull request that introduced each commit                                                                                           |
 | `aggregate_prereleases` | `false` | When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see [Prereleases](./configuration.md#prereleases)) |
 
 To drop specific commits entirely or rewrite their messages — which also
 affects the version bump — see "Skipping or Rewording Commits" in the
 [configuration guide](./configuration.md#skipping-or-rewording-commits).
+
+### Pull request links
+
+`include_pr_link` appends the PR that introduced each commit, so an entry
+reads:
+
+```markdown
+- add retry handling [_(a1b2c3d)_](…/commit/a1b2c3d) ([PR 42](…/pull/42))
+```
+
+Only merged pull requests targeting the release branch are linked; commits
+pushed directly render without the segment.
+
+Two things are worth knowing before turning it on:
+
+- **It costs extra API requests** — roughly one per commit in the release.
+  Expect a slower run, and on a large first release, watch for forge rate
+  limits. A request that fails is logged as a warning and that entry renders
+  without a link; it never fails the release.
+- **Enabling it for one package incurs the cost for the whole run.** Other
+  packages still won't show links unless they enable it too.
 
 ## Per-package changelog
 
@@ -185,7 +207,7 @@ body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% 
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% if commit.body -%}
 > {{ commit.body }}
 {% endif -%}
@@ -193,11 +215,25 @@ body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% 
 > {{ commit.breaking_description }}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% endif -%}
 {% endfor %}
 {% endfor %}"""
 ```
+
+Note that `include_author` and `include_pr_link` only do anything where the
+template checks them. A **custom `body` gets nothing for free** — setting
+`include_pr_link = true` against a template with no `commit.pr` clause
+renders no links (while still paying for the lookups). Copy the guard above
+into your own template:
+
+```tera
+{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
+```
+
+Guard on `commit.pr` as well as the flag: commits pushed straight to the
+branch have no PR, and dereferencing `commit.pr.id` unguarded renders an
+empty link.
 
 A simpler custom template:
 
@@ -228,6 +264,7 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 | `short_sha`        | Abbreviated release commit SHA                                 |
 | `timestamp`        | Unix timestamp                                                 |
 | `include_author`   | Whether author display is enabled                              |
+| `include_pr_link`  | Whether PR-link display is enabled                             |
 
 ### Commit (each item in `commits`)
 
@@ -239,11 +276,20 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 | `title`                             | Message without type/scope           |
 | `body`                              | Optional extended description        |
 | `link`                              | URL to the commit                    |
+| `pr`                                | Introducing PR, or unset (see below) |
 | `breaking` / `breaking_description` | Breaking-change flag and details     |
 | `merge_commit`                      | Whether it's a merge commit          |
 | `timestamp`                         | Commit timestamp                     |
 | `author_name` / `author_email`      | Commit author                        |
 | `raw_title` / `raw_message`         | Original unprocessed title / message |
+
+`commit.pr` is only populated when `include_pr_link` is enabled and the
+commit arrived via a merged pull request. When present it carries:
+
+| Variable  | Description                        |
+| --------- | ---------------------------------- |
+| `pr.id`   | User-visible PR number (e.g. `42`) |
+| `pr.link` | URL to the pull request            |
 
 ## Tips
 
