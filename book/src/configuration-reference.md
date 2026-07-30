@@ -165,10 +165,10 @@ include_author = true
 include_pr_link = true
 ```
 
-`include_pr_link` has two properties worth noting. Enabling it for one
-package incurs its API cost for the whole run, even though rendering stays
-per package. And a custom `body` must carry the `commit.pr` clause itself;
-see [Pull request links](./changelog.md#pull-request-links).
+`include_pr_link` is paid for per package: one that leaves it off costs no
+requests even when a sibling turns it on. Note that a custom `body` must
+carry the `commit.pr` clause itself; see
+[Pull request links](./changelog.md#pull-request-links).
 
 ## `[[package]]`
 

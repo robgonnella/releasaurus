@@ -153,16 +153,10 @@ impl Serialize for Tag {
 }
 
 /// Represents the PR that introduced the commit to history
-#[derive(Debug, Clone, Default, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ForgeCommitPR {
     pub id: String,
     pub link: String,
-}
-
-impl PartialEq for ForgeCommitPR {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
 }
 
 /// Normalized commit data returned from any forge platform with metadata

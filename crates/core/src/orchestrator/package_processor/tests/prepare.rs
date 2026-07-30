@@ -14,7 +14,7 @@ use crate::{
         package::{PackageConfig, PackageConfigBuilder},
     },
     forge::{
-        request::{ForgeCommit, ForgeCommitBuilder, Tag},
+        request::{ForgeCommit, ForgeCommitBuilder, ForgeCommitPR, Tag},
         traits::MockForge,
     },
 };
@@ -368,4 +368,94 @@ async fn aggregate_prereleases_omits_prerelease_release_commits() {
         "prerelease release commit should be omitted"
     );
     assert_eq!(prepared[0].commits[0].id, "feature");
+}
+
+// --- include_pr_link gating ---
+
+fn pr_link_pkg(name: &str, path: &str, enabled: bool) -> PackageConfig {
+    PackageConfigBuilder::default()
+        .name(name)
+        .path(path)
+        .changelog(ChangelogConfig {
+            include_pr_link: Some(enabled),
+            ..ChangelogConfig::default()
+        })
+        .build()
+        .unwrap()
+}
+
+fn commit_under(id: &str, path: &str) -> ForgeCommit {
+    ForgeCommitBuilder::default()
+        .id(id)
+        .short_id(id)
+        .message(format!("feat: {id}"))
+        .timestamp(2000_i64)
+        .files(vec![format!("{path}/src/lib.rs")])
+        .build()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn pr_links_are_fetched_only_for_packages_that_opt_in() {
+    // The gate is per package, so a package rendering no links must cost no
+    // lookups even while a sibling opts in. `withf` is what enforces that:
+    // a lookup for pkg-b's sha matches no expectation and panics.
+    let mut mock = MockForge::new();
+
+    mock.expect_get_latest_tags_for_prefix()
+        .returning(|_, _, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0".to_string(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "sha-1.0.0".to_string(),
+                timestamp: Some(1000),
+            }])
+        });
+
+    mock.expect_get_commits().returning(|_, _| {
+        Ok(vec![
+            commit_under("sha-a", "packages/pkg-a"),
+            commit_under("sha-b", "packages/pkg-b"),
+        ])
+    });
+
+    mock.expect_get_merged_pull_request_for_commit()
+        .withf(|sha, _| sha == "sha-a")
+        .times(1)
+        .returning(|_, _| {
+            Ok(Some(ForgeCommitPR {
+                id: "42".into(),
+                link: "https://example.com/pulls/42".into(),
+            }))
+        });
+
+    let processor = create_package_processor(
+        mock,
+        Some(vec![
+            pr_link_pkg("pkg-a", "packages/pkg-a", true),
+            pr_link_pkg("pkg-b", "packages/pkg-b", false),
+        ]),
+        None,
+    );
+
+    let prepared = processor.prepare_packages(None).await.unwrap();
+
+    let commits_for = |name: &str| {
+        prepared
+            .iter()
+            .find(|p| p.name == name)
+            .unwrap_or_else(|| panic!("no prepared package {name}"))
+            .commits
+            .clone()
+    };
+
+    assert_eq!(
+        commits_for("pkg-a")[0].pr.as_ref().map(|pr| pr.id.as_str()),
+        Some("42"),
+        "the opted-in package should carry its PR"
+    );
+    assert!(
+        commits_for("pkg-b")[0].pr.is_none(),
+        "the opted-out package should carry no PR"
+    );
 }

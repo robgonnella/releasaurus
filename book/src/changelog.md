@@ -160,8 +160,9 @@ Two things are worth knowing before turning it on:
   Expect a slower run, and on a large first release, watch for forge rate
   limits. A request that fails is logged as a warning and that entry renders
   without a link; it never fails the release.
-- **Enabling it for one package incurs the cost for the whole run.** Other
-  packages still won't show links unless they enable it too.
+- **Only the packages that enable it pay for it.** A package that leaves it
+  off costs nothing, even when a sibling turns it on. Where two enabled
+  packages share a commit, that commit is looked up once.
 
 ## Per-package changelog
 
