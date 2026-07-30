@@ -186,7 +186,7 @@ pub struct UpdatePullRequest {
 }
 
 /// A pull request as returned by the Azure DevOps Pull Requests API.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AzurePullRequest {
     /// Numeric identifier of the pull request within the repository.
     #[serde(rename = "pullRequestId")]
@@ -211,7 +211,7 @@ pub struct AzurePullRequest {
 }
 
 /// A lightweight commit reference (ID only) embedded in pull request responses.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AzureCommitRef {
     /// SHA-1 identifier of the referenced commit.
     #[serde(rename = "commitId")]
@@ -248,13 +248,15 @@ pub struct PullRequestQueryInput<'a> {
     pub item_type: &'a str,
 }
 
-/// Request body for the `pullrequestquery` endpoint. The queries must be
-/// wrapped in this envelope — a bare [`PullRequestQueryInput`] is rejected,
-/// and Azure's schema expects `results` present even on the way in.
+/// Request body for the `pullrequestquery` endpoint. Azure's schema expects
+/// `results` present even on the way in.
 #[derive(Debug, Serialize)]
 pub struct PullRequestQuery<'a> {
     pub queries: Vec<PullRequestQueryInput<'a>>,
-    pub results: Vec<HashMap<String, Vec<AzurePullRequest>>>,
+    /// Only ever sent empty, to satisfy the schema. Typed as `Vec<()>`
+    /// rather than the response's shape so that answering a request is not
+    /// representable, and so [`AzurePullRequest`] needn't be `Serialize`.
+    pub results: Vec<()>,
 }
 
 /// Response from `pullrequestquery`. `results[n]` corresponds to
