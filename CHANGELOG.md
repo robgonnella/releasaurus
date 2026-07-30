@@ -1,3 +1,9 @@
+# [1.0.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.2...v1.0.0-rc.3) - 2026-07-30
+
+### 🚀 Features
+
+- adds options to include related PRs for commits [_(6867367)_](https://github.com/robgonnella/releasaurus/commit/6867367174220730fd3ab48192a22fcdbf56ecec) (Rob Gonnella) ([PR 353](https://github.com/robgonnella/releasaurus/pull/353))
+
 # [1.0.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.1...v1.0.0-rc.2) - 2026-07-27
 
 ### 🚀 Features
