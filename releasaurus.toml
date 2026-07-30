@@ -15,7 +15,7 @@ miscellaneous.skip = false
 
 [defaults.versioning.prerelease]
 strategy = "versioned"
-suffix = "rc"
+suffix = ""
 
 [[package]]
 name = "workspace"
