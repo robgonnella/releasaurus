@@ -20,11 +20,13 @@ jobs:
           release \
           --forge github \
           --repo https://github.com/robgonnella/releasaurus \
-          --token ${{ secrets.GH_TEST_TOKEN }}
+          --token ${{ secrets.GH_TEST_TOKEN }} \
+          --debug
       - name: release-pr
         run: |
           cargo run --bin releasaurus -- \
           release-pr \
           --forge github \
           --repo https://github.com/robgonnella/releasaurus \
-          --token ${{ secrets.GH_TEST_TOKEN }}
+          --token ${{ secrets.GH_TEST_TOKEN }} \
+          --debug
