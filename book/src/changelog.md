@@ -231,24 +231,43 @@ highlights breaking changes:
 
 ```toml
 [defaults.changelog]
-body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+body = '''# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
 {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% if commit.body -%}
-> {{ commit.body }}
+{%- set body_lines = commit.body | split(pat="\n") -%}
+{%- for body_line in body_lines %}
+> {{ body_line }}
+{%- endfor %}
 {% endif -%}
 {% if commit.breaking_description -%}
-> {{ commit.breaking_description }}
+{%- set breaking_lines = commit.breaking_description | split(pat="\n") -%}
+{%- for breaking_line in breaking_lines %}
+> {{ breaking_line }}
+{%- endfor %}
 {% endif -%}
 {% else -%}
 - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% endif -%}
 {% endfor %}
-{% endfor %}"""
+{% endfor %}'''
 ```
+
+Commit bodies and breaking descriptions are often several lines long, so
+the template splits them and gives every line its own `> `. Interpolating
+the field whole quotes only its first line and leaks the rest out as body
+text.
+
+The `'''` delimiters are deliberate. A TOML literal string passes the
+template through verbatim, so what you write is what Tera sees. A `"""`
+string processes escapes first, and it recognizes only a fixed set of
+them: the `\n` above survives as a real newline and Tera splits on that
+just the same, but any other backslash in a custom template — a `\d` in a
+regex, say — is a TOML parse error before Tera is ever reached. Prefer
+`'''` for templates.
 
 Note that `include_author` and `include_pr_link` only do anything where the
 template checks them. A **custom `body` gets nothing for free** — setting
