@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-67bafc63.js"></script>
+        <script src="toc-56585206.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -178,86 +178,257 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="changelog-customization"><a class="header" href="#changelog-customization">Changelog Customization</a></h1>
-<p>Releasaurus generates changelogs from conventional commits. Control what
-appears with the filtering options, and how it’s formatted with a Tera
-template — both in the <code>[changelog]</code> section of <code>releasaurus.toml</code>.</p>
-<h2 id="filtering-commits"><a class="header" href="#filtering-commits">Filtering Commits</a></h2>
-<p>Each <code>skip_*</code> flag drops a category of commit from the changelog; the
-remaining flags adjust what’s shown. Set them in <code>[changelog]</code>:</p>
-<pre><code class="language-toml">[changelog]
-skip_ci = true
-skip_chore = true
-skip_miscellaneous = true
-include_author = true
-
-[[package]]
-path = "."
-release_type = "node"
+<p>Releasaurus generates changelogs from conventional commits. Two sections
+of <code>releasaurus.toml</code> control the result:</p>
+<ul>
+<li><code>[defaults.versioning]</code> — which commits are included and how they’re
+grouped. These settings affect the <strong>version bump</strong> as well as the
+changelog, which is why they live alongside the versioning options.</li>
+<li><code>[defaults.changelog]</code> — how the included commits are rendered (the Tera
+template and display flags).</li>
+</ul>
+<p>Both can also be set <a href="#per-package-changelog">per package</a>.</p>
+<h2 id="commit-groups--filtering"><a class="header" href="#commit-groups--filtering">Commit Groups &amp; Filtering</a></h2>
+<p>Each commit is matched against a set of <strong>parsers</strong>. A parser decides
+which <code>group</code> (changelog heading) a commit belongs to, and whether the
+commit is skipped entirely. Configure them in <code>[defaults.versioning]</code>.</p>
+<p>A parser has four fields:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Type</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>pattern</code></td><td>regex</td><td>Matched against the raw commit message to decide if the parser applies</td></tr>
+<tr><td><code>title</code></td><td>string</td><td>The changelog heading commits in this group appear under</td></tr>
+<tr><td><code>order</code></td><td>int</td><td>Position of the heading in the changelog, <code>0</code>-<code>99</code>, lowest first</td></tr>
+<tr><td><code>skip</code></td><td>bool</td><td>When <code>true</code>, matching commits are dropped from <strong>both</strong> the changelog and version calculation</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="built-in-groups-named_parsers"><a class="header" href="#built-in-groups-named_parsers">Built-in groups (<code>named_parsers</code>)</a></h3>
+<p>Releasaurus ships with these default parsers:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Group (toml key)</th><th>Pattern</th><th>Default title</th><th>Order</th></tr>
+</thead>
+<tbody>
+<tr><td><code>breaking</code></td><td><em>(none)</em></td><td><code>❌ Breaking</code></td><td><code>0</code></td></tr>
+<tr><td><code>feature</code></td><td><code>^feat</code></td><td><code>🚀 Features</code></td><td><code>1</code></td></tr>
+<tr><td><code>fix</code></td><td><code>^fix</code></td><td><code>🐛 Bug Fixes</code></td><td><code>2</code></td></tr>
+<tr><td><code>revert</code></td><td><code>^revert</code></td><td><code>◀️ Revert</code></td><td><code>3</code></td></tr>
+<tr><td><code>refactor</code></td><td><code>^refactor</code></td><td><code>🚜 Refactor</code></td><td><code>4</code></td></tr>
+<tr><td><code>performance</code></td><td><code>^perf</code></td><td><code>⚡ Performance</code></td><td><code>5</code></td></tr>
+<tr><td><code>documentation</code></td><td><code>^doc</code></td><td><code>📚 Documentation</code></td><td><code>6</code></td></tr>
+<tr><td><code>style</code></td><td><code>^style</code></td><td><code>🎨 Styling</code></td><td><code>7</code></td></tr>
+<tr><td><code>test</code></td><td><code>^test</code></td><td><code>🧪 Testing</code></td><td><code>8</code></td></tr>
+<tr><td><code>chore</code></td><td><code>^chore</code></td><td><code>🧹 Chore</code></td><td><code>9</code></td></tr>
+<tr><td><code>ci</code></td><td><code>^ci</code></td><td><code>⏩ CI/CD</code></td><td><code>10</code></td></tr>
+<tr><td><code>miscellaneous</code></td><td><code>.*</code></td><td><code>⚙️ Miscellaneous Tasks</code></td><td><code>11</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>breaking</code> is the one group not selected by its <code>pattern</code>. A commit is
+breaking when conventional-commit syntax says so — a <code>!</code> before the
+colon, or a <code>BREAKING CHANGE:</code> footer — and breaking always wins over
+the commit’s type, so <code>feat!: …</code> lands under <code>❌ Breaking</code> rather than
+<code>🚀 Features</code>.</p>
+<p>Setting <code>breaking.pattern</code> <strong>adds to</strong> that detection rather than
+replacing it. Commits matching your pattern are treated as breaking on
+top of the ones conventional syntax already catches, so you cannot lose
+a <code>feat!:</code> by writing a pattern that doesn’t happen to match it:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+breaking.pattern = "^breaking"
 </code></pre>
+<p>With that config, both <code>breaking: drop the v1 endpoint</code> and
+<code>feat!: drop the v1 endpoint</code> are grouped under <code>❌ Breaking</code> and bump
+the major version.</p>
+<p><code>breaking.pattern</code> and <a href="./configuration-reference.html#custom-increment-regexes"><code>custom_major_increment_regex</code></a> are
+two spellings of the same thing — a pattern that marks a commit
+breaking. Either one groups the commit under <code>❌ Breaking</code>, marks it
+<code>[**breaking**]</code> in the default template, and bumps major. Setting both
+is fine; the two are combined, and a commit matching either is breaking.
+Reach for <code>breaking.pattern</code> when you are already customizing
+<code>named_parsers</code>, and <code>custom_major_increment_regex</code> when versioning is
+all you care about.</p>
+<p>Because breaking is decided before the type patterns are consulted,
+<code>skip</code> on another group cannot swallow a breaking commit — a <code>feat!:</code>
+reaches <code>❌ Breaking</code> even with <code>feature.skip = true</code>. The two ways a
+breaking change can still be dropped are both explicit: <code>breaking.skip = true</code>, or a custom parser with <code>skip = true</code> that matches it (see
+below).</p>
+<p>Override only the fields you want to change under
+<code>[defaults.versioning.named_parsers]</code>; everything you omit falls back to the
+built-in default. For example, to drop CI and chore commits — the only
+change needed is <code>skip</code>:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+</code></pre>
+<p>To skip a group, set its <code>skip = true</code>. You can also retitle a group,
+move it, or change its matching pattern the same way. A retitle does not
+move the group — position comes from <code>order</code> alone:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+feature.title = "✨ New Stuff"
+fix.order = 1                   # bug fixes above features
+feature.order = 2
+</code></pre>
+<h3 id="custom-groups-custom_parser"><a class="header" href="#custom-groups-custom_parser">Custom groups (<code>custom_parser</code>)</a></h3>
+<p>Define entirely new groups with <code>[[defaults.versioning.custom_parser]]</code>.
+Note the key is singular, matching the <code>[[package]]</code> convention. Each
+custom parser is checked <strong>before</strong> the built-in parsers, so it takes
+precedence over the defaults:</p>
+<pre><code class="language-toml">[[defaults.versioning.custom_parser]]
+pattern = "^deps"
+title = "📦 Dependencies"
+order = 3
+skip = false
+</code></pre>
+<p>Unlike named parsers, custom parsers have no defaults to fall back on:
+<code>pattern</code>, <code>title</code> and <code>order</code> are all required. Omitting any of them is
+a configuration error.</p>
+<p>Because custom parsers are checked first, they also win over <code>breaking</code> —
+so a custom parser with <code>skip = true</code> drops matching commits even when
+they are breaking changes, removing them from the changelog <strong>and</strong> from
+the version bump. Keep custom patterns narrow, or leave <code>skip = false</code>
+if you only want to regroup commits rather than discard them.</p>
+<h3 id="ordering-groups"><a class="header" href="#ordering-groups">Ordering groups</a></h3>
+<p>Each group’s <code>order</code> places its heading in the changelog, lowest first
+(see the table above for the built-in values). Groups sharing an <code>order</code>
+fall back to title order.</p>
+<p>Order is independent of the heading text, so retitling a group never
+moves it. Mechanically, <code>order</code> is rendered into the <code>group</code> attribute as
+an <code>&lt;!-- NN --&gt;</code> prefix, which the default template sorts on and then
+strips:</p>
+<pre><code class="language-tera">{% ... | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+</code></pre>
+<p>A custom template that sorts on <code>group</code> gets ordering for free; one that
+prints <code>{{ group }}</code> without <code>striptags</code> will show the prefix. See
+<a href="#the-body-template">The <code>body</code> Template</a> below for the full template.</p>
+<h3 id="other-options"><a class="header" href="#other-options">Other options</a></h3>
+<p>In <code>[defaults.versioning]</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Option</th><th>Default</th><th>Effect</th></tr>
 </thead>
 <tbody>
-<tr><td><code>skip_ci</code></td><td><code>false</code></td><td>Excludes <code>ci:</code> commits (e.g. <em>ci: update workflow</em>)</td></tr>
-<tr><td><code>skip_chore</code></td><td><code>false</code></td><td>Excludes <code>chore:</code> commits (e.g. <em>chore: update deps</em>)</td></tr>
-<tr><td><code>skip_doc</code></td><td><code>false</code></td><td>Excludes <code>docs:</code> commits</td></tr>
-<tr><td><code>skip_test</code></td><td><code>false</code></td><td>Excludes <code>test:</code> commits</td></tr>
-<tr><td><code>skip_style</code></td><td><code>false</code></td><td>Excludes <code>style:</code> commits</td></tr>
-<tr><td><code>skip_refactor</code></td><td><code>false</code></td><td>Excludes <code>refactor:</code> commits</td></tr>
-<tr><td><code>skip_perf</code></td><td><code>false</code></td><td>Excludes <code>perf:</code> commits</td></tr>
-<tr><td><code>skip_revert</code></td><td><code>false</code></td><td>Excludes <code>revert:</code> commits</td></tr>
-<tr><td><code>skip_miscellaneous</code></td><td><code>false</code></td><td>Excludes non-conventional commits (no recognized type prefix)</td></tr>
 <tr><td><code>skip_merge_commits</code></td><td><code>true</code></td><td>Excludes merge commits</td></tr>
+</tbody>
+</table>
+</div>
+<p>In <code>[defaults.changelog]</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Default</th><th>Effect</th></tr>
+</thead>
+<tbody>
 <tr><td><code>include_author</code></td><td><code>false</code></td><td>Adds the commit author’s name to each entry</td></tr>
+<tr><td><code>include_pr_link</code></td><td><code>false</code></td><td>Adds a link to the pull request that introduced each commit</td></tr>
 <tr><td><code>aggregate_prereleases</code></td><td><code>false</code></td><td>When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see <a href="./configuration.html#prereleases">Prereleases</a>)</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="dropping-or-rewriting-individual-commits"><a class="header" href="#dropping-or-rewriting-individual-commits">Dropping or rewriting individual commits</a></h3>
-<p><code>skip_shas</code> removes specific commits by SHA prefix (use 7+ characters).
-Handy for commits that shouldn’t affect versioning or appear in the
-changelog:</p>
-<pre><code class="language-toml">[changelog]
-skip_shas = ["abc123d", "def456e"]
+<p>To drop specific commits entirely or rewrite their messages — which also
+affects the version bump — see “Skipping or Rewording Commits” in the
+<a href="./configuration.html#skipping-or-rewording-commits">configuration guide</a>.</p>
+<h3 id="pull-request-links"><a class="header" href="#pull-request-links">Pull request links</a></h3>
+<p><code>include_pr_link</code> appends the PR that introduced each commit, so an entry
+reads:</p>
+<pre><code class="language-markdown">- add retry handling [_(a1b2c3d)_](…/commit/a1b2c3d) ([PR 42](…/pull/42))
 </code></pre>
-<p><code>reword</code> rewrites a commit’s message in the changelog. The new message
-affects <strong>both</strong> the changelog text <strong>and</strong> the version bump — changing
-<code>fix:</code> to <code>feat:</code>, for example, bumps minor instead of patch:</p>
-<pre><code class="language-toml">[[changelog.reword]]
-sha = "abc123d"
-message = "feat: added user authentication"
+<p>Only merged pull requests targeting the release branch are linked; commits
+pushed directly render without the segment.</p>
+<p>Two things are worth knowing before turning it on:</p>
+<ul>
+<li><strong>It costs extra API requests</strong> — roughly one per commit in the release.
+Expect a slower run, and on a large first release, watch for forge rate
+limits. A request that fails is logged as a warning and that entry renders
+without a link; it never fails the release.</li>
+<li><strong>Only the packages that enable it pay for it.</strong> A package that leaves it
+off costs nothing, even when a sibling turns it on. Where two enabled
+packages share a commit, that commit is looked up once.</li>
+</ul>
+<h2 id="per-package-changelog"><a class="header" href="#per-package-changelog">Per-package changelog</a></h2>
+<p>Everything on this page applies to every package by default. To customize
+a single package, set the same fields on that package’s <code>changelog</code> and
+<code>versioning</code> keys — matching the <code>[defaults]</code> table each option belongs
+to.
+Packages are an array of tables (<code>[[package]]</code>), so use an <strong>inline
+table</strong> to keep it scoped to the right entry:</p>
+<pre><code class="language-toml">[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = true }
+versioning = { named_parsers = { ci = { skip = true } } }
 </code></pre>
-<p>Both have CLI equivalents for one-off runs: <code>--skip-sha &lt;sha&gt;</code> and
-<code>--reword &lt;sha&gt;=&lt;message&gt;</code>. The
-<a href="./configuration-reference.html#changelog">Configuration Reference</a> lists
-these options again in terse lookup form.</p>
+<p>Both keys <strong>merge field-by-field</strong> with their <code>[defaults]</code> counterpart:
+any field you set on the package wins, and any field you omit is
+inherited from <code>[defaults]</code> (falling back to the built-in default).
+<code>custom_parser</code> entries from <code>[defaults]</code> and the package are combined,
+with the package’s checked first, and <code>named_parsers</code> overrides apply per
+group and per field — so the example above turns on <code>include_author</code> and
+skips <code>ci</code> for <code>frontend</code> while still inheriting every other default. The
+one
+exception is <code>versioning.prerelease</code>, which is replaced as a whole table
+rather than merged. See
+<a href="./configuration-reference.html#per-package-overrides">Per-package overrides</a>
+in the reference for the exact precedence rules.</p>
 <h2 id="the-body-template"><a class="header" href="#the-body-template">The <code>body</code> Template</a></h2>
 <p><code>body</code> is a <a href="https://keats.github.io/tera/">Tera</a> template rendered once
 per release. The default groups commits by type, links each commit, and
 highlights breaking changes:</p>
-<pre><code class="language-toml">[changelog]
-body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+<pre><code class="language-toml">[defaults.changelog]
+body = '''# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% if commit.body -%}
-&gt; {{ commit.body }}
+{%- set body_lines = commit.body | split(pat="\n") -%}
+{%- for body_line in body_lines %}
+&gt; {{ body_line }}
+{%- endfor %}
 {% endif -%}
 {% if commit.breaking_description -%}
-&gt; {{ commit.breaking_description }}
+{%- set breaking_lines = commit.breaking_description | split(pat="\n") -%}
+{%- for breaking_line in breaking_lines %}
+&gt; {{ breaking_line }}
+{%- endfor %}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% endif -%}
 {% endfor %}
-{% endfor %}"""
+{% endfor %}'''
 </code></pre>
+<p>Commit bodies and breaking descriptions are often several lines long, so
+the template splits them and gives every line its own <code>&gt; </code>. Interpolating
+the field whole quotes only its first line and leaks the rest out as body
+text.</p>
+<p>The <code>'''</code> delimiters are deliberate. A TOML literal string passes the
+template through verbatim, so what you write is what Tera sees. A <code>"""</code>
+string processes escapes first, and it recognizes only a fixed set of
+them: the <code>\n</code> above survives as a real newline and Tera splits on that
+just the same, but any other backslash in a custom template — a <code>\d</code> in a
+regex, say — is a TOML parse error before Tera is ever reached. Prefer
+<code>'''</code> for templates.</p>
+<p>Note that <code>include_author</code> and <code>include_pr_link</code> only do anything where the
+template checks them. A <strong>custom <code>body</code> gets nothing for free</strong> — setting
+<code>include_pr_link = true</code> against a template with no <code>commit.pr</code> clause
+renders no links (while still paying for the lookups). Copy the guard above
+into your own template:</p>
+<pre><code class="language-tera">{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
+</code></pre>
+<p>Guard on <code>commit.pr</code> as well as the flag: commits pushed straight to the
+branch have no PR, and dereferencing <code>commit.pr.id</code> unguarded renders an
+empty link.</p>
 <p>A simpler custom template:</p>
-<pre><code class="language-toml">[changelog]
+<pre><code class="language-toml">[defaults.changelog]
 body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
 
 {% for group, commits in commits | group_by(attribute="group") %}
@@ -281,8 +452,10 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 <tr><td><code>tag_compare_link</code></td><td>Diff vs. previous tag (empty for first release)</td></tr>
 <tr><td><code>sha_compare_link</code></td><td>Diff vs. previous tag, by commit SHA (empty for first release)</td></tr>
 <tr><td><code>sha</code></td><td>Release commit SHA</td></tr>
+<tr><td><code>short_sha</code></td><td>Abbreviated release commit SHA</td></tr>
 <tr><td><code>timestamp</code></td><td>Unix timestamp</td></tr>
 <tr><td><code>include_author</code></td><td>Whether author display is enabled</td></tr>
+<tr><td><code>include_pr_link</code></td><td>Whether PR-link display is enabled</td></tr>
 </tbody>
 </table>
 </div>
@@ -299,11 +472,25 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 <tr><td><code>title</code></td><td>Message without type/scope</td></tr>
 <tr><td><code>body</code></td><td>Optional extended description</td></tr>
 <tr><td><code>link</code></td><td>URL to the commit</td></tr>
+<tr><td><code>pr</code></td><td>Introducing PR, or unset (see below)</td></tr>
 <tr><td><code>breaking</code> / <code>breaking_description</code></td><td>Breaking-change flag and details</td></tr>
 <tr><td><code>merge_commit</code></td><td>Whether it’s a merge commit</td></tr>
 <tr><td><code>timestamp</code></td><td>Commit timestamp</td></tr>
 <tr><td><code>author_name</code> / <code>author_email</code></td><td>Commit author</td></tr>
 <tr><td><code>raw_title</code> / <code>raw_message</code></td><td>Original unprocessed title / message</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>commit.pr</code> is only populated when <code>include_pr_link</code> is enabled and the
+commit arrived via a merged pull request. When present it carries:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>pr.id</code></td><td>User-visible PR number (e.g. <code>42</code>)</td></tr>
+<tr><td><code>pr.link</code></td><td>URL to the pull request</td></tr>
 </tbody>
 </table>
 </div>

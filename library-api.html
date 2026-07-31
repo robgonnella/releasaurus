@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-67bafc63.js"></script>
+        <script src="toc-56585206.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -184,23 +184,23 @@ instead of shelling out to the CLI. (For CI/CD and simple automation, the
 CLI is the better choice.)</p>
 <h2 id="adding-the-dependency"><a class="header" href="#adding-the-dependency">Adding the Dependency</a></h2>
 <pre><code class="language-toml">[dependencies]
-releasaurus-core = "0.14"
+releasaurus-core = "x.x.x"
 tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 </code></pre>
 <h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
 <pre><code class="language-text">Orchestrator            (pipeline entry point)
   └─ ResolvedConfig     (merged settings)
-  └─ ResolvedPackageHash (resolved package configs)
+       └─ ResolvedPackageHash (resolved package configs)
   └─ ForgeManager       (caching + dry-run wrapper)
        └─ Forge         (GitHub / GitLab / Gitea / Local)
 </code></pre>
-<p>All operations go through <code>Orchestrator</code>, which needs three pieces:</p>
+<p>All operations go through <code>Orchestrator</code>, which needs two pieces:</p>
 <ol>
 <li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code>.</li>
-<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the loaded
-TOML plus any runtime overrides.</li>
-<li>A <strong><code>ResolvedPackageHash</code></strong> — the resolved packages, produced alongside
-<code>ResolvedConfig</code> by <code>Resolver::resolve()</code>.</li>
+<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the
+loaded TOML plus any runtime overrides, then produced by
+<code>Resolver::resolve()</code>. It carries the base branch, the PR-splitting
+flag, and a <code>ResolvedPackageHash</code> of the resolved packages.</li>
 </ol>
 <p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full builder
 chain with per-step comments.</p>

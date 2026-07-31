@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-67bafc63.js"></script>
+        <script src="toc-56585206.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -234,7 +234,7 @@ releasaurus start-next --repo "https://github.com/owner/repo" \
 <p><strong>Note:</strong> This commits directly to your base branch. Ensure your branch
 protection rules permit it. It can also run automatically after
 <code>release</code> — see
-<a href="./configuration-reference.html#global-settings"><code>auto_start_next</code></a>.</p>
+<a href="./configuration-reference.html#defaultsversioning"><code>auto_start_next</code></a>.</p>
 </blockquote>
 <h2 id="get"><a class="header" href="#get"><code>get</code></a></h2>
 <p>Queries release information as JSON without making any changes — useful
@@ -365,6 +365,7 @@ CI settings.</p>
 <tbody>
 <tr><td><code>--base-branch &lt;branch&gt;</code></td><td>Override the base branch</td></tr>
 <tr><td><code>--tag-prefix &lt;prefix&gt;</code></td><td>Global tag prefix for all packages</td></tr>
+<tr><td><code>--version-type &lt;value&gt;</code></td><td>Global version type for all packages</td></tr>
 <tr><td><code>--prerelease-suffix &lt;suffix&gt;</code></td><td>Global prerelease suffix (empty <code>""</code> disables)</td></tr>
 <tr><td><code>--prerelease-strategy &lt;versioned|static&gt;</code></td><td>Global prerelease strategy</td></tr>
 <tr><td><code>--skip-sha &lt;sha&gt;</code></td><td>Skip a commit by SHA prefix (repeatable)</td></tr>
@@ -374,17 +375,24 @@ CI settings.</p>
 </table>
 </div>
 <p><code>--set-package</code> takes precedence over all other overrides and config.
-Supported properties: <code>tag_prefix</code>, <code>prerelease.suffix</code>,
-<code>prerelease.strategy</code>. Setting an unsupported property prints an error
-listing valid values.</p>
+Supported properties: <code>tag_prefix</code>, <code>versioning.version_type</code>,
+<code>versioning.prerelease.suffix</code>, <code>versioning.prerelease.strategy</code>. Setting an
+unsupported property prints an error listing valid values.</p>
 <p><strong>Precedence (highest to lowest):</strong> <code>--set-package</code> → global CLI
-overrides → package config → global config → defaults.</p>
+overrides → <code>[[package]]</code> config → <code>[defaults]</code> config → built-in
+defaults.</p>
 <pre><code class="language-bash"># Override base branch and global prerelease suffix
 releasaurus release-pr --base-branch develop --prerelease-suffix beta \
   --repo "https://github.com/owner/repo"
 
 # Per-package override (e.g. only the frontend gets a beta suffix)
-releasaurus release-pr --set-package frontend.prerelease.suffix=beta \
+releasaurus release-pr \
+  --set-package frontend.versioning.prerelease.suffix=beta \
+  --repo "https://github.com/owner/repo"
+
+# Date-based versioning for just the nightly package
+releasaurus release-pr \
+  --set-package nightly.versioning.version_type=year.month.day \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another
@@ -446,6 +454,30 @@ Branches → {release branch}</strong>, setting <strong>Allow rewriting history<
 <em>Allow</em> for the identity holding the PAT. Azure DevOps <code>release</code> also only
 pushes the git tag — there is no native release object, so no release
 notes page is published.</p>
+<h3 id="azure-devops-merge-commits-are-not-detected"><a class="header" href="#azure-devops-merge-commits-are-not-detected">Azure DevOps: Merge Commits Are Not Detected</a></h3>
+<p>Azure DevOps omits the <code>parents</code> field from its commit <strong>list</strong> API — only
+the single-commit endpoint returns it. Releasaurus reads history in bulk, so
+recovering parents would cost one extra API request per commit. Every Azure
+commit is therefore reported as a non-merge commit.</p>
+<p>Two settings quietly have no effect as a result:</p>
+<ul>
+<li><code>skip_merge_commits</code> (default <code>true</code>) filters nothing out.</li>
+<li>The default <code>body</code> template’s
+<code>filter(attribute="merge_commit", value=false)</code> clause excludes nothing.</li>
+</ul>
+<p>This only matters for completion strategies that create a merge commit. If
+you complete PRs with <strong>Merge (no fast forward)</strong> or <strong>Semi-linear merge</strong>,
+Azure adds a commit titled <code>Merged PR &lt;n&gt;: &lt;PR title&gt;</code> on top of the source
+branch’s own commits. That commit becomes its own changelog entry, so the
+PR’s change is represented twice — once by the merge commit, once by the
+commits it brought in.</p>
+<p><strong>Fix (recommended):</strong> complete PRs with <strong>Squash commit</strong>. Azure then adds
+a single commit per PR, so there is nothing to filter and no duplication.
+<strong>Rebase and fast-forward</strong> is likewise unaffected, since it creates no
+merge commit.</p>
+<p><strong>Alternative:</strong> drop individual merge commits with <code>skip_shas</code> (see
+<a href="./configuration.html#skipping-or-rewording-commits">Skipping or Rewording Commits</a>). That setting applies to the
+next release only, so it has to be repeated each cycle.</p>
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
 <pre><code class="language-bash">releasaurus --help          # general help
 releasaurus &lt;cmd&gt; --help    # command-specific help
@@ -456,7 +488,7 @@ releasaurus --version       # version information
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="getting-started.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="migration-0.22-to-1.0.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -470,7 +502,7 @@ releasaurus --version       # version information
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="getting-started.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="migration-0.22-to-1.0.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

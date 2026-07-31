@@ -1,0 +1,614 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>v0.22 to v1.0 - Releasaurus</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-56585206.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Releasaurus</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/robgonnella/releasaurus" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="migration-guide"><a class="header" href="#migration-guide">Migration Guide</a></h1>
+<p>Upgrading from <strong>v0.22.x</strong> to <strong>v1.0.0</strong>.</p>
+<p>This release restructures <code>releasaurus.toml</code> completely, changes two
+<code>--set-package</code> override paths, drops support for two legacy release-PR
+state formats, and reshapes the <code>releasaurus-core</code> public API. Nothing
+here is optional: a 0.22 config will not load on 1.0.0.</p>
+<h2 id="at-a-glance"><a class="header" href="#at-a-glance">At a glance</a></h2>
+<ol>
+<li><a href="#before-you-upgrade-drain-open-release-prs">Before you upgrade</a> —
+drain release PRs created by versions older than v0.17.0.</li>
+<li><a href="#toml-config-restructure">TOML config restructure</a> — every key now
+lives under <code>[repository]</code>, <code>[defaults]</code>, or <code>[[package]]</code>.</li>
+<li><a href="#cli-override-paths">CLI override paths</a> — prerelease
+<code>--set-package</code> paths gained a <code>versioning.</code> segment.</li>
+<li><a href="#monorepo-commit-message-and-pr-title">Monorepo commit message and PR
+title</a> — the default now
+includes the repository name.</li>
+<li><a href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code></a>
+— matching commits are now grouped as breaking, not just bumped.</li>
+<li><a href="#library-api">Library API</a> — for Rust consumers of
+<code>releasaurus-core</code>.</li>
+</ol>
+<p>Unknown keys are now rejected at config load. A key you forget to move
+is a hard error naming the offending field, not a silent no-op, so the
+upgrade fails loudly rather than quietly computing the wrong version.
+Work through section 2 and let the error messages guide you.</p>
+<h2 id="before-you-upgrade-drain-open-release-prs"><a class="header" href="#before-you-upgrade-drain-open-release-prs">Before you upgrade: drain open release PRs</a></h2>
+<p>Releasaurus keeps release state in the PR itself — a <code>releasaurus</code>
+label and a JSON metadata block in the PR body. v1.0.0 removes the
+compatibility shims for the pre-v0.17.0 forms of both:</p>
+<ul>
+<li>The legacy pending label <code>releasaurus:pending</code> (single colon) is no
+longer recognized. Only the scoped <code>releasaurus::pending</code> is, which
+has been the format written since v0.17.0-rc.1.</li>
+<li>The legacy PR-body metadata format is no longer parsed. Only the
+current JSON HTML-comment block is, written since v0.17.0-rc.2.</li>
+</ul>
+<p><strong>Who this affects:</strong> only repositories with an open — or merged but
+not yet released — release PR created by a version <strong>older than
+v0.17.0</strong>. After upgrading, <code>releasaurus release</code> will not find that
+PR, so its tag and release are never published.</p>
+<p><strong>What to do:</strong> while still on 0.22.x, either merge the PR and run
+<code>releasaurus release</code> to finish it, or close it and let v1.0.0 open a
+fresh one. If your last release ran on v0.17.0 or newer, there is
+nothing to do.</p>
+<h2 id="toml-config-restructure"><a class="header" href="#toml-config-restructure">TOML config restructure</a></h2>
+<p>Configuration is now grouped under three top-level tables:</p>
+<ul>
+<li><code>[repository]</code> — settings that apply to the repository as a whole.</li>
+<li><code>[defaults]</code> — release defaults for every package, with
+<code>[defaults.versioning]</code> and <code>[defaults.changelog]</code> subtables.</li>
+<li><code>[[package]]</code> — one entry per package, unchanged in spirit; each may
+override <code>[defaults]</code> with its own <code>versioning</code> and <code>changelog</code>.</li>
+</ul>
+<p>The full reference lives in the
+<a href="./configuration-reference.html">Configuration Reference</a>. The tables
+below cover only what moved.</p>
+<h3 id="root-level-keys"><a class="header" href="#root-level-keys">Root-level keys</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>base_branch</code></td><td><code>[repository].base_branch</code></td></tr>
+<tr><td><code>first_release_search_depth</code></td><td><code>[repository].first_release_search_depth</code></td></tr>
+<tr><td><code>tag_search_depth</code></td><td><code>[repository].tag_search_depth</code></td></tr>
+<tr><td><code>separate_pull_requests</code></td><td><code>[repository].separate_pull_requests</code></td></tr>
+<tr><td><code>auto_start_next</code></td><td><code>[defaults.versioning].auto_start_next</code></td></tr>
+<tr><td><code>breaking_always_increment_major</code></td><td><code>[defaults.versioning].breaking_always_increment_major</code></td></tr>
+<tr><td><code>features_always_increment_minor</code></td><td><code>[defaults.versioning].features_always_increment_minor</code></td></tr>
+<tr><td><code>custom_major_increment_regex</code></td><td><code>[defaults.versioning].custom_major_increment_regex</code></td></tr>
+<tr><td><code>custom_minor_increment_regex</code></td><td><code>[defaults.versioning].custom_minor_increment_regex</code></td></tr>
+<tr><td><code>[prerelease]</code></td><td><code>[defaults.versioning.prerelease]</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="the-changelog-table"><a class="header" href="#the-changelog-table">The <code>[changelog]</code> table</a></h3>
+<p>The old <code>[changelog]</code> table mixed two concerns, so its keys split three
+ways. Options that only affect how commits are <em>rendered</em> stay in
+<code>[defaults.changelog]</code>. Options that determine which commits are
+<em>counted</em>, and therefore change the computed version, moved to
+<code>[defaults.versioning]</code>. <code>skip_shas</code> and <code>reword</code> act on the
+repository’s shared commit history and cannot be scoped to a package,
+so they moved to <code>[repository]</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x <code>[changelog]</code></th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>body</code></td><td><code>[defaults.changelog].body</code></td></tr>
+<tr><td><code>include_author</code></td><td><code>[defaults.changelog].include_author</code></td></tr>
+<tr><td><code>aggregate_prereleases</code></td><td><code>[defaults.changelog].aggregate_prereleases</code></td></tr>
+<tr><td><code>skip_merge_commits</code></td><td><code>[defaults.versioning].skip_merge_commits</code></td></tr>
+<tr><td><code>skip_shas</code></td><td><code>[repository].skip_shas</code></td></tr>
+<tr><td><code>[[changelog.reword]]</code></td><td><code>[[repository.reword]]</code></td></tr>
+<tr><td>the nine <code>skip_*</code> flags</td><td><code>[defaults.versioning.named_parsers]</code> — see below</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="skip_-flags-become-named_parsers"><a class="header" href="#skip_-flags-become-named_parsers"><code>skip_*</code> flags become <code>named_parsers</code></a></h3>
+<p>The nine per-type skip flags are replaced by the <code>named_parsers</code> table,
+where each commit group carries a <code>pattern</code>, <code>title</code>, <code>order</code>, and
+<code>skip</code>. Setting <code>skip = true</code> on a group is the direct equivalent of
+the old flag:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>skip_ci</code></td><td><code>ci.skip</code></td></tr>
+<tr><td><code>skip_chore</code></td><td><code>chore.skip</code></td></tr>
+<tr><td><code>skip_doc</code></td><td><code>documentation.skip</code></td></tr>
+<tr><td><code>skip_test</code></td><td><code>test.skip</code></td></tr>
+<tr><td><code>skip_style</code></td><td><code>style.skip</code></td></tr>
+<tr><td><code>skip_refactor</code></td><td><code>refactor.skip</code></td></tr>
+<tr><td><code>skip_perf</code></td><td><code>performance.skip</code></td></tr>
+<tr><td><code>skip_revert</code></td><td><code>revert.skip</code></td></tr>
+<tr><td><code>skip_miscellaneous</code></td><td><code>miscellaneous.skip</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Three group names are spelled out rather than abbreviated — watch
+<code>documentation</code> (not <code>doc</code>), <code>performance</code> (not <code>perf</code>), and <code>feature</code>
+(not <code>feat</code>) if you go on to retitle or reorder groups. The full set is
+<code>breaking</code>, <code>feature</code>, <code>fix</code>, <code>revert</code>, <code>refactor</code>, <code>performance</code>,
+<code>documentation</code>, <code>style</code>, <code>test</code>, <code>chore</code>, <code>ci</code>, <code>miscellaneous</code>.</p>
+<p>So this:</p>
+<pre><code class="language-text">[changelog]
+skip_ci = true
+skip_chore = true
+</code></pre>
+<p>becomes:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+</code></pre>
+<p><code>named_parsers</code> merges field-by-field over the built-in defaults, so
+naming one group leaves the other eleven untouched — you never have to
+restate the whole set.</p>
+<p><strong>Filtering behavior is unchanged.</strong> In 0.22.x a skipped commit was
+dropped before it reached version calculation, so skipping a group
+already suppressed both its changelog entries and its version bump.
+Only the config location moved. What is new is that groups the old
+flags could not reach — <code>feature</code>, <code>fix</code>, <code>breaking</code> — can now be
+skipped too, and that you can define additional groups with
+<code>[[defaults.versioning.custom_parser]]</code>.</p>
+<h3 id="package-level-keys"><a class="header" href="#package-level-keys">Package-level keys</a></h3>
+<p>Six keys are no longer direct <code>[[package]]</code> keys. They now live under
+the package’s <code>versioning</code> table, mirroring <code>[defaults.versioning]</code>:</p>
+<ul>
+<li><code>prerelease</code></li>
+<li><code>auto_start_next</code></li>
+<li><code>breaking_always_increment_major</code></li>
+<li><code>features_always_increment_minor</code></li>
+<li><code>custom_major_increment_regex</code></li>
+<li><code>custom_minor_increment_regex</code></li>
+</ul>
+<p>Unchanged: <code>name</code>, <code>path</code>, <code>workspace_root</code>, <code>release_type</code>,
+<code>tag_prefix</code>, <code>sub_packages</code>, <code>additional_paths</code>, and
+<code>additional_manifest_files</code>.</p>
+<p>Because packages are an array of tables, set <code>versioning</code> as an
+<strong>inline table</strong> on the package entry. A separate <code>[package.versioning]</code>
+header would bind to whichever <code>[[package]]</code> was declared last, which
+is almost never what you want:</p>
+<p>Before:</p>
+<pre><code class="language-text">[[package]]
+name = "backend"
+path = "./services/api"
+prerelease = { suffix = "alpha", strategy = "versioned" }
+</code></pre>
+<p>After:</p>
+<pre><code class="language-toml">[[package]]
+name = "backend"
+path = "./services/api"
+versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
+</code></pre>
+<p>One asymmetry to be aware of when splitting config across <code>[defaults]</code>
+and packages: a package’s <code>versioning</code> and <code>changelog</code> tables merge
+field-by-field with their <code>[defaults]</code> counterpart, but <code>prerelease</code>
+<strong>replaces</strong> the <code>[defaults]</code> one outright. <code>suffix</code> and <code>strategy</code>
+describe a single prerelease identity, so restate <code>strategy</code> alongside
+a package-level <code>suffix</code> whenever your default strategy is not the
+built-in <code>versioned</code>.</p>
+<h3 id="worked-example"><a class="header" href="#worked-example">Worked example</a></h3>
+<p>This repository’s own config, before and after. Before:</p>
+<pre><code class="language-text">#:schema ./schema/schema.json
+
+tag_search_depth = 25
+
+[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = false
+include_author = true
+aggregate_prereleases = true
+
+[prerelease]
+strategy = "versioned"
+suffix = "rc"
+
+[[package]]
+name = "workspace"
+tag_prefix = "v"
+release_type = "rust"
+</code></pre>
+<p>After:</p>
+<pre><code class="language-toml">#:schema ./schema/schema.json
+
+[repository]
+tag_search_depth = 25
+
+[defaults.changelog]
+include_author = true
+aggregate_prereleases = true
+
+[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+miscellaneous.skip = false
+
+[defaults.versioning.prerelease]
+strategy = "versioned"
+suffix = "rc"
+
+[[package]]
+name = "workspace"
+tag_prefix = "v"
+release_type = "rust"
+</code></pre>
+<h2 id="cli-override-paths"><a class="header" href="#cli-override-paths">CLI override paths</a></h2>
+<p>Two <code>--set-package</code> paths gained a <code>versioning.</code> segment so that they
+mirror the TOML layout they override:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;pkg&gt;.prerelease.suffix=&lt;value&gt;</code></td><td><code>&lt;pkg&gt;.versioning.prerelease.suffix=&lt;value&gt;</code></td></tr>
+<tr><td><code>&lt;pkg&gt;.prerelease.strategy=&lt;value&gt;</code></td><td><code>&lt;pkg&gt;.versioning.prerelease.strategy=&lt;value&gt;</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-bash"># v0.22.x
+releasaurus release-pr --set-package frontend.prerelease.suffix=beta ...
+
+# v1.0.0
+releasaurus release-pr \
+  --set-package frontend.versioning.prerelease.suffix=beta ...
+</code></pre>
+<p><code>&lt;pkg&gt;.tag_prefix</code> is unchanged, and so are all the global flags:
+<code>--base-branch</code>, <code>--tag-prefix</code>, <code>--prerelease-suffix</code>,
+<code>--prerelease-strategy</code>, <code>--skip-sha</code>, and <code>--reword</code>. Emptying a
+suffix to disable prereleases still works the same way
+(<code>--set-package &lt;pkg&gt;.versioning.prerelease.suffix=</code>).</p>
+<p>A stale path now fails with a config error naming the offending
+override rather than being silently ignored, so a missed occurrence in
+a CI workflow surfaces on the next run instead of producing an
+unexpected version.</p>
+<h2 id="monorepo-commit-message-and-pr-title"><a class="header" href="#monorepo-commit-message-and-pr-title">Monorepo commit message and PR title</a></h2>
+<p>Release commit messages and PR titles are now rendered from Tera
+templates, and the default for combined monorepo PRs includes the
+repository name. This is one of two changes that alter output without
+any config edit on your part (the other is
+<a href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code></a>),
+so check anything that matches on release PR titles — branch protection
+rules, required status checks, CI <code>if:</code> conditions, merge automation.</p>
+<p>0.22.x picked the format from how many packages happened to be in the
+PR on that run:</p>
+<ul>
+<li>one package in the PR — <code>chore(&lt;branch&gt;): release &lt;pkg&gt; &lt;tag&gt;</code></li>
+<li>more than one — a bare <code>chore(&lt;branch&gt;): release</code></li>
+</ul>
+<p>1.0.0 picks from config instead. A repo with <code>separate_pull_requests = true</code>, or with a single <code>[[package]]</code>, uses the per-package template
+(default <code>chore({{ branch }}): release {{ package_name }} {{ tag }}</code>,
+identical to before). Any other repo produces a combined PR and uses
+the monorepo template, whose default is:</p>
+<pre><code class="language-text">chore({{ branch }}): release {{ repo_name }}
+</code></pre>
+<p>For a multi-package repo with <code>separate_pull_requests = false</code>, that
+means the title now always carries the repository name and no longer
+collapses to <code>release &lt;pkg&gt; &lt;tag&gt;</code> on runs where only one package
+changed. Deciding from config keeps the format stable from one release
+to the next.</p>
+<p>To keep the old bare title, set the templates explicitly:</p>
+<pre><code class="language-toml">[defaults]
+monorepo_commit_message_template = "chore({{ branch }}): release"
+monorepo_pr_title_template = "chore({{ branch }}): release"
+</code></pre>
+<p>The monorepo templates have <code>branch</code> and <code>repo_name</code> in scope. The
+per-package templates additionally have <code>package_name</code>, <code>tag</code>, and
+<code>semver</code>. Referencing a variable that is not in scope is rejected at
+config load.</p>
+<h2 id="custom_major_increment_regex-now-groups-commits-as-breaking"><a class="header" href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code> now groups commits as breaking</a></h2>
+<p>The key moved to <code>[defaults.versioning]</code> like the rest, but its effect
+also widened. In 0.22.x it only influenced the version bump; a matching
+commit still appeared under whatever group its type prefix selected. In
+1.0.0 a commit it matches is treated as breaking outright: grouped under
+<code>❌ Breaking</code>, marked <code>[**breaking**]</code> in the default body template, and
+bumping major as before.</p>
+<p><strong>Who this affects:</strong> anyone who already sets
+<code>custom_major_increment_regex</code>. No config edit is required and the
+computed version does not change — only which changelog heading those
+commits appear under.</p>
+<p>If you were relying on the old split — bump major, but keep the commit
+filed under its own type — there is no longer a setting for that; the
+two concepts are deliberately unified. The reverse case is now possible
+though: <code>[defaults.versioning.named_parsers] breaking.pattern</code> is the
+same mechanism under a different name, so pick whichever key reads
+better and know they are combined if you set both.</p>
+<p><code>custom_minor_increment_regex</code> is unchanged — it affects the version
+bump only, with no grouping effect.</p>
+<h2 id="library-api"><a class="header" href="#library-api">Library API</a></h2>
+<p>For Rust consumers of the <code>releasaurus-core</code> crate. The CLI binary
+needs none of this.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>config::resolved::{GlobalOverrides, PackageOverrides, CommitModifiers, PackageName}</code></td><td><code>config::overrides::*</code> — same names</td></tr>
+<tr><td><code>config::resolved::ResolvedConfig</code></td><td><code>resolver::ResolvedConfig</code> — reshaped</td></tr>
+<tr><td><code>config::changelog::RewordedCommit</code></td><td><code>config::repository::RewordedCommit</code></td></tr>
+<tr><td><code>config::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH}</code></td><td><code>config::repository::*</code></td></tr>
+<tr><td><code>Config { base_branch, changelog, prerelease, … }</code></td><td><code>Config { repository, defaults, packages }</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Beyond the moves:</p>
+<ul>
+<li><strong><code>Resolver::resolve()</code> returns one value.</strong> It now yields
+<code>Rc&lt;ResolvedConfig&gt;</code> rather than a
+<code>(ResolvedConfig, ResolvedPackageHash)</code> tuple; the resolved packages
+hang off <code>ResolvedConfig::package_configs</code>. Drop the
+<code>.package_configs(...)</code> call from <code>Orchestrator::builder()</code>. The
+crate-level quick start in
+<a href="https://github.com/robgonnella/releasaurus/blob/main/crates/core/src/lib.rs"><code>crates/core/src/lib.rs</code></a>
+shows the full builder chain, and <a href="./library-api.html">Library API</a> has
+the narrative version.</li>
+<li><strong><code>PrereleaseConfig::suffix</code> is a <code>String</code></strong>, not an
+<code>Option&lt;String&gt;</code>. The <code>suffix()</code> accessor that unwrapped it is gone —
+read the field directly, and treat <code>""</code> as “no prerelease”.</li>
+<li><strong>New <code>config::versioning</code> module</strong> holding <code>VersionType</code>, <code>Group</code>,
+<code>Parser</code>, <code>ParserList</code>, <code>VersioningConfig</code>, and <code>NAMED_PARSERS</code>.
+<code>Group</code>’s variants were renamed to spell out <code>Feature</code>,
+<code>Documentation</code>, <code>Performance</code>, and <code>CI</code> — which is why the TOML keys
+read <code>documentation</code> and <code>performance</code> rather than <code>doc</code> and <code>perf</code>.</li>
+<li><strong><code>Forge</code> gained a required method</strong>,
+<code>get_merged_pull_request_for_commit</code>, which resolves the merged PR
+that introduced a commit. If you implement <code>Forge</code> outside this
+crate, add it; returning <code>Ok(None)</code> is a valid no-op and simply means
+the <code>include_pr_link</code> changelog option renders nothing for that
+forge.</li>
+</ul>
+<h2 id="not-affected"><a class="header" href="#not-affected">Not affected</a></h2>
+<ul>
+<li><strong>Existing tags and changelogs.</strong> Git tags, <code>CHANGELOG.md</code> files, and
+published releases are read and appended to exactly as before. No
+retagging or history rewrite is needed.</li>
+<li><strong>Custom <code>body</code> templates.</strong> Group headings still carry the
+<code>&lt;!-- NN --&gt;</code> ordering tag, so the standard
+<code>{{ group | striptags | trim }}</code> idiom keeps working unchanged. The
+template context only gained fields: <code>short_sha</code>, <code>include_pr_link</code>,
+and <code>commit.pr</code>.</li>
+<li><strong>Environment variables.</strong> Every <code>RELEASAURUS_*</code> variable and bare
+<code>*_TOKEN</code> fallback behaves as it did, with the same precedence.</li>
+<li><strong><code>release_type</code> values and version-file updaters.</strong> All languages,
+manifest files, lock files, <code>sub_packages</code>, and
+<code>additional_manifest_files</code> behavior are unchanged.</li>
+<li><strong>The JSON schema location.</strong> <code>#:schema ./schema/schema.json</code> still
+points at the right file; the schema itself was regenerated for the
+new layout, so editor completion reflects it.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="getting-started.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="commands.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="getting-started.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="commands.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

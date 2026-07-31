@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-67bafc63.js"></script>
+        <script src="toc-56585206.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -198,6 +198,18 @@ with the default format and the default <code>v</code> tag prefix.</p>
 ├── src/
 └── README.md
 </code></pre>
+<p>Config is organized under three top-level tables:</p>
+<ul>
+<li><strong><code>[repository]</code></strong> — repo-wide settings (base branch, search depths,
+combined vs. separate PRs, and commit modifiers — <code>skip_shas</code>/<code>reword</code>).</li>
+<li><strong><code>[defaults]</code></strong> — release defaults for every package, split into
+<code>[defaults.versioning]</code> (what affects the computed version, including
+commit filtering and grouping) and <code>[defaults.changelog]</code> (how the
+changelog is rendered). Most keys can be overridden per package.</li>
+<li><strong><code>[[package]]</code></strong> — one entry per independently-versioned package.</li>
+</ul>
+<p>See the <a href="./configuration-reference.html">Configuration Reference</a> for every
+key.</p>
 <h2 id="single-package"><a class="header" href="#single-package">Single Package</a></h2>
 <p>The most common setup — bump versions in one package’s manifests:</p>
 <pre><code class="language-toml">[[package]]
@@ -224,9 +236,10 @@ tag_prefix = "backend-v"
 <code>&lt;name&gt;-v</code> for nested packages.</p>
 <h3 id="combined-vs-separate-prs"><a class="header" href="#combined-vs-separate-prs">Combined vs. Separate PRs</a></h3>
 <p>By default all packages with changes are released in a <strong>single</strong> PR. Set
-<code>separate_pull_requests = true</code> to give each package its own PR
-(branches like <code>releasaurus-release-main-frontend</code>):</p>
-<pre><code class="language-toml">separate_pull_requests = true
+<code>separate_pull_requests = true</code> under <code>[repository]</code> to give each package
+its own PR (branches like <code>releasaurus-release-main-frontend</code>):</p>
+<pre><code class="language-toml">[repository]
+separate_pull_requests = true
 
 [[package]]
 path = "./frontend"
@@ -246,6 +259,94 @@ packages with different release cadences or owners.</li>
 </ul>
 <p>In either mode, target one package with <code>--package &lt;name&gt;</code> on <code>release-pr</code>
 and <code>release</code>.</p>
+<h3 id="commit-message--pr-title-templates"><a class="header" href="#commit-message--pr-title-templates">Commit Message &amp; PR Title Templates</a></h3>
+<p>The release commit message and the PR title are
+<a href="https://keats.github.io/tera/">Tera</a> templates. By default they match:</p>
+<pre><code class="language-text">chore(main): release my-package v1.2.3     # one package, or separate PRs
+chore(main): release my-repo               # combined PR, multiple packages
+</code></pre>
+<p>A PR that covers a single package can name that package and its version;
+one that covers several can’t. So there are two sets of templates, and
+which set applies is fixed by your config rather than by what changed:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Your config</th><th>Commit message</th><th>PR title</th></tr>
+</thead>
+<tbody>
+<tr><td><code>separate_pull_requests = true</code></td><td><code>commit_message_template</code></td><td><code>pr_title_template</code></td></tr>
+<tr><td>One <code>[[package]]</code></td><td><code>commit_message_template</code></td><td><code>pr_title_template</code></td></tr>
+<tr><td>Multiple <code>[[package]]</code> and <code>separate_pull_requests = false</code></td><td><code>monorepo_commit_message_template</code></td><td><code>monorepo_pr_title_template</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each package gets its own PR under <code>separate_pull_requests = true</code>, and a
+single-package repo only ever has one, so both cases can use the
+per-package pair. A combined PR across multiple packages uses the
+<code>monorepo_*</code> pair.</p>
+<p>Only top-level <code>[[package]]</code> entries count. A single package with
+<a href="#grouped-releases-sub-packages">sub-packages</a> is still one package, since
+sub-packages share their parent’s PR and tag.</p>
+<blockquote>
+<p>Because the choice comes from your config, a multi-package repo with
+<code>separate_pull_requests = false</code> uses the <code>monorepo_*</code> pair on <strong>every</strong>
+run — including runs where only one package changed, and including
+<code>--package &lt;name&gt;</code>. That keeps the format predictable, at the cost of
+those PRs not naming the package. Use <code>separate_pull_requests = true</code> if
+you want every PR titled after its package.</p>
+</blockquote>
+<p>Set them under <code>[defaults]</code>, and override the per-package pair on
+individual packages:</p>
+<pre><code class="language-toml">[defaults]
+commit_message_template = "chore({{ branch }}): release {{ package_name }} {{ semver }}"
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_commit_message_template = "chore({{ branch }}): release {{ repo_name }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }}"
+
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+# This package alone gets a ticket-scoped commit and a plainer title.
+commit_message_template = "chore(web): release {{ tag }} [skip ci]"
+pr_title_template = "Web release {{ tag }}"
+</code></pre>
+<h4 id="variables"><a class="header" href="#variables">Variables</a></h4>
+<p>Available in <strong>all four</strong> templates:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>branch</code></td><td>The base branch being released to</td><td><code>main</code></td></tr>
+<tr><td><code>repo_name</code></td><td>Repository name</td><td><code>my-repo</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Available in <code>commit_message_template</code> and <code>pr_title_template</code> <strong>only</strong>,
+because a PR spanning several packages has no single one of these:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>package_name</code></td><td>Name of the package being released</td><td><code>frontend</code></td></tr>
+<tr><td><code>tag</code></td><td>Full tag, including the tag prefix</td><td><code>web-v1.2.3</code></td></tr>
+<tr><td><code>semver</code></td><td>Version alone, without the prefix</td><td><code>1.2.3</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Referencing a variable that isn’t in scope is an error, and it’s caught
+when the config loads rather than partway through a release — so
+<code>monorepo_pr_title_template = "{{ package_name }}"</code> fails before anything
+is pushed.</p>
+<p>Filters work as they do in the changelog <code>body</code> template, so you can
+reshape a value rather than needing a variable for every form of it:</p>
+<pre><code class="language-toml">[defaults]
+pr_title_template = "Release {{ package_name | upper }} {{ tag }}"
+</code></pre>
 <h3 id="tracking-shared-code"><a class="header" href="#tracking-shared-code">Tracking Shared Code</a></h3>
 <p>Use <code>additional_paths</code> so a package also releases when shared directories
 change:</p>
@@ -299,10 +400,57 @@ together with the same version.</p>
 are versioned and tagged independently; <code>sub_packages</code> share the
 parent’s single tag and changelog.</p>
 </blockquote>
+<h2 id="version-types"><a class="header" href="#version-types">Version Types</a></h2>
+<p>By default Releasaurus produces semantic versions (<code>major.minor.patch</code>). Set
+<code>version_type</code> to change the version format — globally, or per package
+to override the global value.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><code>version_type</code></th><th>Example output</th></tr>
+</thead>
+<tbody>
+<tr><td><code>major.minor.patch</code> (default)</td><td><code>1.4.0</code></td></tr>
+<tr><td><code>major.minor.patch+timestamp.sha</code></td><td><code>1.4.0+1700000000.abc1234</code></td></tr>
+<tr><td><code>year.month.day</code></td><td><code>2026.6.14</code></td></tr>
+<tr><td><code>year.month.day+hour.minute.second</code></td><td><code>2026.6.14+15.30.45</code></td></tr>
+<tr><td><code>year.month.day+hour.minute.second.micro</code></td><td><code>2026.6.14+15.30.45.123456</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-toml">[defaults.versioning]
+version_type = "major.minor.patch"
+
+[[package]]
+path = "./nightly"
+release_type = "node"
+versioning = { version_type = "year.month.day+hour.minute.second" }
+</code></pre>
+<ul>
+<li><strong><code>major.minor.patch</code></strong> — standard semver driven by conventional commits.</li>
+<li><strong><code>major.minor.patch+timestamp.sha</code></strong> — semver with build metadata of the
+form <code>{commit-timestamp}.{short-sha}</code>, for sortable, traceable builds.</li>
+<li><strong><code>year.month.day</code></strong> and the <code>+hour.minute.second[.micro]</code> variants —
+calendar-based versions derived from the current UTC time; commits and
+the previous tag are ignored. Plain <code>year.month.day</code> allows <strong>one
+release per day</strong> by design; a same-day re-run reports nothing to
+release. Use a time-based variant when you need multiple releases per
+day.</li>
+</ul>
+<p><code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code> both honor
+<code>[prerelease]</code> (below) and the semver increment controls
+(<code>breaking_always_increment_major</code>, <code>features_always_increment_minor</code>,
+<code>custom_major_increment_regex</code>, <code>custom_minor_increment_regex</code>). For
+date-based types those settings are ignored — if you set any of them
+explicitly alongside a date-based <code>version_type</code>, Releasaurus logs a warning
+naming the package and setting so the no-op config does not pass silently.</p>
 <h2 id="prereleases"><a class="header" href="#prereleases">Prereleases</a></h2>
 <p>Publish alpha/beta/rc/snapshot versions before a stable release. Configure
-globally with <code>[prerelease]</code> or per-package with a <code>prerelease</code> table.</p>
-<pre><code class="language-toml">[prerelease]
+for every package with <code>[defaults.versioning.prerelease]</code>, or per-package
+with a <code>versioning.prerelease</code> table. Prereleases apply to the
+<code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code>
+<a href="#version-types">version types</a> only.</p>
+<pre><code class="language-toml">[defaults.versioning.prerelease]
 suffix = "alpha"
 strategy = "versioned"  # or "static"
 
@@ -328,36 +476,99 @@ release_type = "node"
 <tr><td><code>v1.0.0</code></td><td><code>suffix = "alpha"</code> (+ feature commit)</td><td><code>v1.1.0-alpha.1</code></td></tr>
 <tr><td><code>v1.1.0-alpha.1</code></td><td>unchanged (+ fix commit)</td><td><code>v1.1.0-alpha.2</code></td></tr>
 <tr><td><code>v1.0.0-alpha.3</code></td><td><code>suffix = "beta"</code> (+ feature)</td><td><code>v1.1.0-beta.1</code></td></tr>
-<tr><td><code>v1.0.0-alpha.5</code></td><td>remove <code>[prerelease]</code> (or <code>suffix = ""</code>)</td><td><code>v1.0.0</code></td></tr>
+<tr><td><code>v1.0.0-alpha.5</code></td><td>remove the <code>prerelease</code> table (or <code>suffix = ""</code>)</td><td><code>v1.0.0</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>Switching the suffix recalculates the base version and resets the
 counter. Removing the prerelease config graduates to a stable release.</p>
 <h3 id="per-package-overrides"><a class="header" href="#per-package-overrides">Per-Package Overrides</a></h3>
-<pre><code class="language-toml">[prerelease]
+<pre><code class="language-toml">[defaults.versioning.prerelease]
 suffix = "beta"
 strategy = "versioned"
 
 [[package]]
 path = "./stable"
 release_type = "rust"
-# inherits the global beta prerelease
+# inherits the default beta prerelease
 
 [[package]]
 path = "./experimental"
 release_type = "rust"
-prerelease = { suffix = "alpha", strategy = "versioned" }
+versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
 </code></pre>
+<p>A package’s <code>prerelease</code> table replaces the <code>[defaults]</code> one rather than
+merging with it, so <code>experimental</code> restates <code>strategy</code> even though it
+matches the default value. Omit it and that package falls back to the
+<code>versioned</code> built-in — not to your <code>[defaults]</code> setting.</p>
 <h3 id="aggregating-prerelease-notes"><a class="header" href="#aggregating-prerelease-notes">Aggregating Prerelease Notes</a></h3>
 <p>When graduating to stable, include the changelog entries from every prior
 prerelease:</p>
-<pre><code class="language-toml">[changelog]
+<pre><code class="language-toml">[defaults.changelog]
 aggregate_prereleases = true
 </code></pre>
 <p>You can also override prerelease settings per run without editing the
 config — see <a href="./commands.html#configuration-overrides">Configuration Overrides</a>
 (<code>--prerelease-suffix</code>, <code>--prerelease-strategy</code>, <code>--set-package</code>).</p>
+<h2 id="per-package-changelog"><a class="header" href="#per-package-changelog">Per-Package Changelog</a></h2>
+<p>Changelog settings normally live under <code>[defaults.changelog]</code> (rendering) and
+<code>[defaults.versioning]</code> (commit filtering and grouping) and apply to every
+package. A single package can override either on its own <code>changelog</code> or
+<code>versioning</code> key. Since packages are an array of tables (<code>[[package]]</code>),
+set them as inline tables so they stay scoped to that entry:</p>
+<pre><code class="language-toml">[defaults.changelog]
+include_author = true
+include_pr_link = true
+
+[defaults.versioning.named_parsers]
+ci.skip = true
+
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = false }
+versioning = { named_parsers = { ci = { skip = false } } }
+</code></pre>
+<blockquote>
+<p><strong>Both merge field-by-field with their <code>[defaults]</code> counterpart.</strong> Any
+field you set on the package wins; any field you omit is inherited from
+<code>[defaults]</code> (and then the built-in defaults). <code>custom_parser</code> entries
+from <code>[defaults]</code> and the package are combined, with the package’s
+checked first,
+and <code>named_parsers</code> overrides apply per group and per field. See
+<a href="./changelog.html#per-package-changelog">Changelog Customization</a>.</p>
+</blockquote>
+<h2 id="skipping-or-rewording-commits"><a class="header" href="#skipping-or-rewording-commits">Skipping or Rewording Commits</a></h2>
+<p><code>skip_shas</code> and <code>reword</code> live under <code>[repository]</code>. They operate on the
+repository’s shared commit history and affect <strong>version calculation as well
+as</strong> the changelog, so they are repo-wide and cannot be overridden per
+package.</p>
+<p><code>skip_shas</code> removes specific commits by SHA prefix (use 7+ characters) —
+handy for commits that shouldn’t affect versioning or appear in the
+changelog:</p>
+<pre><code class="language-toml">[repository]
+skip_shas = ["abc123d", "def456e"]
+</code></pre>
+<p><code>reword</code> rewrites a commit’s message. The new message affects <strong>both</strong> the
+changelog text <strong>and</strong> the version bump — changing <code>fix:</code> to <code>feat:</code>, for
+example, bumps minor instead of patch:</p>
+<pre><code class="language-toml">[[repository.reword]]
+sha = "abc123d"
+message = "feat: added user authentication"
+</code></pre>
+<p>Both have CLI equivalents for one-off runs: <code>--skip-sha &lt;sha&gt;</code> and
+<code>--reword &lt;sha&gt;=&lt;message&gt;</code>; a <code>--reword</code> for a SHA already in config wins.
+See the <a href="./configuration-reference.html#repository">Configuration Reference</a>
+for the terse lookup form.</p>
+<p><code>skip_shas</code> and <code>reword</code> only affect each package’s next release.
+Releasaurus processes a package’s commits from its most recent tag forward,
+so once a release is tagged those commits are never reprocessed. (In a
+monorepo a single entry can therefore apply to more than one package — but
+only that package’s next release in each case.)</p>
+<p>If you just want to change how a single release’s notes read — without
+affecting the version bump — edit them directly in the release PR instead;
+see <a href="./release-notes-editing.html">Editing Release Notes</a>.</p>
 <h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
 <p>Validate any config change locally before pushing — no token, no remote
 changes:</p>

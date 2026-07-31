@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bd0bff30.js";
+            window.path_to_searchindex_js = "searchindex-61b31a11.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-67bafc63.js"></script>
+        <script src="toc-56585206.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -302,6 +302,384 @@ Actions, GitLab CI, and more.</li>
 <li><strong><a href="#troubleshooting">Troubleshooting</a></strong> — common issues and fixes.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="migration-guide"><a class="header" href="#migration-guide">Migration Guide</a></h1>
+<p>Upgrading from <strong>v0.22.x</strong> to <strong>v1.0.0</strong>.</p>
+<p>This release restructures <code>releasaurus.toml</code> completely, changes two
+<code>--set-package</code> override paths, drops support for two legacy release-PR
+state formats, and reshapes the <code>releasaurus-core</code> public API. Nothing
+here is optional: a 0.22 config will not load on 1.0.0.</p>
+<h2 id="at-a-glance"><a class="header" href="#at-a-glance">At a glance</a></h2>
+<ol>
+<li><a href="#before-you-upgrade-drain-open-release-prs">Before you upgrade</a> —
+drain release PRs created by versions older than v0.17.0.</li>
+<li><a href="#toml-config-restructure">TOML config restructure</a> — every key now
+lives under <code>[repository]</code>, <code>[defaults]</code>, or <code>[[package]]</code>.</li>
+<li><a href="#cli-override-paths">CLI override paths</a> — prerelease
+<code>--set-package</code> paths gained a <code>versioning.</code> segment.</li>
+<li><a href="#monorepo-commit-message-and-pr-title">Monorepo commit message and PR
+title</a> — the default now
+includes the repository name.</li>
+<li><a href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code></a>
+— matching commits are now grouped as breaking, not just bumped.</li>
+<li><a href="#library-api">Library API</a> — for Rust consumers of
+<code>releasaurus-core</code>.</li>
+</ol>
+<p>Unknown keys are now rejected at config load. A key you forget to move
+is a hard error naming the offending field, not a silent no-op, so the
+upgrade fails loudly rather than quietly computing the wrong version.
+Work through section 2 and let the error messages guide you.</p>
+<h2 id="before-you-upgrade-drain-open-release-prs"><a class="header" href="#before-you-upgrade-drain-open-release-prs">Before you upgrade: drain open release PRs</a></h2>
+<p>Releasaurus keeps release state in the PR itself — a <code>releasaurus</code>
+label and a JSON metadata block in the PR body. v1.0.0 removes the
+compatibility shims for the pre-v0.17.0 forms of both:</p>
+<ul>
+<li>The legacy pending label <code>releasaurus:pending</code> (single colon) is no
+longer recognized. Only the scoped <code>releasaurus::pending</code> is, which
+has been the format written since v0.17.0-rc.1.</li>
+<li>The legacy PR-body metadata format is no longer parsed. Only the
+current JSON HTML-comment block is, written since v0.17.0-rc.2.</li>
+</ul>
+<p><strong>Who this affects:</strong> only repositories with an open — or merged but
+not yet released — release PR created by a version <strong>older than
+v0.17.0</strong>. After upgrading, <code>releasaurus release</code> will not find that
+PR, so its tag and release are never published.</p>
+<p><strong>What to do:</strong> while still on 0.22.x, either merge the PR and run
+<code>releasaurus release</code> to finish it, or close it and let v1.0.0 open a
+fresh one. If your last release ran on v0.17.0 or newer, there is
+nothing to do.</p>
+<h2 id="toml-config-restructure"><a class="header" href="#toml-config-restructure">TOML config restructure</a></h2>
+<p>Configuration is now grouped under three top-level tables:</p>
+<ul>
+<li><code>[repository]</code> — settings that apply to the repository as a whole.</li>
+<li><code>[defaults]</code> — release defaults for every package, with
+<code>[defaults.versioning]</code> and <code>[defaults.changelog]</code> subtables.</li>
+<li><code>[[package]]</code> — one entry per package, unchanged in spirit; each may
+override <code>[defaults]</code> with its own <code>versioning</code> and <code>changelog</code>.</li>
+</ul>
+<p>The full reference lives in the
+<a href="#configuration-reference">Configuration Reference</a>. The tables
+below cover only what moved.</p>
+<h3 id="root-level-keys"><a class="header" href="#root-level-keys">Root-level keys</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>base_branch</code></td><td><code>[repository].base_branch</code></td></tr>
+<tr><td><code>first_release_search_depth</code></td><td><code>[repository].first_release_search_depth</code></td></tr>
+<tr><td><code>tag_search_depth</code></td><td><code>[repository].tag_search_depth</code></td></tr>
+<tr><td><code>separate_pull_requests</code></td><td><code>[repository].separate_pull_requests</code></td></tr>
+<tr><td><code>auto_start_next</code></td><td><code>[defaults.versioning].auto_start_next</code></td></tr>
+<tr><td><code>breaking_always_increment_major</code></td><td><code>[defaults.versioning].breaking_always_increment_major</code></td></tr>
+<tr><td><code>features_always_increment_minor</code></td><td><code>[defaults.versioning].features_always_increment_minor</code></td></tr>
+<tr><td><code>custom_major_increment_regex</code></td><td><code>[defaults.versioning].custom_major_increment_regex</code></td></tr>
+<tr><td><code>custom_minor_increment_regex</code></td><td><code>[defaults.versioning].custom_minor_increment_regex</code></td></tr>
+<tr><td><code>[prerelease]</code></td><td><code>[defaults.versioning.prerelease]</code></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="the-changelog-table"><a class="header" href="#the-changelog-table">The <code>[changelog]</code> table</a></h3>
+<p>The old <code>[changelog]</code> table mixed two concerns, so its keys split three
+ways. Options that only affect how commits are <em>rendered</em> stay in
+<code>[defaults.changelog]</code>. Options that determine which commits are
+<em>counted</em>, and therefore change the computed version, moved to
+<code>[defaults.versioning]</code>. <code>skip_shas</code> and <code>reword</code> act on the
+repository’s shared commit history and cannot be scoped to a package,
+so they moved to <code>[repository]</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x <code>[changelog]</code></th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>body</code></td><td><code>[defaults.changelog].body</code></td></tr>
+<tr><td><code>include_author</code></td><td><code>[defaults.changelog].include_author</code></td></tr>
+<tr><td><code>aggregate_prereleases</code></td><td><code>[defaults.changelog].aggregate_prereleases</code></td></tr>
+<tr><td><code>skip_merge_commits</code></td><td><code>[defaults.versioning].skip_merge_commits</code></td></tr>
+<tr><td><code>skip_shas</code></td><td><code>[repository].skip_shas</code></td></tr>
+<tr><td><code>[[changelog.reword]]</code></td><td><code>[[repository.reword]]</code></td></tr>
+<tr><td>the nine <code>skip_*</code> flags</td><td><code>[defaults.versioning.named_parsers]</code> — see below</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="skip_-flags-become-named_parsers"><a class="header" href="#skip_-flags-become-named_parsers"><code>skip_*</code> flags become <code>named_parsers</code></a></h3>
+<p>The nine per-type skip flags are replaced by the <code>named_parsers</code> table,
+where each commit group carries a <code>pattern</code>, <code>title</code>, <code>order</code>, and
+<code>skip</code>. Setting <code>skip = true</code> on a group is the direct equivalent of
+the old flag:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>skip_ci</code></td><td><code>ci.skip</code></td></tr>
+<tr><td><code>skip_chore</code></td><td><code>chore.skip</code></td></tr>
+<tr><td><code>skip_doc</code></td><td><code>documentation.skip</code></td></tr>
+<tr><td><code>skip_test</code></td><td><code>test.skip</code></td></tr>
+<tr><td><code>skip_style</code></td><td><code>style.skip</code></td></tr>
+<tr><td><code>skip_refactor</code></td><td><code>refactor.skip</code></td></tr>
+<tr><td><code>skip_perf</code></td><td><code>performance.skip</code></td></tr>
+<tr><td><code>skip_revert</code></td><td><code>revert.skip</code></td></tr>
+<tr><td><code>skip_miscellaneous</code></td><td><code>miscellaneous.skip</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Three group names are spelled out rather than abbreviated — watch
+<code>documentation</code> (not <code>doc</code>), <code>performance</code> (not <code>perf</code>), and <code>feature</code>
+(not <code>feat</code>) if you go on to retitle or reorder groups. The full set is
+<code>breaking</code>, <code>feature</code>, <code>fix</code>, <code>revert</code>, <code>refactor</code>, <code>performance</code>,
+<code>documentation</code>, <code>style</code>, <code>test</code>, <code>chore</code>, <code>ci</code>, <code>miscellaneous</code>.</p>
+<p>So this:</p>
+<pre><code class="language-text">[changelog]
+skip_ci = true
+skip_chore = true
+</code></pre>
+<p>becomes:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+</code></pre>
+<p><code>named_parsers</code> merges field-by-field over the built-in defaults, so
+naming one group leaves the other eleven untouched — you never have to
+restate the whole set.</p>
+<p><strong>Filtering behavior is unchanged.</strong> In 0.22.x a skipped commit was
+dropped before it reached version calculation, so skipping a group
+already suppressed both its changelog entries and its version bump.
+Only the config location moved. What is new is that groups the old
+flags could not reach — <code>feature</code>, <code>fix</code>, <code>breaking</code> — can now be
+skipped too, and that you can define additional groups with
+<code>[[defaults.versioning.custom_parser]]</code>.</p>
+<h3 id="package-level-keys"><a class="header" href="#package-level-keys">Package-level keys</a></h3>
+<p>Six keys are no longer direct <code>[[package]]</code> keys. They now live under
+the package’s <code>versioning</code> table, mirroring <code>[defaults.versioning]</code>:</p>
+<ul>
+<li><code>prerelease</code></li>
+<li><code>auto_start_next</code></li>
+<li><code>breaking_always_increment_major</code></li>
+<li><code>features_always_increment_minor</code></li>
+<li><code>custom_major_increment_regex</code></li>
+<li><code>custom_minor_increment_regex</code></li>
+</ul>
+<p>Unchanged: <code>name</code>, <code>path</code>, <code>workspace_root</code>, <code>release_type</code>,
+<code>tag_prefix</code>, <code>sub_packages</code>, <code>additional_paths</code>, and
+<code>additional_manifest_files</code>.</p>
+<p>Because packages are an array of tables, set <code>versioning</code> as an
+<strong>inline table</strong> on the package entry. A separate <code>[package.versioning]</code>
+header would bind to whichever <code>[[package]]</code> was declared last, which
+is almost never what you want:</p>
+<p>Before:</p>
+<pre><code class="language-text">[[package]]
+name = "backend"
+path = "./services/api"
+prerelease = { suffix = "alpha", strategy = "versioned" }
+</code></pre>
+<p>After:</p>
+<pre><code class="language-toml">[[package]]
+name = "backend"
+path = "./services/api"
+versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
+</code></pre>
+<p>One asymmetry to be aware of when splitting config across <code>[defaults]</code>
+and packages: a package’s <code>versioning</code> and <code>changelog</code> tables merge
+field-by-field with their <code>[defaults]</code> counterpart, but <code>prerelease</code>
+<strong>replaces</strong> the <code>[defaults]</code> one outright. <code>suffix</code> and <code>strategy</code>
+describe a single prerelease identity, so restate <code>strategy</code> alongside
+a package-level <code>suffix</code> whenever your default strategy is not the
+built-in <code>versioned</code>.</p>
+<h3 id="worked-example"><a class="header" href="#worked-example">Worked example</a></h3>
+<p>This repository’s own config, before and after. Before:</p>
+<pre><code class="language-text">#:schema ./schema/schema.json
+
+tag_search_depth = 25
+
+[changelog]
+skip_ci = true
+skip_chore = true
+skip_miscellaneous = false
+include_author = true
+aggregate_prereleases = true
+
+[prerelease]
+strategy = "versioned"
+suffix = "rc"
+
+[[package]]
+name = "workspace"
+tag_prefix = "v"
+release_type = "rust"
+</code></pre>
+<p>After:</p>
+<pre><code class="language-toml">#:schema ./schema/schema.json
+
+[repository]
+tag_search_depth = 25
+
+[defaults.changelog]
+include_author = true
+aggregate_prereleases = true
+
+[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+miscellaneous.skip = false
+
+[defaults.versioning.prerelease]
+strategy = "versioned"
+suffix = "rc"
+
+[[package]]
+name = "workspace"
+tag_prefix = "v"
+release_type = "rust"
+</code></pre>
+<h2 id="cli-override-paths"><a class="header" href="#cli-override-paths">CLI override paths</a></h2>
+<p>Two <code>--set-package</code> paths gained a <code>versioning.</code> segment so that they
+mirror the TOML layout they override:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>&lt;pkg&gt;.prerelease.suffix=&lt;value&gt;</code></td><td><code>&lt;pkg&gt;.versioning.prerelease.suffix=&lt;value&gt;</code></td></tr>
+<tr><td><code>&lt;pkg&gt;.prerelease.strategy=&lt;value&gt;</code></td><td><code>&lt;pkg&gt;.versioning.prerelease.strategy=&lt;value&gt;</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-bash"># v0.22.x
+releasaurus release-pr --set-package frontend.prerelease.suffix=beta ...
+
+# v1.0.0
+releasaurus release-pr \
+  --set-package frontend.versioning.prerelease.suffix=beta ...
+</code></pre>
+<p><code>&lt;pkg&gt;.tag_prefix</code> is unchanged, and so are all the global flags:
+<code>--base-branch</code>, <code>--tag-prefix</code>, <code>--prerelease-suffix</code>,
+<code>--prerelease-strategy</code>, <code>--skip-sha</code>, and <code>--reword</code>. Emptying a
+suffix to disable prereleases still works the same way
+(<code>--set-package &lt;pkg&gt;.versioning.prerelease.suffix=</code>).</p>
+<p>A stale path now fails with a config error naming the offending
+override rather than being silently ignored, so a missed occurrence in
+a CI workflow surfaces on the next run instead of producing an
+unexpected version.</p>
+<h2 id="monorepo-commit-message-and-pr-title"><a class="header" href="#monorepo-commit-message-and-pr-title">Monorepo commit message and PR title</a></h2>
+<p>Release commit messages and PR titles are now rendered from Tera
+templates, and the default for combined monorepo PRs includes the
+repository name. This is one of two changes that alter output without
+any config edit on your part (the other is
+<a href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code></a>),
+so check anything that matches on release PR titles — branch protection
+rules, required status checks, CI <code>if:</code> conditions, merge automation.</p>
+<p>0.22.x picked the format from how many packages happened to be in the
+PR on that run:</p>
+<ul>
+<li>one package in the PR — <code>chore(&lt;branch&gt;): release &lt;pkg&gt; &lt;tag&gt;</code></li>
+<li>more than one — a bare <code>chore(&lt;branch&gt;): release</code></li>
+</ul>
+<p>1.0.0 picks from config instead. A repo with <code>separate_pull_requests = true</code>, or with a single <code>[[package]]</code>, uses the per-package template
+(default <code>chore({{ branch }}): release {{ package_name }} {{ tag }}</code>,
+identical to before). Any other repo produces a combined PR and uses
+the monorepo template, whose default is:</p>
+<pre><code class="language-text">chore({{ branch }}): release {{ repo_name }}
+</code></pre>
+<p>For a multi-package repo with <code>separate_pull_requests = false</code>, that
+means the title now always carries the repository name and no longer
+collapses to <code>release &lt;pkg&gt; &lt;tag&gt;</code> on runs where only one package
+changed. Deciding from config keeps the format stable from one release
+to the next.</p>
+<p>To keep the old bare title, set the templates explicitly:</p>
+<pre><code class="language-toml">[defaults]
+monorepo_commit_message_template = "chore({{ branch }}): release"
+monorepo_pr_title_template = "chore({{ branch }}): release"
+</code></pre>
+<p>The monorepo templates have <code>branch</code> and <code>repo_name</code> in scope. The
+per-package templates additionally have <code>package_name</code>, <code>tag</code>, and
+<code>semver</code>. Referencing a variable that is not in scope is rejected at
+config load.</p>
+<h2 id="custom_major_increment_regex-now-groups-commits-as-breaking"><a class="header" href="#custom_major_increment_regex-now-groups-commits-as-breaking"><code>custom_major_increment_regex</code> now groups commits as breaking</a></h2>
+<p>The key moved to <code>[defaults.versioning]</code> like the rest, but its effect
+also widened. In 0.22.x it only influenced the version bump; a matching
+commit still appeared under whatever group its type prefix selected. In
+1.0.0 a commit it matches is treated as breaking outright: grouped under
+<code>❌ Breaking</code>, marked <code>[**breaking**]</code> in the default body template, and
+bumping major as before.</p>
+<p><strong>Who this affects:</strong> anyone who already sets
+<code>custom_major_increment_regex</code>. No config edit is required and the
+computed version does not change — only which changelog heading those
+commits appear under.</p>
+<p>If you were relying on the old split — bump major, but keep the commit
+filed under its own type — there is no longer a setting for that; the
+two concepts are deliberately unified. The reverse case is now possible
+though: <code>[defaults.versioning.named_parsers] breaking.pattern</code> is the
+same mechanism under a different name, so pick whichever key reads
+better and know they are combined if you set both.</p>
+<p><code>custom_minor_increment_regex</code> is unchanged — it affects the version
+bump only, with no grouping effect.</p>
+<h2 id="library-api"><a class="header" href="#library-api">Library API</a></h2>
+<p>For Rust consumers of the <code>releasaurus-core</code> crate. The CLI binary
+needs none of this.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>v0.22.x</th><th>v1.0.0</th></tr>
+</thead>
+<tbody>
+<tr><td><code>config::resolved::{GlobalOverrides, PackageOverrides, CommitModifiers, PackageName}</code></td><td><code>config::overrides::*</code> — same names</td></tr>
+<tr><td><code>config::resolved::ResolvedConfig</code></td><td><code>resolver::ResolvedConfig</code> — reshaped</td></tr>
+<tr><td><code>config::changelog::RewordedCommit</code></td><td><code>config::repository::RewordedCommit</code></td></tr>
+<tr><td><code>config::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH}</code></td><td><code>config::repository::*</code></td></tr>
+<tr><td><code>Config { base_branch, changelog, prerelease, … }</code></td><td><code>Config { repository, defaults, packages }</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Beyond the moves:</p>
+<ul>
+<li><strong><code>Resolver::resolve()</code> returns one value.</strong> It now yields
+<code>Rc&lt;ResolvedConfig&gt;</code> rather than a
+<code>(ResolvedConfig, ResolvedPackageHash)</code> tuple; the resolved packages
+hang off <code>ResolvedConfig::package_configs</code>. Drop the
+<code>.package_configs(...)</code> call from <code>Orchestrator::builder()</code>. The
+crate-level quick start in
+<a href="https://github.com/robgonnella/releasaurus/blob/main/crates/core/src/lib.rs"><code>crates/core/src/lib.rs</code></a>
+shows the full builder chain, and <a href="#library-api-1">Library API</a> has
+the narrative version.</li>
+<li><strong><code>PrereleaseConfig::suffix</code> is a <code>String</code></strong>, not an
+<code>Option&lt;String&gt;</code>. The <code>suffix()</code> accessor that unwrapped it is gone —
+read the field directly, and treat <code>""</code> as “no prerelease”.</li>
+<li><strong>New <code>config::versioning</code> module</strong> holding <code>VersionType</code>, <code>Group</code>,
+<code>Parser</code>, <code>ParserList</code>, <code>VersioningConfig</code>, and <code>NAMED_PARSERS</code>.
+<code>Group</code>’s variants were renamed to spell out <code>Feature</code>,
+<code>Documentation</code>, <code>Performance</code>, and <code>CI</code> — which is why the TOML keys
+read <code>documentation</code> and <code>performance</code> rather than <code>doc</code> and <code>perf</code>.</li>
+<li><strong><code>Forge</code> gained a required method</strong>,
+<code>get_merged_pull_request_for_commit</code>, which resolves the merged PR
+that introduced a commit. If you implement <code>Forge</code> outside this
+crate, add it; returning <code>Ok(None)</code> is a valid no-op and simply means
+the <code>include_pr_link</code> changelog option renders nothing for that
+forge.</li>
+</ul>
+<h2 id="not-affected"><a class="header" href="#not-affected">Not affected</a></h2>
+<ul>
+<li><strong>Existing tags and changelogs.</strong> Git tags, <code>CHANGELOG.md</code> files, and
+published releases are read and appended to exactly as before. No
+retagging or history rewrite is needed.</li>
+<li><strong>Custom <code>body</code> templates.</strong> Group headings still carry the
+<code>&lt;!-- NN --&gt;</code> ordering tag, so the standard
+<code>{{ group | striptags | trim }}</code> idiom keeps working unchanged. The
+template context only gained fields: <code>short_sha</code>, <code>include_pr_link</code>,
+and <code>commit.pr</code>.</li>
+<li><strong>Environment variables.</strong> Every <code>RELEASAURUS_*</code> variable and bare
+<code>*_TOKEN</code> fallback behaves as it did, with the same precedence.</li>
+<li><strong><code>release_type</code> values and version-file updaters.</strong> All languages,
+manifest files, lock files, <code>sub_packages</code>, and
+<code>additional_manifest_files</code> behavior are unchanged.</li>
+<li><strong>The JSON schema location.</strong> <code>#:schema ./schema/schema.json</code> still
+points at the right file; the schema itself was regenerated for the
+new layout, so editor completion reflects it.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
 <p>Releasaurus operates entirely through forge platform APIs — no local
 clone required — so every command can run from any machine with network
@@ -359,7 +737,7 @@ releasaurus start-next --repo "https://github.com/owner/repo" \
 <p><strong>Note:</strong> This commits directly to your base branch. Ensure your branch
 protection rules permit it. It can also run automatically after
 <code>release</code> — see
-<a href="#global-settings"><code>auto_start_next</code></a>.</p>
+<a href="#defaultsversioning"><code>auto_start_next</code></a>.</p>
 </blockquote>
 <h2 id="get"><a class="header" href="#get"><code>get</code></a></h2>
 <p>Queries release information as JSON without making any changes — useful
@@ -490,6 +868,7 @@ CI settings.</p>
 <tbody>
 <tr><td><code>--base-branch &lt;branch&gt;</code></td><td>Override the base branch</td></tr>
 <tr><td><code>--tag-prefix &lt;prefix&gt;</code></td><td>Global tag prefix for all packages</td></tr>
+<tr><td><code>--version-type &lt;value&gt;</code></td><td>Global version type for all packages</td></tr>
 <tr><td><code>--prerelease-suffix &lt;suffix&gt;</code></td><td>Global prerelease suffix (empty <code>""</code> disables)</td></tr>
 <tr><td><code>--prerelease-strategy &lt;versioned|static&gt;</code></td><td>Global prerelease strategy</td></tr>
 <tr><td><code>--skip-sha &lt;sha&gt;</code></td><td>Skip a commit by SHA prefix (repeatable)</td></tr>
@@ -499,17 +878,24 @@ CI settings.</p>
 </table>
 </div>
 <p><code>--set-package</code> takes precedence over all other overrides and config.
-Supported properties: <code>tag_prefix</code>, <code>prerelease.suffix</code>,
-<code>prerelease.strategy</code>. Setting an unsupported property prints an error
-listing valid values.</p>
+Supported properties: <code>tag_prefix</code>, <code>versioning.version_type</code>,
+<code>versioning.prerelease.suffix</code>, <code>versioning.prerelease.strategy</code>. Setting an
+unsupported property prints an error listing valid values.</p>
 <p><strong>Precedence (highest to lowest):</strong> <code>--set-package</code> → global CLI
-overrides → package config → global config → defaults.</p>
+overrides → <code>[[package]]</code> config → <code>[defaults]</code> config → built-in
+defaults.</p>
 <pre><code class="language-bash"># Override base branch and global prerelease suffix
 releasaurus release-pr --base-branch develop --prerelease-suffix beta \
   --repo "https://github.com/owner/repo"
 
 # Per-package override (e.g. only the frontend gets a beta suffix)
-releasaurus release-pr --set-package frontend.prerelease.suffix=beta \
+releasaurus release-pr \
+  --set-package frontend.versioning.prerelease.suffix=beta \
+  --repo "https://github.com/owner/repo"
+
+# Date-based versioning for just the nightly package
+releasaurus release-pr \
+  --set-package nightly.versioning.version_type=year.month.day \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another
@@ -571,6 +957,30 @@ Branches → {release branch}</strong>, setting <strong>Allow rewriting history<
 <em>Allow</em> for the identity holding the PAT. Azure DevOps <code>release</code> also only
 pushes the git tag — there is no native release object, so no release
 notes page is published.</p>
+<h3 id="azure-devops-merge-commits-are-not-detected"><a class="header" href="#azure-devops-merge-commits-are-not-detected">Azure DevOps: Merge Commits Are Not Detected</a></h3>
+<p>Azure DevOps omits the <code>parents</code> field from its commit <strong>list</strong> API — only
+the single-commit endpoint returns it. Releasaurus reads history in bulk, so
+recovering parents would cost one extra API request per commit. Every Azure
+commit is therefore reported as a non-merge commit.</p>
+<p>Two settings quietly have no effect as a result:</p>
+<ul>
+<li><code>skip_merge_commits</code> (default <code>true</code>) filters nothing out.</li>
+<li>The default <code>body</code> template’s
+<code>filter(attribute="merge_commit", value=false)</code> clause excludes nothing.</li>
+</ul>
+<p>This only matters for completion strategies that create a merge commit. If
+you complete PRs with <strong>Merge (no fast forward)</strong> or <strong>Semi-linear merge</strong>,
+Azure adds a commit titled <code>Merged PR &lt;n&gt;: &lt;PR title&gt;</code> on top of the source
+branch’s own commits. That commit becomes its own changelog entry, so the
+PR’s change is represented twice — once by the merge commit, once by the
+commits it brought in.</p>
+<p><strong>Fix (recommended):</strong> complete PRs with <strong>Squash commit</strong>. Azure then adds
+a single commit per PR, so there is nothing to filter and no duplication.
+<strong>Rebase and fast-forward</strong> is likewise unaffected, since it creates no
+merge commit.</p>
+<p><strong>Alternative:</strong> drop individual merge commits with <code>skip_shas</code> (see
+<a href="#skipping-or-rewording-commits">Skipping or Rewording Commits</a>). That setting applies to the
+next release only, so it has to be repeated each cycle.</p>
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
 <pre><code class="language-bash">releasaurus --help          # general help
 releasaurus &lt;cmd&gt; --help    # command-specific help
@@ -598,6 +1008,18 @@ with the default format and the default <code>v</code> tag prefix.</p>
 ├── src/
 └── README.md
 </code></pre>
+<p>Config is organized under three top-level tables:</p>
+<ul>
+<li><strong><code>[repository]</code></strong> — repo-wide settings (base branch, search depths,
+combined vs. separate PRs, and commit modifiers — <code>skip_shas</code>/<code>reword</code>).</li>
+<li><strong><code>[defaults]</code></strong> — release defaults for every package, split into
+<code>[defaults.versioning]</code> (what affects the computed version, including
+commit filtering and grouping) and <code>[defaults.changelog]</code> (how the
+changelog is rendered). Most keys can be overridden per package.</li>
+<li><strong><code>[[package]]</code></strong> — one entry per independently-versioned package.</li>
+</ul>
+<p>See the <a href="#configuration-reference">Configuration Reference</a> for every
+key.</p>
 <h2 id="single-package"><a class="header" href="#single-package">Single Package</a></h2>
 <p>The most common setup — bump versions in one package’s manifests:</p>
 <pre><code class="language-toml">[[package]]
@@ -624,9 +1046,10 @@ tag_prefix = "backend-v"
 <code>&lt;name&gt;-v</code> for nested packages.</p>
 <h3 id="combined-vs-separate-prs"><a class="header" href="#combined-vs-separate-prs">Combined vs. Separate PRs</a></h3>
 <p>By default all packages with changes are released in a <strong>single</strong> PR. Set
-<code>separate_pull_requests = true</code> to give each package its own PR
-(branches like <code>releasaurus-release-main-frontend</code>):</p>
-<pre><code class="language-toml">separate_pull_requests = true
+<code>separate_pull_requests = true</code> under <code>[repository]</code> to give each package
+its own PR (branches like <code>releasaurus-release-main-frontend</code>):</p>
+<pre><code class="language-toml">[repository]
+separate_pull_requests = true
 
 [[package]]
 path = "./frontend"
@@ -646,6 +1069,94 @@ packages with different release cadences or owners.</li>
 </ul>
 <p>In either mode, target one package with <code>--package &lt;name&gt;</code> on <code>release-pr</code>
 and <code>release</code>.</p>
+<h3 id="commit-message--pr-title-templates"><a class="header" href="#commit-message--pr-title-templates">Commit Message &amp; PR Title Templates</a></h3>
+<p>The release commit message and the PR title are
+<a href="https://keats.github.io/tera/">Tera</a> templates. By default they match:</p>
+<pre><code class="language-text">chore(main): release my-package v1.2.3     # one package, or separate PRs
+chore(main): release my-repo               # combined PR, multiple packages
+</code></pre>
+<p>A PR that covers a single package can name that package and its version;
+one that covers several can’t. So there are two sets of templates, and
+which set applies is fixed by your config rather than by what changed:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Your config</th><th>Commit message</th><th>PR title</th></tr>
+</thead>
+<tbody>
+<tr><td><code>separate_pull_requests = true</code></td><td><code>commit_message_template</code></td><td><code>pr_title_template</code></td></tr>
+<tr><td>One <code>[[package]]</code></td><td><code>commit_message_template</code></td><td><code>pr_title_template</code></td></tr>
+<tr><td>Multiple <code>[[package]]</code> and <code>separate_pull_requests = false</code></td><td><code>monorepo_commit_message_template</code></td><td><code>monorepo_pr_title_template</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each package gets its own PR under <code>separate_pull_requests = true</code>, and a
+single-package repo only ever has one, so both cases can use the
+per-package pair. A combined PR across multiple packages uses the
+<code>monorepo_*</code> pair.</p>
+<p>Only top-level <code>[[package]]</code> entries count. A single package with
+<a href="#grouped-releases-sub-packages">sub-packages</a> is still one package, since
+sub-packages share their parent’s PR and tag.</p>
+<blockquote>
+<p>Because the choice comes from your config, a multi-package repo with
+<code>separate_pull_requests = false</code> uses the <code>monorepo_*</code> pair on <strong>every</strong>
+run — including runs where only one package changed, and including
+<code>--package &lt;name&gt;</code>. That keeps the format predictable, at the cost of
+those PRs not naming the package. Use <code>separate_pull_requests = true</code> if
+you want every PR titled after its package.</p>
+</blockquote>
+<p>Set them under <code>[defaults]</code>, and override the per-package pair on
+individual packages:</p>
+<pre><code class="language-toml">[defaults]
+commit_message_template = "chore({{ branch }}): release {{ package_name }} {{ semver }}"
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_commit_message_template = "chore({{ branch }}): release {{ repo_name }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }}"
+
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+# This package alone gets a ticket-scoped commit and a plainer title.
+commit_message_template = "chore(web): release {{ tag }} [skip ci]"
+pr_title_template = "Web release {{ tag }}"
+</code></pre>
+<h4 id="variables"><a class="header" href="#variables">Variables</a></h4>
+<p>Available in <strong>all four</strong> templates:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>branch</code></td><td>The base branch being released to</td><td><code>main</code></td></tr>
+<tr><td><code>repo_name</code></td><td>Repository name</td><td><code>my-repo</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Available in <code>commit_message_template</code> and <code>pr_title_template</code> <strong>only</strong>,
+because a PR spanning several packages has no single one of these:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>package_name</code></td><td>Name of the package being released</td><td><code>frontend</code></td></tr>
+<tr><td><code>tag</code></td><td>Full tag, including the tag prefix</td><td><code>web-v1.2.3</code></td></tr>
+<tr><td><code>semver</code></td><td>Version alone, without the prefix</td><td><code>1.2.3</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Referencing a variable that isn’t in scope is an error, and it’s caught
+when the config loads rather than partway through a release — so
+<code>monorepo_pr_title_template = "{{ package_name }}"</code> fails before anything
+is pushed.</p>
+<p>Filters work as they do in the changelog <code>body</code> template, so you can
+reshape a value rather than needing a variable for every form of it:</p>
+<pre><code class="language-toml">[defaults]
+pr_title_template = "Release {{ package_name | upper }} {{ tag }}"
+</code></pre>
 <h3 id="tracking-shared-code"><a class="header" href="#tracking-shared-code">Tracking Shared Code</a></h3>
 <p>Use <code>additional_paths</code> so a package also releases when shared directories
 change:</p>
@@ -699,10 +1210,57 @@ together with the same version.</p>
 are versioned and tagged independently; <code>sub_packages</code> share the
 parent’s single tag and changelog.</p>
 </blockquote>
+<h2 id="version-types"><a class="header" href="#version-types">Version Types</a></h2>
+<p>By default Releasaurus produces semantic versions (<code>major.minor.patch</code>). Set
+<code>version_type</code> to change the version format — globally, or per package
+to override the global value.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><code>version_type</code></th><th>Example output</th></tr>
+</thead>
+<tbody>
+<tr><td><code>major.minor.patch</code> (default)</td><td><code>1.4.0</code></td></tr>
+<tr><td><code>major.minor.patch+timestamp.sha</code></td><td><code>1.4.0+1700000000.abc1234</code></td></tr>
+<tr><td><code>year.month.day</code></td><td><code>2026.6.14</code></td></tr>
+<tr><td><code>year.month.day+hour.minute.second</code></td><td><code>2026.6.14+15.30.45</code></td></tr>
+<tr><td><code>year.month.day+hour.minute.second.micro</code></td><td><code>2026.6.14+15.30.45.123456</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-toml">[defaults.versioning]
+version_type = "major.minor.patch"
+
+[[package]]
+path = "./nightly"
+release_type = "node"
+versioning = { version_type = "year.month.day+hour.minute.second" }
+</code></pre>
+<ul>
+<li><strong><code>major.minor.patch</code></strong> — standard semver driven by conventional commits.</li>
+<li><strong><code>major.minor.patch+timestamp.sha</code></strong> — semver with build metadata of the
+form <code>{commit-timestamp}.{short-sha}</code>, for sortable, traceable builds.</li>
+<li><strong><code>year.month.day</code></strong> and the <code>+hour.minute.second[.micro]</code> variants —
+calendar-based versions derived from the current UTC time; commits and
+the previous tag are ignored. Plain <code>year.month.day</code> allows <strong>one
+release per day</strong> by design; a same-day re-run reports nothing to
+release. Use a time-based variant when you need multiple releases per
+day.</li>
+</ul>
+<p><code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code> both honor
+<code>[prerelease]</code> (below) and the semver increment controls
+(<code>breaking_always_increment_major</code>, <code>features_always_increment_minor</code>,
+<code>custom_major_increment_regex</code>, <code>custom_minor_increment_regex</code>). For
+date-based types those settings are ignored — if you set any of them
+explicitly alongside a date-based <code>version_type</code>, Releasaurus logs a warning
+naming the package and setting so the no-op config does not pass silently.</p>
 <h2 id="prereleases"><a class="header" href="#prereleases">Prereleases</a></h2>
 <p>Publish alpha/beta/rc/snapshot versions before a stable release. Configure
-globally with <code>[prerelease]</code> or per-package with a <code>prerelease</code> table.</p>
-<pre><code class="language-toml">[prerelease]
+for every package with <code>[defaults.versioning.prerelease]</code>, or per-package
+with a <code>versioning.prerelease</code> table. Prereleases apply to the
+<code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code>
+<a href="#version-types">version types</a> only.</p>
+<pre><code class="language-toml">[defaults.versioning.prerelease]
 suffix = "alpha"
 strategy = "versioned"  # or "static"
 
@@ -728,36 +1286,99 @@ release_type = "node"
 <tr><td><code>v1.0.0</code></td><td><code>suffix = "alpha"</code> (+ feature commit)</td><td><code>v1.1.0-alpha.1</code></td></tr>
 <tr><td><code>v1.1.0-alpha.1</code></td><td>unchanged (+ fix commit)</td><td><code>v1.1.0-alpha.2</code></td></tr>
 <tr><td><code>v1.0.0-alpha.3</code></td><td><code>suffix = "beta"</code> (+ feature)</td><td><code>v1.1.0-beta.1</code></td></tr>
-<tr><td><code>v1.0.0-alpha.5</code></td><td>remove <code>[prerelease]</code> (or <code>suffix = ""</code>)</td><td><code>v1.0.0</code></td></tr>
+<tr><td><code>v1.0.0-alpha.5</code></td><td>remove the <code>prerelease</code> table (or <code>suffix = ""</code>)</td><td><code>v1.0.0</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>Switching the suffix recalculates the base version and resets the
 counter. Removing the prerelease config graduates to a stable release.</p>
 <h3 id="per-package-overrides"><a class="header" href="#per-package-overrides">Per-Package Overrides</a></h3>
-<pre><code class="language-toml">[prerelease]
+<pre><code class="language-toml">[defaults.versioning.prerelease]
 suffix = "beta"
 strategy = "versioned"
 
 [[package]]
 path = "./stable"
 release_type = "rust"
-# inherits the global beta prerelease
+# inherits the default beta prerelease
 
 [[package]]
 path = "./experimental"
 release_type = "rust"
-prerelease = { suffix = "alpha", strategy = "versioned" }
+versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
 </code></pre>
+<p>A package’s <code>prerelease</code> table replaces the <code>[defaults]</code> one rather than
+merging with it, so <code>experimental</code> restates <code>strategy</code> even though it
+matches the default value. Omit it and that package falls back to the
+<code>versioned</code> built-in — not to your <code>[defaults]</code> setting.</p>
 <h3 id="aggregating-prerelease-notes"><a class="header" href="#aggregating-prerelease-notes">Aggregating Prerelease Notes</a></h3>
 <p>When graduating to stable, include the changelog entries from every prior
 prerelease:</p>
-<pre><code class="language-toml">[changelog]
+<pre><code class="language-toml">[defaults.changelog]
 aggregate_prereleases = true
 </code></pre>
 <p>You can also override prerelease settings per run without editing the
 config — see <a href="#configuration-overrides">Configuration Overrides</a>
 (<code>--prerelease-suffix</code>, <code>--prerelease-strategy</code>, <code>--set-package</code>).</p>
+<h2 id="per-package-changelog"><a class="header" href="#per-package-changelog">Per-Package Changelog</a></h2>
+<p>Changelog settings normally live under <code>[defaults.changelog]</code> (rendering) and
+<code>[defaults.versioning]</code> (commit filtering and grouping) and apply to every
+package. A single package can override either on its own <code>changelog</code> or
+<code>versioning</code> key. Since packages are an array of tables (<code>[[package]]</code>),
+set them as inline tables so they stay scoped to that entry:</p>
+<pre><code class="language-toml">[defaults.changelog]
+include_author = true
+include_pr_link = true
+
+[defaults.versioning.named_parsers]
+ci.skip = true
+
+[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = false }
+versioning = { named_parsers = { ci = { skip = false } } }
+</code></pre>
+<blockquote>
+<p><strong>Both merge field-by-field with their <code>[defaults]</code> counterpart.</strong> Any
+field you set on the package wins; any field you omit is inherited from
+<code>[defaults]</code> (and then the built-in defaults). <code>custom_parser</code> entries
+from <code>[defaults]</code> and the package are combined, with the package’s
+checked first,
+and <code>named_parsers</code> overrides apply per group and per field. See
+<a href="#per-package-changelog-1">Changelog Customization</a>.</p>
+</blockquote>
+<h2 id="skipping-or-rewording-commits"><a class="header" href="#skipping-or-rewording-commits">Skipping or Rewording Commits</a></h2>
+<p><code>skip_shas</code> and <code>reword</code> live under <code>[repository]</code>. They operate on the
+repository’s shared commit history and affect <strong>version calculation as well
+as</strong> the changelog, so they are repo-wide and cannot be overridden per
+package.</p>
+<p><code>skip_shas</code> removes specific commits by SHA prefix (use 7+ characters) —
+handy for commits that shouldn’t affect versioning or appear in the
+changelog:</p>
+<pre><code class="language-toml">[repository]
+skip_shas = ["abc123d", "def456e"]
+</code></pre>
+<p><code>reword</code> rewrites a commit’s message. The new message affects <strong>both</strong> the
+changelog text <strong>and</strong> the version bump — changing <code>fix:</code> to <code>feat:</code>, for
+example, bumps minor instead of patch:</p>
+<pre><code class="language-toml">[[repository.reword]]
+sha = "abc123d"
+message = "feat: added user authentication"
+</code></pre>
+<p>Both have CLI equivalents for one-off runs: <code>--skip-sha &lt;sha&gt;</code> and
+<code>--reword &lt;sha&gt;=&lt;message&gt;</code>; a <code>--reword</code> for a SHA already in config wins.
+See the <a href="#repository">Configuration Reference</a>
+for the terse lookup form.</p>
+<p><code>skip_shas</code> and <code>reword</code> only affect each package’s next release.
+Releasaurus processes a package’s commits from its most recent tag forward,
+so once a release is tagged those commits are never reprocessed. (In a
+monorepo a single entry can therefore apply to more than one package — but
+only that package’s next release in each case.)</p>
+<p>If you just want to change how a single release’s notes read — without
+affecting the version bump — edit them directly in the release PR instead;
+see <a href="#editing-release-notes">Editing Release Notes</a>.</p>
 <h2 id="testing-your-configuration"><a class="header" href="#testing-your-configuration">Testing Your Configuration</a></h2>
 <p>Validate any config change locally before pushing — no token, no remote
 changes:</p>
@@ -775,86 +1396,257 @@ option, default, and the full example config.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="changelog-customization"><a class="header" href="#changelog-customization">Changelog Customization</a></h1>
-<p>Releasaurus generates changelogs from conventional commits. Control what
-appears with the filtering options, and how it’s formatted with a Tera
-template — both in the <code>[changelog]</code> section of <code>releasaurus.toml</code>.</p>
-<h2 id="filtering-commits"><a class="header" href="#filtering-commits">Filtering Commits</a></h2>
-<p>Each <code>skip_*</code> flag drops a category of commit from the changelog; the
-remaining flags adjust what’s shown. Set them in <code>[changelog]</code>:</p>
-<pre><code class="language-toml">[changelog]
-skip_ci = true
-skip_chore = true
-skip_miscellaneous = true
-include_author = true
-
-[[package]]
-path = "."
-release_type = "node"
+<p>Releasaurus generates changelogs from conventional commits. Two sections
+of <code>releasaurus.toml</code> control the result:</p>
+<ul>
+<li><code>[defaults.versioning]</code> — which commits are included and how they’re
+grouped. These settings affect the <strong>version bump</strong> as well as the
+changelog, which is why they live alongside the versioning options.</li>
+<li><code>[defaults.changelog]</code> — how the included commits are rendered (the Tera
+template and display flags).</li>
+</ul>
+<p>Both can also be set <a href="#per-package-changelog-1">per package</a>.</p>
+<h2 id="commit-groups--filtering"><a class="header" href="#commit-groups--filtering">Commit Groups &amp; Filtering</a></h2>
+<p>Each commit is matched against a set of <strong>parsers</strong>. A parser decides
+which <code>group</code> (changelog heading) a commit belongs to, and whether the
+commit is skipped entirely. Configure them in <code>[defaults.versioning]</code>.</p>
+<p>A parser has four fields:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Type</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>pattern</code></td><td>regex</td><td>Matched against the raw commit message to decide if the parser applies</td></tr>
+<tr><td><code>title</code></td><td>string</td><td>The changelog heading commits in this group appear under</td></tr>
+<tr><td><code>order</code></td><td>int</td><td>Position of the heading in the changelog, <code>0</code>-<code>99</code>, lowest first</td></tr>
+<tr><td><code>skip</code></td><td>bool</td><td>When <code>true</code>, matching commits are dropped from <strong>both</strong> the changelog and version calculation</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="built-in-groups-named_parsers"><a class="header" href="#built-in-groups-named_parsers">Built-in groups (<code>named_parsers</code>)</a></h3>
+<p>Releasaurus ships with these default parsers:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Group (toml key)</th><th>Pattern</th><th>Default title</th><th>Order</th></tr>
+</thead>
+<tbody>
+<tr><td><code>breaking</code></td><td><em>(none)</em></td><td><code>❌ Breaking</code></td><td><code>0</code></td></tr>
+<tr><td><code>feature</code></td><td><code>^feat</code></td><td><code>🚀 Features</code></td><td><code>1</code></td></tr>
+<tr><td><code>fix</code></td><td><code>^fix</code></td><td><code>🐛 Bug Fixes</code></td><td><code>2</code></td></tr>
+<tr><td><code>revert</code></td><td><code>^revert</code></td><td><code>◀️ Revert</code></td><td><code>3</code></td></tr>
+<tr><td><code>refactor</code></td><td><code>^refactor</code></td><td><code>🚜 Refactor</code></td><td><code>4</code></td></tr>
+<tr><td><code>performance</code></td><td><code>^perf</code></td><td><code>⚡ Performance</code></td><td><code>5</code></td></tr>
+<tr><td><code>documentation</code></td><td><code>^doc</code></td><td><code>📚 Documentation</code></td><td><code>6</code></td></tr>
+<tr><td><code>style</code></td><td><code>^style</code></td><td><code>🎨 Styling</code></td><td><code>7</code></td></tr>
+<tr><td><code>test</code></td><td><code>^test</code></td><td><code>🧪 Testing</code></td><td><code>8</code></td></tr>
+<tr><td><code>chore</code></td><td><code>^chore</code></td><td><code>🧹 Chore</code></td><td><code>9</code></td></tr>
+<tr><td><code>ci</code></td><td><code>^ci</code></td><td><code>⏩ CI/CD</code></td><td><code>10</code></td></tr>
+<tr><td><code>miscellaneous</code></td><td><code>.*</code></td><td><code>⚙️ Miscellaneous Tasks</code></td><td><code>11</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>breaking</code> is the one group not selected by its <code>pattern</code>. A commit is
+breaking when conventional-commit syntax says so — a <code>!</code> before the
+colon, or a <code>BREAKING CHANGE:</code> footer — and breaking always wins over
+the commit’s type, so <code>feat!: …</code> lands under <code>❌ Breaking</code> rather than
+<code>🚀 Features</code>.</p>
+<p>Setting <code>breaking.pattern</code> <strong>adds to</strong> that detection rather than
+replacing it. Commits matching your pattern are treated as breaking on
+top of the ones conventional syntax already catches, so you cannot lose
+a <code>feat!:</code> by writing a pattern that doesn’t happen to match it:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+breaking.pattern = "^breaking"
 </code></pre>
+<p>With that config, both <code>breaking: drop the v1 endpoint</code> and
+<code>feat!: drop the v1 endpoint</code> are grouped under <code>❌ Breaking</code> and bump
+the major version.</p>
+<p><code>breaking.pattern</code> and <a href="#custom-increment-regexes"><code>custom_major_increment_regex</code></a> are
+two spellings of the same thing — a pattern that marks a commit
+breaking. Either one groups the commit under <code>❌ Breaking</code>, marks it
+<code>[**breaking**]</code> in the default template, and bumps major. Setting both
+is fine; the two are combined, and a commit matching either is breaking.
+Reach for <code>breaking.pattern</code> when you are already customizing
+<code>named_parsers</code>, and <code>custom_major_increment_regex</code> when versioning is
+all you care about.</p>
+<p>Because breaking is decided before the type patterns are consulted,
+<code>skip</code> on another group cannot swallow a breaking commit — a <code>feat!:</code>
+reaches <code>❌ Breaking</code> even with <code>feature.skip = true</code>. The two ways a
+breaking change can still be dropped are both explicit: <code>breaking.skip = true</code>, or a custom parser with <code>skip = true</code> that matches it (see
+below).</p>
+<p>Override only the fields you want to change under
+<code>[defaults.versioning.named_parsers]</code>; everything you omit falls back to the
+built-in default. For example, to drop CI and chore commits — the only
+change needed is <code>skip</code>:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+</code></pre>
+<p>To skip a group, set its <code>skip = true</code>. You can also retitle a group,
+move it, or change its matching pattern the same way. A retitle does not
+move the group — position comes from <code>order</code> alone:</p>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+feature.title = "✨ New Stuff"
+fix.order = 1                   # bug fixes above features
+feature.order = 2
+</code></pre>
+<h3 id="custom-groups-custom_parser"><a class="header" href="#custom-groups-custom_parser">Custom groups (<code>custom_parser</code>)</a></h3>
+<p>Define entirely new groups with <code>[[defaults.versioning.custom_parser]]</code>.
+Note the key is singular, matching the <code>[[package]]</code> convention. Each
+custom parser is checked <strong>before</strong> the built-in parsers, so it takes
+precedence over the defaults:</p>
+<pre><code class="language-toml">[[defaults.versioning.custom_parser]]
+pattern = "^deps"
+title = "📦 Dependencies"
+order = 3
+skip = false
+</code></pre>
+<p>Unlike named parsers, custom parsers have no defaults to fall back on:
+<code>pattern</code>, <code>title</code> and <code>order</code> are all required. Omitting any of them is
+a configuration error.</p>
+<p>Because custom parsers are checked first, they also win over <code>breaking</code> —
+so a custom parser with <code>skip = true</code> drops matching commits even when
+they are breaking changes, removing them from the changelog <strong>and</strong> from
+the version bump. Keep custom patterns narrow, or leave <code>skip = false</code>
+if you only want to regroup commits rather than discard them.</p>
+<h3 id="ordering-groups"><a class="header" href="#ordering-groups">Ordering groups</a></h3>
+<p>Each group’s <code>order</code> places its heading in the changelog, lowest first
+(see the table above for the built-in values). Groups sharing an <code>order</code>
+fall back to title order.</p>
+<p>Order is independent of the heading text, so retitling a group never
+moves it. Mechanically, <code>order</code> is rendered into the <code>group</code> attribute as
+an <code>&lt;!-- NN --&gt;</code> prefix, which the default template sorts on and then
+strips:</p>
+<pre><code class="language-tera">{% ... | sort(attribute="group") | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+</code></pre>
+<p>A custom template that sorts on <code>group</code> gets ordering for free; one that
+prints <code>{{ group }}</code> without <code>striptags</code> will show the prefix. See
+<a href="#the-body-template">The <code>body</code> Template</a> below for the full template.</p>
+<h3 id="other-options"><a class="header" href="#other-options">Other options</a></h3>
+<p>In <code>[defaults.versioning]</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Option</th><th>Default</th><th>Effect</th></tr>
 </thead>
 <tbody>
-<tr><td><code>skip_ci</code></td><td><code>false</code></td><td>Excludes <code>ci:</code> commits (e.g. <em>ci: update workflow</em>)</td></tr>
-<tr><td><code>skip_chore</code></td><td><code>false</code></td><td>Excludes <code>chore:</code> commits (e.g. <em>chore: update deps</em>)</td></tr>
-<tr><td><code>skip_doc</code></td><td><code>false</code></td><td>Excludes <code>docs:</code> commits</td></tr>
-<tr><td><code>skip_test</code></td><td><code>false</code></td><td>Excludes <code>test:</code> commits</td></tr>
-<tr><td><code>skip_style</code></td><td><code>false</code></td><td>Excludes <code>style:</code> commits</td></tr>
-<tr><td><code>skip_refactor</code></td><td><code>false</code></td><td>Excludes <code>refactor:</code> commits</td></tr>
-<tr><td><code>skip_perf</code></td><td><code>false</code></td><td>Excludes <code>perf:</code> commits</td></tr>
-<tr><td><code>skip_revert</code></td><td><code>false</code></td><td>Excludes <code>revert:</code> commits</td></tr>
-<tr><td><code>skip_miscellaneous</code></td><td><code>false</code></td><td>Excludes non-conventional commits (no recognized type prefix)</td></tr>
 <tr><td><code>skip_merge_commits</code></td><td><code>true</code></td><td>Excludes merge commits</td></tr>
+</tbody>
+</table>
+</div>
+<p>In <code>[defaults.changelog]</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Default</th><th>Effect</th></tr>
+</thead>
+<tbody>
 <tr><td><code>include_author</code></td><td><code>false</code></td><td>Adds the commit author’s name to each entry</td></tr>
+<tr><td><code>include_pr_link</code></td><td><code>false</code></td><td>Adds a link to the pull request that introduced each commit</td></tr>
 <tr><td><code>aggregate_prereleases</code></td><td><code>false</code></td><td>When graduating a prerelease to stable, folds in the changelog entries from all prior prereleases (see <a href="#prereleases">Prereleases</a>)</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="dropping-or-rewriting-individual-commits"><a class="header" href="#dropping-or-rewriting-individual-commits">Dropping or rewriting individual commits</a></h3>
-<p><code>skip_shas</code> removes specific commits by SHA prefix (use 7+ characters).
-Handy for commits that shouldn’t affect versioning or appear in the
-changelog:</p>
-<pre><code class="language-toml">[changelog]
-skip_shas = ["abc123d", "def456e"]
+<p>To drop specific commits entirely or rewrite their messages — which also
+affects the version bump — see “Skipping or Rewording Commits” in the
+<a href="#skipping-or-rewording-commits">configuration guide</a>.</p>
+<h3 id="pull-request-links"><a class="header" href="#pull-request-links">Pull request links</a></h3>
+<p><code>include_pr_link</code> appends the PR that introduced each commit, so an entry
+reads:</p>
+<pre><code class="language-markdown">- add retry handling [_(a1b2c3d)_](…/commit/a1b2c3d) ([PR 42](…/pull/42))
 </code></pre>
-<p><code>reword</code> rewrites a commit’s message in the changelog. The new message
-affects <strong>both</strong> the changelog text <strong>and</strong> the version bump — changing
-<code>fix:</code> to <code>feat:</code>, for example, bumps minor instead of patch:</p>
-<pre><code class="language-toml">[[changelog.reword]]
-sha = "abc123d"
-message = "feat: added user authentication"
+<p>Only merged pull requests targeting the release branch are linked; commits
+pushed directly render without the segment.</p>
+<p>Two things are worth knowing before turning it on:</p>
+<ul>
+<li><strong>It costs extra API requests</strong> — roughly one per commit in the release.
+Expect a slower run, and on a large first release, watch for forge rate
+limits. A request that fails is logged as a warning and that entry renders
+without a link; it never fails the release.</li>
+<li><strong>Only the packages that enable it pay for it.</strong> A package that leaves it
+off costs nothing, even when a sibling turns it on. Where two enabled
+packages share a commit, that commit is looked up once.</li>
+</ul>
+<h2 id="per-package-changelog-1"><a class="header" href="#per-package-changelog-1">Per-package changelog</a></h2>
+<p>Everything on this page applies to every package by default. To customize
+a single package, set the same fields on that package’s <code>changelog</code> and
+<code>versioning</code> keys — matching the <code>[defaults]</code> table each option belongs
+to.
+Packages are an array of tables (<code>[[package]]</code>), so use an <strong>inline
+table</strong> to keep it scoped to the right entry:</p>
+<pre><code class="language-toml">[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = true }
+versioning = { named_parsers = { ci = { skip = true } } }
 </code></pre>
-<p>Both have CLI equivalents for one-off runs: <code>--skip-sha &lt;sha&gt;</code> and
-<code>--reword &lt;sha&gt;=&lt;message&gt;</code>. The
-<a href="#changelog">Configuration Reference</a> lists
-these options again in terse lookup form.</p>
+<p>Both keys <strong>merge field-by-field</strong> with their <code>[defaults]</code> counterpart:
+any field you set on the package wins, and any field you omit is
+inherited from <code>[defaults]</code> (falling back to the built-in default).
+<code>custom_parser</code> entries from <code>[defaults]</code> and the package are combined,
+with the package’s checked first, and <code>named_parsers</code> overrides apply per
+group and per field — so the example above turns on <code>include_author</code> and
+skips <code>ci</code> for <code>frontend</code> while still inheriting every other default. The
+one
+exception is <code>versioning.prerelease</code>, which is replaced as a whole table
+rather than merged. See
+<a href="#per-package-overrides-1">Per-package overrides</a>
+in the reference for the exact precedence rules.</p>
 <h2 id="the-body-template"><a class="header" href="#the-body-template">The <code>body</code> Template</a></h2>
 <p><code>body</code> is a <a href="https://keats.github.io/tera/">Tera</a> template rendered once
 per release. The default groups commits by type, links each commit, and
 highlights breaking changes:</p>
-<pre><code class="language-toml">[changelog]
-body = """# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+<pre><code class="language-toml">[defaults.changelog]
+body = '''# [{{ version  }}]{% if tag_compare_link %}({{ tag_compare_link }}){% else %}({{ link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | filter(attribute="merge_commit", value=false) | sort(attribute="group") | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 {% if commit.breaking -%}
-{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+{% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% if commit.body -%}
-&gt; {{ commit.body }}
+{%- set body_lines = commit.body | split(pat="\n") -%}
+{%- for body_line in body_lines %}
+&gt; {{ body_line }}
+{%- endfor %}
 {% endif -%}
 {% if commit.breaking_description -%}
-&gt; {{ commit.breaking_description }}
+{%- set breaking_lines = commit.breaking_description | split(pat="\n") -%}
+{%- for breaking_line in breaking_lines %}
+&gt; {{ breaking_line }}
+{%- endfor %}
 {% endif -%}
 {% else -%}
-- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}
+- {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% endif -%}
 {% endfor %}
-{% endfor %}"""
+{% endfor %}'''
 </code></pre>
+<p>Commit bodies and breaking descriptions are often several lines long, so
+the template splits them and gives every line its own <code>&gt; </code>. Interpolating
+the field whole quotes only its first line and leaks the rest out as body
+text.</p>
+<p>The <code>'''</code> delimiters are deliberate. A TOML literal string passes the
+template through verbatim, so what you write is what Tera sees. A <code>"""</code>
+string processes escapes first, and it recognizes only a fixed set of
+them: the <code>\n</code> above survives as a real newline and Tera splits on that
+just the same, but any other backslash in a custom template — a <code>\d</code> in a
+regex, say — is a TOML parse error before Tera is ever reached. Prefer
+<code>'''</code> for templates.</p>
+<p>Note that <code>include_author</code> and <code>include_pr_link</code> only do anything where the
+template checks them. A <strong>custom <code>body</code> gets nothing for free</strong> — setting
+<code>include_pr_link = true</code> against a template with no <code>commit.pr</code> clause
+renders no links (while still paying for the lookups). Copy the guard above
+into your own template:</p>
+<pre><code class="language-tera">{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
+</code></pre>
+<p>Guard on <code>commit.pr</code> as well as the flag: commits pushed straight to the
+branch have no PR, and dereferencing <code>commit.pr.id</code> unguarded renders an
+empty link.</p>
 <p>A simpler custom template:</p>
-<pre><code class="language-toml">[changelog]
+<pre><code class="language-toml">[defaults.changelog]
 body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }}
 
 {% for group, commits in commits | group_by(attribute="group") %}
@@ -878,8 +1670,10 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 <tr><td><code>tag_compare_link</code></td><td>Diff vs. previous tag (empty for first release)</td></tr>
 <tr><td><code>sha_compare_link</code></td><td>Diff vs. previous tag, by commit SHA (empty for first release)</td></tr>
 <tr><td><code>sha</code></td><td>Release commit SHA</td></tr>
+<tr><td><code>short_sha</code></td><td>Abbreviated release commit SHA</td></tr>
 <tr><td><code>timestamp</code></td><td>Unix timestamp</td></tr>
 <tr><td><code>include_author</code></td><td>Whether author display is enabled</td></tr>
+<tr><td><code>include_pr_link</code></td><td>Whether PR-link display is enabled</td></tr>
 </tbody>
 </table>
 </div>
@@ -896,11 +1690,25 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 <tr><td><code>title</code></td><td>Message without type/scope</td></tr>
 <tr><td><code>body</code></td><td>Optional extended description</td></tr>
 <tr><td><code>link</code></td><td>URL to the commit</td></tr>
+<tr><td><code>pr</code></td><td>Introducing PR, or unset (see below)</td></tr>
 <tr><td><code>breaking</code> / <code>breaking_description</code></td><td>Breaking-change flag and details</td></tr>
 <tr><td><code>merge_commit</code></td><td>Whether it’s a merge commit</td></tr>
 <tr><td><code>timestamp</code></td><td>Commit timestamp</td></tr>
 <tr><td><code>author_name</code> / <code>author_email</code></td><td>Commit author</td></tr>
 <tr><td><code>raw_title</code> / <code>raw_message</code></td><td>Original unprocessed title / message</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>commit.pr</code> is only populated when <code>include_pr_link</code> is enabled and the
+commit arrived via a merged pull request. When present it carries:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Variable</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>pr.id</code></td><td>User-visible PR number (e.g. <code>42</code>)</td></tr>
+<tr><td><code>pr.link</code></td><td>URL to the pull request</td></tr>
 </tbody>
 </table>
 </div>
@@ -1224,8 +2032,14 @@ type.</p>
 <p>Complete reference for <code>releasaurus.toml</code>, environment variables, and
 supported languages. For guidance and examples, see
 <a href="#configuration">Configuration</a>.</p>
-<h2 id="global-settings"><a class="header" href="#global-settings">Global Settings</a></h2>
-<p>Top-level keys, all optional:</p>
+<p>Configuration is grouped under three top-level tables: <code>[repository]</code>
+(repo-wide settings), <code>[defaults]</code> (release defaults for every package,
+with <code>[defaults.versioning]</code> and <code>[defaults.changelog]</code> subtables), and
+one or more <code>[[package]]</code> entries. All keys are optional.</p>
+<p>Unknown keys are rejected, so a misspelled or misplaced option fails at
+config load rather than being silently ignored.</p>
+<h2 id="repository"><a class="header" href="#repository"><code>[repository]</code></a></h2>
+<p>Repository-wide settings:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1236,11 +2050,71 @@ supported languages. For guidance and examples, see
 <tr><td><code>first_release_search_depth</code></td><td>integer</td><td><code>400</code></td><td>Commits to analyze for the <strong>first</strong> release (when no matching tag exists).</td></tr>
 <tr><td><code>tag_search_depth</code></td><td>integer</td><td><code>100</code></td><td>Max tags fetched when searching for a previous release. <code>0</code> = all tags.</td></tr>
 <tr><td><code>separate_pull_requests</code></td><td>bool</td><td><code>false</code></td><td>One PR per package (<code>true</code>) vs. a single combined PR (<code>false</code>).</td></tr>
+<tr><td><code>skip_shas</code></td><td>string[]</td><td>none</td><td>Skip commits by SHA prefix (7+ chars); affects changelog <strong>and</strong> version bump. Repo-wide. CLI: <code>--skip-sha</code>.</td></tr>
+<tr><td><code>reword</code></td><td>object[]</td><td>none</td><td>Rewrite commit messages (affects changelog <strong>and</strong> version bump). Repo-wide. CLI: <code>--reword</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>skip_shas</code> and <code>reword</code> operate on the repository’s shared commit history,
+so they are repo-wide and cannot be overridden per package. A <code>--reword</code> for
+a SHA already listed in config takes precedence over the config entry.</p>
+<pre><code class="language-toml">[repository]
+base_branch = "main"
+tag_search_depth = 100
+separate_pull_requests = false
+skip_shas = ["abc123d", "def456e"]
+
+[[repository.reword]]
+sha = "abc123d"
+message = "fix: corrected description"
+</code></pre>
+<h2 id="defaults"><a class="header" href="#defaults"><code>[defaults]</code></a></h2>
+<p>Keys set directly on <code>[defaults]</code>, rather than in one of its subtables.
+All four are Tera templates for the release commit message and PR title;
+see <a href="#commit-message--pr-title-templates">Commit Message &amp; PR Title Templates</a> for which one
+applies when.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Applies when</th></tr>
+</thead>
+<tbody>
+<tr><td><code>commit_message_template</code></td><td>string</td><td><code>chore({{ branch }}): release {{ package_name }} {{ tag }}</code></td><td><code>separate_pull_requests = true</code>, or one <code>[[package]]</code>. Overridable per package.</td></tr>
+<tr><td><code>pr_title_template</code></td><td>string</td><td><code>chore({{ branch }}): release {{ package_name }} {{ tag }}</code></td><td><code>separate_pull_requests = true</code>, or one <code>[[package]]</code>. Overridable per package.</td></tr>
+<tr><td><code>monorepo_commit_message_template</code></td><td>string</td><td><code>chore({{ branch }}): release {{ repo_name }}</code></td><td>Multiple <code>[[package]]</code> with <code>separate_pull_requests = false</code>. No per-package override.</td></tr>
+<tr><td><code>monorepo_pr_title_template</code></td><td>string</td><td><code>chore({{ branch }}): release {{ repo_name }}</code></td><td>Multiple <code>[[package]]</code> with <code>separate_pull_requests = false</code>. No per-package override.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The two contexts differ: <code>branch</code> and <code>repo_name</code> are always available,
+while <code>package_name</code>, <code>tag</code>, and <code>semver</code> exist only in the per-package
+templates. Referencing a variable that isn’t in scope is rejected at
+config load.</p>
+<pre><code class="language-toml">[defaults]
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }} ({{ branch }})"
+</code></pre>
+<h2 id="defaultsversioning"><a class="header" href="#defaultsversioning"><code>[defaults.versioning]</code></a></h2>
+<p>Everything that affects the computed version, plus the commit filtering
+and grouping rules (which affect the version as well as the changelog).
+Each package may override these individually via its own <code>versioning</code>
+table (see <a href="#package"><code>[[package]]</code></a>).</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>version_type</code></td><td>string</td><td><code>major.minor.patch</code></td><td>Version format to produce. See <a href="#version-types">Version Types</a> for the five accepted values.</td></tr>
 <tr><td><code>auto_start_next</code></td><td>bool</td><td><code>false</code></td><td>Bump patch versions automatically after a release (see <a href="#start-next"><code>start-next</code></a>).</td></tr>
 <tr><td><code>breaking_always_increment_major</code></td><td>bool</td><td><code>true</code></td><td>Breaking changes (<code>feat!:</code>, <code>BREAKING CHANGE:</code>) bump major.</td></tr>
 <tr><td><code>features_always_increment_minor</code></td><td>bool</td><td><code>true</code></td><td><code>feat:</code> commits bump minor.</td></tr>
-<tr><td><code>custom_major_increment_regex</code></td><td>string</td><td>none</td><td>Additional regex that triggers a major bump.</td></tr>
-<tr><td><code>custom_minor_increment_regex</code></td><td>string</td><td>none</td><td>Additional regex that triggers a minor bump.</td></tr>
+<tr><td><code>custom_major_increment_regex</code></td><td>string</td><td>none</td><td>Additional regex marking a commit breaking: bumps major <strong>and</strong> groups it under <code>❌ Breaking</code>.</td></tr>
+<tr><td><code>custom_minor_increment_regex</code></td><td>string</td><td>none</td><td>Additional regex that triggers a minor bump. No grouping effect.</td></tr>
+<tr><td><code>skip_merge_commits</code></td><td>bool</td><td><code>true</code></td><td>Exclude merge commits.</td></tr>
+<tr><td><code>named_parsers</code></td><td>table</td><td>built-in groups</td><td>Override built-in commit groups (<code>pattern</code>/<code>title</code>/<code>order</code>/<code>skip</code> per group). See <a href="#commit-groups--filtering">Changelog Customization</a>.</td></tr>
+<tr><td><code>custom_parser</code></td><td>array</td><td>none</td><td>Define additional commit groups, checked before the defaults. Note the singular key. <code>pattern</code>, <code>title</code> and <code>order</code> are all required.</td></tr>
+<tr><td><code>prerelease</code></td><td>table</td><td>none (stable)</td><td>Prerelease settings; see <a href="#defaultsversioningprerelease"><code>[defaults.versioning.prerelease]</code></a>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -1249,12 +2123,26 @@ supported languages. For guidance and examples, see
 <strong>additive</strong> — breaking changes always bump major and <code>feat:</code> always
 bumps minor regardless. The pattern is matched against the full commit
 message. In TOML double-quoted strings, escape backslashes (<code>\\</code>):</p>
-<pre><code class="language-toml">custom_major_increment_regex = "\\[MAJOR\\]"   # matches "[MAJOR]"
+<pre><code class="language-toml">[defaults.versioning]
+custom_major_increment_regex = "\\[MAJOR\\]"   # matches "[MAJOR]"
 custom_minor_increment_regex = "FEATURE"        # no escaping needed
 </code></pre>
-<h2 id="prerelease"><a class="header" href="#prerelease"><code>[prerelease]</code></a></h2>
-<p>Global prerelease config; can be overridden per package via a package
-<code>prerelease</code> table. See <a href="#prereleases">Prereleases</a>.</p>
+<p>The two are not symmetric. <code>custom_major_increment_regex</code> marks a
+matching commit <strong>breaking</strong>, which groups it under <code>❌ Breaking</code> and
+marks it <code>[**breaking**]</code> in the default body template as well as bumping
+major. <code>custom_minor_increment_regex</code> only affects the version.</p>
+<p><code>[defaults.versioning.named_parsers] breaking.pattern</code> is the same
+mechanism as <code>custom_major_increment_regex</code> under a different name; set
+either, or both, in which case a commit matching either is breaking. See
+<a href="#built-in-groups-named_parsers">Commit Groups &amp; Filtering</a>.</p>
+<p>An invalid pattern is rejected when the config loads, not part-way
+through a release.</p>
+<h3 id="defaultsversioningprerelease"><a class="header" href="#defaultsversioningprerelease"><code>[defaults.versioning.prerelease]</code></a></h3>
+<p>Default prerelease config; can be overridden per package via that
+package’s <code>versioning.prerelease</code>. See
+<a href="#prereleases">Prereleases</a>. Applies only when
+<code>version_type</code> is <code>major.minor.patch</code> or
+<code>major.minor.patch+timestamp.sha</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1266,12 +2154,31 @@ custom_minor_increment_regex = "FEATURE"        # no escaping needed
 </tbody>
 </table>
 </div>
-<pre><code class="language-toml">[prerelease]
+<pre><code class="language-toml">[defaults.versioning.prerelease]
 suffix = "beta"
 strategy = "versioned"
 </code></pre>
-<h2 id="changelog"><a class="header" href="#changelog"><code>[changelog]</code></a></h2>
-<p>Controls changelog generation. See
+<h3 id="defaultsversioningnamed_parsers"><a class="header" href="#defaultsversioningnamed_parsers"><code>[defaults.versioning.named_parsers]</code></a></h3>
+<pre><code class="language-toml">[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+feature.title = "✨ New Stuff"
+feature.order = 1
+</code></pre>
+<p><code>order</code> (<code>0</code>-<code>99</code>, lowest first) sets the heading’s position in the
+changelog and is independent of the title text. See
+<a href="#ordering-groups">Ordering groups</a>.</p>
+<h3 id="defaultsversioningcustom_parser"><a class="header" href="#defaultsversioningcustom_parser"><code>[[defaults.versioning.custom_parser]]</code></a></h3>
+<pre><code class="language-toml">[[defaults.versioning.custom_parser]]
+pattern = "^deps"
+title = "📦 Dependencies"
+order = 3
+skip = false
+</code></pre>
+<p><code>pattern</code>, <code>title</code> and <code>order</code> are all required — a custom group has no
+built-in position to fall back on.</p>
+<h2 id="defaultschangelog"><a class="header" href="#defaultschangelog"><code>[defaults.changelog]</code></a></h2>
+<p>Controls how the included commits are rendered. See
 <a href="#changelog-customization">Changelog Customization</a> for the template and variables.</p>
 <div class="table-wrapper">
 <table>
@@ -1279,32 +2186,21 @@ strategy = "versioned"
 <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>skip_ci</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>ci:</code> commits.</td></tr>
-<tr><td><code>skip_chore</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>chore:</code> commits.</td></tr>
-<tr><td><code>skip_doc</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>docs:</code> commits.</td></tr>
-<tr><td><code>skip_test</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>test:</code> commits.</td></tr>
-<tr><td><code>skip_style</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>style:</code> commits.</td></tr>
-<tr><td><code>skip_refactor</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>refactor:</code> commits.</td></tr>
-<tr><td><code>skip_perf</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>perf:</code> commits.</td></tr>
-<tr><td><code>skip_revert</code></td><td>bool</td><td><code>false</code></td><td>Exclude <code>revert:</code> commits.</td></tr>
-<tr><td><code>skip_miscellaneous</code></td><td>bool</td><td><code>false</code></td><td>Exclude non-conventional commits.</td></tr>
-<tr><td><code>skip_merge_commits</code></td><td>bool</td><td><code>true</code></td><td>Exclude merge commits.</td></tr>
 <tr><td><code>include_author</code></td><td>bool</td><td><code>false</code></td><td>Include commit author names.</td></tr>
+<tr><td><code>include_pr_link</code></td><td>bool</td><td><code>false</code></td><td>Link the pull request that introduced each commit. Costs extra API requests — see below.</td></tr>
 <tr><td><code>aggregate_prereleases</code></td><td>bool</td><td><code>false</code></td><td>On graduation, fold prior prerelease notes into the stable release.</td></tr>
-<tr><td><code>skip_shas</code></td><td>string[]</td><td>none</td><td>Skip commits by SHA prefix (7+ chars). CLI: <code>--skip-sha</code>.</td></tr>
-<tr><td><code>reword</code></td><td>object[]</td><td>none</td><td>Rewrite commit messages (affects changelog <strong>and</strong> version bump). CLI: <code>--reword</code>.</td></tr>
 <tr><td><code>body</code></td><td>string</td><td>standard template</td><td>Tera template for the changelog body.</td></tr>
 </tbody>
 </table>
 </div>
-<pre><code class="language-toml">[changelog]
-skip_ci = true
-skip_chore = true
-
-[[changelog.reword]]
-sha = "abc123d"
-message = "fix: corrected description"
+<pre><code class="language-toml">[defaults.changelog]
+include_author = true
+include_pr_link = true
 </code></pre>
+<p><code>include_pr_link</code> is paid for per package: one that leaves it off costs no
+requests even when a sibling turns it on. Note that a custom <code>body</code> must
+carry the <code>commit.pr</code> clause itself; see
+<a href="#pull-request-links">Pull request links</a>.</p>
 <h2 id="package"><a class="header" href="#package"><code>[[package]]</code></a></h2>
 <p>One entry per package; repeatable.</p>
 <div class="table-wrapper">
@@ -1318,19 +2214,22 @@ message = "fix: corrected description"
 <tr><td><code>name</code></td><td>string</td><td>derived from path</td><td>Explicit package name; must be unique.</td></tr>
 <tr><td><code>release_type</code></td><td>string</td><td>none</td><td>Language for version updates (see <a href="#supported-languages">Supported Languages</a>). Omit for changelog/tagging only.</td></tr>
 <tr><td><code>tag_prefix</code></td><td>string</td><td><code>v</code> (root) / <code>&lt;name&gt;-v</code> (nested)</td><td>Git tag prefix. Override: <code>--tag-prefix</code> or <code>--set-package &lt;name&gt;.tag_prefix=</code>.</td></tr>
-<tr><td><code>prerelease</code></td><td>table</td><td>inherits global</td><td>Per-package prerelease override. Override: <code>--set-package &lt;name&gt;.prerelease.suffix=</code>.</td></tr>
 <tr><td><code>sub_packages</code></td><td>object[]</td><td>none</td><td>Group packages under one shared tag/changelog (see <a href="#grouped-releases-sub-packages">Grouped Releases</a>).</td></tr>
 <tr><td><code>additional_paths</code></td><td>string[]</td><td>none</td><td>Extra directories whose changes trigger a release for this package.</td></tr>
 <tr><td><code>additional_manifest_files</code></td><td>string[] / object[]</td><td>none</td><td>Extra files to version-bump (see below).</td></tr>
-<tr><td><code>auto_start_next</code></td><td>bool</td><td>inherits global</td><td>Per-package <code>auto_start_next</code> override.</td></tr>
-<tr><td><code>breaking_always_increment_major</code></td><td>bool</td><td>inherits global</td><td>Per-package override.</td></tr>
-<tr><td><code>features_always_increment_minor</code></td><td>bool</td><td>inherits global</td><td>Per-package override.</td></tr>
-<tr><td><code>custom_major_increment_regex</code></td><td>string</td><td>inherits global</td><td>Per-package override.</td></tr>
-<tr><td><code>custom_minor_increment_regex</code></td><td>string</td><td>inherits global</td><td>Per-package override.</td></tr>
+<tr><td><code>versioning</code></td><td>table</td><td>inherits <code>[defaults.versioning]</code></td><td>Per-package versioning override (see <a href="#per-package-overrides-1">Per-package overrides</a>).</td></tr>
+<tr><td><code>changelog</code></td><td>table</td><td>inherits <code>[defaults.changelog]</code></td><td>Per-package changelog override (see <a href="#per-package-overrides-1">Per-package overrides</a>).</td></tr>
+<tr><td><code>commit_message_template</code></td><td>string</td><td>inherits <code>[defaults]</code></td><td>Release commit message for this package’s PR (see <a href="#defaults"><code>[defaults]</code></a>).</td></tr>
+<tr><td><code>pr_title_template</code></td><td>string</td><td>inherits <code>[defaults]</code></td><td>Release PR title for this package’s PR (see <a href="#defaults"><code>[defaults]</code></a>).</td></tr>
 </tbody>
 </table>
 </div>
 <p><code>sub_packages</code> entries take <code>name</code>, <code>path</code>, and <code>release_type</code>.</p>
+<p>Versioning options are <strong>not</strong> direct package keys — they live under the
+package’s <code>versioning</code> table, mirroring <code>[defaults.versioning]</code>. For example,
+a per-package prerelease is
+<code>versioning = { prerelease = { suffix = "alpha" } }</code>, and the matching CLI
+override is <code>--set-package &lt;name&gt;.versioning.prerelease.suffix=</code>.</p>
 <h3 id="additional_manifest_files"><a class="header" href="#additional_manifest_files"><code>additional_manifest_files</code></a></h3>
 <p>Extra files whose version strings should be kept in sync — custom
 <code>VERSION</code> files, docs, config, etc. Accepts plain string paths (using a
@@ -1350,22 +2249,85 @@ additional_manifest_files = [
 <code>version_regex</code> <strong>must</strong> include a named capture group <code>(?&lt;version&gt;...)</code>;
 only that group is replaced. Files without a match are skipped; an invalid
 regex errors during config resolution.</p>
+<h3 id="per-package-overrides-1"><a class="header" href="#per-package-overrides-1">Per-package overrides</a></h3>
+<p>A package can carry its own <code>versioning</code> and <code>changelog</code> config, using
+exactly the same fields as
+<a href="#defaultsversioning"><code>[defaults.versioning]</code></a> and
+<a href="#defaultschangelog"><code>[defaults.changelog]</code></a>. Because packages are an array of
+tables (<code>[[package]]</code>), set them as <strong>inline tables</strong> on the package itself
+so they are unambiguously scoped to that entry — a separate
+<code>[package.changelog]</code> header would only ever bind to the
+most-recently-declared package:</p>
+<pre><code class="language-toml">[[package]]
+name = "frontend"
+path = "./apps/web"
+release_type = "node"
+changelog = { include_author = true }
+versioning = { named_parsers = { ci = { skip = true } } }
+</code></pre>
+<p><strong>Both merge field-by-field with their <code>[defaults]</code> counterpart.</strong> Any
+field you set on the package wins; any field you omit is inherited from
+<code>[defaults]</code>, falling back to the built-in default only when <code>[defaults]</code>
+doesn’t set it either. So if <code>[defaults.changelog]</code> enables
+<code>include_author</code> and a package sets its own <code>changelog</code> without it, that
+package keeps <code>include_author = true</code>. <code>include_pr_link</code> merges the same way.</p>
+<p>Two fields compose rather than replace:</p>
+<ul>
+<li><code>custom_parser</code> — entries from <code>[defaults]</code> and the package are
+combined, with the package’s checked first.</li>
+<li><code>named_parsers</code> — overrides apply per group <strong>and per field</strong>. Each group
+you list is merged onto the <code>[defaults]</code> value for that group, then onto
+the built-in default, so you only specify the fields you want to change.
+A package that only retitles <code>ci</code> still inherits <code>ci.skip = true</code> from
+<code>[defaults]</code>.</li>
+</ul>
+<p>One table replaces rather than merges:</p>
+<ul>
+<li><code>prerelease</code> — a package’s <code>prerelease</code> table replaces the <code>[defaults]</code>
+one outright. <code>suffix</code> and <code>strategy</code> describe a single prerelease
+identity (<code>rc</code> + <code>versioned</code>, <code>SNAPSHOT</code> + <code>static</code>), so inheriting one
+field across a change to the other would produce combinations you didn’t
+ask for. Restate <code>strategy</code> alongside a package-level <code>suffix</code> whenever
+your default strategy isn’t the <code>versioned</code> built-in.</li>
+</ul>
+<p><code>commit_message_template</code> and <code>pr_title_template</code> are plain strings rather
+than tables, so there is nothing to merge: the package’s value wins, else
+the <code>[defaults]</code> value, else the built-in. Set them directly on the
+package, not inside a nested table. The <code>monorepo_*</code> templates have no
+package-level form at all — they describe a PR spanning several packages,
+so no one package owns them, and setting one on a <code>[[package]]</code> is a
+config error.</p>
 <h2 id="complete-example"><a class="header" href="#complete-example">Complete Example</a></h2>
-<pre><code class="language-toml"># Global settings
+<pre><code class="language-toml">[repository]
 base_branch = "main"
 first_release_search_depth = 400
 separate_pull_requests = false
+
+[defaults]
+pr_title_template = "🚀 Release {{ package_name }} {{ tag }}"
+monorepo_pr_title_template = "🚀 Release {{ repo_name }}"
+
+[defaults.versioning]
 auto_start_next = false
+version_type = "major.minor.patch"
 breaking_always_increment_major = true
 features_always_increment_minor = true
 
-[prerelease]
+[defaults.versioning.prerelease]
 suffix = "beta"
 strategy = "versioned"
 
-[changelog]
-skip_ci = true
-skip_chore = true
+[defaults.versioning.named_parsers]
+ci.skip = true
+chore.skip = true
+
+[[defaults.versioning.custom_parser]]
+pattern = "^deps"
+title = "📦 Dependencies"
+order = 3
+skip = false
+
+[defaults.changelog]
 include_author = false
 
 [[package]]
@@ -1373,13 +2335,16 @@ name = "frontend"
 path = "./apps/web"
 release_type = "node"
 tag_prefix = "web-v"
+# Per-package overrides (merge over the [defaults.*] equivalents).
+changelog = { include_author = true }
 
 [[package]]
 name = "backend"
 path = "./services/api"
 release_type = "rust"
 tag_prefix = "api-v"
-prerelease = { suffix = "alpha", strategy = "versioned" }
+versioning = { prerelease = { suffix = "alpha", strategy = "versioned" } }
+pr_title_template = "api: {{ tag }}"
 </code></pre>
 <h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
 <p>Releasaurus selects the auth token automatically from the <code>--forge</code> type;
@@ -1454,30 +2419,30 @@ languages support workspace/monorepo layouts.</p>
 </table>
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="library-api"><a class="header" href="#library-api">Library API</a></h1>
+<h1 id="library-api-1"><a class="header" href="#library-api-1">Library API</a></h1>
 <p>The <code>releasaurus-core</code> crate exposes the full release pipeline as a
 public Rust API — use it to embed release automation in your own tooling
 instead of shelling out to the CLI. (For CI/CD and simple automation, the
 CLI is the better choice.)</p>
 <h2 id="adding-the-dependency"><a class="header" href="#adding-the-dependency">Adding the Dependency</a></h2>
 <pre><code class="language-toml">[dependencies]
-releasaurus-core = "0.14"
+releasaurus-core = "x.x.x"
 tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 </code></pre>
 <h2 id="architecture"><a class="header" href="#architecture">Architecture</a></h2>
 <pre><code class="language-text">Orchestrator            (pipeline entry point)
   └─ ResolvedConfig     (merged settings)
-  └─ ResolvedPackageHash (resolved package configs)
+       └─ ResolvedPackageHash (resolved package configs)
   └─ ForgeManager       (caching + dry-run wrapper)
        └─ Forge         (GitHub / GitLab / Gitea / Local)
 </code></pre>
-<p>All operations go through <code>Orchestrator</code>, which needs three pieces:</p>
+<p>All operations go through <code>Orchestrator</code>, which needs two pieces:</p>
 <ol>
 <li>A <strong><code>ForgeManager</code></strong> wrapping a concrete <code>Forge</code>.</li>
-<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the loaded
-TOML plus any runtime overrides.</li>
-<li>A <strong><code>ResolvedPackageHash</code></strong> — the resolved packages, produced alongside
-<code>ResolvedConfig</code> by <code>Resolver::resolve()</code>.</li>
+<li>A <strong><code>ResolvedConfig</code></strong> — built by <code>Resolver::builder()</code> from the
+loaded TOML plus any runtime overrides, then produced by
+<code>Resolver::resolve()</code>. It carries the base branch, the PR-splitting
+flag, and a <code>ResolvedPackageHash</code> of the resolved packages.</li>
 </ol>
 <p>See the <a href="https://docs.rs/releasaurus-core">crate-level quick start on docs.rs</a> for the full builder
 chain with per-step comments.</p>
