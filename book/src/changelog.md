@@ -45,15 +45,43 @@ Releasaurus ships with these default parsers:
 | `ci`             | `^ci`       | `⏩ CI/CD`               | `10`  |
 | `miscellaneous`  | `.*`        | `⚙️ Miscellaneous Tasks` | `11`  |
 
-`breaking` has no default `pattern` — breaking changes are detected via
-conventional-commit syntax (`feat!:`, `BREAKING CHANGE:`). Setting a
-`pattern` on `breaking` uses your pattern instead, but only for
-changelog grouping: the version bump is always computed from
-conventional-commit syntax, so a `feat!:` still bumps major even if your
-pattern routes it under another group. To make additional patterns bump
-the major version, use [`custom_major_increment_regex`][major-regex].
+`breaking` is the one group not selected by its `pattern`. A commit is
+breaking when conventional-commit syntax says so — a `!` before the
+colon, or a `BREAKING CHANGE:` footer — and breaking always wins over
+the commit's type, so `feat!: …` lands under `❌ Breaking` rather than
+`🚀 Features`.
+
+Setting `breaking.pattern` **adds to** that detection rather than
+replacing it. Commits matching your pattern are treated as breaking on
+top of the ones conventional syntax already catches, so you cannot lose
+a `feat!:` by writing a pattern that doesn't happen to match it:
+
+```toml
+[defaults.versioning.named_parsers]
+breaking.pattern = "^breaking"
+```
+
+With that config, both `breaking: drop the v1 endpoint` and
+`feat!: drop the v1 endpoint` are grouped under `❌ Breaking` and bump
+the major version.
+
+`breaking.pattern` and [`custom_major_increment_regex`][major-regex] are
+two spellings of the same thing — a pattern that marks a commit
+breaking. Either one groups the commit under `❌ Breaking`, marks it
+`[**breaking**]` in the default template, and bumps major. Setting both
+is fine; the two are combined, and a commit matching either is breaking.
+Reach for `breaking.pattern` when you are already customizing
+`named_parsers`, and `custom_major_increment_regex` when versioning is
+all you care about.
 
 [major-regex]: ./configuration-reference.md#custom-increment-regexes
+
+Because breaking is decided before the type patterns are consulted,
+`skip` on another group cannot swallow a breaking commit — a `feat!:`
+reaches `❌ Breaking` even with `feature.skip = true`. The two ways a
+breaking change can still be dropped are both explicit: `breaking.skip
+= true`, or a custom parser with `skip = true` that matches it (see
+below).
 
 Override only the fields you want to change under
 `[defaults.versioning.named_parsers]`; everything you omit falls back to the

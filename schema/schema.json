@@ -325,14 +325,16 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "custom_minor_increment_regex": {
           "description": "Custom regex pattern matched against commit messages to trigger a\nminor version bump. This is additive — `feat:` commits always trigger\nminor bumps regardless of this setting. In TOML double-quoted strings,\nescape backslashes (e.g. `\"\\\\[FEATURE\\\\]\"` matches `[FEATURE]`).",
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "default": null
         },
         "skip_merge_commits": {
           "description": "Skips including merge commits in changelog",

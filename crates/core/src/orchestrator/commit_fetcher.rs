@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
     rc::Rc,
 };
 
@@ -28,6 +28,11 @@ pub struct CommitFetcher {
     /// once for the whole run. Every lookup targets `config.base_branch`, so
     /// the sha alone identifies the answer.
     commit_prs: RefCell<HashMap<String, Option<ForgeCommitPR>>>,
+    /// Shas whose lookup errored, as opposed to succeeding with "no PR".
+    /// Both memoize as `None`, so the two are indistinguishable in
+    /// `commit_prs` - this is what lets the per-package summary count only
+    /// the links lost to failure, including on cache hits.
+    failed_pr_lookups: RefCell<HashSet<String>>,
 }
 
 impl CommitFetcher {
@@ -36,6 +41,7 @@ impl CommitFetcher {
             config,
             forge,
             commit_prs: RefCell::new(HashMap::new()),
+            failed_pr_lookups: RefCell::new(HashSet::new()),
         }
     }
 
@@ -75,8 +81,10 @@ impl CommitFetcher {
         tag: Option<&Tag>,
         commits: &[ForgeCommit],
     ) -> Vec<ForgeCommit> {
-        let mut package_paths = vec![package.normalized_full_path.clone()];
-        package_paths.extend(package.normalized_additional_paths.clone());
+        let package_paths: Vec<&PathBuf> =
+            std::iter::once(&package.normalized_full_path)
+                .chain(package.normalized_additional_paths.iter())
+                .collect();
 
         let mut package_commits: Vec<ForgeCommit> = vec![];
 
@@ -98,30 +106,19 @@ impl CommitFetcher {
                 let file_path = Path::new(file);
                 for package_path in package_paths.iter() {
                     if file_path.starts_with(package_path) {
-                        let raw_message = commit.message.to_string();
-                        let split_msg = raw_message
-                            .split_once("\n")
-                            .map(|(m, b)| (m.to_string(), b.to_string()));
-
-                        let (title, _body) = match split_msg {
-                            Some((t, b)) => {
-                                if b.is_empty() {
-                                    (t.trim().to_string(), None)
-                                } else {
-                                    (
-                                        t.trim().to_string(),
-                                        Some(b.trim().to_string()),
-                                    )
-                                }
-                            }
-                            None => (raw_message.to_string(), None),
-                        };
-
                         log::debug!(
                             "{}: including commit for analysis : {} : {}",
                             package.name,
                             commit.short_id,
-                            title
+                            // Subject line only. Built inside the macro so
+                            // nothing is computed at the default `Info`
+                            // level, and borrowed rather than allocated.
+                            commit
+                                .message
+                                .lines()
+                                .next()
+                                .unwrap_or_default()
+                                .trim()
                         );
 
                         package_commits.push(commit.clone());
@@ -209,6 +206,21 @@ impl CommitFetcher {
         for c in commits.iter_mut() {
             c.pr = self.commit_pr(&c.id, c.short_id.clone()).await;
         }
+
+        // The per-commit warnings scroll past in a large release. Close with
+        // one line naming the scale, so a partially linked changelog is
+        // obvious rather than something to reconstruct from the log.
+        let failed = self.failed_pr_lookups.borrow();
+        let lost = commits.iter().filter(|c| failed.contains(&c.id)).count();
+
+        if lost > 0 {
+            log::warn!(
+                "{}: {lost} of {} commits could not be linked to a pull \
+                 request: their changelog entries will have no PR link",
+                package.name,
+                commits.len(),
+            );
+        }
     }
 
     /// Looks up the PR that introduced `sha`, memoized per sha.
@@ -248,6 +260,7 @@ impl CommitFetcher {
                     "failed to fetch related PR for commit {short_sha}: \
                      {err}: omitting its PR link"
                 );
+                self.failed_pr_lookups.borrow_mut().insert(sha.to_string());
                 None
             }
         };
@@ -1427,6 +1440,65 @@ mod tests {
             commits[1].pr.as_ref().map(|pr| pr.id.as_str()),
             Some("7"),
             "one failure must not drop the others"
+        );
+    }
+
+    /// The summary counts links lost to failure, so a commit that simply has
+    /// no PR must not be counted. Both memoize as `None`, so only the
+    /// separate failure set can tell them apart.
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_records_failures_not_absent_prs() {
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .returning(|sha, _| {
+                if sha == "aaa1111" {
+                    Err(crate::result::ReleasaurusError::RateLimitExceeded)
+                } else {
+                    // succeeded, and this commit genuinely has no PR
+                    Ok(None)
+                }
+            });
+
+        let fetcher = create_pr_link_fetcher(true, mock);
+        let pkg = pr_link_package(&fetcher.config);
+        let mut commits = pr_commits(&["aaa1111", "bbb2222"]);
+
+        fetcher.fetch_merged_commit_prs(pkg, &mut commits).await;
+
+        let failed = fetcher.failed_pr_lookups.borrow();
+
+        assert!(
+            failed.contains("aaa1111"),
+            "the errored sha must be tracked"
+        );
+        assert!(
+            !failed.contains("bbb2222"),
+            "a successful lookup with no PR is not a failure"
+        );
+    }
+
+    /// A sha that failed stays counted on later packages, which read it from
+    /// the memo rather than re-requesting it.
+    #[tokio::test]
+    async fn fetch_merged_commit_prs_keeps_failures_across_packages() {
+        let mut mock = MockForge::new();
+        mock.expect_get_merged_pull_request_for_commit()
+            .times(1)
+            .returning(|_, _| {
+                Err(crate::result::ReleasaurusError::RateLimitExceeded)
+            });
+
+        let fetcher = create_pr_link_fetcher(true, mock);
+        let pkg = pr_link_package(&fetcher.config);
+
+        for _ in 0..2 {
+            let mut commits = pr_commits(&["aaa1111"]);
+            fetcher.fetch_merged_commit_prs(pkg, &mut commits).await;
+        }
+
+        assert!(
+            fetcher.failed_pr_lookups.borrow().contains("aaa1111"),
+            "a cache hit on a failed sha must still count as a lost link"
         );
     }
 

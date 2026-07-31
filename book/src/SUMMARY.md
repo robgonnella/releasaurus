@@ -6,6 +6,10 @@
 
 - [Getting Started](./getting-started.md)
 
+# Migration
+
+- [v0.22 to v1.0](./migration-0.22-to-1.0.md)
+
 # Guide
 
 - [Commands](./commands.md)

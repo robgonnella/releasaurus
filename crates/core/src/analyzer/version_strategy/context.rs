@@ -59,13 +59,13 @@ impl<'a> Context<'a> {
             );
 
         if let Some(regex) = self.config.custom_major_increment_regex.as_ref() {
-            version_updater =
-                version_updater.with_custom_major_increment_regex(regex)?;
+            version_updater = version_updater
+                .with_custom_major_increment_regex(regex.as_str())?;
         }
 
         if let Some(regex) = self.config.custom_minor_increment_regex.as_ref() {
-            version_updater =
-                version_updater.with_custom_minor_increment_regex(regex)?;
+            version_updater = version_updater
+                .with_custom_minor_increment_regex(regex.as_str())?;
         }
 
         Ok(version_updater)

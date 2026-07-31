@@ -65,20 +65,9 @@ impl<'a> GroupParser<'a> {
         // this group.
         let breaking_parser = self.named_parsers.get(&Group::Breaking);
 
-        // If there is a user defined breaking parser i.e. pattern is some,
-        // use it
-        if let Some(parser) = breaking_parser
-            && let Some(pattern) = parser.pattern.as_ref()
-            && pattern.is_match(msg)
-        {
-            return Some(parser.into());
-        }
-
-        // If no user defined breaking parser is defined, use conventional
-        // commit parsing to determine breaking group
+        // Use conventional commit parsing to determine breaking group
         if commit.breaking
             && let Some(parser) = breaking_parser
-            && parser.pattern.is_none()
         {
             return Some(parser.into());
         }
@@ -447,32 +436,60 @@ mod tests {
         assert_eq!(parsed.group, custom[0].group_title());
     }
 
+    /// `Group::Breaking` is the one group this parser does not select by
+    /// `pattern` - it reads [`Commit::breaking`] instead. A user pattern
+    /// reaches that flag earlier, in
+    /// [`parse_forge_commit`][crate::analyzer::commit::Commit::parse_forge_commit],
+    /// via the resolved `custom_major_increment_regex`; by the time a commit
+    /// gets here the decision is already made. So `breaking.pattern` is
+    /// deliberately inert at this layer, and the flag alone decides.
+    ///
+    /// Set the pattern to something the message cannot match, to pin that the
+    /// flag is what is consulted rather than the pattern.
     #[test]
-    fn test_group_parser_user_defined_breaking_pattern() {
-        // Give the breaking parser an explicit pattern. This overrides
-        // conventional-commit breaking detection: only messages matching
-        // the pattern are classified as breaking.
+    fn test_group_parser_breaking_is_driven_by_flag_not_pattern() {
         let mut named_parsers = NAMED_PARSERS.clone();
         let breaking_parser = named_parsers.get_mut(&Group::Breaking).unwrap();
-        breaking_parser.pattern = Some(Regex::new(r"^breaking").unwrap());
+        breaking_parser.pattern = Some(Regex::new(r"^never-matches").unwrap());
         let breaking_title = breaking_parser.group_title();
+        let feature_title =
+            NAMED_PARSERS.get(&Group::Feature).unwrap().group_title();
 
         let parser = GroupParser::new(&named_parsers, &[]);
 
-        // A message matching the custom pattern lands in the breaking group.
-        let matching = create_test_commit("breaking: drop legacy api", false);
-        let parsed = parser.parse(&matching).unwrap();
-        assert_eq!(parsed.group, breaking_title);
+        // Flagged breaking, pattern does not match: still breaking.
+        let flagged = create_test_commit("feat!: drop legacy api", true);
+        assert_eq!(parser.parse(&flagged).unwrap().group, breaking_title);
 
-        // A conventional `feat!:` breaking commit whose message does NOT
-        // match the custom pattern falls through to the Feature group. Once
-        // a breaking pattern is defined, it is the user's responsibility to
-        // make it match the commits they consider breaking.
-        let feat_breaking = create_test_commit("feat!: breaking feature", true);
-        let feature_title =
-            NAMED_PARSERS.get(&Group::Feature).unwrap().group_title();
-        let parsed = parser.parse(&feat_breaking).unwrap();
-        assert_eq!(parsed.group, feature_title);
+        // Not flagged, and the pattern is irrelevant here: falls through to
+        // the ordinary type patterns.
+        let unflagged = create_test_commit("feat: add a thing", false);
+        assert_eq!(parser.parse(&unflagged).unwrap().group, feature_title);
+    }
+
+    /// Breaking is decided before the type patterns are consulted, so a
+    /// `skip` on another group cannot swallow a breaking commit - a `feat!:`
+    /// reaches `Breaking` even with `feature.skip = true`. An earlier design
+    /// let this combination drop the commit from both the changelog and the
+    /// version calculation; `book/src/changelog.md` now documents that it
+    /// cannot, and this pins it.
+    #[test]
+    fn test_group_parser_feature_skip_does_not_drop_breaking_commit() {
+        let mut named_parsers = NAMED_PARSERS.clone();
+
+        named_parsers.get_mut(&Group::Feature).unwrap().skip = Some(true);
+
+        let parser = GroupParser::new(&named_parsers, &[]);
+
+        let commit = create_test_commit("feat!: breaking feature", true);
+        let parsed = parser.parse(&commit).unwrap();
+        let breaking_parser = &named_parsers[&Group::Breaking];
+
+        assert!(
+            !parsed.skip,
+            "a conventional breaking commit should not be skipped"
+        );
+        assert_eq!(parsed.group, breaking_parser.group_title())
     }
 
     /// Miscellaneous is the catch-all even when its pattern no longer matches
