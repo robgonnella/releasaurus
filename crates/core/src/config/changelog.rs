@@ -15,10 +15,16 @@ pub const DEFAULT_BODY: &str = r#"# [{{ version  }}]{% if tag_compare_link %}({{
 {% if commit.breaking -%}
 {% if commit.scope %}_({{ commit.scope }})_ {% endif -%}[**breaking**]: {{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}
 {% if commit.body -%}
-> {{ commit.body }}
+{%- set body_lines = commit.body | split(pat="\n") -%}
+{%- for body_line in body_lines %}
+> {{ body_line }}
+{%- endfor %}
 {% endif -%}
 {% if commit.breaking_description -%}
-> {{ commit.breaking_description }}
+{%- set breaking_lines = commit.breaking_description | split(pat="\n") -%}
+{%- for breaking_line in breaking_lines %}
+> {{ breaking_line }}
+{%- endfor %}
 {% endif -%}
 {% else -%}
 - {% if commit.scope %}_({{ commit.scope }})_ {% endif %}{{ commit.title }} [_({{ commit.short_id }})_]({{ commit.link }}){% if include_author %} ({{ commit.author_name }}){% endif %}{% if include_pr_link and commit.pr %} ([PR {{ commit.pr.id }}]({{ commit.pr.link }})){% endif %}

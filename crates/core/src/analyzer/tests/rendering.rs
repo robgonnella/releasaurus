@@ -85,6 +85,15 @@ fn entries(notes: &str) -> Vec<String> {
         .collect()
 }
 
+/// Returns the blockquote lines from rendered notes, in render order.
+fn quoted(notes: &str) -> Vec<String> {
+    notes
+        .lines()
+        .filter(|l| l.starts_with(">"))
+        .map(|l| l.to_string())
+        .collect()
+}
+
 fn render_with_pr_link(
     include_pr_link: bool,
     commits: Vec<ForgeCommit>,
@@ -275,6 +284,97 @@ fn default_body_marks_breaking_commits() {
     assert!(
         release.notes.contains("> the v1 api is gone"),
         "missing breaking description:\n{}",
+        release.notes
+    );
+}
+
+/// Every line of a multi-line body and breaking description must carry its
+/// own `> `.
+///
+/// The template used to interpolate each field whole, so only the first
+/// line landed inside the quote and the rest leaked out as body text - a
+/// bulleted list in a breaking body rendered as a top-level list. A
+/// `contains("> first body line")` check would pass against that bug, so
+/// assert the whole set of quoted lines.
+#[test]
+fn default_body_quotes_every_line_of_body_and_breaking_description() {
+    let config = AnalyzerConfig {
+        body: DEFAULT_BODY.into(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![make_commit(
+        "aaa1111",
+        "feat!: drop legacy api\n\
+         \n\
+         first body line\n\
+         second body line\n\
+         \n\
+         BREAKING CHANGE: first breaking line\n\
+         second breaking line",
+        1000,
+    )];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag()))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        quoted(&release.notes),
+        vec![
+            "> first body line".to_string(),
+            "> second body line".to_string(),
+            "> first breaking line".to_string(),
+            "> second breaking line".to_string(),
+        ],
+        "unexpected blockquote lines:\n{}",
+        release.notes
+    );
+}
+
+/// The two quoted fields are separate blocks, each set off from what
+/// precedes it.
+///
+/// Without the blank lines the breaking description would fold into the
+/// body's quote, and the quote itself would run on from the entry line.
+#[test]
+fn default_body_separates_quote_blocks_with_blank_lines() {
+    let config = AnalyzerConfig {
+        body: DEFAULT_BODY.into(),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let commits = vec![make_commit(
+        "aaa1111",
+        "feat!: drop legacy api\n\
+         \n\
+         body line\n\
+         \n\
+         BREAKING CHANGE: breaking line",
+        1000,
+    )];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag()))
+        .unwrap()
+        .unwrap();
+
+    let entry = release
+        .notes
+        .lines()
+        .position(|l| l.contains("[**breaking**]:"))
+        .unwrap_or_else(|| panic!("no breaking entry:\n{}", release.notes));
+
+    let after: Vec<&str> =
+        release.notes.lines().skip(entry + 1).take(4).collect();
+
+    assert_eq!(
+        after,
+        vec!["", "> body line", "", "> breaking line"],
+        "unexpected layout after the entry line:\n{}",
         release.notes
     );
 }
