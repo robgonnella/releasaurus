@@ -1,5 +1,6 @@
 use indexmap::IndexMap;
 use merge::Merge;
+use regex::Regex;
 
 use crate::{
     config::{
@@ -77,6 +78,24 @@ pub fn resolve_versioning(
     );
 
     validate_named_parsers(&named_parsers)?;
+
+    let breaking = &named_parsers[&Group::Breaking];
+
+    if let Some(pattern) = breaking.pattern.as_ref() {
+        final_versioning.custom_major_increment_regex =
+            if let Some(custom_breaking_regex) =
+                final_versioning.custom_major_increment_regex.as_ref()
+            {
+                let new_regex = Regex::new(&format!(
+                    "(?:{})|(?:{})",
+                    custom_breaking_regex.as_str(),
+                    pattern.as_str()
+                ))?;
+                Some(new_regex)
+            } else {
+                Some(pattern.clone())
+            };
+    }
 
     final_versioning.named_parsers = Some(named_parsers);
 
@@ -252,6 +271,86 @@ mod tests {
             versioning: Some(versioning),
             ..PackageConfig::default()
         }
+    }
+
+    fn resolve_with_breaking_pattern(
+        pattern: Option<&str>,
+        custom_major: Option<&str>,
+    ) -> VersioningConfig {
+        let mut named_parsers = NAMED_PARSERS.clone();
+
+        if let Some(pattern) = pattern {
+            named_parsers.get_mut(&Group::Breaking).unwrap().pattern =
+                Some(Regex::new(pattern).unwrap());
+        }
+
+        resolve_versioning(
+            "",
+            &package_with_versioning(VersioningConfig {
+                named_parsers: Some(named_parsers),
+                custom_major_increment_regex: custom_major
+                    .map(|c| Regex::new(c).unwrap()),
+                ..VersioningConfig::default()
+            }),
+            None,
+            &HashMap::new(),
+            &GlobalOverrides::default(),
+        )
+        .unwrap()
+    }
+
+    /// `breaking.pattern` is not consulted where the other parser patterns
+    /// are - grouping reads [`Commit::breaking`], which is set during commit
+    /// parsing from `custom_major_increment_regex`. Resolution is what bridges
+    /// the two, so a pattern that never lands in that field is a pattern that
+    /// does nothing at all.
+    #[test]
+    fn resolve_versioning_folds_breaking_pattern_into_major_regex() {
+        let resolved = resolve_with_breaking_pattern(Some("^breaking"), None);
+
+        assert_eq!(
+            resolved.custom_major_increment_regex.unwrap().as_str(),
+            "^breaking"
+        );
+    }
+
+    /// Both spellings are additive, so setting both must keep both. An
+    /// alternation is the only shape that does.
+    #[test]
+    fn resolve_versioning_combines_breaking_pattern_with_major_regex() {
+        let resolved = resolve_with_breaking_pattern(
+            Some("^breaking"),
+            Some(r"\[BREAKING\]"),
+        );
+
+        let combined = resolved.custom_major_increment_regex.unwrap();
+
+        assert!(
+            combined.is_match("breaking: drop the v1 endpoint"),
+            "breaking.pattern must survive the combine: {}",
+            combined.as_str()
+        );
+        assert!(
+            combined.is_match("fix: something [BREAKING] here"),
+            "the pre-existing regex must survive the combine: {}",
+            combined.as_str()
+        );
+        // An earlier version built this by concatenating an empty branch when
+        // one side was absent, which matches every string.
+        assert!(
+            !combined.is_match("chore: tidy up"),
+            "the combine must not match everything: {}",
+            combined.as_str()
+        );
+    }
+
+    /// Nothing is invented when no pattern is set, so an unset field stays
+    /// unset rather than becoming a match-everything regex.
+    #[test]
+    fn resolve_versioning_leaves_major_regex_unset_without_breaking_pattern() {
+        let resolved = resolve_with_breaking_pattern(None, None);
+
+        assert!(resolved.custom_major_increment_regex.is_none());
     }
 
     #[test]
@@ -450,18 +549,22 @@ mod tests {
 
     #[test]
     fn resolve_versioning_package_increment_flags_win_over_global() {
+        let global_regex = Regex::new("^global").unwrap();
+
         let default_versioning = VersioningConfig {
             breaking_always_increment_major: Some(false),
-            custom_minor_increment_regex: Some("^global".into()),
+            custom_minor_increment_regex: Some(global_regex),
             auto_start_next: Some(false),
             ..VersioningConfig::default()
         };
+
+        let package_regex = Regex::new("^package").unwrap();
 
         let resolved = resolve_versioning(
             "",
             &package_with_versioning(VersioningConfig {
                 breaking_always_increment_major: Some(true),
-                custom_minor_increment_regex: Some("^package".into()),
+                custom_minor_increment_regex: Some(package_regex.clone()),
                 auto_start_next: Some(true),
                 ..VersioningConfig::default()
             }),
@@ -473,8 +576,8 @@ mod tests {
 
         assert_eq!(resolved.breaking_always_increment_major, Some(true));
         assert_eq!(
-            resolved.custom_minor_increment_regex,
-            Some("^package".into())
+            resolved.custom_minor_increment_regex.unwrap().as_str(),
+            package_regex.as_str()
         );
         assert_eq!(resolved.auto_start_next, Some(true));
     }

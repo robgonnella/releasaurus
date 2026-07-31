@@ -18,7 +18,9 @@ here is optional: a 0.22 config will not load on 1.0.0.
 4. [Monorepo commit message and PR
    title](#monorepo-commit-message-and-pr-title) — the default now
    includes the repository name.
-5. [Library API](#library-api) — for Rust consumers of
+5. [`custom_major_increment_regex`](#custom_major_increment_regex-now-groups-commits-as-breaking)
+   — matching commits are now grouped as breaking, not just bumped.
+6. [Library API](#library-api) — for Rust consumers of
    `releasaurus-core`.
 
 Unknown keys are now rejected at config load. A key you forget to move
@@ -58,9 +60,9 @@ Configuration is now grouped under three top-level tables:
 - `[[package]]` — one entry per package, unchanged in spirit; each may
   override `[defaults]` with its own `versioning` and `changelog`.
 
-The full reference lives in the book at
-[`book/src/configuration-reference.md`](./book/src/configuration-reference.md).
-The tables below cover only what moved.
+The full reference lives in the
+[Configuration Reference](./configuration-reference.md). The tables
+below cover only what moved.
 
 ### Root-level keys
 
@@ -124,7 +126,7 @@ Three group names are spelled out rather than abbreviated — watch
 
 So this:
 
-```toml
+```text
 [changelog]
 skip_ci = true
 skip_chore = true
@@ -173,7 +175,7 @@ is almost never what you want:
 
 Before:
 
-```toml
+```text
 [[package]]
 name = "backend"
 path = "./services/api"
@@ -201,7 +203,7 @@ built-in `versioned`.
 
 This repository's own config, before and after. Before:
 
-```toml
+```text
 #:schema ./schema/schema.json
 
 tag_search_depth = 25
@@ -284,10 +286,11 @@ unexpected version.
 
 Release commit messages and PR titles are now rendered from Tera
 templates, and the default for combined monorepo PRs includes the
-repository name. This is the one change that alters output without any
-config edit on your part, so check anything that matches on release PR
-titles — branch protection rules, required status checks, CI `if:`
-conditions, merge automation.
+repository name. This is one of two changes that alter output without
+any config edit on your part (the other is
+[`custom_major_increment_regex`](#custom_major_increment_regex-now-groups-commits-as-breaking)),
+so check anything that matches on release PR titles — branch protection
+rules, required status checks, CI `if:` conditions, merge automation.
 
 0.22.x picked the format from how many packages happened to be in the
 PR on that run:
@@ -324,6 +327,30 @@ per-package templates additionally have `package_name`, `tag`, and
 `semver`. Referencing a variable that is not in scope is rejected at
 config load.
 
+## `custom_major_increment_regex` now groups commits as breaking
+
+The key moved to `[defaults.versioning]` like the rest, but its effect
+also widened. In 0.22.x it only influenced the version bump; a matching
+commit still appeared under whatever group its type prefix selected. In
+1.0.0 a commit it matches is treated as breaking outright: grouped under
+`❌ Breaking`, marked `[**breaking**]` in the default body template, and
+bumping major as before.
+
+**Who this affects:** anyone who already sets
+`custom_major_increment_regex`. No config edit is required and the
+computed version does not change — only which changelog heading those
+commits appear under.
+
+If you were relying on the old split — bump major, but keep the commit
+filed under its own type — there is no longer a setting for that; the
+two concepts are deliberately unified. The reverse case is now possible
+though: `[defaults.versioning.named_parsers] breaking.pattern` is the
+same mechanism under a different name, so pick whichever key reads
+better and know they are combined if you set both.
+
+`custom_minor_increment_regex` is unchanged — it affects the version
+bump only, with no grouping effect.
+
 ## Library API
 
 For Rust consumers of the `releasaurus-core` crate. The CLI binary
@@ -345,10 +372,9 @@ Beyond the moves:
   hang off `ResolvedConfig::package_configs`. Drop the
   `.package_configs(...)` call from `Orchestrator::builder()`. The
   crate-level quick start in
-  [`crates/core/src/lib.rs`](./crates/core/src/lib.rs) shows the full
-  builder chain, and
-  [`book/src/library-api.md`](./book/src/library-api.md) has the
-  narrative version.
+  [`crates/core/src/lib.rs`](https://github.com/robgonnella/releasaurus/blob/main/crates/core/src/lib.rs)
+  shows the full builder chain, and [Library API](./library-api.md) has
+  the narrative version.
 - **`PrereleaseConfig::suffix` is a `String`**, not an
   `Option<String>`. The `suffix()` accessor that unwrapped it is gone —
   read the field directly, and treat `""` as "no prerelease".

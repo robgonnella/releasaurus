@@ -81,8 +81,8 @@ table (see [`[[package]]`](#package)).
 | `auto_start_next`                 | bool   | `false`             | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
 | `breaking_always_increment_major` | bool   | `true`              | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
 | `features_always_increment_minor` | bool   | `true`              | `feat:` commits bump minor.                                                                                                                           |
-| `custom_major_increment_regex`    | string | none                | Additional regex that triggers a major bump.                                                                                                          |
-| `custom_minor_increment_regex`    | string | none                | Additional regex that triggers a minor bump.                                                                                                          |
+| `custom_major_increment_regex`    | string | none                | Additional regex marking a commit breaking: bumps major **and** groups it under `❌ Breaking`.                                                         |
+| `custom_minor_increment_regex`    | string | none                | Additional regex that triggers a minor bump. No grouping effect.                                                                                       |
 | `skip_merge_commits`              | bool   | `true`              | Exclude merge commits.                                                                                                                                |
 | `named_parsers`                   | table  | built-in groups     | Override built-in commit groups (`pattern`/`title`/`order`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
 | `custom_parser`                   | array  | none                | Define additional commit groups, checked before the defaults. Note the singular key. `pattern`, `title` and `order` are all required.                 |
@@ -100,6 +100,19 @@ message. In TOML double-quoted strings, escape backslashes (`\\`):
 custom_major_increment_regex = "\\[MAJOR\\]"   # matches "[MAJOR]"
 custom_minor_increment_regex = "FEATURE"        # no escaping needed
 ```
+
+The two are not symmetric. `custom_major_increment_regex` marks a
+matching commit **breaking**, which groups it under `❌ Breaking` and
+marks it `[**breaking**]` in the default body template as well as bumping
+major. `custom_minor_increment_regex` only affects the version.
+
+`[defaults.versioning.named_parsers] breaking.pattern` is the same
+mechanism as `custom_major_increment_regex` under a different name; set
+either, or both, in which case a commit matching either is breaking. See
+[Commit Groups & Filtering](./changelog.md#built-in-groups-named_parsers).
+
+An invalid pattern is rejected when the config loads, not part-way
+through a release.
 
 ### `[defaults.versioning.prerelease]`
 

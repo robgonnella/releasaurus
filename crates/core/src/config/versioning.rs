@@ -311,14 +311,18 @@ pub struct VersioningConfig {
     /// trigger major bumps regardless of this setting. In TOML double-quoted
     /// strings, escape backslashes (e.g. `"\\[BREAKING\\]"` matches
     /// `[BREAKING]`).
+    #[schemars(with = "Option<String>")]
+    #[serde(default, with = "serde_regex")]
     #[merge(strategy = merge::option::overwrite_none)]
-    pub custom_major_increment_regex: Option<String>,
+    pub custom_major_increment_regex: Option<Regex>,
     /// Custom regex pattern matched against commit messages to trigger a
     /// minor version bump. This is additive — `feat:` commits always trigger
     /// minor bumps regardless of this setting. In TOML double-quoted strings,
     /// escape backslashes (e.g. `"\\[FEATURE\\]"` matches `[FEATURE]`).
+    #[schemars(with = "Option<String>")]
+    #[serde(default, with = "serde_regex")]
     #[merge(strategy = merge::option::overwrite_none)]
-    pub custom_minor_increment_regex: Option<String>,
+    pub custom_minor_increment_regex: Option<Regex>,
     /// Skips including merge commits in changelog
     #[merge(strategy = merge::option::overwrite_none)]
     #[schemars(default = "default_skip_merge_commits")]

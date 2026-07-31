@@ -22,6 +22,12 @@ cd book
 mdbook serve --open
 ```
 
+## Upgrading to v1.0.0
+
+v1.0.0 restructures `releasaurus.toml`; a v0.22.x config will not load.
+See the [migration guide](./book/src/migration-0.22-to-1.0.md)
+([published version](https://releasaurus.rgon.io/migration-0.22-to-1.0.html)).
+
 ## License
 
 Licensed under either of

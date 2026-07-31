@@ -90,7 +90,7 @@ impl Commit {
         // Conventional commits give us a scope, a description, and breaking
         // change details. Anything that doesn't parse falls back to the raw
         // title/body split above.
-        let (scope, title, body, breaking, breaking_description) =
+        let (scope, title, body, mut breaking, breaking_description) =
             match ConventionalCommit::parse(raw_message.trim_end()) {
                 Ok(cc) => (
                     cc.scope().map(|s| s.to_string()),
@@ -101,6 +101,13 @@ impl Commit {
                 ),
                 Err(_) => (None, raw_title.clone(), raw_body, false, None),
             };
+
+        if !breaking
+            && let Some(custom) = config.custom_major_increment_regex.as_ref()
+            && custom.is_match(&raw_message)
+        {
+            breaking = true;
+        }
 
         let mut commit = Self {
             id: commit_id,

@@ -2,6 +2,7 @@
 
 use derive_builder::Builder;
 use indexmap::IndexMap;
+use regex::Regex;
 use url::Url;
 
 use crate::config::{
@@ -45,9 +46,9 @@ pub struct AnalyzerConfig {
     /// built; not consulted for date-based version types.
     pub features_always_increment_minor: Option<bool>,
     /// Custom commit type regex matcher to increment major version
-    pub custom_major_increment_regex: Option<String>,
+    pub custom_major_increment_regex: Option<Regex>,
     /// Custom commit type regex matcher to increment minor version
-    pub custom_minor_increment_regex: Option<String>,
+    pub custom_minor_increment_regex: Option<Regex>,
     /// Custom commit modifiers to skip commit shas or reword commit messages
     /// when generating changelog content
     pub commit_modifiers: CommitModifiers,

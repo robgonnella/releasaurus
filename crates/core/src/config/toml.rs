@@ -76,6 +76,11 @@ mod tests {
     /// With `deny_unknown_fields`, this catches documented keys that don't
     /// exist or sit under the wrong table - the docs cannot drift from the
     /// config structs without failing here.
+    ///
+    /// The migration guide is included for its "after" examples, which are
+    /// what an upgrading user copies. Its "before" examples are deliberately
+    /// v0.22 config and would fail here, so they are fenced as ```text -
+    /// leave them that way.
     #[test]
     fn parses_every_toml_example_in_the_book() {
         const PAGES: &[(&str, &str)] = &[
@@ -98,6 +103,13 @@ mod tests {
                 include_str!(concat!(
                     env!("CARGO_MANIFEST_DIR"),
                     "/../../book/src/changelog.md"
+                )),
+            ),
+            (
+                "migration-0.22-to-1.0.md",
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../book/src/migration-0.22-to-1.0.md"
                 )),
             ),
         ];

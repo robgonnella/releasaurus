@@ -8,12 +8,88 @@
 //! - Combined flag scenarios
 //! - Non-conventional commit matching
 
+use regex::Regex;
 use semver::Version as SemVer;
 
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
+    config::versioning::{Group, NAMED_PARSERS},
     forge::request::{ForgeCommit, Tag},
 };
+
+/// `custom_major_increment_regex` does not only bump the version - a commit
+/// it matches is treated as breaking outright, which means the `Breaking`
+/// changelog group and the `breaking` flag the default body template gates
+/// its `[**breaking**]` marker on.
+///
+/// This is the whole reason the flag is set during commit parsing rather than
+/// left to the version updater, and it is the half a version-only assertion
+/// misses: the bump comes from `next_version` reading the raw messages, so it
+/// happens either way and cannot distinguish the two designs.
+///
+/// `breaking.pattern` resolves into this same field (see
+/// `resolve_versioning`), so this covers both spellings.
+#[test]
+fn test_custom_major_regex_marks_commit_breaking_and_groups_it() {
+    let config = AnalyzerConfig {
+        custom_major_increment_regex: Some(Regex::new("^breaking").unwrap()),
+        ..AnalyzerConfig::default()
+    };
+    let breaking_title =
+        NAMED_PARSERS.get(&Group::Breaking).unwrap().group_title();
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![
+        ForgeCommit {
+            id: "abc123".to_string(),
+            message: "breaking: drop the v1 endpoint".to_string(),
+            timestamp: 2000,
+            ..ForgeCommit::default()
+        },
+        ForgeCommit {
+            id: "def456".to_string(),
+            message: "chore: tidy up".to_string(),
+            timestamp: 1000,
+            ..ForgeCommit::default()
+        },
+    ];
+
+    let release = analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    let matched = release
+        .commits
+        .iter()
+        .find(|c| c.id == "abc123")
+        .expect("matching commit should survive analysis");
+
+    assert!(
+        matched.breaking,
+        "a matching commit must be flagged breaking"
+    );
+    assert_eq!(matched.group, breaking_title);
+    assert_eq!(release.tag.semver, SemVer::parse("2.0.0").unwrap());
+
+    // A commit the pattern does not match is untouched, so the regex cannot
+    // be quietly matching everything.
+    let other = release
+        .commits
+        .iter()
+        .find(|c| c.id == "def456")
+        .expect("non-matching commit should survive analysis");
+
+    assert!(!other.breaking);
+    assert_ne!(other.group, breaking_title);
+}
 
 /// Both increment flags reach the analyzer as `Option<bool>` - the resolver
 /// passes the config tiers through unresolved - so the default is applied
@@ -120,8 +196,9 @@ fn test_breaking_always_increment_major_disabled() {
 
 #[test]
 fn test_custom_major_regex_works_with_breaking_syntax() {
+    let major_regex = Regex::new("MAJOR").unwrap();
     let config = AnalyzerConfig {
-        custom_major_increment_regex: Some("MAJOR".to_string()),
+        custom_major_increment_regex: Some(major_regex),
         ..AnalyzerConfig::default()
     };
 
@@ -151,8 +228,9 @@ fn test_custom_major_regex_works_with_breaking_syntax() {
 
 #[test]
 fn test_custom_major_increment_regex() {
+    let doc_regex = Regex::new("doc").unwrap();
     let config = AnalyzerConfig {
-        custom_major_increment_regex: Some("doc".to_string()),
+        custom_major_increment_regex: Some(doc_regex),
         ..AnalyzerConfig::default()
     };
 
@@ -211,8 +289,9 @@ fn test_features_always_increment_minor_disabled() {
 
 #[test]
 fn test_custom_minor_increment_regex() {
+    let ci_regex = Regex::new(r"^ci").unwrap();
     let config = AnalyzerConfig {
-        custom_minor_increment_regex: Some("^ci".to_string()),
+        custom_minor_increment_regex: Some(ci_regex),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -240,8 +319,9 @@ fn test_custom_minor_increment_regex() {
 
 #[test]
 fn test_custom_minor_regex_works_with_feat_syntax() {
+    let ci_regex = Regex::new(r"ci").unwrap();
     let config = AnalyzerConfig {
-        custom_minor_increment_regex: Some("ci".to_string()),
+        custom_minor_increment_regex: Some(ci_regex),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -353,8 +433,9 @@ fn test_both_boolean_flags_disabled_patch_bump() {
 
 #[test]
 fn test_custom_regex_matches_non_conventional_commit() {
+    let wow_regex = Regex::new(r"wow").unwrap();
     let config = AnalyzerConfig {
-        custom_major_increment_regex: Some("wow".to_string()),
+        custom_major_increment_regex: Some(wow_regex),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
