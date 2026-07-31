@@ -59,7 +59,7 @@ impl GithubForgeTestHelper {
             .await?;
 
         for pull in &pulls {
-            let pull_number = pull.number.unwrap();
+            let pull_number = pull.number;
 
             self.instance
                 .issues(&self.owner, &self.repo)
