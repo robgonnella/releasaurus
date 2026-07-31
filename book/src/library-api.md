@@ -9,7 +9,7 @@ CLI is the better choice.)
 
 ```toml
 [dependencies]
-releasaurus-core = "0.14"
+releasaurus-core = "x.x.x"
 tokio = { version = "1", features = ["full"] }  # async-first, built on Tokio
 ```
 
