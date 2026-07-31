@@ -1,3 +1,81 @@
+# [1.0.0](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.3...v1.0.0) - 2026-07-31
+
+### ❌ Breaking
+
+[**breaking**]: fixes issues with misalignment of breaking group and versions [_(0b61864)_](https://github.com/robgonnella/releasaurus/commit/0b618648c201f070d70adf5f2554b0ac07c770dd) (Rob Gonnella) ([PR 358](https://github.com/robgonnella/releasaurus/pull/358))
+
+> Additionally performs some cleanup around docs and testing and prepares
+> project for major version release
+
+> This commit fixes an issue where setting
+> custom_major_increment_regex never affected grouping in the changelog.
+> It now correctly marks a commit as "breaking" when the custom regex
+> matches; however, this is technically a breaking change to previous
+> changelog output, so marking as so here.
+
+[**breaking**]: cli options now mirror new toml structure [_(e707d61)_](https://github.com/robgonnella/releasaurus/commit/e707d616fdbd6bf3e4a2524c8f185b586b7cbad9) (Rob Gonnella) ([PR 343](https://github.com/robgonnella/releasaurus/pull/343))
+
+> --set-package prerelease paths now mirror the TOML
+> layout. Replace <pkg>.prerelease.suffix with
+> <pkg>.versioning.prerelease.suffix, and <pkg>.prerelease.strategy with
+> <pkg>.versioning.prerelease.strategy.
+
+[**breaking**]: improves how config is resolved [_(94191ce)_](https://github.com/robgonnella/releasaurus/commit/94191ce43c6f420b0e6e2c70c315c1a239267c5b) (Rob Gonnella) ([PR 343](https://github.com/robgonnella/releasaurus/pull/343))
+
+> improves how config is resolved
+
+[**breaking**]: adds support for custom parsers for commit groups [_(60a7587)_](https://github.com/robgonnella/releasaurus/commit/60a758788f17a00f7c29551079d779c5044a449e) (Rob Gonnella) ([PR 343](https://github.com/robgonnella/releasaurus/pull/343))
+
+> Adds the ability for users to modify a set of named parsers and define
+> a set of custom parsers. Each parser consists of a pattern, a title, a
+> skip field, and an order field. When skip is true, any commits matching
+> the pattern will be omitted from changelog and version calculation.
+> Otherwise the commit will be considered for version calculation and will
+> appear in the changelog grouped under the parser title with titles
+> appearing in the order defined for each parser.
+
+> The following changelog options have been deprecated
+> in toml config in support of the new named_parsers and
+> custom_parsers fields.
+> - skip_ci
+> - skip_chore
+> - skip_doc
+> - skip_test
+> - skip_style
+> - skip_refactor
+> - skip_perf
+> - skip_revert
+> - skip_miscellaneous
+> Additionally, this commit reorganizes the toml config a bit to better
+> support package-level config for changelog and versioning. Also
+> repository specific config is now under a "repository" header, and
+> default options for package releases are under a "defaults" header.
+> Users can now customize changelog and versioning configuration at the
+> package level for more flexibility in monorepos. Versioning config is
+> broken out into a separate structure to differentiate options that
+> affect versioning as opposed to those that only relate to display in the
+> changelog.
+
+[**breaking**]: drops support for legacy metadata [_(c68cbde)_](https://github.com/robgonnella/releasaurus/commit/c68cbde6f03133ab6acf7408d1762e117a02b33d) (Rob Gonnella)
+
+> removes support for legacy metadata format
+
+[**breaking**]: drops support for legacy labels [_(1d92efb)_](https://github.com/robgonnella/releasaurus/commit/1d92efb418feee07cc09bfa102ae28972ccf4929) (Rob Gonnella)
+
+> removes support old legacy pending labels
+
+### 🚀 Features
+
+- adds options to include related PRs for commits [_(6867367)_](https://github.com/robgonnella/releasaurus/commit/6867367174220730fd3ab48192a22fcdbf56ecec) (Rob Gonnella) ([PR 353](https://github.com/robgonnella/releasaurus/pull/353))
+
+- adds templates for commit messages and pr titles [_(8c9807c)_](https://github.com/robgonnella/releasaurus/commit/8c9807cbeea23105b19bf8e622b058de57b7b9af) (Rob Gonnella) ([PR 351](https://github.com/robgonnella/releasaurus/pull/351))
+
+- adds new versioning types and strategies [_(427a2aa)_](https://github.com/robgonnella/releasaurus/commit/427a2aaaab3a1b2ee04224416479aca46628753d) (Rob Gonnella) ([PR 329](https://github.com/robgonnella/releasaurus/pull/329))
+
+### 🐛 Bug Fixes
+
+- fixes the formatting of commit body and breaking description [_(8c68195)_](https://github.com/robgonnella/releasaurus/commit/8c6819578e5ca9867220d4f77630afdb5f6528f6) (Rob Gonnella) ([PR 360](https://github.com/robgonnella/releasaurus/pull/360))
+
 # [1.0.0-rc.3](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.2...v1.0.0-rc.3) - 2026-07-30
 
 ### 🚀 Features
