@@ -794,12 +794,10 @@ impl Forge for Github {
         while let Some(pr) = stream.try_next().await? {
             if let Some(labels) = pr.labels
                 && labels.iter().any(|l| l.name == PENDING_LABEL)
-                && let Some(pr_number) = pr.number
-                && let Some(pr_head) = pr.head
             {
                 found_prs.push(PullRequest {
-                    number: pr_number,
-                    sha: pr_head.sha,
+                    number: pr.number,
+                    sha: pr.head.sha,
                     body: pr.body.unwrap_or_default(),
                 });
             }
@@ -850,9 +848,7 @@ impl Forge for Github {
                 .get(issue.number)
                 .await?;
 
-            if let Some(pr_number) = pr.number
-                && let Some(pr_head) = pr.head
-                && let Some(head_label) = pr_head.label
+            if let Some(head_label) = pr.head.label
                 && head_label
                     == format!("{}:{}", self.url.owner, req.head_branch)
             {
@@ -861,7 +857,7 @@ impl Forge for Github {
                 {
                     log::warn!(
                         "found unmerged closed pr {} with pending label: skipping",
-                        pr_number
+                        pr.number
                     );
                     continue;
                 }
@@ -871,7 +867,7 @@ impl Forge for Github {
                 })?;
 
                 found_prs.push(PullRequest {
-                    number: pr_number,
+                    number: pr.number,
                     sha,
                     body: pr.body.unwrap_or_default(),
                 });
@@ -907,17 +903,9 @@ impl Forge for Github {
             .send()
             .await?;
 
-        let pr_number = pr.number.ok_or(ReleasaurusError::forge(
-            "failed to create pull request: response missing pr number",
-        ))?;
-
-        let pr_head = pr.head.ok_or(ReleasaurusError::forge(
-            "failed to create pull request: response missing head",
-        ))?;
-
         Ok(PullRequest {
-            number: pr_number,
-            sha: pr_head.sha,
+            number: pr.number,
+            sha: pr.head.sha,
             body: pr.body.unwrap_or_default(),
         })
     }
