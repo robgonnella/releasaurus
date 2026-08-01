@@ -16,6 +16,7 @@ releasaurus release-pr --repo "https://github.com/owner/repo"
 releasaurus release --repo "https://github.com/owner/repo"
 ```
 
+`one-shot` replaces both steps for repos that don't want a review PR.
 `start-next` and `get` are optional helpers covered below.
 
 ## `release-pr`
@@ -52,6 +53,51 @@ releasaurus release --repo "https://github.com/owner/repo"
 releasaurus release --package my-pkg \
   --repo "https://github.com/owner/repo"
 ```
+
+## `one-shot`
+
+Does everything `release-pr` and `release` do together, in a single pass
+and with no pull request: analyzes commits, bumps versions, writes the
+changelog, commits **directly to the base branch**, tags that commit, and
+publishes the release.
+
+```bash
+# All packages
+releasaurus one-shot --repo "https://github.com/owner/repo"
+
+# A single package in a monorepo
+releasaurus one-shot --package my-pkg \
+  --repo "https://github.com/owner/repo"
+```
+
+Use it for trunk-based or fully automated releases where a review step
+adds nothing — internal tools, nightly builds, or CI that already gates
+on the merge into the base branch. Prefer `release-pr` + `release`
+whenever you want the version bump and changelog reviewed before they
+land.
+
+In a monorepo, every package released in a run shares a single release
+commit, and each package's tag points at that commit. Setting
+[`separate_pull_requests`](./configuration-reference.md#repository) gives
+you one commit per package instead, matching how that setting splits
+release PRs.
+
+> **Warning:** This is a separate, out-of-band flow — it never creates a
+> release PR. Do not mix it with the `release-pr` / `release` workflow on
+> the same packages: the tag `one-shot` creates will collide with the one
+> `release` later tries to create for the merged PR. As a safety net,
+> `one-shot` refuses to run if a package it is about to release still has
+> a merged release PR waiting to be tagged, but it cannot detect every
+> ordering.
+
+> **Note:** Like `start-next`, this commits directly to your base branch,
+> so your branch protection rules must permit it. Unlike `release`, it is
+> not driven by `auto_start_next` and will not trigger a follow-up
+> patch bump.
+
+Supports dry-run and the [overrides](#configuration-overrides) below. Run
+it with `--dry-run` first to see exactly what it would commit, tag, and
+publish.
 
 ## `start-next`
 

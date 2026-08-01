@@ -9,12 +9,14 @@
 //! - `next_release`: Next release workflow tests
 //! - `current_releases`: Release data retrieval tests
 //! - `get_notes`: Get notes functionality tests
+//! - `one_shot`: One-shot (no PR) release workflow tests
 
 pub(crate) mod common;
 mod current_releases;
 mod get_notes;
 mod metadata;
 mod next_release;
+mod one_shot;
 mod package_releases;
 mod pr_workflow;
 mod release_workflow;

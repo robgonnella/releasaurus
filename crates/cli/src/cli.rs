@@ -615,6 +615,24 @@ pub enum Command {
         #[arg(long, default_value_t = false)]
         dry_run: bool,
     },
+
+    /// Performs a "one shot" release where commit analysis, version bump,
+    /// tagging, and releasing occurs all at once with no PR involved
+    OneShot {
+        #[command(flatten)]
+        commit_modifiers: CliCommitModifiers,
+
+        #[command(flatten)]
+        overrides: SharedCommandOverrides,
+
+        /// Targets a specific package in config for the one shot release
+        #[arg(short, long)]
+        package: Option<String>,
+
+        /// Execute in dry-run mode
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 }
 
 impl Cli {
@@ -629,7 +647,12 @@ impl Cli {
                         commit_modifiers, ..
                     },
             } => commit_modifiers.to_owned(),
-            _ => CliCommitModifiers::default(),
+            Command::OneShot {
+                commit_modifiers, ..
+            } => commit_modifiers.to_owned(),
+            Command::Get { .. } => CliCommitModifiers::default(),
+            Command::StartNext { .. } => CliCommitModifiers::default(),
+            Command::Release { .. } => CliCommitModifiers::default(),
         }
     }
 
@@ -686,7 +709,11 @@ impl Cli {
             } => {
                 map_overrides(overrides)?;
             }
-            _ => {}
+            Command::OneShot { overrides, .. } => {
+                map_overrides(overrides)?;
+            }
+            Command::Get { .. } => {}
+            Command::Release { .. } => {}
         };
 
         Ok(map)
@@ -704,7 +731,9 @@ impl Cli {
             Command::Get {
                 command: GetCommand::NextRelease { overrides, .. },
             } => Some(overrides),
-            _ => None,
+            Command::OneShot { overrides, .. } => Some(overrides),
+            Command::Get { .. } => None,
+            Command::Release { .. } => None,
         };
 
         if let Some(overrides) = cmd_overrides {

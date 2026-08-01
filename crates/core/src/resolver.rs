@@ -8,6 +8,7 @@ use crate::{
         overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
     },
+    forge::config::DEFAULT_PR_BRANCH_PREFIX,
     packages::resolved_hash::ResolvedPackageHash,
     resolver::resolvers::{
         base_branch::resolve_base_branch,
@@ -41,6 +42,20 @@ pub struct ResolvedConfig {
     pub monorepo_pr_title_template: String,
     /// Resolved per-package config, indexed by package name.
     pub package_configs: ResolvedPackageHash,
+}
+
+impl ResolvedConfig {
+    /// The release branch a package's PR lives on. Shared by every
+    /// package unless `separate_pull_requests` is set.
+    pub fn release_branch_for(&self, package_name: &str) -> String {
+        let branch = format!("{DEFAULT_PR_BRANCH_PREFIX}-{}", self.base_branch);
+
+        if self.separate_pull_requests {
+            return format!("{branch}-{package_name}");
+        }
+
+        branch
+    }
 }
 
 #[derive(Builder)]
