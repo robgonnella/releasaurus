@@ -9,11 +9,10 @@ use std::{
 use crate::{
     analyzer::Analyzer,
     forge::{
-        config::DEFAULT_PR_BRANCH_PREFIX,
         manager::ForgeManager,
         request::{
             CreatePrRequest, CreateReleaseBranchRequest, FileChange,
-            FileUpdateType, ForgeCommit, GetPrRequest, PullRequest,
+            FileUpdateType, ForgeCommit, GetPrRequest, PullRequest, Tag,
         },
     },
     orchestrator::{
@@ -232,6 +231,52 @@ impl PackageProcessor {
         self.build_releasable_packages(packages).await
     }
 
+    /// Builds the full set of file changes that releasing `pkg` implies:
+    /// its own manifest version bumps, updated versions for any other
+    /// releasable package it declares as a dependency, and the changelog
+    /// entry.
+    pub fn file_changes_for_releasable_package(
+        &self,
+        pkg: &ReleasablePackage,
+        all_releasable: &[ReleasablePackage],
+    ) -> Result<Vec<FileChange>> {
+        let pkg_config = self.config.package_configs.get(&pkg.name)?;
+
+        let releasable_refs: Vec<&ReleasablePackage> =
+            all_releasable.iter().collect();
+
+        let candidates =
+            self.cross_reference_candidates(pkg, pkg_config, &releasable_refs)?;
+
+        log::info!(
+            "Package: {}: {} other releasable package(s) may be \
+             referenced by its manifests",
+            pkg.name,
+            candidates.len(),
+        );
+
+        let mut file_changes =
+            UpdateManager::get_package_manifest_file_changes(pkg, &candidates)?;
+
+        file_changes.push(self.changelog_file_change(pkg, pkg_config));
+
+        Ok(file_changes)
+    }
+
+    pub fn release_commit_message_for_package(
+        &self,
+        pkg: &ReleasablePackage,
+    ) -> Result<String> {
+        let pkg_config = self.config.package_configs.get(&pkg.name)?;
+
+        self.render_release_template(
+            &pkg.name,
+            &pkg.tag,
+            &pkg_config.commit_message_template,
+            &self.config.monorepo_commit_message_template,
+        )
+    }
+
     pub fn release_pr_packages(
         &self,
         packages: Vec<ReleasablePackage>,
@@ -241,38 +286,10 @@ impl PackageProcessor {
             let target_config =
                 self.config.package_configs.get(&target.name)?;
 
-            let mut release_branch = format!(
-                "{}-{}",
-                DEFAULT_PR_BRANCH_PREFIX, self.config.base_branch
-            );
+            let release_branch = self.config.release_branch_for(&target.name);
 
-            if self.config.separate_pull_requests {
-                release_branch = format!("{release_branch}-{}", target.name);
-            }
-
-            let releasable_refs: Vec<&ReleasablePackage> =
-                packages.iter().collect();
-
-            // gather other packages related to target package that may be in
-            // same workspace
-            let workspace_packages =
-                self.related_packages(target, target_config, &releasable_refs)?;
-
-            log::info!(
-                "Package: {}: Found {} other packages for workspace root: {}",
-                target.name,
-                workspace_packages.len(),
-                target_config.normalized_workspace_root.to_string_lossy()
-            );
-
-            let mut file_changes =
-                UpdateManager::get_package_manifest_file_changes(
-                    target,
-                    &releasable_refs,
-                )?;
-
-            file_changes
-                .push(self.changelog_file_change(target, target_config));
+            let file_changes =
+                self.file_changes_for_releasable_package(target, &packages)?;
 
             finalized.push(ReleasePRPackage {
                 name: target.name.clone(),
@@ -340,20 +357,6 @@ impl PackageProcessor {
         let mut pr_results = vec![];
 
         for (release_branch, bundle) in bundles.into_iter() {
-            if let Some(pending_release) = self
-                .forge
-                .get_merged_release_pr(GetPrRequest {
-                    base_branch: self.config.base_branch.clone(),
-                    head_branch: release_branch.clone(),
-                })
-                .await?
-            {
-                return Err(ReleasaurusError::pending_release(
-                    release_branch.clone(),
-                    pending_release.number,
-                ));
-            }
-
             let file_changes: Vec<FileChange> = bundle
                 .packages
                 .iter()
@@ -404,7 +407,7 @@ impl PackageProcessor {
         &self,
         pr_bundle: &PRBundle,
     ) -> Result<String> {
-        self.render_release_template(
+        self.render_bundle_template(
             pr_bundle,
             "commit message",
             |pkg| &pkg.commit_message_template,
@@ -416,7 +419,7 @@ impl PackageProcessor {
         &self,
         pr_bundle: &PRBundle,
     ) -> Result<String> {
-        self.render_release_template(
+        self.render_bundle_template(
             pr_bundle,
             "PR title",
             |pkg| &pkg.pr_title_template,
@@ -424,33 +427,50 @@ impl PackageProcessor {
         )
     }
 
-    /// Renders one of the release templates for a PR bundle.
-    ///
-    /// Which template applies is decided by config alone, not by what is
-    /// being released: a repo with one configured package, or with
-    /// `separate_pull_requests` on, can only ever produce single-package
-    /// PRs, so those use the package's own template. Everything else is a
-    /// combined PR that may span several packages and uses the monorepo
-    /// template — including on runs where only one package happens to have
-    /// changes. Deciding this from config keeps the format stable from one
-    /// release to the next.
-    ///
-    /// Both templates were validated during config resolution, so a
-    /// failure here means the real values tripped something the probe
-    /// values did not.
-    fn render_release_template(
+    /// Picks the package whose template applies to a bundle and renders
+    /// it via [`PackageProcessor::render_release_template`].
+    fn render_bundle_template(
         &self,
         pr_bundle: &PRBundle,
         what: &str,
         package_template: impl Fn(&ReleasePRPackage) -> &str,
         monorepo_template: &str,
     ) -> Result<String> {
-        if pr_bundle.packages.is_empty() {
+        let Some(package) = pr_bundle.packages.first() else {
             return Err(ReleasaurusError::Other(eyre!(
                 "Cannot generate {what} for empty package list"
             )));
-        }
+        };
 
+        self.render_release_template(
+            &package.name,
+            &package.tag,
+            package_template(package),
+            monorepo_template,
+        )
+    }
+
+    /// Renders one of the release templates.
+    ///
+    /// Which template applies is decided by config alone, not by what is
+    /// being released: a repo with one configured package, or with
+    /// `separate_pull_requests` on, can only ever release one package at
+    /// a time, so those use the package's own template. Everything else
+    /// is a combined release that may span several packages and uses the
+    /// monorepo template — including on runs where only one package
+    /// happens to have changes. Deciding this from config keeps the
+    /// format stable from one release to the next.
+    ///
+    /// Both templates were validated during config resolution, so a
+    /// failure here means the real values tripped something the probe
+    /// values did not.
+    fn render_release_template(
+        &self,
+        package_name: &str,
+        tag: &Tag,
+        package_template: &str,
+        monorepo_template: &str,
+    ) -> Result<String> {
         let mut context = tera::Context::new();
         context.insert("repo_name", &self.config.repo_name);
         context.insert("branch", &self.config.base_branch);
@@ -458,11 +478,10 @@ impl PackageProcessor {
         let template = if self.config.separate_pull_requests
             || self.config.package_configs.hash().len() == 1
         {
-            let package = &pr_bundle.packages[0];
-            context.insert("package_name", &package.name);
-            context.insert("tag", &package.tag.name);
-            context.insert("semver", &package.tag.semver.to_string());
-            package_template(package)
+            context.insert("package_name", package_name);
+            context.insert("tag", &tag.name);
+            context.insert("semver", &tag.semver.to_string());
+            package_template
         } else {
             monorepo_template
         };
@@ -602,26 +621,28 @@ impl PackageProcessor {
         Ok(releasable)
     }
 
-    fn related_packages<'a>(
+    /// The other releasable packages whose versions may need writing
+    /// into `target`'s manifests. Scoped by release type, not
+    /// workspace since there is no dependency relationship between
+    /// packages of different type.
+    fn cross_reference_candidates<'a>(
         &self,
         target: &ReleasablePackage,
         target_config: &ResolvedPackage,
         others: &'a [&'a ReleasablePackage],
-    ) -> Result<Vec<&'a &'a ReleasablePackage>> {
-        let mut workspace_packages = vec![];
+    ) -> Result<Vec<&'a ReleasablePackage>> {
+        let mut candidates = vec![];
 
         for p in others.iter() {
             let p_config = self.config.package_configs.get(&p.name)?;
             if p.name != target.name
-                && p_config.normalized_workspace_root
-                    == target_config.normalized_workspace_root
                 && p_config.release_type == target_config.release_type
             {
-                workspace_packages.push(p);
+                candidates.push(*p);
             }
         }
 
-        Ok(workspace_packages)
+        Ok(candidates)
     }
 
     fn changelog_file_change(
