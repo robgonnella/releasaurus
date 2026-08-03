@@ -270,6 +270,8 @@ async fn create_releases_triggers_auto_start_next() {
 
     mock_forge.expect_get_commits().returning(|_, _| Ok(vec![]));
 
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {
             sha: "new-commit".to_string(),

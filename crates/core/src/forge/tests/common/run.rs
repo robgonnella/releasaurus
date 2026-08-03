@@ -86,7 +86,11 @@ pub async fn run_forge_test(
         }],
     };
 
-    let created_commit = forge.create_commit(create_commit_req).await.unwrap();
+    let created_commit = forge
+        .create_commit(create_commit_req)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!created_commit.sha.is_empty());
     sleep(SHORT_WAIT).await;
 
@@ -150,6 +154,7 @@ pub async fn run_forge_test(
     let release_commit = forge
         .create_release_branch(create_release_branch_req)
         .await
+        .unwrap()
         .unwrap();
     assert!(!release_commit.sha.is_empty());
     sleep(SHORT_WAIT).await;
@@ -168,8 +173,11 @@ pub async fn run_forge_test(
             update_type: FileUpdateType::Prepend,
         }],
     };
-    let re_create_commit =
-        forge.create_release_branch(re_create_req).await.unwrap();
+    let re_create_commit = forge
+        .create_release_branch(re_create_req)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!re_create_commit.sha.is_empty());
     sleep(SHORT_WAIT).await;
 
@@ -445,7 +453,11 @@ path = "test-package"
     };
 
     log::info!("loading newly created releasaurus config file");
-    let created_commit = forge.create_commit(create_commit_req).await.unwrap();
+    let created_commit = forge
+        .create_commit(create_commit_req)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!created_commit.sha.is_empty());
     sleep(SHORT_WAIT).await;
 

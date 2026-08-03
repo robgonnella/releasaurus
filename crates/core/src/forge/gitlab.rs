@@ -60,10 +60,10 @@ use crate::{
             },
         },
         request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
             UpdatePrRequest,
         },
         traits::Forge,
@@ -523,36 +523,24 @@ impl Forge for Gitlab {
 
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit> {
         let mut actions: Vec<CommitAction> = vec![];
 
         for change in req.file_changes {
-            let mut content = change.content;
+            let content = change.full_content.clone();
 
-            let mut update_type = CommitActionType::Update;
-
-            let existing_content = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(req.base_branch.clone()),
-                    path: change.path.to_string(),
-                })
-                .await?;
-
-            if existing_content.is_none() {
-                update_type = CommitActionType::Create;
-            }
-
-            if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) = existing_content
-            {
-                content = format!("{content}\n{existing_content}");
-            }
+            let update_type =
+                if matches!(change.action, ResolvedFileChangeAction::Update) {
+                    CommitActionType::Update
+                } else {
+                    CommitActionType::Create
+                };
 
             let action = CommitAction::builder()
                 .action(update_type)
                 .content(content.as_bytes().to_owned())
-                .file_path(change.path.clone())
+                .file_path(change.repo_path.clone())
                 .build()?;
 
             actions.push(action)
@@ -572,55 +560,29 @@ impl Forge for Gitlab {
         Ok(Commit { sha: commit.id })
     }
 
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit> {
         let mut actions: Vec<CommitAction> = vec![];
 
         for change in req.file_changes {
-            let mut content = change.content;
+            let content = change.full_content.clone();
 
-            let mut update_type = CommitActionType::Update;
-
-            let existing_content = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(req.target_branch.clone()),
-                    path: change.path.to_string(),
-                })
-                .await?;
-
-            if existing_content.is_none() {
-                update_type = CommitActionType::Create;
-            }
-
-            if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) = existing_content.clone()
-            {
-                content = format!("{content}{existing_content}");
-            }
-
-            if content == existing_content.unwrap_or_default() {
-                log::warn!(
-                    "skipping file update content matches existing state: {}",
-                    change.path
-                );
-                continue;
-            }
+            let update_type =
+                if matches!(change.action, ResolvedFileChangeAction::Update) {
+                    CommitActionType::Update
+                } else {
+                    CommitActionType::Create
+                };
 
             let action = CommitAction::builder()
                 .action(update_type)
                 .content(content.as_bytes().to_owned())
-                .file_path(change.path.clone())
+                .file_path(change.repo_path.clone())
                 .build()?;
 
             actions.push(action)
-        }
-
-        if actions.is_empty() {
-            log::warn!(
-                "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch,
-                req.message,
-            );
-            return Ok(Commit { sha: "None".into() });
         }
 
         let endpoint = CreateCommit::builder()

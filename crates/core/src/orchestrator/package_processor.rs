@@ -369,7 +369,8 @@ impl PackageProcessor {
             let pr_title =
                 self.release_pr_title_for_pr_package_list(&bundle)?;
 
-            self.forge
+            let created = self
+                .forge
                 .create_release_branch(CreateReleaseBranchRequest {
                     base_branch: self.config.base_branch.clone(),
                     release_branch: release_branch.clone(),
@@ -377,6 +378,14 @@ impl PackageProcessor {
                     file_changes,
                 })
                 .await?;
+
+            // No commit means no release branch to open a PR from.
+            if created.is_none() {
+                log::warn!(
+                    "no file changes to commit: skipping release PR for branch: {release_branch}"
+                );
+                continue;
+            }
 
             let existing_body =
                 bundle.existing_pr.as_ref().map(|pr| pr.body.as_str());

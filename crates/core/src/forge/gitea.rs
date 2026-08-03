@@ -30,10 +30,10 @@ use crate::{
             UpdatePullLabels,
         },
         request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
             UpdatePrRequest,
         },
         traits::Forge,
@@ -554,32 +554,24 @@ impl Forge for Gitea {
 
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit> {
         let mut file_changes: Vec<GiteaFileChange> = vec![];
 
         for change in req.file_changes.iter() {
             let mut op = GiteaFileChangeOperation::Update;
             let mut sha = None;
-            let mut content = change.content.clone();
-            let existing_content = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(req.base_branch.clone()),
-                    path: change.path.to_string(),
-                })
-                .await?;
-            if let Some(ec) = existing_content.as_deref() {
+            let content = change.full_content.clone();
+            if matches!(change.action, ResolvedFileChangeAction::Update) {
                 sha = Some(
-                    self.get_file_sha(&req.base_branch, &change.path).await?,
+                    self.get_file_sha(&req.base_branch, &change.repo_path)
+                        .await?,
                 );
-                if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}\n{ec}");
-                }
             } else {
                 op = GiteaFileChangeOperation::Create;
             }
             file_changes.push(GiteaFileChange {
-                path: change.path.clone(),
+                path: change.repo_path.clone(),
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
@@ -603,53 +595,31 @@ impl Forge for Gitea {
         Ok(created.commit)
     }
 
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit> {
         let mut file_changes: Vec<GiteaFileChange> = vec![];
 
         for change in req.file_changes.iter() {
             let mut op = GiteaFileChangeOperation::Update;
             let mut sha = None;
-            let mut content = change.content.clone();
-            let existing_content = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(req.target_branch.clone()),
-                    path: change.path.to_string(),
-                })
-                .await?;
-            if let Some(ec) = existing_content.as_deref() {
+            let content = change.full_content.clone();
+            if matches!(change.action, ResolvedFileChangeAction::Update) {
                 sha = Some(
-                    self.get_file_sha(&req.target_branch, &change.path).await?,
+                    self.get_file_sha(&req.target_branch, &change.repo_path)
+                        .await?,
                 );
-                if matches!(change.update_type, FileUpdateType::Prepend) {
-                    content = format!("{content}{ec}");
-                }
             } else {
                 op = GiteaFileChangeOperation::Create;
             }
 
-            if content == existing_content.unwrap_or_default() {
-                log::warn!(
-                    "skipping file update content matches existing state: {}",
-                    change.path
-                );
-                continue;
-            }
-
             file_changes.push(GiteaFileChange {
-                path: change.path.clone(),
+                path: change.repo_path.clone(),
                 content: BASE64_STANDARD.encode(&content),
                 operation: op,
                 sha,
             })
-        }
-
-        if file_changes.is_empty() {
-            log::warn!(
-                "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch,
-                req.message,
-            );
-            return Ok(Commit { sha: "None".into() });
         }
 
         let body = GiteaModifyFiles {

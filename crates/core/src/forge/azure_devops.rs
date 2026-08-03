@@ -40,11 +40,11 @@ use crate::{
             resolve_token,
         },
         request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest, PrMetadataBlock, PullRequest,
-            ReleaseByTagResponse, Tag, UpdatePrRequest,
+            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
+            PrMetadataBlock, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChange, ResolvedFileChangeAction, Tag, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -292,46 +292,24 @@ impl AzureDevops {
 
     async fn build_push_changes(
         &self,
-        branch: &str,
-        changes: &[crate::forge::request::FileChange],
+        changes: &[ResolvedFileChange],
     ) -> Result<Vec<Change>> {
         let mut out = vec![];
         for change in changes.iter() {
-            let existing = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(branch.to_string()),
-                    path: change.path.clone(),
-                })
-                .await?;
-
-            let mut content = change.content.clone();
-            let (change_type, existed) = match existing.as_deref() {
-                Some(prev) => {
-                    if matches!(change.update_type, FileUpdateType::Prepend) {
-                        content = format!("{content}\n{prev}");
-                    }
-                    ("edit", Some(prev.to_string()))
-                }
-                None => ("add", None),
-            };
-
-            if let Some(prev) = existed.as_ref()
-                && content == *prev
-            {
-                warn!(
-                    "skipping file update content matches existing state: {}",
-                    change.path
-                );
-                continue;
-            }
+            let change_type =
+                if matches!(change.action, ResolvedFileChangeAction::Update) {
+                    "edit"
+                } else {
+                    "add"
+                };
 
             out.push(Change {
                 change_type: change_type.to_string(),
                 item: ChangeItem {
-                    path: normalize_path(&change.path),
+                    path: normalize_path(&change.repo_path),
                 },
                 new_content: Some(NewContent {
-                    content,
+                    content: change.full_content.clone(),
                     content_type: "rawtext".into(),
                 }),
             });
@@ -836,7 +814,7 @@ impl Forge for AzureDevops {
 
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit> {
         let base_sha = self.get_branch_head_sha(&req.base_branch).await?;
         let existing_sha =
@@ -855,12 +833,7 @@ impl Forge for AzureDevops {
             .send()
             .await?
             .error_for_status()?;
-        let changes = self
-            .build_push_changes(&req.base_branch, &req.file_changes)
-            .await?;
-        if changes.is_empty() {
-            return Ok(Commit { sha: base_sha });
-        }
+        let changes = self.build_push_changes(&req.file_changes).await?;
         let new_sha = self
             .push_to_branch(
                 &req.release_branch,
@@ -872,18 +845,12 @@ impl Forge for AzureDevops {
         Ok(Commit { sha: new_sha })
     }
 
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit> {
         let head_sha = self.get_branch_head_sha(&req.target_branch).await?;
-        let changes = self
-            .build_push_changes(&req.target_branch, &req.file_changes)
-            .await?;
-        if changes.is_empty() {
-            warn!(
-                "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch, req.message,
-            );
-            return Ok(Commit { sha: "None".into() });
-        }
+        let changes = self.build_push_changes(&req.file_changes).await?;
         let new_sha = self
             .push_to_branch(
                 &req.target_branch,

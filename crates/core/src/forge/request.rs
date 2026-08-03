@@ -70,7 +70,6 @@ pub struct PrLabelsRequest {
 }
 
 /// How to apply file content changes during branch creation.
-#[allow(unused)]
 #[derive(Debug, Copy, Clone, Serialize, PartialEq)]
 pub enum FileUpdateType {
     Replace,
@@ -85,6 +84,19 @@ pub struct FileChange {
     pub update_type: FileUpdateType,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ResolvedFileChangeAction {
+    Create,
+    Update,
+}
+
+#[derive(Debug)]
+pub struct ResolvedFileChange {
+    pub repo_path: String,
+    pub full_content: String,
+    pub action: ResolvedFileChangeAction,
+}
+
 /// Request to create a branch using base_branch as starting point
 #[derive(Debug)]
 pub struct CreateReleaseBranchRequest {
@@ -94,12 +106,29 @@ pub struct CreateReleaseBranchRequest {
     pub file_changes: Vec<FileChange>,
 }
 
+/// Request to create a branch using base_branch as starting point
+#[derive(Debug)]
+pub struct ResolvedCreateReleaseBranchRequest {
+    pub base_branch: String,
+    pub release_branch: String,
+    pub message: String,
+    pub file_changes: Vec<ResolvedFileChange>,
+}
+
 /// Request to create a new commit on a branch with file changes
 #[derive(Debug)]
 pub struct CreateCommitRequest {
     pub target_branch: String,
     pub message: String,
     pub file_changes: Vec<FileChange>,
+}
+
+/// Request to create a new commit on a branch with file changes
+#[derive(Debug)]
+pub struct ResolvedCreateCommitRequest {
+    pub target_branch: String,
+    pub message: String,
+    pub file_changes: Vec<ResolvedFileChange>,
 }
 
 /// Minimal commit information returned from forge API responses.

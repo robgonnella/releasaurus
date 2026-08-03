@@ -147,7 +147,7 @@ impl Orchestrator {
                 );
             }
 
-            let commit = self
+            let created = self
                 .forge
                 .create_commit(CreateCommitRequest {
                     target_branch: self.config.base_branch.clone(),
@@ -156,24 +156,31 @@ impl Orchestrator {
                 })
                 .await?;
 
-            for pkg in group.iter().copied() {
-                log::info!(
-                    "tagging commit: tag: {}, sha: {}",
-                    pkg.tag.name,
-                    commit.sha
+            if let Some(commit) = created {
+                for pkg in group.iter().copied() {
+                    log::info!(
+                        "tagging commit: tag: {}, sha: {}",
+                        pkg.tag.name,
+                        commit.sha
+                    );
+
+                    self.forge.tag_commit(&pkg.tag.name, &commit.sha).await?;
+
+                    log::info!(
+                        "creating release: tag: {}, sha: {}",
+                        pkg.tag.name,
+                        commit.sha
+                    );
+
+                    self.forge
+                        .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
+                        .await?;
+                }
+            } else {
+                log::warn!(
+                    "release commit produced no changes: skipping tag and release for: {}",
+                    primary.name
                 );
-
-                self.forge.tag_commit(&pkg.tag.name, &commit.sha).await?;
-
-                log::info!(
-                    "creating release: tag: {}, sha: {}",
-                    pkg.tag.name,
-                    commit.sha
-                );
-
-                self.forge
-                    .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
-                    .await?;
             }
         }
 
@@ -386,9 +393,14 @@ impl Orchestrator {
                 ),
             };
 
-            let commit = self.forge.create_commit(req).await?;
-
-            log::info!("created commit: {}", commit.sha);
+            if let Some(commit) = self.forge.create_commit(req).await? {
+                log::info!("created commit: {}", commit.sha);
+            } else {
+                log::warn!(
+                    "manifest files already up to date for package: {}",
+                    pkg.name
+                );
+            }
         }
 
         Ok(())
