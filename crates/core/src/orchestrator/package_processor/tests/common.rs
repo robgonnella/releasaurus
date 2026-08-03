@@ -15,7 +15,9 @@ use crate::{
     },
     forge::{
         manager::{ForgeManager, ForgeOptions},
-        request::{Commit, CreateReleaseBranchRequest, PrMetadataBlock, Tag},
+        request::{
+            Commit, PrMetadataBlock, ResolvedCreateReleaseBranchRequest, Tag,
+        },
         traits::MockForge,
     },
     orchestrator::package_processor::PackageProcessor,
@@ -89,7 +91,7 @@ pub fn capture_release_branch_messages(
     let sink = Arc::clone(&captured);
 
     mock.expect_create_release_branch().times(times).returning(
-        move |req: CreateReleaseBranchRequest| {
+        move |req: ResolvedCreateReleaseBranchRequest| {
             sink.lock().unwrap().push(req.message);
             Ok(Commit {
                 sha: "abc123".to_string(),

@@ -10,9 +10,10 @@ use crate::{
     config::Config,
     forge::request::{
         Commit, CreateCommitRequest, CreatePrRequest,
-        CreateReleaseBranchRequest, ForgeCommit, ForgeCommitPR,
+        CreateReleaseBranchRequest, FileChange, ForgeCommit, ForgeCommitPR,
         GetFileContentRequest, GetPrRequest, PrLabelsRequest, PrMetadataBlock,
-        PullRequest, ReleaseByTagResponse, Tag, UpdatePrRequest,
+        PullRequest, ReleaseByTagResponse, ResolvedCreateCommitRequest,
+        ResolvedCreateReleaseBranchRequest, Tag, UpdatePrRequest,
     },
     result::Result,
 };
@@ -56,10 +57,13 @@ pub trait Forge: Any + Send + Sync {
     /// Create a new branch with file changes and return the commit SHA.
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit>;
     /// Creates a commit on a target branch
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit>;
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit>;
     /// Create a git tag pointing to a specific commit SHA.
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()>;
     /// Find all tags matching the given prefix (e.g., "v" or "api-v") that
@@ -148,4 +152,35 @@ pub trait FileLoader: Send + Sync {
         branch: Option<String>,
         path: String,
     ) -> Result<Option<String>>;
+}
+
+/// Trait that allows us to uniformly process different types of request that
+/// modify repo files
+pub trait FileChangesRequest {
+    fn branch(&self) -> &str;
+    fn file_changes(&self) -> &[FileChange];
+}
+
+/// Implements FileChanges for CreateReleaseBranchRequest where changes
+/// are based from base branch to build a release branch
+impl FileChangesRequest for CreateReleaseBranchRequest {
+    fn branch(&self) -> &str {
+        &self.base_branch
+    }
+
+    fn file_changes(&self) -> &[FileChange] {
+        &self.file_changes
+    }
+}
+
+/// Implements FileChanges for CreateCommitRequest where changes
+/// are based from target branch to which we are committing
+impl FileChangesRequest for CreateCommitRequest {
+    fn branch(&self) -> &str {
+        &self.target_branch
+    }
+
+    fn file_changes(&self) -> &[FileChange] {
+        &self.file_changes
+    }
 }

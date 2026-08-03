@@ -96,6 +96,8 @@ async fn one_shot_commits_tags_and_releases_a_single_package() {
         ])
     });
 
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {
             sha: "release-sha".to_string(),
@@ -137,6 +139,8 @@ async fn one_shot_creates_one_commit_for_a_monorepo_release() {
     expect_two_package_history(&mut mock_forge);
 
     // one commit carrying both packages' file changes
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {
             sha: "release-sha".to_string(),
@@ -181,6 +185,8 @@ async fn one_shot_creates_a_commit_per_package_when_prs_are_separate() {
 
     expect_two_package_history(&mut mock_forge);
 
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge.expect_create_commit().times(2).returning(|_| {
         Ok(Commit {
             sha: "release-sha".to_string(),
@@ -224,6 +230,8 @@ async fn one_shot_targets_a_specific_package() {
         .returning(|_| Ok(None));
 
     expect_two_package_history(&mut mock_forge);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {
@@ -353,6 +361,8 @@ async fn one_shot_ignores_a_pending_release_on_an_unrelated_package() {
             }
             Ok(None)
         });
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {

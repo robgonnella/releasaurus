@@ -127,6 +127,8 @@ async fn create_release_prs_creates_new_prs() {
         .returning(|_| Ok(None))
         .times(2);
 
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge
         .expect_create_release_branch()
         .returning(|_| {
@@ -228,6 +230,8 @@ async fn create_release_prs_targets_specific_package() {
         .expect_get_open_release_pr()
         .returning(|_| Ok(None))
         .times(1);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -368,6 +372,8 @@ async fn create_release_prs_updates_existing_prs() {
             }))
         })
         .times(1);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
