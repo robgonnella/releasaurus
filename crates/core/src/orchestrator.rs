@@ -2,7 +2,7 @@ use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use serde::Serialize;
 use std::{
-    collections::{HashMap, hash_map::Entry},
+    collections::{HashMap, HashSet, hash_map::Entry},
     path::Path,
     rc::Rc,
 };
@@ -10,7 +10,7 @@ use tokio::fs;
 
 use crate::{
     forge::{
-        config::{DEFAULT_PR_BRANCH_PREFIX, PENDING_LABEL, TAGGED_LABEL},
+        config::{PENDING_LABEL, TAGGED_LABEL},
         manager::ForgeManager,
         request::{
             CreateCommitRequest, GetPrRequest, PrLabelsRequest, PullRequest,
@@ -22,7 +22,8 @@ use crate::{
         pr_body::parse_pr_body,
     },
     packages::{
-        releasable::SerializableReleasablePackage, resolved::ResolvedPackage,
+        releasable::{ReleasablePackage, SerializableReleasablePackage},
+        resolved::ResolvedPackage,
     },
     resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
@@ -94,6 +95,98 @@ impl Orchestrator {
         })
     }
 
+    /// Performs a single shot analyze and release operation
+    ///
+    /// Analyzes commits and, if package is releasable, bumps version in
+    /// appropriate manifest files, creates release commit, tags release
+    /// commit, and creates release for target forge
+    ///
+    /// This is a deliberately separate, out-of-band flow: it neither
+    /// creates nor consults release PRs, and is not meant to be combined
+    /// with the `release-pr` / `release` workflow.
+    pub async fn one_shot(&self, target: Option<String>) -> Result<()> {
+        self.validate_target(target.as_deref())?;
+
+        let prepared = self
+            .package_processor
+            .prepare_packages(target.as_deref())
+            .await?;
+
+        let analyzed = self.package_processor.analyze_packages(prepared)?;
+
+        let releasable =
+            self.package_processor.releasable_packages(analyzed).await?;
+
+        log::debug!("releasable packages: {:#?}", releasable);
+
+        if releasable.is_empty() {
+            log::info!("no releasable packages: nothing to release");
+            return Ok(());
+        }
+
+        self.reject_pending_release_pr(&releasable).await?;
+
+        for group in self.group_for_release_commit(&releasable) {
+            let Some(&primary) = group.first() else {
+                continue;
+            };
+
+            let message = self
+                .package_processor
+                .release_commit_message_for_package(primary)?;
+
+            let mut file_changes = vec![];
+
+            for pkg in group.iter().copied() {
+                file_changes.extend(
+                    self.package_processor
+                        .file_changes_for_releasable_package(
+                            pkg,
+                            &releasable,
+                        )?,
+                );
+            }
+
+            let created = self
+                .forge
+                .create_commit(CreateCommitRequest {
+                    target_branch: self.config.base_branch.clone(),
+                    message,
+                    file_changes,
+                })
+                .await?;
+
+            if let Some(commit) = created {
+                for pkg in group.iter().copied() {
+                    log::info!(
+                        "tagging commit: tag: {}, sha: {}",
+                        pkg.tag.name,
+                        commit.sha
+                    );
+
+                    self.forge.tag_commit(&pkg.tag.name, &commit.sha).await?;
+
+                    log::info!(
+                        "creating release: tag: {}, sha: {}",
+                        pkg.tag.name,
+                        commit.sha
+                    );
+
+                    self.forge
+                        .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
+                        .await?;
+                }
+            } else {
+                log::warn!(
+                    "release commit produced no changes: skipping tag and release for: {}",
+                    primary.name
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     /// Re-render changelog notes from a saved release JSON file.
     ///
     /// Reads the file produced by `get next-release --out-file`,
@@ -153,13 +246,7 @@ impl Orchestrator {
         &self,
         target: Option<String>,
     ) -> Result<()> {
-        if let Some(target_name) = target.as_ref()
-            && !self.config.package_configs.hash().contains_key(target_name)
-        {
-            return Err(ReleasaurusError::InvalidArgs(format!(
-                "unknown package: {target_name}"
-            )));
-        }
+        self.validate_target(target.as_deref())?;
 
         let prepared = self
             .package_processor
@@ -171,16 +258,19 @@ impl Orchestrator {
         let releasable =
             self.package_processor.releasable_packages(analyzed).await?;
 
-        log::info!("releasable packages: {:#?}", releasable);
+        log::debug!("releasable packages: {:#?}", releasable);
+
+        if releasable.is_empty() {
+            log::info!("no releasable packages: nothing to release");
+            return Ok(());
+        }
+
+        self.reject_pending_release_pr(&releasable).await?;
 
         let pr_packages = self
             .package_processor
             .release_pr_packages_by_branch(releasable)
             .await?;
-
-        if pr_packages.is_empty() {
-            return Ok(());
-        }
 
         let results = self
             .package_processor
@@ -226,13 +316,7 @@ impl Orchestrator {
         let mut auto_start_packages: Vec<String> = vec![];
         let base_branch = self.config.base_branch.clone();
 
-        if let Some(target_name) = target.as_ref()
-            && !self.config.package_configs.hash().contains_key(target_name)
-        {
-            return Err(ReleasaurusError::InvalidArgs(format!(
-                "unknown package: {target_name}"
-            )));
-        }
+        self.validate_target(target.as_deref())?;
 
         for (name, package) in self.config.package_configs.hash().iter() {
             if let Some(target_name) = target.as_ref()
@@ -241,19 +325,9 @@ impl Orchestrator {
                 continue;
             }
 
-            let mut release_branch =
-                format!("{DEFAULT_PR_BRANCH_PREFIX}-{base_branch}");
-
-            if self.config.separate_pull_requests {
-                release_branch = format!(
-                    "{DEFAULT_PR_BRANCH_PREFIX}-{base_branch}-{}",
-                    package.name
-                );
-            }
-
             let req = GetPrRequest {
                 base_branch: base_branch.clone(),
-                head_branch: release_branch.to_string(),
+                head_branch: self.config.release_branch_for(&package.name),
             };
 
             if let Some(merged_pr) =
@@ -319,9 +393,14 @@ impl Orchestrator {
                 ),
             };
 
-            let commit = self.forge.create_commit(req).await?;
-
-            log::info!("created commit: {}", commit.sha);
+            if let Some(commit) = self.forge.create_commit(req).await? {
+                log::info!("created commit: {}", commit.sha);
+            } else {
+                log::warn!(
+                    "manifest files already up to date for package: {}",
+                    pkg.name
+                );
+            }
         }
 
         Ok(())
@@ -400,6 +479,69 @@ impl Orchestrator {
     ////////////////////////////////////////////////////////////////////////////
     //// private
     ////////////////////////////////////////////////////////////////////////////
+    /// Rejects a `--package` value that does not name a configured
+    /// package.
+    fn validate_target(&self, target: Option<&str>) -> Result<()> {
+        if let Some(target_name) = target
+            && !self.config.package_configs.hash().contains_key(target_name)
+        {
+            return Err(ReleasaurusError::InvalidArgs(format!(
+                "unknown package: {target_name}"
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Gathers related packages together, or separates into one package
+    /// per group, based on configuration.
+    fn group_for_release_commit<'a>(
+        &self,
+        releasable: &'a [ReleasablePackage],
+    ) -> Vec<Vec<&'a ReleasablePackage>> {
+        if self.config.separate_pull_requests
+            || self.config.package_configs.hash().len() == 1
+        {
+            return releasable.iter().map(|pkg| vec![pkg]).collect();
+        }
+
+        vec![releasable.iter().collect()]
+    }
+
+    /// Refuses to release a package that still has a merged release PR
+    /// waiting to be tagged, which would release that version twice.
+    async fn reject_pending_release_pr(
+        &self,
+        releasable: &[ReleasablePackage],
+    ) -> Result<()> {
+        let mut checked: HashSet<String> = HashSet::new();
+
+        for pkg in releasable.iter() {
+            let release_branch = self.config.release_branch_for(&pkg.name);
+
+            // without separate_pull_requests every package resolves to
+            // the same branch, so only look it up once
+            if !checked.insert(release_branch.clone()) {
+                continue;
+            }
+
+            if let Some(pending) = self
+                .forge
+                .get_merged_release_pr(GetPrRequest {
+                    base_branch: self.config.base_branch.clone(),
+                    head_branch: release_branch.clone(),
+                })
+                .await?
+            {
+                return Err(ReleasaurusError::pending_release(
+                    release_branch,
+                    pending.number,
+                ));
+            }
+        }
+
+        Ok(())
+    }
 
     /// Creates release for a targeted package and merged PR
     async fn create_package_release(

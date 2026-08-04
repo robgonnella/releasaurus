@@ -7,6 +7,7 @@
 //! - Single vs multiple package PR handling
 
 use semver::Version;
+use std::collections::HashMap;
 
 use super::common::*;
 
@@ -15,11 +16,13 @@ use crate::{
         Config, package::PackageConfigBuilder, repository::RepositoryConfig,
     },
     forge::{
-        request::{Commit, CreateReleaseBranchRequest, PullRequest, Tag},
+        request::{
+            Commit, PullRequest, ResolvedCreateReleaseBranchRequest, Tag,
+        },
         traits::MockForge,
     },
     orchestrator::tests::common::{PrBodyInput, make_pr_body},
-    packages::releasable::ReleasablePackage,
+    packages::{releasable::ReleasablePackage, release_pr::PRBundle},
 };
 
 #[tokio::test]
@@ -27,18 +30,16 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     // Expect the branch to be created
     mock_forge
         .expect_create_release_branch()
         .times(1)
-        .withf(|req: &CreateReleaseBranchRequest| {
+        .withf(|req: &ResolvedCreateReleaseBranchRequest| {
             req.base_branch == "main"
                 && req.release_branch == "releasaurus-release-main"
                 && req.message.contains("test-pkg")
@@ -85,12 +86,10 @@ async fn create_pr_branches_includes_metadata_in_body() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -141,12 +140,10 @@ async fn create_pr_branches_uses_sha_compare_link() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -207,18 +204,16 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     // Should only create one branch for multiple packages
     mock_forge
         .expect_create_release_branch()
         .times(1)
-        .withf(|req: &CreateReleaseBranchRequest| {
+        .withf(|req: &ResolvedCreateReleaseBranchRequest| {
             req.base_branch == "main"
                 && req.release_branch == "releasaurus-release-main"
                 && !req.message.contains("pkg-a")
@@ -304,18 +299,16 @@ async fn create_pr_branches_handles_separate_branches() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     // Should create two separate branches
     mock_forge
         .expect_create_release_branch()
         .times(2)
-        .withf(|req: &CreateReleaseBranchRequest| {
+        .withf(|req: &ResolvedCreateReleaseBranchRequest| {
             req.base_branch == "main"
                 && (req.release_branch == "releasaurus-release-main-pkg-a"
                     || req.release_branch == "releasaurus-release-main-pkg-b")
@@ -398,17 +391,15 @@ async fn create_pr_branches_includes_file_changes() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
         .times(1)
-        .withf(|req: &CreateReleaseBranchRequest| {
+        .withf(|req: &ResolvedCreateReleaseBranchRequest| {
             // Should have at least the changelog file
             !req.file_changes.is_empty()
         })
@@ -448,12 +439,10 @@ async fn create_pr_branches_uses_correct_title_format() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
-    mock_forge
         .expect_get_open_release_pr()
         .returning(|_| Ok(None));
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -499,10 +488,6 @@ async fn create_pr_branches_uses_correct_title_format() {
 async fn create_pr_branches_handles_existing_pr_body_sections() {
     let mut mock_forge = MockForge::new();
 
-    mock_forge
-        .expect_get_merged_release_pr()
-        .returning(|_| Ok(None));
-
     let existing_body = make_pr_body(&PrBodyInput {
         pkg: "test-pkg",
         tag: "v1.2.2",
@@ -520,6 +505,8 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
             body: existing_body.clone(),
         }))
     });
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -560,4 +547,33 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
     // notes are regenerated; old notes must not bleed through
     assert!(body.contains("Freshly generated release notes"));
     assert!(!body.contains("Old release notes must not appear"));
+}
+
+#[tokio::test]
+async fn create_pr_branches_skips_a_bundle_with_no_file_changes() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge.expect_create_release_branch().times(0);
+    expect_html_comment_encoding(&mut mock_forge);
+
+    let processor = create_package_processor(mock_forge, None, None);
+    let mut pkg = release_pr_package(
+        "test-pkg",
+        "v1.2.3",
+        "chore: release {{ package_name }}",
+        "chore: release {{ tag }}",
+    );
+    pkg.file_changes = vec![];
+
+    let bundles = HashMap::from([(
+        "releasaurus-release-main".to_string(),
+        PRBundle {
+            existing_pr: None,
+            packages: vec![pkg],
+        },
+    )]);
+
+    let results = processor.create_pr_branches(bundles).await.unwrap();
+
+    assert!(results.is_empty());
 }

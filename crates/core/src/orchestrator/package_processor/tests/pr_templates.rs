@@ -28,8 +28,8 @@ use crate::{
 fn prepare_mock(branches: usize) -> (MockForge, Arc<Mutex<Vec<String>>>) {
     let mut mock = MockForge::new();
 
-    mock.expect_get_merged_release_pr().returning(|_| Ok(None));
     mock.expect_get_open_release_pr().returning(|_| Ok(None));
+    mock.expect_get_file_content().returning(|_| Ok(None));
     expect_html_comment_encoding(&mut mock);
 
     let messages = capture_release_branch_messages(&mut mock, branches);

@@ -82,12 +82,8 @@ async fn create_release_prs_returns_error_when_merged_pr_not_yet_released() {
         })
         .times(1);
 
-    // get_open_release_pr is called once from release_pr_packages_by_branch,
-    // but branch creation and PR operations should never be reached.
-    mock_forge
-        .expect_get_open_release_pr()
-        .times(1)
-        .returning(|_| Ok(None));
+    // the guard runs before any PR lookup or branch creation
+    mock_forge.expect_get_open_release_pr().times(0);
     mock_forge.expect_create_release_branch().times(0);
     mock_forge.expect_create_pr().times(0);
     mock_forge.expect_update_pr().times(0);
@@ -130,6 +126,8 @@ async fn create_release_prs_creates_new_prs() {
         .expect_get_open_release_pr()
         .returning(|_| Ok(None))
         .times(2);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -232,6 +230,8 @@ async fn create_release_prs_targets_specific_package() {
         .expect_get_open_release_pr()
         .returning(|_| Ok(None))
         .times(1);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()
@@ -372,6 +372,8 @@ async fn create_release_prs_updates_existing_prs() {
             }))
         })
         .times(1);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
     mock_forge
         .expect_create_release_branch()

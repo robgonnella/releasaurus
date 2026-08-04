@@ -34,6 +34,8 @@ async fn start_next_release_creates_commits_for_tagged_packages() {
 
     mock_forge.expect_get_commits().returning(|_, _| Ok(vec![]));
 
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge
         .expect_create_commit()
         .times(1)
@@ -74,6 +76,8 @@ async fn start_next_release_filters_by_target_packages() {
     mock_forge.expect_get_commits().returning(|_, _| Ok(vec![]));
 
     // Should only create commit for pkg-a (the targeted package)
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
     mock_forge.expect_create_commit().times(1).returning(|_| {
         Ok(Commit {
             sha: "new-sha".to_string(),

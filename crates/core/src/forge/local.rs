@@ -22,10 +22,10 @@ use crate::{
     forge::{
         config::RepoUrl,
         request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileChange, FileUpdateType,
-            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
             UpdatePrRequest,
         },
         traits::Forge,
@@ -198,7 +198,7 @@ impl LocalRepo {
     async fn local_commit(
         &self,
         msg: &str,
-        file_changes: &[FileChange],
+        file_changes: &[ResolvedFileChange],
     ) -> Result<Commit> {
         log::debug!(
             "local_commit: repo_path={}, file_changes count={}",
@@ -206,31 +206,8 @@ impl LocalRepo {
             file_changes.len()
         );
         for change in file_changes {
-            let full_path = self.repo_path.join(&change.path);
-            log::debug!(
-                "local_commit: processing file change: path={}, full_path={}, update_type={:?}",
-                change.path,
-                full_path.display(),
-                change.update_type
-            );
-            let mut content = change.content.clone();
-            if change.update_type == FileUpdateType::Prepend {
-                if let Ok(existing_content) =
-                    fs::read_to_string(&full_path).await
-                {
-                    log::debug!(
-                        "local_commit: read existing content from {} ({} bytes)",
-                        full_path.display(),
-                        existing_content.len()
-                    );
-                    content = format!("{content}\n{existing_content}");
-                } else {
-                    log::debug!(
-                        "local_commit: no existing file at {}, creating new",
-                        full_path.display()
-                    );
-                }
-            }
+            let full_path = self.repo_path.join(&change.repo_path);
+            let content = change.full_content.clone();
             if let Some(parent) = full_path.parent() {
                 log::debug!(
                     "local_commit: parent dir {} exists={}",
@@ -651,7 +628,7 @@ impl Forge for LocalRepo {
 
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit> {
         if self.remote.is_some() {
             let current_branch = self.get_current_branch().await?;
@@ -669,7 +646,10 @@ impl Forge for LocalRepo {
         }
     }
 
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit> {
         if self.remote.is_some() {
             let commit =
                 self.local_commit(&req.message, &req.file_changes).await?;
@@ -777,7 +757,9 @@ impl Forge for LocalRepo {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::forge::{config::Scheme, traits::MockForge};
+    use crate::forge::{
+        config::Scheme, request::ResolvedFileChangeAction, traits::MockForge,
+    };
 
     use super::*;
 
@@ -957,10 +939,10 @@ mod tests {
         add_commit(&repo, "initial commit");
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let change = FileChange {
-            path: "version.txt".to_string(),
-            content: "1.2.3".to_string(),
-            update_type: FileUpdateType::Replace,
+        let change = ResolvedFileChange {
+            repo_path: "version.txt".to_string(),
+            full_content: "1.2.3".to_string(),
+            action: ResolvedFileChangeAction::Create,
         };
 
         let commit = forge
@@ -986,10 +968,8 @@ mod tests {
         assert_eq!(written, "1.2.3");
     }
 
-    /// `local_commit` with `Prepend` update type must prepend the new
-    /// content in front of the existing file content.
     #[tokio::test]
-    async fn local_commit_with_prepend_updates_content() {
+    async fn local_commit_overwrites_existing_file_content() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
@@ -1005,10 +985,10 @@ mod tests {
         add_commit(&repo, "initial commit");
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let change = FileChange {
-            path: "CHANGELOG.md".to_string(),
-            content: "new\n".to_string(),
-            update_type: FileUpdateType::Prepend,
+        let change = ResolvedFileChange {
+            repo_path: "CHANGELOG.md".to_string(),
+            full_content: "new\n".to_string(),
+            action: ResolvedFileChangeAction::Update,
         };
 
         forge
@@ -1017,30 +997,21 @@ mod tests {
             .unwrap();
 
         let written = std::fs::read_to_string(&file_path).unwrap();
-        assert!(
-            written.starts_with("new\n"),
-            "prepended content should come first"
-        );
-        assert!(
-            written.contains("existing\n"),
-            "existing content should be preserved"
-        );
+        assert_eq!(written, "new\n");
     }
 
-    /// `local_commit` with `Prepend` on a file that does not yet exist
-    /// must create the file with just the new content (first release).
     #[tokio::test]
-    async fn local_commit_with_prepend_creates_missing_file() {
+    async fn local_commit_creates_missing_file() {
         let dir = TempDir::new().unwrap();
         let repo = git2::Repository::init(dir.path()).unwrap();
         configure_git_user(&repo);
         add_commit(&repo, "initial commit");
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let change = FileChange {
-            path: "CHANGELOG.md".to_string(),
-            content: "# 1.0.0\n\n- first release\n".to_string(),
-            update_type: FileUpdateType::Prepend,
+        let change = ResolvedFileChange {
+            repo_path: "CHANGELOG.md".to_string(),
+            full_content: "# 1.0.0\n\n- first release\n".to_string(),
+            action: ResolvedFileChangeAction::Create,
         };
 
         forge
@@ -1067,10 +1038,10 @@ mod tests {
         std::fs::create_dir_all(&sub_dir).unwrap();
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let change = FileChange {
-            path: "packages/ui/version.txt".to_string(),
-            content: "1.0.0".to_string(),
-            update_type: FileUpdateType::Replace,
+        let change = ResolvedFileChange {
+            repo_path: "packages/ui/version.txt".to_string(),
+            full_content: "1.0.0".to_string(),
+            action: ResolvedFileChangeAction::Update,
         };
 
         forge
@@ -1341,14 +1312,14 @@ tag_search_depth = 10
         local_forge.disable_push_targets();
 
         local_forge
-            .create_release_branch(CreateReleaseBranchRequest {
+            .create_release_branch(ResolvedCreateReleaseBranchRequest {
                 base_branch,
                 release_branch: "release-main".into(),
                 message: "chore(main): release test".into(),
-                file_changes: vec![FileChange {
-                    content: "content".into(),
-                    path: "CHANGELOG.md".into(),
-                    update_type: FileUpdateType::Prepend,
+                file_changes: vec![ResolvedFileChange {
+                    full_content: "content".into(),
+                    repo_path: "CHANGELOG.md".into(),
+                    action: ResolvedFileChangeAction::Update,
                 }],
             })
             .await

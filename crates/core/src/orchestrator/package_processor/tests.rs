@@ -9,9 +9,12 @@
 //!   (metadata, file changes, branch creation order)
 //! - `pr_templates`: Commit message and PR title template tests
 //!   (per-package vs. monorepo selection, render context)
+//! - `file_changes`: Manifest and changelog file change generation
+//!   (workspace cross-referencing)
 
 mod analyze;
 mod common;
+mod file_changes;
 mod pr_grouping;
 mod pr_requests;
 mod pr_templates;

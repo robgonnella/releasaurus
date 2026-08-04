@@ -8,15 +8,21 @@ use crate::{
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
-            PrMetadataBlock, PullRequest, ReleaseByTagResponse, Tag,
-            UpdatePrRequest,
+            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PrMetadataBlock, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChange,
+            ResolvedFileChangeAction, Tag, UpdatePrRequest,
         },
-        traits::{FileLoader, Forge},
+        traits::{FileChangesRequest, FileLoader, Forge},
     },
     result::Result,
 };
+
+/// Placeholder sha for a write skipped by `dry_run`. `None` is reserved
+/// for "nothing to commit".
+const DRY_RUN_SHA: &str = "fff";
 
 /// Options for configuring [`ForgeManager`] behavior.
 pub struct ForgeOptions {
@@ -255,10 +261,19 @@ impl ForgeManager {
     pub async fn create_release_branch(
         &self,
         req: CreateReleaseBranchRequest,
-    ) -> Result<Commit> {
+    ) -> Result<Option<Commit>> {
         if self.options.dry_run {
             log::warn!("dry_run: would create release branch: req: {:?}", req);
-            return Ok(Commit { sha: "fff".into() });
+            return Ok(Some(Commit {
+                sha: DRY_RUN_SHA.into(),
+            }));
+        }
+
+        let resolved_file_changes = self.resolve_file_changes(&req).await?;
+
+        if resolved_file_changes.is_empty() {
+            log::warn!("no changes to commit");
+            return Ok(None);
         }
 
         log::info!(
@@ -267,25 +282,46 @@ impl ForgeManager {
             req.base_branch
         );
 
-        let result = self.forge.create_release_branch(req).await;
+        let resolved_req = ResolvedCreateReleaseBranchRequest {
+            base_branch: req.base_branch,
+            release_branch: req.release_branch,
+            message: req.message,
+            file_changes: resolved_file_changes,
+        };
 
-        match &result {
+        let result = self.forge.create_release_branch(resolved_req).await;
+
+        match result {
             Ok(commit) => {
-                log::info!("Created release branch with commit: {}", commit.sha)
+                log::info!(
+                    "Created release branch with commit: {}",
+                    commit.sha
+                );
+                Ok(Some(commit))
             }
-            Err(e) => log::error!("Failed to create release branch: {}", e),
+            Err(e) => {
+                log::error!("Failed to create release branch: {}", e);
+                Err(e)
+            }
         }
-
-        result
     }
 
     pub async fn create_commit(
         &self,
         req: CreateCommitRequest,
-    ) -> Result<Commit> {
+    ) -> Result<Option<Commit>> {
         if self.options.dry_run {
             log::warn!("dry_run: would create commit: req: {:?}", req);
-            return Ok(Commit { sha: "fff".into() });
+            return Ok(Some(Commit {
+                sha: DRY_RUN_SHA.into(),
+            }));
+        }
+
+        let resolved_file_changes = self.resolve_file_changes(&req).await?;
+
+        if resolved_file_changes.is_empty() {
+            log::warn!("no changes to commit");
+            return Ok(None);
         }
 
         log::info!(
@@ -294,14 +330,24 @@ impl ForgeManager {
             req.file_changes.len()
         );
 
-        let result = self.forge.create_commit(req).await;
+        let resolved_req = ResolvedCreateCommitRequest {
+            target_branch: req.target_branch,
+            message: req.message,
+            file_changes: resolved_file_changes,
+        };
 
-        match &result {
-            Ok(commit) => log::info!("Created commit: {}", commit.sha),
-            Err(e) => log::error!("Failed to create commit: {}", e),
+        let result = self.forge.create_commit(resolved_req).await;
+
+        match result {
+            Ok(commit) => {
+                log::info!("Created commit: {}", commit.sha);
+                Ok(Some(commit))
+            }
+            Err(e) => {
+                log::error!("Failed to create commit: {}", e);
+                Err(e)
+            }
         }
-
-        result
     }
 
     pub async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
@@ -426,6 +472,64 @@ impl ForgeManager {
     pub fn encode_pr_metadata(&self, json: &str) -> PrMetadataBlock {
         self.forge.encode_pr_metadata(json)
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    /// private
+    ////////////////////////////////////////////////////////////////////////////
+    async fn resolve_file_changes(
+        &self,
+        req: &dyn FileChangesRequest,
+    ) -> Result<Vec<ResolvedFileChange>> {
+        let branch = req.branch();
+
+        let mut entries: Vec<ResolvedFileChange> = vec![];
+
+        for change in req.file_changes() {
+            let mut action = ResolvedFileChangeAction::Update;
+
+            let mut content = change.content.clone();
+
+            let existing_content = self
+                .get_file_content(GetFileContentRequest {
+                    branch: Some(branch.to_string()),
+                    path: change.path.to_string(),
+                })
+                .await?;
+
+            if existing_content.is_none() {
+                action = ResolvedFileChangeAction::Create;
+            }
+
+            if matches!(change.update_type, FileUpdateType::Prepend)
+                && let Some(existing_content) = existing_content.clone()
+            {
+                content = format!("{content}\n{existing_content}");
+            }
+
+            if content == existing_content.unwrap_or_default() {
+                log::warn!(
+                    "skipping file update content matches existing state: {}",
+                    change.path
+                );
+
+                continue;
+            }
+
+            let normalized = change.path.replace('\\', "/");
+            let path = normalized
+                .strip_prefix("./")
+                .unwrap_or(&normalized)
+                .to_string();
+
+            entries.push(ResolvedFileChange {
+                repo_path: path,
+                full_content: content,
+                action,
+            });
+        }
+
+        Ok(entries)
+    }
 }
 
 #[async_trait]
@@ -442,7 +546,7 @@ impl FileLoader for ForgeManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::forge::traits::MockForge;
+    use crate::forge::{request::FileChange, traits::MockForge};
 
     use super::*;
 
@@ -685,9 +789,145 @@ mod tests {
             message: "chore: release".into(),
             file_changes: vec![],
         };
-        let result = manager.create_release_branch(req).await.unwrap();
 
-        assert_eq!(result.sha, "fff");
+        let result = manager.create_release_branch(req).await.unwrap().unwrap();
+
+        assert_eq!(result.sha, DRY_RUN_SHA);
+    }
+
+    #[tokio::test]
+    async fn dry_run_prevents_create_commit() {
+        let mock_forge = MockForge::new();
+
+        let manager = ForgeManager::new(
+            Box::new(mock_forge),
+            ForgeOptions { dry_run: true },
+        );
+
+        let req = CreateCommitRequest {
+            target_branch: "main".into(),
+            message: "chore: release".into(),
+            file_changes: vec![FileChange {
+                path: "CHANGELOG.md".into(),
+                content: "notes".into(),
+                update_type: FileUpdateType::Prepend,
+            }],
+        };
+
+        let result = manager.create_commit(req).await.unwrap().unwrap();
+
+        assert_eq!(result.sha, DRY_RUN_SHA);
+    }
+
+    /// A manager whose forge answers every content lookup with `existing`.
+    fn manager_with_existing_content(
+        existing: Option<&'static str>,
+    ) -> ForgeManager {
+        let mut mock = MockForge::new();
+
+        mock.expect_get_file_content()
+            .returning(move |_| Ok(existing.map(String::from)));
+
+        ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false })
+    }
+
+    fn commit_req(
+        path: &str,
+        content: &str,
+        update_type: FileUpdateType,
+    ) -> CreateCommitRequest {
+        CreateCommitRequest {
+            target_branch: "main".into(),
+            message: "chore: release".into(),
+            file_changes: vec![FileChange {
+                path: path.into(),
+                content: content.into(),
+                update_type,
+            }],
+        }
+    }
+
+    #[tokio::test]
+    async fn resolve_file_changes_prepends_onto_existing_content() {
+        let manager = manager_with_existing_content(Some("old notes\n"));
+
+        let req =
+            commit_req("CHANGELOG.md", "new notes\n", FileUpdateType::Prepend);
+        let resolved = manager.resolve_file_changes(&req).await.unwrap();
+
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].full_content, "new notes\n\nold notes\n");
+        assert!(matches!(
+            resolved[0].action,
+            ResolvedFileChangeAction::Update
+        ));
+    }
+
+    /// A missing file resolves to `Create` carrying only the new content:
+    /// gitea, forgejo, gitlab, and azure pick their API verb from this.
+    #[tokio::test]
+    async fn resolve_file_changes_marks_a_missing_file_as_create() {
+        let manager = manager_with_existing_content(None);
+
+        let req = commit_req(
+            "CHANGELOG.md",
+            "first release\n",
+            FileUpdateType::Prepend,
+        );
+        let resolved = manager.resolve_file_changes(&req).await.unwrap();
+
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].full_content, "first release\n");
+        assert!(matches!(
+            resolved[0].action,
+            ResolvedFileChangeAction::Create
+        ));
+    }
+
+    #[tokio::test]
+    async fn resolve_file_changes_drops_a_change_matching_existing_content() {
+        let manager = manager_with_existing_content(Some("1.2.3"));
+
+        let req = commit_req("version.txt", "1.2.3", FileUpdateType::Replace);
+        let resolved = manager.resolve_file_changes(&req).await.unwrap();
+
+        assert!(resolved.is_empty());
+    }
+
+    #[tokio::test]
+    async fn create_commit_returns_none_and_skips_the_forge_when_nothing_changed()
+     {
+        let mut mock = MockForge::new();
+
+        mock.expect_get_file_content()
+            .returning(|_| Ok(Some("1.2.3".into())));
+        mock.expect_create_commit().times(0);
+
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
+
+        let req = commit_req("version.txt", "1.2.3", FileUpdateType::Replace);
+
+        assert!(manager.create_commit(req).await.unwrap().is_none());
+    }
+
+    /// Forges want repo-relative POSIX paths. `./` prefixes and Windows
+    /// separators both come from `PathBuf` joins on the caller's side.
+    #[tokio::test]
+    async fn resolve_file_changes_normalizes_paths() {
+        let manager = manager_with_existing_content(None);
+
+        for (input, want) in [
+            ("./CHANGELOG.md", "CHANGELOG.md"),
+            ("packages\\ui\\CHANGELOG.md", "packages/ui/CHANGELOG.md"),
+            (".\\CHANGELOG.md", "CHANGELOG.md"),
+            ("packages/ui/CHANGELOG.md", "packages/ui/CHANGELOG.md"),
+        ] {
+            let req = commit_req(input, "notes\n", FileUpdateType::Replace);
+            let resolved = manager.resolve_file_changes(&req).await.unwrap();
+
+            assert_eq!(resolved[0].repo_path, want, "input: {input}");
+        }
     }
 
     #[tokio::test]

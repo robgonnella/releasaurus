@@ -38,10 +38,10 @@ use crate::{
             },
         },
         request::{
-            Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileChange, FileUpdateType,
-            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
+            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
             UpdatePrRequest,
         },
         traits::Forge,
@@ -137,48 +137,16 @@ impl Github {
 
     async fn get_tree_entries(
         &self,
-        base_branch: &str,
-        file_changes: Vec<FileChange>,
+        file_changes: &[ResolvedFileChange],
     ) -> Result<Vec<GithubTreeEntry>> {
         let mut entries: Vec<GithubTreeEntry> = vec![];
 
-        for change in file_changes.into_iter() {
-            let mut content = change.content;
-
-            let existing_content = self
-                .get_file_content(GetFileContentRequest {
-                    branch: Some(base_branch.to_string()),
-                    path: change.path.to_string(),
-                })
-                .await?;
-
-            if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) = existing_content.clone()
-            {
-                content = format!("{content}\n{existing_content}");
-            }
-
-            if content == existing_content.unwrap_or_default() {
-                log::warn!(
-                    "skipping file update content matches existing state: {}",
-                    change.path
-                );
-
-                continue;
-            }
-
-            let path = change
-                .path
-                .replace("\\", "/")
-                .strip_prefix("./")
-                .unwrap_or(&change.path)
-                .to_string();
-
+        for change in file_changes {
             entries.push(GithubTreeEntry {
-                path,
+                path: change.repo_path.clone(),
                 mode: TREE_BLOB_MODE.into(),
                 kind: TREE_BLOB_TYPE.into(),
-                content,
+                content: change.full_content.clone(),
             });
         }
 
@@ -629,7 +597,7 @@ impl Forge for Github {
 
     async fn create_release_branch(
         &self,
-        req: CreateReleaseBranchRequest,
+        req: ResolvedCreateReleaseBranchRequest,
     ) -> Result<Commit> {
         let r#ref = self
             .instance
@@ -647,9 +615,7 @@ impl Forge for Github {
             }
         };
 
-        let entries = self
-            .get_tree_entries(&req.base_branch, req.file_changes)
-            .await?;
+        let entries = self.get_tree_entries(&req.file_changes).await?;
 
         let tree = self
             .create_tree(GithubTree {
@@ -703,7 +669,10 @@ impl Forge for Github {
         Ok(commit)
     }
 
-    async fn create_commit(&self, req: CreateCommitRequest) -> Result<Commit> {
+    async fn create_commit(
+        &self,
+        req: ResolvedCreateCommitRequest,
+    ) -> Result<Commit> {
         let base_ref = self
             .instance
             .repos(&self.url.owner, &self.url.name)
@@ -722,18 +691,7 @@ impl Forge for Github {
             }
         };
 
-        let entries = self
-            .get_tree_entries(&req.target_branch, req.file_changes)
-            .await?;
-
-        if entries.is_empty() {
-            log::warn!(
-                "commit would result in no changes: target_branch: {}, message: {}",
-                req.target_branch,
-                req.message,
-            );
-            return Ok(Commit { sha: "None".into() });
-        }
+        let entries = self.get_tree_entries(&req.file_changes).await?;
 
         let tree = self
             .create_tree(GithubTree {
