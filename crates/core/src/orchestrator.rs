@@ -2,7 +2,7 @@ use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use serde::Serialize;
 use std::{
-    collections::{HashMap, HashSet, hash_map::Entry},
+    collections::{HashMap, hash_map::Entry},
     path::Path,
     rc::Rc,
 };
@@ -22,7 +22,7 @@ use crate::{
         pr_body::parse_pr_body,
     },
     packages::{
-        releasable::{ReleasablePackage, SerializableReleasablePackage},
+        releasable::{ReleasablePackageGroups, SerializableReleasablePackage},
         resolved::ResolvedPackage,
     },
     resolver::ResolvedConfig,
@@ -124,10 +124,14 @@ impl Orchestrator {
             return Ok(());
         }
 
-        self.reject_pending_release_pr(&releasable).await?;
+        let groups = self
+            .package_processor
+            .group_releasable_packages(&releasable)?;
 
-        for group in self.group_for_release_commit(&releasable) {
-            let Some(&primary) = group.first() else {
+        self.reject_pending_release_pr(&groups).await?;
+
+        for (_, group) in groups {
+            let Some(primary) = group.first() else {
                 continue;
             };
 
@@ -137,7 +141,7 @@ impl Orchestrator {
 
             let mut file_changes = vec![];
 
-            for pkg in group.iter().copied() {
+            for pkg in group.iter() {
                 file_changes.extend(
                     self.package_processor
                         .file_changes_for_releasable_package(
@@ -156,31 +160,67 @@ impl Orchestrator {
                 })
                 .await?;
 
-            if let Some(commit) = created {
-                for pkg in group.iter().copied() {
-                    log::info!(
-                        "tagging commit: tag: {}, sha: {}",
-                        pkg.tag.name,
-                        commit.sha
-                    );
-
-                    self.forge.tag_commit(&pkg.tag.name, &commit.sha).await?;
-
-                    log::info!(
-                        "creating release: tag: {}, sha: {}",
-                        pkg.tag.name,
-                        commit.sha
-                    );
-
-                    self.forge
-                        .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
-                        .await?;
-                }
-            } else {
+            let Some(commit) = created else {
                 log::warn!(
-                    "release commit produced no changes: skipping tag and release for: {}",
-                    primary.name
+                    "release commit produced no file changes: skipping tag \
+                     and release for: {}: the version bump may already be \
+                     on '{}'",
+                    group
+                        .iter()
+                        .map(|pkg| pkg.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    self.config.base_branch,
                 );
+
+                continue;
+            };
+
+            // Tag the whole group before publishing any of it. A failure
+            // part way through then leaves every package tagged rather
+            // than a mix, and nothing published.
+            let mut tagged: Vec<&str> = vec![];
+
+            for pkg in group.iter() {
+                log::info!(
+                    "tagging commit: tag: {}, sha: {}",
+                    pkg.tag.name,
+                    commit.sha
+                );
+
+                self.forge
+                    .tag_commit(&pkg.tag.name, &commit.sha)
+                    .await
+                    .map_err(|e| {
+                        self.partial_one_shot(
+                            &commit.sha,
+                            &tagged,
+                            &pkg.tag.name,
+                            e,
+                        )
+                    })?;
+
+                tagged.push(&pkg.tag.name);
+            }
+
+            for pkg in group.iter() {
+                log::info!(
+                    "creating release: tag: {}, sha: {}",
+                    pkg.tag.name,
+                    commit.sha
+                );
+
+                self.forge
+                    .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
+                    .await
+                    .map_err(|e| {
+                        self.partial_one_shot(
+                            &commit.sha,
+                            &tagged,
+                            &pkg.tag.name,
+                            e,
+                        )
+                    })?;
             }
         }
 
@@ -265,11 +305,15 @@ impl Orchestrator {
             return Ok(());
         }
 
-        self.reject_pending_release_pr(&releasable).await?;
+        let groups = self
+            .package_processor
+            .group_releasable_packages(&releasable)?;
+
+        self.reject_pending_release_pr(&groups).await?;
 
         let pr_packages = self
             .package_processor
-            .release_pr_packages_by_branch(releasable)
+            .release_pr_packages_by_branch(groups)
             .await?;
 
         let results = self
@@ -493,38 +537,32 @@ impl Orchestrator {
         Ok(())
     }
 
-    /// Gathers related packages together, or separates into one package
-    /// per group, based on configuration.
-    fn group_for_release_commit<'a>(
+    /// Wraps a failure that happens once the one-shot release commit is
+    /// already on the base branch. Unlike the PR flow there is no label
+    /// or PR body recording what landed, so the error has to carry it.
+    fn partial_one_shot(
         &self,
-        releasable: &'a [ReleasablePackage],
-    ) -> Vec<Vec<&'a ReleasablePackage>> {
-        if self.config.separate_pull_requests
-            || self.config.package_configs.hash().len() == 1
-        {
-            return releasable.iter().map(|pkg| vec![pkg]).collect();
-        }
-
-        vec![releasable.iter().collect()]
+        sha: &str,
+        tagged: &[&str],
+        failed_tag: &str,
+        cause: ReleasaurusError,
+    ) -> ReleasaurusError {
+        ReleasaurusError::partial_one_shot_release(
+            sha,
+            self.config.base_branch.as_str(),
+            tagged,
+            failed_tag,
+            &cause,
+        )
     }
 
     /// Refuses to release a package that still has a merged release PR
     /// waiting to be tagged, which would release that version twice.
     async fn reject_pending_release_pr(
         &self,
-        releasable: &[ReleasablePackage],
+        groups: &ReleasablePackageGroups,
     ) -> Result<()> {
-        let mut checked: HashSet<String> = HashSet::new();
-
-        for pkg in releasable.iter() {
-            let release_branch = self.config.release_branch_for(&pkg.name);
-
-            // without separate_pull_requests every package resolves to
-            // the same branch, so only look it up once
-            if !checked.insert(release_branch.clone()) {
-                continue;
-            }
-
+        for (release_branch, _) in groups.iter() {
             if let Some(pending) = self
                 .forge
                 .get_merged_release_pr(GetPrRequest {
@@ -560,9 +598,10 @@ impl Orchestrator {
                     );
                 })?;
 
-        log::info!("tagging commit: tag: {}, sha: {}", tag, merged_pr.sha);
-
-        self.forge.tag_commit(&tag, &merged_pr.sha).await?;
+        if !self.forge.tag_exists_for_sha(&tag, &merged_pr.sha).await? {
+            log::info!("tagging commit: tag: {}, sha: {}", tag, merged_pr.sha);
+            self.forge.tag_commit(&tag, &merged_pr.sha).await?;
+        }
 
         log::info!("creating release: tag: {}, sha: {}", tag, merged_pr.sha);
 

@@ -66,8 +66,10 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -115,8 +117,10 @@ async fn create_pr_branches_includes_metadata_in_body() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -174,8 +178,10 @@ async fn create_pr_branches_uses_sha_compare_link() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -273,8 +279,12 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         ..Default::default()
     };
 
+    let groups = processor
+        .group_releasable_packages(&[releasable_a, releasable_b])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -367,8 +377,12 @@ async fn create_pr_branches_handles_separate_branches() {
         ..Default::default()
     };
 
+    let groups = processor
+        .group_releasable_packages(&[releasable_a, releasable_b])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -424,8 +438,10 @@ async fn create_pr_branches_includes_file_changes() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -468,8 +484,10 @@ async fn create_pr_branches_uses_correct_title_format() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -532,8 +550,10 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
         ..Default::default()
     };
 
+    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 

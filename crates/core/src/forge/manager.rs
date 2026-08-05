@@ -469,6 +469,20 @@ impl ForgeManager {
         result
     }
 
+    pub async fn tag_exists_for_sha(
+        &self,
+        tag_name: &str,
+        sha: &str,
+    ) -> Result<bool> {
+        if let Some(tag) = self.forge.get_tag(tag_name).await?
+            && tag.sha == sha
+        {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
     pub fn encode_pr_metadata(&self, json: &str) -> PrMetadataBlock {
         self.forge.encode_pr_metadata(json)
     }
@@ -485,41 +499,43 @@ impl ForgeManager {
         let mut entries: Vec<ResolvedFileChange> = vec![];
 
         for change in req.file_changes() {
-            let mut action = ResolvedFileChangeAction::Update;
-
-            let mut content = change.content.clone();
+            // Normalize before the lookup, not after: the forge only
+            // resolves the normalized path, so probing under the raw
+            // path misses and reports an existing file as a create.
+            let normalized = change.path.replace('\\', "/");
+            let path = normalized
+                .strip_prefix("./")
+                .unwrap_or(&normalized)
+                .to_string();
 
             let existing_content = self
                 .get_file_content(GetFileContentRequest {
                     branch: Some(branch.to_string()),
-                    path: change.path.to_string(),
+                    path: path.clone(),
                 })
                 .await?;
 
-            if existing_content.is_none() {
-                action = ResolvedFileChangeAction::Create;
-            }
+            let action = if existing_content.is_none() {
+                ResolvedFileChangeAction::Create
+            } else {
+                ResolvedFileChangeAction::Update
+            };
+
+            let mut content = change.content.clone();
 
             if matches!(change.update_type, FileUpdateType::Prepend)
-                && let Some(existing_content) = existing_content.clone()
+                && let Some(existing_content) = existing_content.as_deref()
             {
                 content = format!("{content}\n{existing_content}");
             }
 
             if content == existing_content.unwrap_or_default() {
                 log::warn!(
-                    "skipping file update content matches existing state: {}",
-                    change.path
+                    "skipping file update content matches existing state: {path}"
                 );
 
                 continue;
             }
-
-            let normalized = change.path.replace('\\', "/");
-            let path = normalized
-                .strip_prefix("./")
-                .unwrap_or(&normalized)
-                .to_string();
 
             entries.push(ResolvedFileChange {
                 repo_path: path,
@@ -927,6 +943,40 @@ mod tests {
             let resolved = manager.resolve_file_changes(&req).await.unwrap();
 
             assert_eq!(resolved[0].repo_path, want, "input: {input}");
+        }
+    }
+
+    /// The existence probe has to use the normalized path too. Looking a
+    /// file up under `packages\ui\CHANGELOG.md` misses on every forge,
+    /// which would mark an existing changelog as a create and drop its
+    /// history instead of prepending to it.
+    #[tokio::test]
+    async fn resolve_file_changes_looks_up_the_normalized_path() {
+        for input in ["./CHANGELOG.md", ".\\CHANGELOG.md"] {
+            let mut mock = MockForge::new();
+
+            mock.expect_get_file_content()
+                .withf(|req| req.path == "CHANGELOG.md")
+                .times(1)
+                .returning(|_| Ok(Some("old notes\n".into())));
+
+            let manager = ForgeManager::new(
+                Box::new(mock),
+                ForgeOptions { dry_run: false },
+            );
+
+            let req = commit_req(input, "new notes\n", FileUpdateType::Prepend);
+            let resolved = manager.resolve_file_changes(&req).await.unwrap();
+
+            assert_eq!(resolved.len(), 1, "input: {input}");
+            assert_eq!(
+                resolved[0].full_content, "new notes\n\nold notes\n",
+                "input: {input}"
+            );
+            assert!(
+                matches!(resolved[0].action, ResolvedFileChangeAction::Update),
+                "input: {input}"
+            );
         }
     }
 

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     analyzer::release::Release,
@@ -7,6 +7,10 @@ use crate::{
     forge::request::Tag,
     packages::manifests::{AdditionalManifestFile, ManifestFile},
 };
+
+pub type BranchName = String;
+
+pub type ReleasablePackageGroups = HashMap<BranchName, Vec<ReleasablePackage>>;
 
 /// A sub-package sharing its parent's release tag and changelog but
 /// receiving its own independent manifest updates.
@@ -37,7 +41,7 @@ impl ReleasableSubPackage {
 /// Package ready for manifest updates and PR creation, with a
 /// computed next-version tag, changelog notes, and loaded manifest
 /// file content.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ReleasablePackage {
     pub name: String,
     pub release_type: ReleaseType,
@@ -53,7 +57,7 @@ pub struct ReleasablePackage {
 /// Serializable form of a releasable package including full commit
 /// history. Used for the `get next-release` command and for writing
 /// release metadata to a file.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SerializableReleasablePackage {
     /// The name of this package
     pub name: String,

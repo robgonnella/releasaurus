@@ -21,7 +21,7 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            UpdatePrRequest,
+            TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -264,6 +264,10 @@ impl Forge for Forgejo {
 
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()> {
         self.gitea.tag_commit(tag_name, sha).await
+    }
+
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        self.gitea.get_tag(tag_name).await
     }
 
     async fn get_open_release_pr(

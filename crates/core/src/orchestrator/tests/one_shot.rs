@@ -415,3 +415,136 @@ async fn one_shot_returns_error_for_invalid_package_name() {
 
     assert!(matches!(err, ReleasaurusError::InvalidArgs(_)));
 }
+
+/// The release commit has already landed by the time tagging runs, so a
+/// failure there is reported with what is on the base branch rather than
+/// as a bare forge error.
+#[tokio::test]
+async fn one_shot_reports_a_partial_release_when_tagging_fails() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    expect_two_package_history(&mut mock_forge);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    mock_forge.expect_create_commit().returning(|_| {
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    let calls = Arc::new(Mutex::new(0));
+    let sink = Arc::clone(&calls);
+
+    mock_forge.expect_tag_commit().returning(move |_, _| {
+        let mut count = sink.lock().unwrap();
+        *count += 1;
+
+        if *count > 1 {
+            return Err(ReleasaurusError::forge("tag already exists"));
+        }
+
+        Ok(())
+    });
+
+    // nothing is published once tagging the group has failed
+    mock_forge.expect_create_release().times(0);
+
+    let orchestrator =
+        create_test_orchestrator_with_config(mock_forge, two_packages(), None);
+
+    let err = orchestrator.one_shot(None).await.unwrap_err();
+
+    assert!(matches!(
+        err,
+        ReleasaurusError::PartialOneShotRelease { .. }
+    ));
+}
+
+/// A publish failure leaves every package in the group tagged, so the
+/// state is at least consistent and the error can name all of them.
+#[tokio::test]
+async fn one_shot_reports_a_partial_release_when_publishing_fails() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    expect_two_package_history(&mut mock_forge);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    mock_forge.expect_create_commit().returning(|_| {
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    let tagged = capture_tagged_commits(&mut mock_forge);
+
+    mock_forge
+        .expect_create_release()
+        .returning(|_, _, _| Err(ReleasaurusError::forge("409 conflict")));
+
+    let orchestrator =
+        create_test_orchestrator_with_config(mock_forge, two_packages(), None);
+
+    let err = orchestrator.one_shot(None).await.unwrap_err();
+
+    assert!(matches!(
+        err,
+        ReleasaurusError::PartialOneShotRelease { .. }
+    ));
+
+    assert_eq!(tagged.lock().unwrap().len(), 2);
+}
+
+/// Tagging the whole group before publishing any of it keeps a mid-flight
+/// failure from leaving some packages tagged and others not.
+#[tokio::test]
+async fn one_shot_tags_every_package_before_publishing_any() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    expect_two_package_history(&mut mock_forge);
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    mock_forge.expect_create_commit().returning(|_| {
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    let order: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
+
+    let sink = Arc::clone(&order);
+    mock_forge.expect_tag_commit().returning(move |_, _| {
+        sink.lock().unwrap().push("tag".to_string());
+        Ok(())
+    });
+
+    let sink = Arc::clone(&order);
+    mock_forge
+        .expect_create_release()
+        .returning(move |_, _, _| {
+            sink.lock().unwrap().push("release".to_string());
+            Ok(())
+        });
+
+    let orchestrator =
+        create_test_orchestrator_with_config(mock_forge, two_packages(), None);
+
+    orchestrator.one_shot(None).await.unwrap();
+
+    let order = order.lock().unwrap();
+    assert_eq!(*order, vec!["tag", "tag", "release", "release"]);
+}

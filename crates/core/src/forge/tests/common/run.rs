@@ -421,6 +421,33 @@ pub async fn run_forge_test(
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // tag exists for sha -> true
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!(
+        "checking if tag [{}] exists for sha [{}]",
+        current_tag.name,
+        current_tag.sha
+    );
+    let exists = forge
+        .tag_exists_for_sha(&current_tag.name, &current_tag.sha)
+        .await
+        .unwrap();
+    assert!(exists);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // tag exists for sha -> false
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!(
+        "checking if non-existent tag [v9.9.9] exists for sha [{}]",
+        current_tag.sha
+    );
+    let exists = forge
+        .tag_exists_for_sha("v9.9,9", &current_tag.sha)
+        .await
+        .unwrap();
+    assert!(!exists);
+
+    ////////////////////////////////////////////////////////////////////////////
     // load_config -> Default::default()
     ////////////////////////////////////////////////////////////////////////////
     log::info!("loading non-existent config file");

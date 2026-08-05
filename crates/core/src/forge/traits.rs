@@ -13,7 +13,7 @@ use crate::{
         CreateReleaseBranchRequest, FileChange, ForgeCommit, ForgeCommitPR,
         GetFileContentRequest, GetPrRequest, PrLabelsRequest, PrMetadataBlock,
         PullRequest, ReleaseByTagResponse, ResolvedCreateCommitRequest,
-        ResolvedCreateReleaseBranchRequest, Tag, UpdatePrRequest,
+        ResolvedCreateReleaseBranchRequest, Tag, TagResponse, UpdatePrRequest,
     },
     result::Result,
 };
@@ -66,6 +66,8 @@ pub trait Forge: Any + Send + Sync {
     ) -> Result<Commit>;
     /// Create a git tag pointing to a specific commit SHA.
     async fn tag_commit(&self, tag_name: &str, sha: &str) -> Result<()>;
+    /// Gets a specific tag by name
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>>;
     /// Find all tags matching the given prefix (e.g., "v" or "api-v") that
     /// are ancestors of the given branch, returned as normalized Tag structs
     /// in no guaranteed order.

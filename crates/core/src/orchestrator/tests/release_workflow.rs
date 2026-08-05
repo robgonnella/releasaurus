@@ -14,7 +14,7 @@ use crate::{
         versioning::VersioningConfig,
     },
     forge::{
-        request::{Commit, GetPrRequest, PullRequest, Tag},
+        request::{Commit, GetPrRequest, PullRequest, Tag, TagResponse},
         traits::MockForge,
     },
     result::ReleasaurusError,
@@ -114,6 +114,8 @@ async fn create_releases_handles_separate_pull_requests() {
             }
         });
 
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
     mock_forge
         .expect_tag_commit()
         .times(2)
@@ -179,6 +181,8 @@ async fn create_releases_targets_specific_package() {
                 body: pr_body_a.clone(),
             }))
         });
+
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
 
     mock_forge
         .expect_tag_commit()
@@ -253,6 +257,7 @@ async fn create_releases_triggers_auto_start_next() {
             }))
         });
 
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
     mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
     mock_forge
         .expect_create_release()
@@ -325,6 +330,8 @@ async fn create_releases_uses_edited_notes_from_pr_body() {
             }))
         });
 
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
     mock_forge
         .expect_tag_commit()
         .times(1)
@@ -383,6 +390,7 @@ async fn create_releases_includes_header_and_footer_in_release_notes() {
             }))
         });
 
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
     mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
 
     mock_forge
@@ -408,6 +416,109 @@ async fn create_releases_includes_header_and_footer_in_release_notes() {
         ],
         None,
     );
+
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+/// A run that tagged but failed before publishing leaves the PR pending,
+/// so the next run comes back through here. Re-tagging would conflict —
+/// the existing tag is recognised and only the release is created.
+#[tokio::test]
+async fn create_releases_skips_tagging_when_the_tag_already_exists() {
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.0.0",
+        notes: "Release notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "abc123".to_string(),
+                body: pr_body.clone(),
+            }))
+        });
+
+    mock_forge.expect_get_tag().returning(|tag| {
+        Ok(Some(TagResponse {
+            tag: tag.to_string(),
+            sha: "abc123".to_string(),
+        }))
+    });
+
+    mock_forge.expect_tag_commit().times(0);
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .withf(|tag, sha, _| tag == "v1.0.0" && sha == "abc123")
+        .returning(|_, _, _| Ok(()));
+
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(1)
+        .returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator(mock_forge);
+
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+/// A tag of the same name pointing at a different commit is not the one
+/// we created, so tagging must still be attempted rather than assumed
+/// done.
+#[tokio::test]
+async fn create_releases_still_tags_when_an_existing_tag_points_elsewhere() {
+    let pr_body = make_pr_body(&PrBodyInput {
+        pkg: TEST_PKG_NAME,
+        tag: "v1.0.0",
+        notes: "Release notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 123,
+                sha: "abc123".to_string(),
+                body: pr_body.clone(),
+            }))
+        });
+
+    mock_forge.expect_get_tag().returning(|tag| {
+        Ok(Some(TagResponse {
+            tag: tag.to_string(),
+            sha: "a-different-sha".to_string(),
+        }))
+    });
+
+    mock_forge
+        .expect_tag_commit()
+        .times(1)
+        .returning(|_, _| Ok(()));
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .returning(|_, _, _| Ok(()));
+
+    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator(mock_forge);
 
     orchestrator.create_releases(None).await.unwrap();
 }

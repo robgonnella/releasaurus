@@ -56,6 +56,13 @@ pub struct UpdatePrRequest {
 
 /// Response data for retrieving release by tag.
 #[derive(Debug, Default, Serialize)]
+pub struct TagResponse {
+    pub tag: String,
+    pub sha: String,
+}
+
+/// Response data for retrieving release by tag.
+#[derive(Debug, Default, Serialize)]
 pub struct ReleaseByTagResponse {
     pub tag: String,
     pub sha: String,

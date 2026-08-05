@@ -25,6 +25,26 @@ pub enum ReleasaurusError {
     )]
     PendingRelease { branch: String, pr_number: u64 },
 
+    #[error(
+        "One-shot release only partially completed: release commit {sha} is on '{branch}' and tag(s) [{tags}] were created, but '{failed_tag}' failed to publish: {cause}. Re-running one-shot will not finish this release: publish the remaining release(s) manually for the tags listed above"
+    )]
+    PartialOneShotRelease {
+        sha: String,
+        branch: String,
+        tags: String,
+        failed_tag: String,
+        cause: String,
+    },
+
+    #[error(
+        "Tag '{tag}' was created at {sha} but publishing its release failed: {cause}. The release PR keeps its pending label, so re-running `releasaurus release` will retry the publish"
+    )]
+    ReleaseNotPublished {
+        tag: String,
+        sha: String,
+        cause: String,
+    },
+
     #[error("Invalid git remote URL: {0}")]
     InvalidRemoteUrl(String),
 
@@ -111,6 +131,38 @@ impl ReleasaurusError {
         Self::PendingRelease {
             branch: branch.into(),
             pr_number,
+        }
+    }
+
+    /// Create a partial one-shot release error. `tags` are the tags that
+    /// were created before `failed_tag` failed to publish.
+    pub fn partial_one_shot_release(
+        sha: impl Into<String>,
+        branch: impl Into<String>,
+        tags: &[&str],
+        failed_tag: impl Into<String>,
+        cause: &ReleasaurusError,
+    ) -> Self {
+        Self::PartialOneShotRelease {
+            sha: sha.into(),
+            branch: branch.into(),
+            tags: tags.join(", "),
+            failed_tag: failed_tag.into(),
+            cause: cause.to_string(),
+        }
+    }
+
+    /// Create an error for a tag that was created but whose release
+    /// could not be published.
+    pub fn release_not_published(
+        tag: impl Into<String>,
+        sha: impl Into<String>,
+        cause: &ReleasaurusError,
+    ) -> Self {
+        Self::ReleaseNotPublished {
+            tag: tag.into(),
+            sha: sha.into(),
+            cause: cause.to_string(),
         }
     }
 }
@@ -350,6 +402,23 @@ mod tests {
 
         let err = ReleasaurusError::pending_release("main", 42);
         assert!(matches!(err, ReleasaurusError::PendingRelease { .. }));
+
+        let cause = ReleasaurusError::forge("409 conflict");
+        let err = ReleasaurusError::partial_one_shot_release(
+            "abc123",
+            "main",
+            &["v1.0.0", "pkg-b-v2.0.0"],
+            "pkg-b-v2.0.0",
+            &cause,
+        );
+        assert!(matches!(
+            err,
+            ReleasaurusError::PartialOneShotRelease { .. }
+        ));
+
+        let err =
+            ReleasaurusError::release_not_published("v1.0.0", "abc123", &cause);
+        assert!(matches!(err, ReleasaurusError::ReleaseNotPublished { .. }));
     }
 
     #[test]

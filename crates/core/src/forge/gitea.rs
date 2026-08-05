@@ -34,7 +34,7 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            UpdatePrRequest,
+            TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -649,6 +649,24 @@ impl Forge for Gitea {
         let response = self.client.execute(request).await?;
         response.error_for_status()?;
         Ok(())
+    }
+
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        let url = self.base_url.join(&format!("tags/{tag_name}"))?;
+        let request = self.client.get(url).build()?;
+        let response = self.client.execute(request).await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let result = response.error_for_status()?;
+        let data: Option<GiteaTag> = result.json().await?;
+        if let Some(tag) = data {
+            return Ok(Some(TagResponse {
+                tag: tag.name,
+                sha: tag.commit.sha,
+            }));
+        }
+        Ok(None)
     }
 
     async fn get_open_release_pr(

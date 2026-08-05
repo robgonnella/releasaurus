@@ -26,7 +26,7 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
-            UpdatePrRequest,
+            TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -673,6 +673,33 @@ impl Forge for LocalRepo {
             );
             Ok(())
         }
+    }
+
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        let repo = self.repo.lock().await;
+
+        let references = repo
+            .references()?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<git2::Reference>>();
+
+        for reference in references.iter() {
+            if reference.is_tag()
+                && let Ok(tag) = reference.peel_to_tag()
+                && let Ok(name) = tag.name()
+                && name == tag_name
+            {
+                let commit = reference.peel_to_commit()?;
+                let commit_id = commit.id().to_string();
+
+                return Ok(Some(TagResponse {
+                    tag: name.to_string(),
+                    sha: commit_id,
+                }));
+            }
+        }
+
+        Ok(None)
     }
 
     async fn get_open_release_pr(
