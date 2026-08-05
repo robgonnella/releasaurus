@@ -31,6 +31,8 @@ async fn create_package_release_parses_metadata_from_pr_body() {
 
     // Set up mock forge expectations FIRST
     let mut mock_forge = MockForge::new();
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
     mock_forge
         .expect_tag_commit()
         .times(1)
@@ -121,6 +123,8 @@ async fn create_package_release_matches_correct_package_by_name() {
 
     // Set up mock forge expectations
     let mut mock_forge = MockForge::new();
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
     mock_forge
         .expect_tag_commit()
         .times(1)
@@ -167,6 +171,7 @@ async fn create_package_release_trims_notes() {
 
     // Set up mock forge expectations
     let mut mock_forge = MockForge::new();
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
     mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
     mock_forge
         .expect_create_release()

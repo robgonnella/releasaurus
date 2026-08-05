@@ -35,5 +35,15 @@ pub struct GithubCommitPR {
     pub base: GithubCommitPRBase,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GithubTagResponseObject {
+    pub sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GithubTagResponse {
+    pub object: GithubTagResponseObject,
+}
+
 pub const TREE_BLOB_MODE: &str = "100644";
 pub const TREE_BLOB_TYPE: &str = "blob";

@@ -72,8 +72,12 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
         ..Default::default()
     };
 
+    let groups = processor
+        .group_releasable_packages(&[releasable_a, releasable_b])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
     // Should have one branch with both packages
@@ -139,8 +143,12 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
         ..Default::default()
     };
 
+    let groups = processor
+        .group_releasable_packages(&[releasable_a, releasable_b])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable_a, releasable_b])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
     // Should have separate branches

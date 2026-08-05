@@ -23,8 +23,8 @@ use crate::{
         analyzed::AnalyzedPackage,
         prepared::PreparedPackage,
         releasable::{
-            ReleasablePackage, ReleasableSubPackage,
-            SerializableReleasablePackage,
+            BranchName, ReleasablePackage, ReleasablePackageGroups,
+            ReleasableSubPackage, SerializableReleasablePackage,
         },
         releasable_builder::ReleasablePackageBuilder,
         release_pr::{PRBundle, ReleasePRPackage},
@@ -311,20 +311,23 @@ impl PackageProcessor {
 
     pub async fn release_pr_packages_by_branch(
         &self,
-        packages: Vec<ReleasablePackage>,
+        groups: ReleasablePackageGroups,
     ) -> Result<HashMap<String, PRBundle>> {
-        let release_prs = self.release_pr_packages(packages)?;
+        let mut map: HashMap<BranchName, Vec<ReleasePRPackage>> =
+            HashMap::new();
 
-        let mut map: HashMap<String, Vec<ReleasePRPackage>> = HashMap::new();
+        for (release_branch, group) in groups {
+            let release_prs = self.release_pr_packages(group)?;
 
-        for pkg in release_prs {
-            let list = map.get_mut(&pkg.release_branch);
+            for pkg in release_prs {
+                let list = map.get_mut(&release_branch);
 
-            if let Some(list) = list {
-                list.push(pkg)
-            } else {
-                map.insert(pkg.release_branch.clone(), vec![pkg]);
-            };
+                if let Some(list) = list {
+                    list.push(pkg)
+                } else {
+                    map.insert(pkg.release_branch.clone(), vec![pkg]);
+                };
+            }
         }
 
         let mut bundles: HashMap<String, PRBundle> = HashMap::new();
@@ -407,6 +410,33 @@ impl PackageProcessor {
         }
 
         Ok(pr_results)
+    }
+
+    /// Gathers related packages together base on configuration and determined
+    /// release branch
+    pub fn group_releasable_packages(
+        &self,
+        releasable: &[ReleasablePackage],
+    ) -> Result<ReleasablePackageGroups> {
+        let mut groups = HashMap::new();
+
+        for p in releasable {
+            let release_branch = self.config.release_branch_for(&p.name);
+            if !groups.contains_key(&release_branch) {
+                groups.insert(release_branch.clone(), vec![p.clone()]);
+            } else {
+                let group =
+                    groups.get_mut(&release_branch).ok_or_else(|| {
+                        ReleasaurusError::Other(eyre!(
+                            "failed to get group mapping for package: {}",
+                            p.name
+                        ))
+                    })?;
+                group.push(p.clone());
+            }
+        }
+
+        Ok(groups)
     }
 
     ////////////////////////////////////////////////////////////////////////////

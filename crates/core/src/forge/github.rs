@@ -33,8 +33,8 @@ use crate::{
                 TAG_SEARCH_QUERY, TagSearchQueryVariables, TagSearchResult,
             },
             types::{
-                GithubCommitPR, GithubTree, GithubTreeEntry, TREE_BLOB_MODE,
-                TREE_BLOB_TYPE, Tree,
+                GithubCommitPR, GithubTagResponse, GithubTree, GithubTreeEntry,
+                TREE_BLOB_MODE, TREE_BLOB_TYPE, Tree,
             },
         },
         request::{
@@ -42,7 +42,7 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
-            UpdatePrRequest,
+            TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -729,6 +729,33 @@ impl Forge for Github {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        let endpoint = format!(
+            "{}/repos/{}/{}/git/ref/tags/{tag_name}",
+            self.base_uri, self.url.owner, self.url.name,
+        );
+
+        let response = self
+            .instance
+            .get::<GithubTagResponse, _, ()>(&endpoint, None::<&()>)
+            .await;
+
+        match response {
+            Ok(data) => Ok(Some(TagResponse {
+                tag: tag_name.to_string(),
+                sha: data.object.sha,
+            })),
+            Err(octocrab::Error::GitHub { source, .. }) => {
+                if source.status_code == StatusCode::NOT_FOUND {
+                    Ok(None)
+                } else {
+                    Err(ReleasaurusError::forge(source.message))
+                }
+            }
+            Err(err) => Err(ReleasaurusError::forge(err.to_string())),
+        }
     }
 
     async fn get_open_release_pr(

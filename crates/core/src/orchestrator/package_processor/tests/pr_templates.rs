@@ -111,8 +111,12 @@ async fn single_configured_package_uses_package_template() {
         ),
     );
 
+    let groups = processor
+        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable("test-pkg", "v1.2.3")])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -141,11 +145,15 @@ async fn multiple_configured_packages_use_monorepo_template() {
         ),
     );
 
-    let grouped = processor
-        .release_pr_packages_by_branch(vec![
+    let groups = processor
+        .group_releasable_packages(&[
             releasable("pkg-a", "v1.0.0"),
             releasable("pkg-b", "v2.0.0"),
         ])
+        .unwrap();
+
+    let grouped = processor
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -194,8 +202,12 @@ async fn combined_pr_uses_monorepo_template_when_one_package_releases() {
     );
 
     // Only pkg-a has anything to release this run.
+    let groups = processor
+        .group_releasable_packages(&[releasable("pkg-a", "v1.0.0")])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable("pkg-a", "v1.0.0")])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -238,11 +250,15 @@ async fn separate_prs_use_each_packages_own_template() {
         config(true, DefaultsConfig::default()),
     );
 
-    let grouped = processor
-        .release_pr_packages_by_branch(vec![
+    let groups = processor
+        .group_releasable_packages(&[
             releasable("pkg-a", "v1.0.0"),
             releasable("pkg-b", "v2.0.0"),
         ])
+        .unwrap();
+
+    let grouped = processor
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -275,8 +291,12 @@ async fn renders_all_package_context_variables() {
         config(true, package_defaults(all, all)),
     );
 
+    let groups = processor
+        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable("test-pkg", "v1.2.3")])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -301,11 +321,15 @@ async fn renders_all_monorepo_context_variables() {
         config(false, monorepo_defaults(all, all)),
     );
 
-    let grouped = processor
-        .release_pr_packages_by_branch(vec![
+    let groups = processor
+        .group_releasable_packages(&[
             releasable("pkg-a", "v1.0.0"),
             releasable("pkg-b", "v2.0.0"),
         ])
+        .unwrap();
+
+    let grouped = processor
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -323,8 +347,12 @@ async fn defaults_produce_the_documented_commit_and_title() {
 
     let processor = create_package_processor(mock, None, None);
 
+    let groups = processor
+        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
+        .unwrap();
+
     let grouped = processor
-        .release_pr_packages_by_branch(vec![releasable("test-pkg", "v1.2.3")])
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 
@@ -348,11 +376,15 @@ async fn defaults_produce_the_documented_commit_and_title() {
         config(false, DefaultsConfig::default()),
     );
 
-    let grouped = processor
-        .release_pr_packages_by_branch(vec![
+    let groups = processor
+        .group_releasable_packages(&[
             releasable("pkg-a", "v1.0.0"),
             releasable("pkg-b", "v2.0.0"),
         ])
+        .unwrap();
+
+    let grouped = processor
+        .release_pr_packages_by_branch(groups)
         .await
         .unwrap();
 

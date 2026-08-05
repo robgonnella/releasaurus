@@ -64,7 +64,7 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            UpdatePrRequest,
+            TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -611,6 +611,24 @@ impl Forge for Gitlab {
         Ok(())
     }
 
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        let endpoint = Tags::builder()
+            .project(&self.project_id)
+            .search(tag_name)
+            .build()?;
+
+        let tags: Vec<GitlabTag> = endpoint.query_async(&self.gl).await?;
+
+        if tags.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(TagResponse {
+                tag: tags[0].name.clone(),
+                sha: tags[0].commit.id.clone(),
+            }))
+        }
+    }
+
     async fn get_open_release_pr(
         &self,
         req: GetPrRequest,
@@ -656,7 +674,7 @@ impl Forge for Gitlab {
                 }))
             }
             Err(gitlab::api::ApiError::GitlabWithStatus { status, msg }) => {
-                if status == reqwest::StatusCode::NOT_FOUND {
+                if status == StatusCode::NOT_FOUND {
                     Ok(None)
                 } else {
                     let msg = format!(

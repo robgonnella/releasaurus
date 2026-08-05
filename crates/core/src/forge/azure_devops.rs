@@ -11,7 +11,6 @@ use base64::{
 };
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
-use log::{info, warn};
 use regex::Regex;
 use reqwest::{
     Client, StatusCode,
@@ -44,7 +43,8 @@ use crate::{
             GetFileContentRequest, GetPrRequest, PrLabelsRequest,
             PrMetadataBlock, PullRequest, ReleaseByTagResponse,
             ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
-            ResolvedFileChange, ResolvedFileChangeAction, Tag, UpdatePrRequest,
+            ResolvedFileChange, ResolvedFileChangeAction, Tag, TagResponse,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -89,7 +89,7 @@ impl AzureDevops {
         token: Option<SecretString>,
     ) -> Result<Self> {
         EXPERIMENTAL_WARNING.call_once(|| {
-            warn!(
+            log::warn!(
                 "azure devops forge support is EXPERIMENTAL; \
                  expect rough edges. the release step only pushes the \
                  git tag — azure devops has no native release object \
@@ -248,9 +248,8 @@ impl AzureDevops {
         commit_sha: &str,
         branch: &str,
     ) -> Result<bool> {
-        let mut url = self.base_url.join("diffs/commits")?;
+        let mut url = self.endpoint("diffs/commits")?;
         url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION)
             .append_pair("baseVersion", commit_sha)
             .append_pair("baseVersionType", "commit")
             .append_pair("targetVersion", branch)
@@ -273,10 +272,9 @@ impl AzureDevops {
     }
 
     async fn get_branch_head_sha(&self, branch: &str) -> Result<String> {
-        let mut refs_url = self.base_url.join("refs")?;
+        let mut refs_url = self.endpoint("refs")?;
         refs_url
             .query_pairs_mut()
-            .append_pair("api-version", API_VERSION)
             .append_pair("filter", &format!("heads/{branch}"));
         let response = self.client.get(refs_url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
@@ -365,9 +363,8 @@ impl AzureDevops {
         let mut skip: u64 = 0;
         let page_size = u64::from(DEFAULT_PAGE_SIZE);
         loop {
-            let mut url = self.base_url.join("pullrequests")?;
+            let mut url = self.endpoint("pullrequests")?;
             url.query_pairs_mut()
-                .append_pair("api-version", API_VERSION)
                 .append_pair("searchCriteria.status", status)
                 .append_pair(
                     "searchCriteria.sourceRefName",
@@ -415,11 +412,9 @@ impl AzureDevops {
         pr_number: u64,
         label_id_or_name: &str,
     ) -> Result<()> {
-        let mut url = self.base_url.join(&format!(
+        let url = self.endpoint(&format!(
             "pullrequests/{pr_number}/labels/{label_id_or_name}"
         ))?;
-        url.query_pairs_mut()
-            .append_pair("api-version", LABELS_API_VERSION);
         let response = self.client.delete(url).send().await?;
         response.error_for_status()?;
         Ok(())
@@ -440,9 +435,7 @@ impl AzureDevops {
     }
 
     async fn get_commit_timestamp(&self, commit_id: &str) -> Result<i64> {
-        let mut url = self.base_url.join(&format!("commits/{commit_id}"))?;
-        url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION);
+        let url = self.endpoint(&format!("commits/{commit_id}"))?;
         let response = self.client.get(url).send().await?;
         let commit: AzureCommit = read_json(response).await?;
         Ok(DateTime::parse_from_rfc3339(&commit.author.date)
@@ -451,11 +444,7 @@ impl AzureDevops {
     }
 
     async fn get_commit_files(&self, commit_id: &str) -> Result<Vec<String>> {
-        let mut url = self
-            .base_url
-            .join(&format!("commits/{commit_id}/changes"))?;
-        url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION);
+        let url = self.endpoint(&format!("commits/{commit_id}/changes"))?;
         let response = self.client.get(url).send().await?;
         // 404 is legitimate (commit has no recorded change list); other
         // non-2xx codes (401/429/5xx) would silently produce empty file
@@ -574,9 +563,8 @@ impl Forge for AzureDevops {
         &self,
         req: GetFileContentRequest,
     ) -> Result<Option<String>> {
-        let mut url = self.base_url.join("items")?;
+        let mut url = self.endpoint("items")?;
         url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION)
             .append_pair("path", &normalize_path(&req.path))
             .append_pair("includeContent", "true")
             .append_pair("$format", "text");
@@ -633,9 +621,8 @@ impl Forge for AzureDevops {
         // commit SHA via the refs endpoint and return empty notes —
         // callers that need notes should source them from the
         // release-PR body.
-        let mut url = self.base_url.join("refs")?;
+        let mut url = self.endpoint("refs")?;
         url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION)
             .append_pair("filter", &format!("tags/{tag}"));
         let response = self.client.get(url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
@@ -657,10 +644,8 @@ impl Forge for AzureDevops {
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
-        let mut url = self.base_url.join("refs")?;
-        url.query_pairs_mut()
-            .append_pair("api-version", API_VERSION)
-            .append_pair("filter", "tags/");
+        let mut url = self.endpoint("refs")?;
+        url.query_pairs_mut().append_pair("filter", "tags/");
         let response = self.client.get(url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
         let mut tags = vec![];
@@ -874,6 +859,26 @@ impl Forge for AzureDevops {
         Ok(())
     }
 
+    async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
+        let mut url = self.endpoint("refs")?;
+        url.query_pairs_mut()
+            .append_pair("filter", &format!("tags/{tag_name}"));
+        let response = self.client.get(url).send().await?;
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let data: AzureList<AzureRef> = read_json(response).await?;
+        for tag in data.value {
+            if strip_refs_tags(&tag.name) == tag_name {
+                return Ok(Some(TagResponse {
+                    tag: tag.name,
+                    sha: tag.object_id,
+                }));
+            }
+        }
+        Ok(None)
+    }
+
     async fn get_open_release_pr(
         &self,
         req: GetPrRequest,
@@ -1021,7 +1026,7 @@ impl Forge for AzureDevops {
         _sha: &str,
         _notes: &str,
     ) -> Result<()> {
-        info!(
+        log::info!(
             "azure devops has no native release object — skipping release publish for tag {tag}; \
              changelog commit and tag have already been pushed"
         );
