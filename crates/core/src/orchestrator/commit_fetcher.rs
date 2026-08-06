@@ -204,7 +204,7 @@ impl CommitFetcher {
             return;
         }
         for c in commits.iter_mut() {
-            c.pr = self.commit_pr(&c.id, c.short_id.clone()).await;
+            c.pr = self.get_pr_for_commit(&c.id).await;
         }
 
         // The per-commit warnings scroll past in a large release. Close with
@@ -231,20 +231,16 @@ impl CommitFetcher {
     ///
     /// PR links are cosmetic, so a failed lookup is logged and treated as
     /// "no PR" rather than failing the release.
-    async fn commit_pr(
-        &self,
-        sha: &str,
-        short_sha: String,
-    ) -> Option<ForgeCommitPR> {
+    async fn get_pr_for_commit(&self, sha: &str) -> Option<ForgeCommitPR> {
         // Scoped so the borrow is released before the await below.
         {
             if let Some(cached) = self.commit_prs.borrow().get(sha) {
-                log::debug!("using cached PR for commit {short_sha}");
+                log::debug!("using cached PR for commit {sha}");
                 return cached.clone();
             }
         }
 
-        log::debug!("fetching related PR for commit {short_sha}");
+        log::debug!("fetching related PR for commit {sha}");
 
         let pr = match self
             .forge
@@ -257,7 +253,7 @@ impl CommitFetcher {
             Ok(pr) => pr,
             Err(err) => {
                 log::warn!(
-                    "failed to fetch related PR for commit {short_sha}: \
+                    "failed to fetch related PR for commit {sha}: \
                      {err}: omitting its PR link"
                 );
                 self.failed_pr_lookups.borrow_mut().insert(sha.to_string());
