@@ -64,14 +64,12 @@ pub struct PrBranchResult {
 pub struct PackageProcessor {
     config: Rc<ResolvedConfig>,
     forge: Rc<ForgeManager>,
-    commit_fetcher: CommitFetcher,
 }
 
 impl PackageProcessor {
     pub fn new(config: Rc<ResolvedConfig>, forge: Rc<ForgeManager>) -> Self {
         Self {
             config: Rc::clone(&config),
-            commit_fetcher: CommitFetcher::new(config, Rc::clone(&forge)),
             forge,
         }
     }
@@ -141,10 +139,11 @@ impl PackageProcessor {
     ) -> Result<Vec<PreparedPackage>> {
         let mut prepared_packages = vec![];
 
-        let (commits, tags) = self
-            .commit_fetcher
-            .get_commits_for_all_packages(target)
-            .await?;
+        let commit_fetcher =
+            CommitFetcher::new(Rc::clone(&self.config), Rc::clone(&self.forge));
+
+        let (commits, tags) =
+            commit_fetcher.get_commits_for_all_packages(target).await?;
 
         let commit_hash_set: HashSet<_> = commits.iter().collect();
 
@@ -160,15 +159,14 @@ impl PackageProcessor {
             let is_graduating_to_stable =
                 tag_info.map(|i| i.graduating_to_stable).unwrap_or_default();
 
-            let mut commits = self.commit_fetcher.filter_commits_for_package(
+            let mut commits = commit_fetcher.filter_commits_for_package(
                 package,
                 current_tag.as_ref(),
                 &commits,
             );
 
             if package.aggregate_prereleases && is_graduating_to_stable {
-                let additional = self
-                    .commit_fetcher
+                let additional = commit_fetcher
                     .fetch_additional_commits_for_prerelease_aggregation(
                         package,
                     )
@@ -183,7 +181,7 @@ impl PackageProcessor {
                 commits.sort_by_key(|c| std::cmp::Reverse(c.timestamp));
             }
 
-            self.commit_fetcher
+            commit_fetcher
                 .fetch_merged_commit_prs(package, &mut commits)
                 .await;
 
