@@ -87,6 +87,10 @@ pub struct AdditionalManifest {
     /// rejects patterns without one. Only that group's text is
     /// substituted; the rest of the match is left intact. Defaults to
     /// [`GENERIC_VERSION_REGEX_PATTERN`] when omitted.
+    // A pattern rather than a compiled `Regex` so a bad one fails during
+    // resolution, where the manifest path is known. This enum is
+    // `#[serde(untagged)]`, and serde discards a variant's own error in
+    // favour of "data did not match any variant".
     pub version_regex: Option<String>,
 }
 
@@ -236,15 +240,15 @@ mod tests {
         let manifest1 = specs[0].clone().into_manifest();
         assert_eq!(manifest1.path, "VERSION");
         assert_eq!(
-            manifest1.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest1.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX.to_string()
         );
 
         let manifest2 = specs[1].clone().into_manifest();
         assert_eq!(manifest2.path, "README.md");
         assert_eq!(
-            manifest2.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest2.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX.to_string()
         );
     }
 
@@ -269,8 +273,8 @@ mod tests {
         let manifest = specs[0].clone().into_manifest();
         assert_eq!(manifest.path, "VERSION");
         assert_eq!(
-            manifest.version_regex,
-            Some("version:\\s*(\\d+\\.\\d+\\.\\d+)".to_string())
+            manifest.version_regex.unwrap().to_string(),
+            "version:\\s*(\\d+\\.\\d+\\.\\d+)".to_string()
         );
     }
 
@@ -296,15 +300,15 @@ mod tests {
         let manifest1 = specs[0].clone().into_manifest();
         assert_eq!(manifest1.path, "VERSION");
         assert_eq!(
-            manifest1.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest1.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX.to_string()
         );
 
         let manifest2 = specs[1].clone().into_manifest();
         assert_eq!(manifest2.path, "config.yml");
         assert_eq!(
-            manifest2.version_regex,
-            Some("v:\\s*(\\d+\\.\\d+\\.\\d+)".to_string())
+            manifest2.version_regex.unwrap().to_string(),
+            "v:\\s*(\\d+\\.\\d+\\.\\d+)".to_string()
         );
     }
 
@@ -343,8 +347,8 @@ mod tests {
         let manifest1 = pkg1_specs[0].clone().into_manifest();
         assert_eq!(manifest1.path, "VERSION");
         assert_eq!(
-            manifest1.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest1.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX.to_string()
         );
 
         // Second package - mixed format
@@ -356,15 +360,15 @@ mod tests {
         let manifest2_1 = pkg2_specs[0].clone().into_manifest();
         assert_eq!(manifest2_1.path, "VERSION");
         assert_eq!(
-            manifest2_1.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest2_1.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX_PATTERN.to_string()
         );
 
         let manifest2_2 = pkg2_specs[1].clone().into_manifest();
         assert_eq!(manifest2_2.path, "config.yml");
         assert_eq!(
-            manifest2_2.version_regex,
-            Some("v:\\s*(\\d+\\.\\d+\\.\\d+)".to_string())
+            manifest2_2.version_regex.unwrap().to_string(),
+            "v:\\s*(\\d+\\.\\d+\\.\\d+)".to_string()
         );
     }
 
@@ -379,8 +383,8 @@ mod tests {
         let manifest = spec.into_manifest();
         assert_eq!(manifest.path, "VERSION");
         assert_eq!(
-            manifest.version_regex,
-            Some(GENERIC_VERSION_REGEX_PATTERN.to_string())
+            manifest.version_regex.unwrap().to_string(),
+            GENERIC_VERSION_REGEX_PATTERN.to_string()
         );
     }
 
@@ -395,6 +399,6 @@ mod tests {
 
         let manifest = spec.into_manifest();
         assert_eq!(manifest.path, "config.yml");
-        assert_eq!(manifest.version_regex, Some(custom_pattern));
+        assert_eq!(manifest.version_regex.unwrap(), custom_pattern);
     }
 }

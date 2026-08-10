@@ -44,30 +44,38 @@ pub fn normalize_path(path: &str) -> Cow<'_, str> {
     }
 }
 
-/// Normalizes workspace and full package paths.
-pub fn normalize_package_paths(package: &PackageConfig) -> (PathBuf, PathBuf) {
-    let mut normalized_root = normalize_path(&package.workspace_root);
-    if normalized_root == "." {
-        normalized_root = Cow::from("");
+/// Normalizes a repo-relative package directory, collapsing the repo root
+/// to an empty path.
+///
+/// Manifest ownership is decided by comparing a file's parent directory
+/// against a package's path, and `Path::new("Cargo.toml").parent()` is
+/// `""` — so a root package spelled `"."` has to normalize the same way.
+/// Duplicate-path rejection compares these too, and `"."` and `""` would
+/// otherwise read as two different directories.
+pub fn normalize_package_path(path: &str) -> PathBuf {
+    let normalized = normalize_path(path);
+
+    if normalized == "." {
+        return PathBuf::new();
     }
 
+    Path::new(normalized.as_ref()).to_path_buf()
+}
+
+/// Normalizes workspace and full package paths.
+pub fn normalize_package_paths(package: &PackageConfig) -> (PathBuf, PathBuf) {
     let normalized_workspace_root =
-        Path::new(normalized_root.as_ref()).to_path_buf();
+        normalize_package_path(&package.workspace_root);
 
     let full_path = normalized_workspace_root
         .join(&package.path)
         .to_string_lossy()
         .to_string();
 
-    let mut normalized_full = normalize_path(&full_path);
-    if normalized_full == "." {
-        normalized_full = Cow::from("");
-    }
-
-    let normalized_full_path =
-        Path::new(normalized_full.as_ref()).to_path_buf();
-
-    (normalized_workspace_root, normalized_full_path)
+    (
+        normalized_workspace_root,
+        normalize_package_path(&full_path),
+    )
 }
 
 /// Normalizes additional paths for a package.

@@ -1,11 +1,9 @@
 use crate::{
-    config::package::GENERIC_VERSION_REGEX,
+    config::{package::GENERIC_VERSION_REGEX, release_type::ReleaseType},
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{
-        generic::updater::GenericUpdater, manager::UpdaterPackage,
-        traits::PackageUpdater,
-    },
+    updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
 
 /// Handles version.go file parsing and version updates for Golang packages.
@@ -24,44 +22,32 @@ impl Default for VersionGo {
     }
 }
 
-impl PackageUpdater for VersionGo {
+impl FileUpdater for VersionGo {
     /// Process version.go files for all Golang packages.
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "version.go" {
-                continue;
-            }
-
-            if let Some(change) = GenericUpdater::update_manifest(
-                manifest,
-                &package.next_version.semver,
-                &GENERIC_VERSION_REGEX,
-            ) {
-                file_changes.push(change);
-            }
-        }
-
-        if file_changes.is_empty() {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "version.go"
+            || !matches!(manifest.release_type, ReleaseType::Go)
+        {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        Ok(GenericUpdater::update_manifest(
+            manifest,
+            &GENERIC_VERSION_REGEX,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
+
+    use semver::Version;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -77,22 +63,23 @@ mod tests {
             path: Path::new("version.go").to_path_buf(),
             basename: "version.go".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "gopher".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Go)),
+            release_type: ReleaseType::Go,
+            owner: Some(ManifestPackage {
+                name: "gopher".to_string(),
+                release_type: ReleaseType::Go,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = version_go.update(&package, &[]).unwrap();
+        let result = version_go.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("const Version = \"2.0.0\""));
     }
 
@@ -107,22 +94,23 @@ mod tests {
             path: Path::new("version.go").to_path_buf(),
             basename: "version.go".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "gopher".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Go)),
+            release_type: ReleaseType::Go,
+            owner: Some(ManifestPackage {
+                name: "gopher".to_string(),
+                release_type: ReleaseType::Go,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = version_go.update(&package, &[]).unwrap();
+        let result = version_go.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("var Version = \"2.0.0\""));
     }
 
@@ -137,23 +125,23 @@ mod tests {
             path: Path::new("version.go").to_path_buf(),
             basename: "version.go".to_string(),
             content: content.to_string(),
+            release_type: ReleaseType::Go,
+            owner: Some(ManifestPackage {
+                name: "gopher".to_string(),
+                release_type: ReleaseType::Go,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let package = UpdaterPackage {
-            package_name: "gopher".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Go)),
-        };
+        let result = version_go.update(&manifest).unwrap();
 
-        let result = version_go.update(&package, &[]).unwrap();
-
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("const VERSION = \"2.0.0\""));
     }
 }

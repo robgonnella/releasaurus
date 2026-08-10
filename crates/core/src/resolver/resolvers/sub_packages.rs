@@ -5,7 +5,8 @@ use crate::{
     config::{package::PackageConfig, versioning::VersioningConfig},
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
-        package_name::resolve_sub_package_name, path_utils::normalize_path,
+        package_name::resolve_sub_package_name,
+        path_utils::normalize_package_path,
     },
 };
 
@@ -35,9 +36,7 @@ pub fn resolve_sub_packages_full(
                 .to_string_lossy()
                 .to_string();
 
-            let normalized_sub_full = normalize_path(&sub_path);
-            let normalized_sub_full_path =
-                Path::new(normalized_sub_full.as_ref()).to_path_buf();
+            let normalized_sub_full_path = normalize_package_path(&sub_path);
 
             ResolvedPackage {
                 name,
@@ -49,7 +48,7 @@ pub fn resolve_sub_packages_full(
                 sub_packages: vec![],
                 aggregate_prereleases: false,
                 normalized_additional_paths: vec![],
-                compiled_additional_manifests: vec![],
+                additional_manifests: vec![],
                 analyzer_config: analyzer_config.clone(),
                 versioning_config: versioning_config.clone(),
                 // A sub-package shares its parent's release PR, so it

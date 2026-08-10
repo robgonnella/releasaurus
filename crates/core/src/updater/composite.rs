@@ -1,39 +1,26 @@
 use crate::{
-    forge::request::FileChange,
-    result::Result,
-    updater::{manager::UpdaterPackage, traits::PackageUpdater},
+    forge::request::FileChange, packages::manifests::ManifestFile,
+    result::Result, updater::traits::FileUpdater,
 };
 
 pub struct CompositeUpdater {
-    updaters: Vec<Box<dyn PackageUpdater>>,
+    updaters: Vec<Box<dyn FileUpdater>>,
 }
 
 impl CompositeUpdater {
-    pub fn new(updaters: Vec<Box<dyn PackageUpdater>>) -> Self {
+    pub fn new(updaters: Vec<Box<dyn FileUpdater>>) -> Self {
         Self { updaters }
     }
 }
 
-impl PackageUpdater for CompositeUpdater {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes = vec![];
-
+impl FileUpdater for CompositeUpdater {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
         for updater in self.updaters.iter() {
-            if let Some(changes) =
-                updater.update(package, workspace_packages)?
-            {
-                file_changes.extend(changes);
+            if let Some(change) = updater.update(manifest)? {
+                return Ok(Some(change));
             }
         }
 
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        Ok(None)
     }
 }

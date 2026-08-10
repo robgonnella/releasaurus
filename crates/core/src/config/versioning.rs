@@ -1,11 +1,10 @@
-use std::sync::LazyLock;
-
 use derive_builder::Builder;
 use indexmap::IndexMap;
 use merge::Merge;
 use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use strum::Display;
 
 use crate::config::prerelease::PrereleaseConfig;

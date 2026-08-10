@@ -7,7 +7,6 @@
 //! - Single vs multiple package PR handling
 
 use semver::Version;
-use std::collections::HashMap;
 
 use super::common::*;
 
@@ -66,12 +65,9 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -117,12 +113,9 @@ async fn create_pr_branches_includes_metadata_in_body() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -178,12 +171,9 @@ async fn create_pr_branches_uses_sha_compare_link() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -234,12 +224,12 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
     let pkg_configs = vec![
         PackageConfigBuilder::default()
             .name("pkg-a")
-            .path(".")
+            .path("packages/pkg-a")
             .build()
             .unwrap(),
         PackageConfigBuilder::default()
             .name("pkg-b")
-            .path(".")
+            .path("packages/pkg-b")
             .build()
             .unwrap(),
     ];
@@ -279,14 +269,10 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         ..Default::default()
     };
 
-    let groups = processor
-        .group_releasable_packages(&[releasable_a, releasable_b])
-        .unwrap();
+    let groups =
+        processor.group_releasable_packages(vec![releasable_a, releasable_b]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -332,12 +318,12 @@ async fn create_pr_branches_handles_separate_branches() {
     let pkg_configs = vec![
         PackageConfigBuilder::default()
             .name("pkg-a")
-            .path(".")
+            .path("packages/pkg-a")
             .build()
             .unwrap(),
         PackageConfigBuilder::default()
             .name("pkg-b")
-            .path(".")
+            .path("packages/pkg-b")
             .build()
             .unwrap(),
     ];
@@ -377,14 +363,10 @@ async fn create_pr_branches_handles_separate_branches() {
         ..Default::default()
     };
 
-    let groups = processor
-        .group_releasable_packages(&[releasable_a, releasable_b])
-        .unwrap();
+    let groups =
+        processor.group_releasable_packages(vec![releasable_a, releasable_b]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -438,12 +420,9 @@ async fn create_pr_branches_includes_file_changes() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -484,12 +463,9 @@ async fn create_pr_branches_uses_correct_title_format() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let pr_requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -550,12 +526,9 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
         ..Default::default()
     };
 
-    let groups = processor.group_releasable_packages(&[releasable]).unwrap();
+    let groups = processor.group_releasable_packages(vec![releasable]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let results = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -577,21 +550,16 @@ async fn create_pr_branches_skips_a_bundle_with_no_file_changes() {
     expect_html_comment_encoding(&mut mock_forge);
 
     let processor = create_package_processor(mock_forge, None, None);
-    let mut pkg = release_pr_package(
-        "test-pkg",
-        "v1.2.3",
-        "chore: release {{ package_name }}",
-        "chore: release {{ tag }}",
-    );
-    pkg.file_changes = vec![];
 
-    let bundles = HashMap::from([(
-        "releasaurus-release-main".to_string(),
-        PRBundle {
-            existing_pr: None,
-            packages: vec![pkg],
-        },
-    )]);
+    let pkg = release_pr_package("test-pkg", "v1.2.3");
+
+    let bundles = vec![PRBundle {
+        packages: vec![pkg],
+        file_changes: vec![],
+        commit_message: "commit msg".into(),
+        pr_title: "pr title".into(),
+        release_branch: "releasaurus-release-main".into(),
+    }];
 
     let results = processor.create_pr_branches(bundles).await.unwrap();
 

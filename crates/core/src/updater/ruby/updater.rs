@@ -1,11 +1,12 @@
 use crate::{
+    config::release_type::ReleaseType,
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
     updater::{
         composite::CompositeUpdater,
-        manager::UpdaterPackage,
         ruby::{gemspec::Gemspec, version_rb::VersionRb},
-        traits::PackageUpdater,
+        traits::FileUpdater,
     },
 };
 
@@ -32,23 +33,23 @@ impl Default for RubyUpdater {
     }
 }
 
-impl PackageUpdater for RubyUpdater {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        self.composite.update(package, workspace_packages)
+impl FileUpdater for RubyUpdater {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if !matches!(manifest.release_type, ReleaseType::Ruby) {
+            return Ok(None);
+        }
+        self.composite.update(manifest)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -61,49 +62,53 @@ mod tests {
   spec.version = "1.0.0"
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = updater.update(&package, &[]).unwrap();
+        let result = updater.update(&manifest).unwrap();
 
-        assert!(result.unwrap()[0].content.contains("2.0.0"));
+        assert!(result.unwrap().content.contains("2.0.0"));
     }
 
     #[test]
     fn returns_none_when_no_ruby_files() {
         let updater = RubyUpdater::new();
+
         let manifest = ManifestFile {
             path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"version":"1.0.0"}"#.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = updater.update(&package, &[]).unwrap();
+        let result = updater.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }

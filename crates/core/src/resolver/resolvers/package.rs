@@ -12,7 +12,7 @@ use crate::{
     resolver::resolvers::{
         analyzer::{AnalyzerParams, build_analyzer_config},
         changelog::resolve_changelog_config,
-        manifest::compile_additional_manifests,
+        manifest::resolve_additional_manifests,
         package_name::resolve_package_name,
         path_utils::{normalize_additional_paths, normalize_package_paths},
         sub_packages::resolve_sub_packages_full,
@@ -75,9 +75,9 @@ pub fn resolve_package(
     let (normalized_workspace_root, normalized_full_path) =
         normalize_package_paths(&package_config);
 
-    // Compile manifests
-    let compiled_additional_manifests =
-        compile_additional_manifests(&normalized_full_path, &package_config)?;
+    // Additional manifests for regex based version replacement
+    let additional_manifests =
+        resolve_additional_manifests(&normalized_full_path, &package_config)?;
 
     // Resolve additional paths
     let normalized_additional_paths =
@@ -126,7 +126,7 @@ pub fn resolve_package(
         sub_packages,
         aggregate_prereleases,
         normalized_additional_paths,
-        compiled_additional_manifests,
+        additional_manifests,
         analyzer_config,
         versioning_config,
         commit_message_template: templates.commit_message,

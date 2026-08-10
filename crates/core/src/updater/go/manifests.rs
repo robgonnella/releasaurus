@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
-pub struct GoManifests {}
+pub struct GoManifests;
 
 impl ManifestTargets for GoManifests {
     fn manifest_targets(

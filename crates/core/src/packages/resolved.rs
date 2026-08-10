@@ -12,8 +12,10 @@ use crate::{
 /// regex compilation during manifest processing.
 #[derive(Debug, Clone)]
 pub struct CompiledAdditionalManifest {
+    /// Basename for the file
+    pub basename: String,
     /// The path to the manifest file relative to package path
-    pub path: PathBuf,
+    pub full_path: PathBuf,
     /// The compiled regex to use to match and replace versions
     pub version_regex: Regex,
 }
@@ -33,7 +35,7 @@ pub struct ResolvedPackage {
     pub tag_prefix: String,
     pub sub_packages: Vec<ResolvedPackage>,
     pub normalized_additional_paths: Vec<PathBuf>,
-    pub compiled_additional_manifests: Vec<CompiledAdditionalManifest>,
+    pub additional_manifests: Vec<CompiledAdditionalManifest>,
     pub aggregate_prereleases: bool,
     pub analyzer_config: AnalyzerConfig,
     pub versioning_config: VersioningConfig,

@@ -225,6 +225,10 @@ This updates `backend/services/api/Cargo.toml` and the workspace
   where one exists (`package.json`, `Cargo.toml`, etc.).
 - **The full path (`workspace_root` + `path`) must be unique.** Two
   packages may share a `path` only if their `workspace_root` differs.
+- **Sub-packages count for both rules.** A sub-package name or full path
+  may not repeat one used by any other package or sub-package anywhere in
+  the config. Names key dependency entries in lock files, and two entries
+  on one path would both write the same `CHANGELOG.md`.
 
 ## Grouped Releases (Sub-Packages)
 

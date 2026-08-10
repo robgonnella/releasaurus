@@ -2,7 +2,10 @@ use regex::Regex;
 use serde::{Serialize, ser::SerializeStruct};
 use std::path::PathBuf;
 
-use crate::config::package::GENERIC_VERSION_REGEX;
+use crate::{
+    config::{package::GENERIC_VERSION_REGEX, release_type::ReleaseType},
+    forge::request::Tag,
+};
 
 #[derive(Clone)]
 pub struct AdditionalManifestFile {
@@ -12,6 +15,8 @@ pub struct AdditionalManifestFile {
     pub basename: String,
     /// The current content of the file
     pub content: String,
+    /// Package that owns this file
+    pub owner: ManifestPackage,
     /// The version regex to use to match and replace version content
     pub version_regex: Regex,
 }
@@ -22,6 +27,7 @@ impl Default for AdditionalManifestFile {
             path: "".into(),
             basename: "".into(),
             content: "".into(),
+            owner: ManifestPackage::default(),
             version_regex: GENERIC_VERSION_REGEX.clone(),
         }
     }
@@ -53,6 +59,13 @@ impl std::fmt::Debug for AdditionalManifestFile {
     }
 }
 
+#[derive(Default, Clone, Serialize)]
+pub struct ManifestPackage {
+    pub name: String,
+    pub tag: Tag,
+    pub release_type: ReleaseType,
+}
+
 #[derive(Default, Clone)]
 pub struct ManifestFile {
     /// The file path relative to the package path
@@ -61,6 +74,24 @@ pub struct ManifestFile {
     pub basename: String,
     /// The current content of the file
     pub content: String,
+    /// Which language's updaters handle this file. Carried on the file
+    /// rather than read off the owner, because a workspace-level file
+    /// may have no owner at all.
+    pub release_type: ReleaseType,
+    /// The package this file's own version fields describe: the one
+    /// whose directory it sits in.
+    ///
+    /// `None` for a file no releasing package owns — a virtual
+    /// workspace manifest, or a root lock file in a workspace whose root
+    /// is not being released. The absence *is* the condition that
+    /// suppresses "write my own version"; there is no separate flag.
+    pub owner: Option<ManifestPackage>,
+    /// Every package being released alongside this file, of the same
+    /// release type — **including** the owner.
+    ///
+    /// Owner-inclusive so that output cannot depend on which package
+    /// drove the pass: there is no driver.
+    pub releasing: Vec<ManifestPackage>,
 }
 
 impl Serialize for ManifestFile {
@@ -93,16 +124,15 @@ impl From<AdditionalManifestFile> for ManifestFile {
             path: value.path,
             basename: value.basename,
             content: value.content,
+            release_type: value.owner.release_type,
+            releasing: vec![value.owner.clone()],
+            owner: Some(value.owner),
         }
     }
 }
 
 impl From<&AdditionalManifestFile> for ManifestFile {
     fn from(value: &AdditionalManifestFile) -> Self {
-        Self {
-            path: value.path.clone(),
-            basename: value.basename.clone(),
-            content: value.content.clone(),
-        }
+        value.clone().into()
     }
 }

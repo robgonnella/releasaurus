@@ -1,11 +1,9 @@
 use crate::{
     config::package::GENERIC_VERSION_REGEX,
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{
-        generic::updater::GenericUpdater, manager::UpdaterPackage,
-        traits::PackageUpdater,
-    },
+    updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
 
 pub struct SetupCfg {}
@@ -22,43 +20,27 @@ impl Default for SetupCfg {
     }
 }
 
-impl PackageUpdater for SetupCfg {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "setup.cfg" {
-                continue;
-            }
-
-            if let Some(change) = GenericUpdater::update_manifest(
-                manifest,
-                &package.next_version.semver,
-                &GENERIC_VERSION_REGEX,
-            ) {
-                file_changes.push(change);
-            }
-        }
-
-        if file_changes.is_empty() {
+impl FileUpdater for SetupCfg {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "setup.cfg" {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        Ok(GenericUpdater::update_manifest(
+            manifest,
+            &GENERIC_VERSION_REGEX,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -67,26 +49,28 @@ mod tests {
     fn updates_version_without_quotes() {
         let setupcfg = SetupCfg::new();
         let content = "[metadata]\nname = my-package\nversion = 1.0.0\n";
+
         let manifest = ManifestFile {
             path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = 2.0.0"));
     }
 
@@ -94,26 +78,28 @@ mod tests {
     fn updates_version_with_double_quotes() {
         let setupcfg = SetupCfg::new();
         let content = "[metadata]\nname = my-package\nversion = \"1.0.0\"\n";
+
         let manifest = ManifestFile {
             path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
     }
 
@@ -121,26 +107,28 @@ mod tests {
     fn updates_version_with_single_quotes() {
         let setupcfg = SetupCfg::new();
         let content = "[metadata]\nname = my-package\nversion = '1.0.0'\n";
+
         let manifest = ManifestFile {
             path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = '2.0.0'"));
     }
 
@@ -148,26 +136,28 @@ mod tests {
     fn preserves_whitespace_formatting() {
         let setupcfg = SetupCfg::new();
         let content = "[metadata]\nname = my-package\nversion   =   1.0.0\n";
+
         let manifest = ManifestFile {
             path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version   =   2.0.0"));
     }
 
@@ -185,26 +175,28 @@ packages = find:
 install_requires =
     requests>=2.28.0
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("setup.cfg").to_path_buf(),
             basename: "setup.cfg".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = 2.0.0"));
         assert!(updated.contains("name = my-package"));
         assert!(updated.contains("description = A test package"));
@@ -214,58 +206,28 @@ install_requires =
     }
 
     #[test]
-    fn process_package_handles_multiple_setup_cfg_files() {
-        let setupcfg = SetupCfg::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("packages/a/setup.cfg").to_path_buf(),
-            basename: "setup.cfg".to_string(),
-            content: "[metadata]\nversion = 1.0.0\n".to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("packages/b/setup.cfg").to_path_buf(),
-            basename: "setup.cfg".to_string(),
-            content: "[metadata]\nversion = 1.0.0\n".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
-        };
-
-        let result = setupcfg.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[test]
     fn process_package_returns_none_when_no_setup_cfg_files() {
         let setupcfg = SetupCfg::new();
+
         let manifest = ManifestFile {
             path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: "setup(name='my-package', version='1.0.0')".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = setupcfg.update(&package, &[]).unwrap();
+        let result = setupcfg.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }

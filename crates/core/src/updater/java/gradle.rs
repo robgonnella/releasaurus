@@ -3,11 +3,9 @@ use std::sync::LazyLock;
 
 use crate::{
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{
-        generic::updater::GenericUpdater, manager::UpdaterPackage,
-        traits::PackageUpdater,
-    },
+    updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
 
 /// Gradle-specific version regex that only matches the project `version`
@@ -34,42 +32,31 @@ impl Default for Gradle {
     }
 }
 
-impl PackageUpdater for Gradle {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if (manifest.basename == "build.gradle"
-                || manifest.basename == "build.gradle.kts")
-                && let Some(change) = GenericUpdater::update_manifest(
-                    manifest,
-                    &package.next_version.semver,
-                    &GRADLE_VERSION_REGEX,
-                )
-            {
-                file_changes.push(change);
-            }
+impl FileUpdater for Gradle {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename == "build.gradle"
+            || manifest.basename == "build.gradle.kts"
+        {
+            return Ok(GenericUpdater::update_manifest(
+                manifest,
+                &GRADLE_VERSION_REGEX,
+            ));
         }
 
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
+
+    use semver::Version;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -78,194 +65,164 @@ mod tests {
     fn updates_groovy_version_with_double_quotes() {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        assert_eq!(change[0].content, r#"version = "2.0.0""#);
+        assert_eq!(change.content, r#"version = "2.0.0""#);
     }
 
     #[test]
     fn updates_groovy_version_with_single_quotes() {
         let gradle = Gradle::new();
         let content = "version = '1.0.0'";
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        assert_eq!(change[0].content, "version = '2.0.0'");
+        assert_eq!(change.content, "version = '2.0.0'");
     }
 
     #[test]
     fn updates_kotlin_version() {
         let gradle = Gradle::new();
         let content = r#"version = "1.0.0""#;
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle.kts").to_path_buf(),
             basename: "build.gradle.kts".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v3.5.0".into(),
-                semver: semver::Version::parse("3.5.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v3.5.0".into(),
+                    semver: Version::new(3, 5, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        assert_eq!(change[0].content, r#"version = "3.5.0""#);
+        assert_eq!(change.content, r#"version = "3.5.0""#);
     }
 
     #[test]
     fn updates_project_version_declaration() {
         let gradle = Gradle::new();
         let content = r#"project.version = "1.0.0""#;
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v4.0.0".into(),
-                semver: semver::Version::parse("4.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v4.0.0".into(),
+                    semver: Version::new(4, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        assert_eq!(change[0].content, r#"project.version = "4.0.0""#);
+        assert_eq!(change.content, r#"project.version = "4.0.0""#);
     }
 
     #[test]
     fn returns_none_when_no_version_found() {
         let gradle = Gradle::new();
         let content = "dependencies { implementation 'com.example:lib:1.0.0' }";
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         assert!(result.is_none());
-    }
-
-    #[test]
-    fn update_handles_multiple_manifests() {
-        let gradle = Gradle::new();
-        let groovy_manifest = ManifestFile {
-            path: Path::new("build.gradle").to_path_buf(),
-            basename: "build.gradle".to_string(),
-            content: r#"version = "1.0.0""#.to_string(),
-        };
-        let kotlin_manifest = ManifestFile {
-            path: Path::new("build.gradle.kts").to_path_buf(),
-            basename: "build.gradle.kts".to_string(),
-            content: r#"version = "1.0.0""#.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![groovy_manifest, kotlin_manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
-        };
-
-        let result = gradle.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
     #[test]
     fn update_returns_none_when_no_changes() {
         let gradle = Gradle::new();
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: "<version>1.0.0</version>".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 
@@ -284,42 +241,41 @@ buildscript {
 version = "1.0.0"
 "#
         .trim();
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        let updated = &change[0].content;
         assert!(
-            updated.contains(r#"awsSoftwareVersion = "1.0.0""#),
+            change.content.contains(r#"awsSoftwareVersion = "1.0.0""#),
             "awsSoftwareVersion should not be updated"
         );
         assert!(
-            updated.contains(r#"kotlinVersion = "1.9.20""#),
+            change.content.contains(r#"kotlinVersion = "1.9.20""#),
             "kotlinVersion should not be updated"
         );
         assert!(
-            updated.contains(r#"springBootVersion = "3.2.0""#),
+            change.content.contains(r#"springBootVersion = "3.2.0""#),
             "springBootVersion should not be updated"
         );
         assert!(
-            updated.contains(r#"version = "2.0.0""#),
+            change.content.contains(r#"version = "2.0.0""#),
             "project version should be updated"
         );
     }
@@ -328,27 +284,27 @@ version = "1.0.0"
     fn preserves_whitespace_formatting() {
         let gradle = Gradle::new();
         let content = "version   =   \"1.0.0\"";
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".into(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gradle.update(&package, &[]).unwrap();
-
+        let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
-        assert_eq!(change.len(), 1);
-        assert_eq!(change[0].content, "version   =   \"2.0.0\"");
+        assert_eq!(change.content, "version   =   \"2.0.0\"");
     }
 }

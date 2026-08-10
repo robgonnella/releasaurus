@@ -2,8 +2,9 @@ use serde_json::{Value, json};
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{manager::UpdaterPackage, traits::PackageUpdater},
+    updater::traits::FileUpdater,
 };
 
 /// Handles composer.json file parsing and version updates for PHP packages.
@@ -28,70 +29,63 @@ impl Default for ComposerJson {
     }
 }
 
-impl PackageUpdater for ComposerJson {
+impl FileUpdater for ComposerJson {
     /// Process composer.json files for all PHP packages.
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "composer.json" {
-                continue;
-            }
-
-            if let Some(mut doc) = self.load_doc(&manifest.content)? {
-                log::info!(
-                    "found composer.json for package: {}",
-                    manifest.path.to_string_lossy()
-                );
-
-                // Update the version field
-                if let Some(obj) = doc.as_object_mut() {
-                    log::info!(
-                        "updating {} version to {}",
-                        manifest.path.to_string_lossy(),
-                        package.next_version.semver
-                    );
-
-                    obj.insert(
-                        "version".to_string(),
-                        json!(package.next_version.semver.to_string()),
-                    );
-
-                    let formatted = serde_json::to_string_pretty(&doc)?;
-
-                    file_changes.push(FileChange {
-                        path: manifest.path.to_string_lossy().to_string(),
-                        content: formatted,
-                        update_type: FileUpdateType::Replace,
-                    });
-                } else {
-                    log::warn!(
-                        "composer.json is not a valid JSON object: {}",
-                        manifest.path.to_string_lossy()
-                    );
-                }
-            }
-        }
-
-        if file_changes.is_empty() {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "composer.json" {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        let Some(owner) = manifest.owner.as_ref() else {
+            return Ok(None);
+        };
+
+        if let Some(mut doc) = self.load_doc(&manifest.content)? {
+            log::info!(
+                "found composer.json for package: {}",
+                manifest.path.to_string_lossy()
+            );
+
+            // Update the version field
+            if let Some(obj) = doc.as_object_mut() {
+                log::info!(
+                    "updating {} version to {}",
+                    manifest.path.to_string_lossy(),
+                    owner.tag.semver
+                );
+
+                obj.insert(
+                    "version".to_string(),
+                    json!(owner.tag.semver.to_string()),
+                );
+
+                let formatted = serde_json::to_string_pretty(&doc)?;
+
+                return Ok(Some(FileChange {
+                    path: manifest.path.to_string_lossy().to_string(),
+                    content: formatted,
+                    update_type: FileUpdateType::Replace,
+                }));
+            } else {
+                log::warn!(
+                    "composer.json is not a valid JSON object: {}",
+                    manifest.path.to_string_lossy()
+                );
+            }
+        }
+
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -100,27 +94,27 @@ mod tests {
     fn updates_version_field() {
         let composer_json = ComposerJson::new();
         let content = r#"{"name":"vendor/package","version":"1.0.0"}"#;
+
         let manifest = ManifestFile {
             path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "vendor/package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
+            release_type: ReleaseType::Php,
+            owner: Some(ManifestPackage {
+                name: "vendor/package".to_string(),
+                release_type: ReleaseType::Php,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = composer_json.update(&package, &[]).unwrap();
-
-        let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("\"version\": \"2.0.0\""));
+        let result = composer_json.update(&manifest).unwrap().unwrap();
+        assert!(result.content.contains("\"version\": \"2.0.0\""));
     }
 
     #[test]
@@ -128,28 +122,32 @@ mod tests {
         let composer_json = ComposerJson::new();
         let content =
             r#"{"name":"vendor/package","description":"A test package"}"#;
+
         let manifest = ManifestFile {
             path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "vendor/package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
+            release_type: ReleaseType::Php,
+            owner: Some(ManifestPackage {
+                name: "vendor/package".to_string(),
+                release_type: ReleaseType::Php,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = composer_json.update(&package, &[]).unwrap();
-
-        let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("\"version\": \"2.0.0\""));
-        assert!(updated.contains("\"description\": \"A test package\""));
+        let result = composer_json.update(&manifest).unwrap().unwrap();
+        assert!(result.content.contains("\"version\": \"2.0.0\""));
+        assert!(
+            result
+                .content
+                .contains("\"description\": \"A test package\"")
+        );
     }
 
     #[test]
@@ -164,109 +162,60 @@ mod tests {
     "php": "^8.0"
   }
 }"#;
+
         let manifest = ManifestFile {
             path: Path::new("composer.json").to_path_buf(),
             basename: "composer.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "vendor/package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
-        };
-
-        let result = composer_json.update(&package, &[]).unwrap();
-
-        let updated = result.unwrap()[0].content.clone();
-        assert!(updated.contains("\"version\": \"2.0.0\""));
-        assert!(updated.contains("\"name\": \"vendor/package\""));
-        assert!(updated.contains("\"description\": \"A test package\""));
-        assert!(updated.contains("\"type\": \"library\""));
-        assert!(updated.contains("\"php\": \"^8.0\""));
-    }
-
-    #[test]
-    fn process_package_handles_multiple_composer_files() {
-        let composer_json = ComposerJson::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("packages/a/composer.json").to_path_buf(),
-            basename: "composer.json".to_string(),
-            content: r#"{"name":"vendor/package-a","version":"1.0.0"}"#
-                .to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("packages/b/composer.json").to_path_buf(),
-            basename: "composer.json".to_string(),
-            content: r#"{"name":"vendor/package-b","version":"1.0.0"}"#
-                .to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "vendor/package".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
+            release_type: ReleaseType::Php,
+            owner: Some(ManifestPackage {
+                name: "vendor/package".to_string(),
+                release_type: ReleaseType::Php,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = composer_json.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[test]
-    fn process_package_returns_none_when_no_manifest_files() {
-        let composer_json = ComposerJson::new();
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
-        };
-
-        let result = composer_json.update(&package, &[]).unwrap();
-
-        assert!(result.is_none());
+        let result = composer_json.update(&manifest).unwrap().unwrap();
+        assert!(result.content.contains("\"version\": \"2.0.0\""));
+        assert!(result.content.contains("\"name\": \"vendor/package\""));
+        assert!(
+            result
+                .content
+                .contains("\"description\": \"A test package\"")
+        );
+        assert!(result.content.contains("\"type\": \"library\""));
+        assert!(result.content.contains("\"php\": \"^8.0\""));
     }
 
     #[test]
     fn process_package_returns_none_when_no_composer_json_files() {
         let composer_json = ComposerJson::new();
+
         let manifest = ManifestFile {
             path: Path::new("package.json").to_path_buf(),
-            basename: "package.json".to_string(),
-            content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Php)),
+            basename: "package.json".into(),
+            content: r#"{"name":"my-package","version":"1.0.0"}"#.into(),
+            release_type: ReleaseType::Php,
+            owner: Some(ManifestPackage {
+                name: "vendor/package".to_string(),
+                release_type: ReleaseType::Php,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = composer_json.update(&package, &[]).unwrap();
-
+        let result = composer_json.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 }

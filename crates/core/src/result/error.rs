@@ -26,7 +26,7 @@ pub enum ReleasaurusError {
     PendingRelease { branch: String, pr_number: u64 },
 
     #[error(
-        "One-shot release only partially completed: release commit {sha} is on '{branch}' and tag(s) [{tags}] were created, but '{failed_tag}' failed to publish: {cause}. Re-running one-shot will not finish this release: publish the remaining release(s) manually for the tags listed above"
+        "One-shot release only partially completed: release commit {sha} is on '{branch}' and tag(s) [{tags}] were created, but '{failed_tag}' failed to publish: {cause}. Re-running one-shot will not finish this release: check which of the tags listed above already have a published release and publish the rest manually"
     )]
     PartialOneShotRelease {
         sha: String,

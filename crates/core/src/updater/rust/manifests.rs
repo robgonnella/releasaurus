@@ -10,23 +10,12 @@ impl ManifestTargets for RustManifests {
         workspace_path: &Path,
         pkg_path: &Path,
     ) -> Vec<ManifestTarget> {
-        let cargo_toml_pkg_path =
-            pkg_path.join("Cargo.toml").to_string_lossy().to_string();
-
-        let cargo_toml_wrkspc_path = workspace_path
-            .join("Cargo.toml")
-            .to_string_lossy()
-            .to_string();
-
-        let is_workspace_pkg = cargo_toml_pkg_path != cargo_toml_wrkspc_path;
-
-        let package_files = vec!["Cargo.toml", "Cargo.lock"];
-
-        let workspace_files = ["Cargo.lock"];
+        let rust_manifests = vec!["Cargo.toml", "Cargo.lock"];
 
         let mut targets = vec![];
 
-        for file in package_files {
+        // potential package manifests
+        for file in rust_manifests.iter() {
             let full_path = pkg_path.join(file);
             targets.push(ManifestTarget {
                 path: full_path,
@@ -34,8 +23,9 @@ impl ManifestTargets for RustManifests {
             })
         }
 
-        if is_workspace_pkg {
-            for file in workspace_files {
+        // potential workspace manifests
+        if workspace_path != pkg_path {
+            for file in rust_manifests {
                 let full_path = workspace_path.join(file);
 
                 targets.push(ManifestTarget {
@@ -84,7 +74,7 @@ mod tests {
             &pkg_path,
         );
 
-        assert_eq!(targets.len(), 3);
+        assert_eq!(targets.len(), 4);
     }
 
     #[test]
@@ -103,6 +93,7 @@ mod tests {
 
         assert!(paths.contains(&"crates/my-crate/Cargo.toml"));
         assert!(paths.contains(&"crates/my-crate/Cargo.lock"));
+        assert!(paths.contains(&"Cargo.toml"));
         assert!(paths.contains(&"Cargo.lock"));
     }
 }

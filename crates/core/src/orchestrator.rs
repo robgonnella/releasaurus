@@ -124,39 +124,26 @@ impl Orchestrator {
             return Ok(());
         }
 
-        let groups = self
-            .package_processor
-            .group_releasable_packages(&releasable)?;
+        let groups =
+            self.package_processor.group_releasable_packages(releasable);
 
         self.reject_pending_release_pr(&groups).await?;
 
-        for (_, group) in groups {
-            let Some(primary) = group.first() else {
-                continue;
-            };
-
-            let message = self
+        for (release_branch, group) in groups {
+            // Built here rather than up front for all groups: every one
+            // commits to the same base branch, and a bundle read before
+            // the previous commit landed would revert it.
+            let bundle = self
                 .package_processor
-                .release_commit_message_for_package(primary)?;
-
-            let mut file_changes = vec![];
-
-            for pkg in group.iter() {
-                file_changes.extend(
-                    self.package_processor
-                        .file_changes_for_releasable_package(
-                            pkg,
-                            &releasable,
-                        )?,
-                );
-            }
+                .release_pr_bundle(release_branch, &group)
+                .await?;
 
             let created = self
                 .forge
                 .create_commit(CreateCommitRequest {
                     target_branch: self.config.base_branch.clone(),
-                    message,
-                    file_changes,
+                    message: bundle.commit_message,
+                    file_changes: bundle.file_changes,
                 })
                 .await?;
 
@@ -165,7 +152,8 @@ impl Orchestrator {
                     "release commit produced no file changes: skipping tag \
                      and release for: {}: the version bump may already be \
                      on '{}'",
-                    group
+                    bundle
+                        .packages
                         .iter()
                         .map(|pkg| pkg.name.as_str())
                         .collect::<Vec<_>>()
@@ -181,7 +169,7 @@ impl Orchestrator {
             // than a mix, and nothing published.
             let mut tagged: Vec<&str> = vec![];
 
-            for pkg in group.iter() {
+            for pkg in bundle.packages.iter() {
                 log::info!(
                     "tagging commit: tag: {}, sha: {}",
                     pkg.tag.name,
@@ -203,7 +191,7 @@ impl Orchestrator {
                 tagged.push(&pkg.tag.name);
             }
 
-            for pkg in group.iter() {
+            for pkg in bundle.packages.iter() {
                 log::info!(
                     "creating release: tag: {}, sha: {}",
                     pkg.tag.name,
@@ -305,20 +293,19 @@ impl Orchestrator {
             return Ok(());
         }
 
-        let groups = self
-            .package_processor
-            .group_releasable_packages(&releasable)?;
+        let groups =
+            self.package_processor.group_releasable_packages(releasable);
 
         self.reject_pending_release_pr(&groups).await?;
 
-        let pr_packages = self
-            .package_processor
-            .release_pr_packages_by_branch(groups)
-            .await?;
+        // Safe to build every bundle up front here: each one lands on its
+        // own release branch cut from the base branch.
+        let pr_bundles =
+            self.package_processor.release_pr_bundles(groups).await?;
 
         let results = self
             .package_processor
-            .create_pr_branches(pr_packages)
+            .create_pr_branches(pr_bundles)
             .await?;
 
         for PrBranchResult {
@@ -422,18 +409,37 @@ impl Orchestrator {
         let releasable =
             self.package_processor.releasable_packages(analyzed).await?;
 
-        let pr_packages =
-            self.package_processor.release_pr_packages(releasable)?;
+        let groups =
+            self.package_processor.group_releasable_packages(releasable);
 
-        for pkg in pr_packages {
-            log::info!("updating manifest files for package: {}", pkg.name);
+        for (release_branch, group) in groups {
+            log::info!(
+                "updating manifest package bundle on branch: {release_branch}"
+            );
+
+            // Built per group inside the loop: every group commits to the
+            // same base branch, so a bundle read before the previous
+            // commit landed would revert it.
+            let bundle = self
+                .package_processor
+                .release_pr_bundle(release_branch.clone(), &group)
+                .await?;
+
+            // One commit per branch group now, so the message names every
+            // package it bumps rather than a single one.
+            let bumped = bundle
+                .packages
+                .iter()
+                .map(|pkg| format!("{} {}", pkg.name, pkg.tag.semver))
+                .collect::<Vec<_>>()
+                .join(", ");
 
             let req = CreateCommitRequest {
                 target_branch: self.config.base_branch.to_string(),
-                file_changes: pkg.file_changes,
+                file_changes: bundle.file_changes,
                 message: format!(
-                    "chore({}): bump patch version {} - {}",
-                    self.config.base_branch, pkg.name, pkg.tag.semver
+                    "chore({}): bump patch version {bumped}",
+                    self.config.base_branch
                 ),
             };
 
@@ -441,8 +447,7 @@ impl Orchestrator {
                 log::info!("created commit: {}", commit.sha);
             } else {
                 log::warn!(
-                    "manifest files already up to date for package: {}",
-                    pkg.name
+                    "manifest files already up to date for packages on branch: {release_branch}",
                 );
             }
         }
@@ -521,8 +526,9 @@ impl Orchestrator {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    //// private
+    // private
     ////////////////////////////////////////////////////////////////////////////
+
     /// Rejects a `--package` value that does not name a configured
     /// package.
     fn validate_target(&self, target: Option<&str>) -> Result<()> {
@@ -605,9 +611,19 @@ impl Orchestrator {
 
         log::info!("creating release: tag: {}, sha: {}", tag, merged_pr.sha);
 
+        // The tag is on the commit by now, so a publish failure leaves the
+        // same split state one-shot reports — except here the PR keeps its
+        // pending label and re-running picks it back up.
         self.forge
             .create_release(&tag, &merged_pr.sha, notes.trim())
-            .await?;
+            .await
+            .map_err(|e| {
+                ReleasaurusError::release_not_published(
+                    &tag,
+                    &merged_pr.sha,
+                    &e,
+                )
+            })?;
 
         Ok(())
     }

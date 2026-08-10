@@ -1,15 +1,23 @@
 //! Static dispatch updater enum for zero-cost abstraction over package updaters.
 
+use std::path::Path;
+
 use crate::{
     config::release_type::ReleaseType,
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
     updater::{
-        generic::updater::GenericUpdater, go::updater::GoUpdater,
-        java::updater::JavaUpdater, manager::UpdaterPackage,
-        node::updater::NodeUpdater, php::updater::PhpUpdater,
-        python::updater::PythonUpdater, ruby::updater::RubyUpdater,
-        rust::updater::RustUpdater, traits::PackageUpdater,
+        generic::updater::GenericUpdater,
+        go::{manifests::GoManifests, updater::GoUpdater},
+        java::{manifests::JavaManifests, updater::JavaUpdater},
+        manager::ManifestTarget,
+        node::{manifests::NodeManifests, updater::NodeUpdater},
+        php::{manifests::PhpManifests, updater::PhpUpdater},
+        python::{manifests::PythonManifests, updater::PythonUpdater},
+        ruby::{manifests::RubyManifests, updater::RubyUpdater},
+        rust::{manifests::RustManifests, updater::RustUpdater},
+        traits::{FileUpdater, ManifestTargets},
     },
 };
 
@@ -52,6 +60,52 @@ impl Updater {
         }
     }
 
+    pub fn manifest_targets(
+        &self,
+        pkg_name: &str,
+        workspace_path: &Path,
+        pkg_path: &Path,
+    ) -> Vec<ManifestTarget> {
+        match self {
+            Updater::Generic(_) => vec![],
+            Updater::Go(_) => GoManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Java(_) => JavaManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Node(_) => NodeManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Php(_) => PhpManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Python(_) => PythonManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Ruby(_) => RubyManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Rust(_) => RustManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+        }
+    }
+
     /// Update package version files with static dispatch.
     ///
     /// This method dispatches to the appropriate language-specific updater
@@ -59,32 +113,38 @@ impl Updater {
     /// enabling compiler optimizations like inlining.
     pub fn update(
         &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
+        manifest: &ManifestFile,
+    ) -> Result<Option<FileChange>> {
         match self {
-            Updater::Generic(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Go(updater) => updater.update(package, workspace_packages),
-            Updater::Java(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Node(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Php(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Python(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Ruby(updater) => {
-                updater.update(package, workspace_packages)
-            }
-            Updater::Rust(updater) => {
-                updater.update(package, workspace_packages)
-            }
+            Updater::Generic(updater) => updater.update(manifest),
+            Updater::Go(updater) => updater.update(manifest),
+            Updater::Java(updater) => updater.update(manifest),
+            Updater::Node(updater) => updater.update(manifest),
+            Updater::Php(updater) => updater.update(manifest),
+            Updater::Python(updater) => updater.update(manifest),
+            Updater::Ruby(updater) => updater.update(manifest),
+            Updater::Rust(updater) => updater.update(manifest),
+        }
+    }
+
+    /// Update every manifest of this release type in one pass.
+    ///
+    /// Preferred over [`Updater::update`] for whole-package work: an
+    /// updater whose files depend on each other only sees that
+    /// relationship here.
+    pub fn update_all(
+        &self,
+        manifests: &[ManifestFile],
+    ) -> Result<Vec<FileChange>> {
+        match self {
+            Updater::Generic(updater) => updater.update_all(manifests),
+            Updater::Go(updater) => updater.update_all(manifests),
+            Updater::Java(updater) => updater.update_all(manifests),
+            Updater::Node(updater) => updater.update_all(manifests),
+            Updater::Php(updater) => updater.update_all(manifests),
+            Updater::Python(updater) => updater.update_all(manifests),
+            Updater::Ruby(updater) => updater.update_all(manifests),
+            Updater::Rust(updater) => updater.update_all(manifests),
         }
     }
 }

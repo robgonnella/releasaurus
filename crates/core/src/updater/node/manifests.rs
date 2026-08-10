@@ -2,7 +2,8 @@ use std::path::Path;
 
 use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
-pub struct NodeManifests {}
+#[derive(Default)]
+pub struct NodeManifests;
 
 impl ManifestTargets for NodeManifests {
     fn manifest_targets(
