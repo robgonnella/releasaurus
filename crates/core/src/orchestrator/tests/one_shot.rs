@@ -6,11 +6,15 @@
 //! - Guarding against a merged-but-untagged release PR
 //! - Handling empty releasable packages
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     config::{
-        Config, package::PackageConfigBuilder, repository::RepositoryConfig,
+        Config, package::PackageConfigBuilder, release_type::ReleaseType,
+        repository::RepositoryConfig,
     },
     forge::{
         request::{Commit, ForgeCommitBuilder, PullRequest, Tag},
@@ -547,4 +551,127 @@ async fn one_shot_tags_every_package_before_publishing_any() {
 
     let order = order.lock().unwrap();
     assert_eq!(*order, vec!["tag", "tag", "release", "release"]);
+}
+
+/// The repo tree as the base branch sees it, mutated by every commit.
+type Tree = Arc<Mutex<HashMap<String, String>>>;
+
+/// Backs `get_file_content` and `create_commit` with one mutable tree, so
+/// a commit is visible to whatever the next commit reads.
+fn expect_committing_tree(
+    mock: &mut MockForge,
+    files: &[(&str, &str)],
+) -> Tree {
+    let tree: Tree = Arc::new(Mutex::new(
+        files
+            .iter()
+            .map(|(p, c)| (p.to_string(), c.to_string()))
+            .collect(),
+    ));
+
+    let reads = Arc::clone(&tree);
+    mock.expect_get_file_content().returning(move |req| {
+        Ok(reads.lock().unwrap().get(&req.path).cloned())
+    });
+
+    let writes = Arc::clone(&tree);
+    mock.expect_create_commit().returning(move |req| {
+        let mut tree = writes.lock().unwrap();
+
+        for change in req.file_changes.iter() {
+            tree.insert(change.repo_path.clone(), change.full_content.clone());
+        }
+
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    tree
+}
+
+/// Two crates in one workspace, each releasing onto its own branch but
+/// committing to the same base branch.
+fn two_rust_packages() -> Vec<crate::config::package::PackageConfig> {
+    ["pkg-a", "pkg-b"]
+        .into_iter()
+        .map(|name| {
+            PackageConfigBuilder::default()
+                .name(name)
+                .path(format!("packages/{name}"))
+                .workspace_root(".")
+                .release_type(ReleaseType::Rust)
+                .build()
+                .unwrap()
+        })
+        .collect()
+}
+
+/// With `separate_pull_requests` each package gets its own commit, but
+/// both land on the base branch and both rewrite the workspace root
+/// manifest. Building every bundle up front would hand the second commit
+/// content read before the first one landed, reverting it.
+#[tokio::test]
+async fn one_shot_separate_commits_do_not_revert_each_other() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    expect_two_package_history(&mut mock_forge);
+
+    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .returning(|_, _, _| Ok(()));
+
+    let tree = expect_committing_tree(
+        &mut mock_forge,
+        &[
+            (
+                "Cargo.toml",
+                "[workspace]\nmembers = [\"packages/pkg-a\", \
+                 \"packages/pkg-b\"]\n\n[workspace.dependencies]\npkg-a = \
+                 \"0.0.1\"\npkg-b = \"0.0.1\"\n",
+            ),
+            (
+                "packages/pkg-a/Cargo.toml",
+                "[package]\nname = \"pkg-a\"\nversion = \"0.0.1\"\n",
+            ),
+            (
+                "packages/pkg-b/Cargo.toml",
+                "[package]\nname = \"pkg-b\"\nversion = \"0.0.1\"\n",
+            ),
+        ],
+    );
+
+    let config = Config {
+        repository: RepositoryConfig {
+            separate_pull_requests: true,
+            ..RepositoryConfig::default()
+        },
+        ..Default::default()
+    };
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_rust_packages(),
+        Some(config),
+    );
+
+    orchestrator.one_shot(None).await.unwrap();
+
+    let tree = tree.lock().unwrap();
+    let workspace = tree.get("Cargo.toml").unwrap();
+
+    // untagged packages start at 0.1.0
+    assert!(
+        workspace.contains("pkg-a = \"0.1.0\""),
+        "pkg-a's bump was reverted by pkg-b's commit: {workspace}"
+    );
+    assert!(
+        workspace.contains("pkg-b = \"0.1.0\""),
+        "pkg-b's bump was reverted by pkg-a's commit: {workspace}"
+    );
 }

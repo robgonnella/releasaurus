@@ -19,7 +19,6 @@ use crate::{
         repository::RepositoryConfig,
     },
     forge::traits::MockForge,
-    packages::release_pr::PRBundle,
     result::ReleasaurusError,
 };
 
@@ -72,12 +71,12 @@ fn two_packages() -> Vec<PackageConfig> {
     vec![
         PackageConfigBuilder::default()
             .name("pkg-a")
-            .path(".")
+            .path("packages/pkg-a")
             .build()
             .unwrap(),
         PackageConfigBuilder::default()
             .name("pkg-b")
-            .path(".")
+            .path("packages/pkg-b")
             .build()
             .unwrap(),
     ]
@@ -112,13 +111,9 @@ async fn single_configured_package_uses_package_template() {
     );
 
     let groups = processor
-        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
-        .unwrap();
+        .group_releasable_packages(vec![releasable("test-pkg", "v1.2.3")]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -145,17 +140,12 @@ async fn multiple_configured_packages_use_monorepo_template() {
         ),
     );
 
-    let groups = processor
-        .group_releasable_packages(&[
-            releasable("pkg-a", "v1.0.0"),
-            releasable("pkg-b", "v2.0.0"),
-        ])
-        .unwrap();
+    let groups = processor.group_releasable_packages(vec![
+        releasable("pkg-a", "v1.0.0"),
+        releasable("pkg-b", "v2.0.0"),
+    ]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -177,14 +167,14 @@ async fn combined_pr_uses_monorepo_template_when_one_package_releases() {
     let pkg_configs = vec![
         PackageConfigBuilder::default()
             .name("pkg-a")
-            .path(".")
+            .path("packages/pkg-a")
             .commit_message_template("A commit {{ tag }}")
             .pr_title_template("A title {{ tag }}")
             .build()
             .unwrap(),
         PackageConfigBuilder::default()
             .name("pkg-b")
-            .path(".")
+            .path("packages/pkg-b")
             .build()
             .unwrap(),
     ];
@@ -203,13 +193,9 @@ async fn combined_pr_uses_monorepo_template_when_one_package_releases() {
 
     // Only pkg-a has anything to release this run.
     let groups = processor
-        .group_releasable_packages(&[releasable("pkg-a", "v1.0.0")])
-        .unwrap();
+        .group_releasable_packages(vec![releasable("pkg-a", "v1.0.0")]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -230,14 +216,14 @@ async fn separate_prs_use_each_packages_own_template() {
     let pkg_configs = vec![
         PackageConfigBuilder::default()
             .name("pkg-a")
-            .path(".")
+            .path("packages/pkg-a")
             .commit_message_template("A commit {{ tag }}")
             .pr_title_template("A title {{ tag }}")
             .build()
             .unwrap(),
         PackageConfigBuilder::default()
             .name("pkg-b")
-            .path(".")
+            .path("packages/pkg-b")
             .commit_message_template("B commit {{ tag }}")
             .pr_title_template("B title {{ tag }}")
             .build()
@@ -250,17 +236,12 @@ async fn separate_prs_use_each_packages_own_template() {
         config(true, DefaultsConfig::default()),
     );
 
-    let groups = processor
-        .group_releasable_packages(&[
-            releasable("pkg-a", "v1.0.0"),
-            releasable("pkg-b", "v2.0.0"),
-        ])
-        .unwrap();
+    let groups = processor.group_releasable_packages(vec![
+        releasable("pkg-a", "v1.0.0"),
+        releasable("pkg-b", "v2.0.0"),
+    ]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -292,13 +273,9 @@ async fn renders_all_package_context_variables() {
     );
 
     let groups = processor
-        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
-        .unwrap();
+        .group_releasable_packages(vec![releasable("test-pkg", "v1.2.3")]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -321,17 +298,12 @@ async fn renders_all_monorepo_context_variables() {
         config(false, monorepo_defaults(all, all)),
     );
 
-    let groups = processor
-        .group_releasable_packages(&[
-            releasable("pkg-a", "v1.0.0"),
-            releasable("pkg-b", "v2.0.0"),
-        ])
-        .unwrap();
+    let groups = processor.group_releasable_packages(vec![
+        releasable("pkg-a", "v1.0.0"),
+        releasable("pkg-b", "v2.0.0"),
+    ]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -348,13 +320,9 @@ async fn defaults_produce_the_documented_commit_and_title() {
     let processor = create_package_processor(mock, None, None);
 
     let groups = processor
-        .group_releasable_packages(&[releasable("test-pkg", "v1.2.3")])
-        .unwrap();
+        .group_releasable_packages(vec![releasable("test-pkg", "v1.2.3")]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -376,17 +344,12 @@ async fn defaults_produce_the_documented_commit_and_title() {
         config(false, DefaultsConfig::default()),
     );
 
-    let groups = processor
-        .group_releasable_packages(&[
-            releasable("pkg-a", "v1.0.0"),
-            releasable("pkg-b", "v2.0.0"),
-        ])
-        .unwrap();
+    let groups = processor.group_releasable_packages(vec![
+        releasable("pkg-a", "v1.0.0"),
+        releasable("pkg-b", "v2.0.0"),
+    ]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
 
     let requests = processor.create_pr_branches(grouped).await.unwrap();
 
@@ -397,54 +360,39 @@ async fn defaults_produce_the_documented_commit_and_title() {
     );
 }
 
-/// Templates are validated during config resolution, so this path should
-/// be unreachable in practice — but a real value could still trip
-/// something the probe values did not, and it must surface as an error
-/// rather than a malformed commit message.
+/// Templates now come from resolved config rather than travelling on the
+/// package, and resolution render-tests every one against probe values.
+/// That leaves a name with no config entry as the reachable failure, and
+/// it must surface as an error rather than a malformed commit message.
 #[test]
-fn render_failure_surfaces_a_template_error() {
+fn render_failure_surfaces_a_missing_package_config() {
     let processor = create_package_processor(MockForge::new(), None, None);
 
-    let bundle = PRBundle {
-        existing_pr: None,
-        packages: vec![release_pr_package(
-            "test-pkg",
-            "v1.2.3",
-            "{{ nope }}",
-            "{{ nope }}",
-        )],
-    };
+    let pkgs = vec![releasable("not-configured", "v1.2.3")];
 
     let err = processor
-        .release_commit_message_for_pr_package_list(&bundle)
+        .release_commit_message_for_pr_package_list(&pkgs)
         .unwrap_err();
-    assert!(matches!(err, ReleasaurusError::TemplateError(_)));
+
+    assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
 
     let err = processor
-        .release_pr_title_for_pr_package_list(&bundle)
+        .release_pr_title_for_pr_package_list(&pkgs)
         .unwrap_err();
-    assert!(matches!(err, ReleasaurusError::TemplateError(_)));
+
+    assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
 }
 
 /// Rendering reads `packages[0]`, so an empty bundle has to be rejected
 /// before that indexing rather than panicking.
 #[test]
-fn empty_bundle_is_rejected() {
+fn empty_list_is_rejected() {
     let processor = create_package_processor(MockForge::new(), None, None);
 
-    let bundle = PRBundle {
-        existing_pr: None,
-        packages: vec![],
-    };
-
     assert!(
         processor
-            .release_commit_message_for_pr_package_list(&bundle)
+            .release_commit_message_for_pr_package_list(&[])
             .is_err()
     );
-    assert!(
-        processor
-            .release_pr_title_for_pr_package_list(&bundle)
-            .is_err()
-    );
+    assert!(processor.release_pr_title_for_pr_package_list(&[]).is_err());
 }

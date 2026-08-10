@@ -3,11 +3,9 @@ use std::path::Path;
 use crate::{
     config::package::GENERIC_VERSION_REGEX,
     forge::request::FileChange,
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{
-        generic::updater::GenericUpdater, manager::UpdaterPackage,
-        traits::PackageUpdater,
-    },
+    updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
 
 /// Handles .gemspec file parsing and version updates for Ruby packages.
@@ -26,50 +24,34 @@ impl Default for Gemspec {
     }
 }
 
-impl PackageUpdater for Gemspec {
+impl FileUpdater for Gemspec {
     /// Process gemspec files for all Ruby packages.
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes = vec![];
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        let file_path = Path::new(&manifest.basename);
 
-        for manifest in package.manifest_files.iter() {
-            let file_path = Path::new(&manifest.basename);
-
-            if let Some(file_ext) = file_path.extension() {
-                if file_ext.to_string_lossy() != "gemspec" {
-                    continue;
-                }
-
-                log::info!("processing gemspec file: {}", manifest.basename);
-
-                if let Some(change) = GenericUpdater::update_manifest(
-                    manifest,
-                    &package.next_version.semver,
-                    &GENERIC_VERSION_REGEX,
-                ) {
-                    file_changes.push(change);
-                }
+        if let Some(file_ext) = file_path.extension() {
+            if file_ext.to_string_lossy() != "gemspec" {
+                return Ok(None);
             }
+
+            log::info!("processing gemspec file: {}", manifest.basename);
+
+            return Ok(GenericUpdater::update_manifest(
+                manifest,
+                &GENERIC_VERSION_REGEX,
+            ));
         }
 
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -82,26 +64,28 @@ mod tests {
   spec.version = "1.0.0"
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
     }
 
@@ -113,26 +97,28 @@ end
   s.version = "1.0.0"
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("s.version = \"2.0.0\""));
     }
 
@@ -144,26 +130,28 @@ end
   spec.version = '1.0.0'
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("spec.version = '2.0.0'"));
     }
 
@@ -174,26 +162,28 @@ end
   spec.version   =   "1.0.0"
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("spec.version   =   \"2.0.0\""));
     }
 
@@ -210,26 +200,28 @@ end
   spec.add_dependency "rails", "~> 7.0"
 end
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("my-gem.gemspec").to_path_buf(),
             basename: "my-gem.gemspec".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-gem".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("spec.version = \"2.0.0\""));
         assert!(updated.contains("spec.name = \"my-gem\""));
         assert!(updated.contains("spec.authors = [\"Test Author\"]"));
@@ -238,58 +230,28 @@ end
     }
 
     #[test]
-    fn process_packages_handles_multiple_gemspec_files() {
-        let gemspec = Gemspec::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("gems/a/gem-a.gemspec").to_path_buf(),
-            basename: "gem-a.gemspec".to_string(),
-            content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("gems/b/gem-b.gemspec").to_path_buf(),
-            basename: "gem-b.gemspec".to_string(),
-            content: "Gem::Specification.new do |spec|\n  spec.version = \"1.0.0\"\nend\n".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
-        };
-
-        let result = gemspec.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[test]
     fn process_packages_returns_none_when_no_gemspec_files() {
         let gemspec = Gemspec::new();
+
         let manifest = ManifestFile {
             path: Path::new("Gemfile").to_path_buf(),
             basename: "Gemfile".to_string(),
             content: "source 'https://rubygems.org'\ngem 'rails'".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Ruby)),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = gemspec.update(&package, &[]).unwrap();
+        let result = gemspec.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }

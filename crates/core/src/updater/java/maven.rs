@@ -4,7 +4,7 @@ use quick_xml::{Reader, Writer as XmlWriter};
 use crate::forge::request::{FileChange, FileUpdateType};
 use crate::packages::manifests::ManifestFile;
 use crate::result::Result;
-use crate::updater::{manager::UpdaterPackage, traits::PackageUpdater};
+use crate::updater::traits::FileUpdater;
 
 /// Handles Maven pom.xml file parsing and version updates for Java packages.
 pub struct Maven {}
@@ -25,8 +25,11 @@ impl Maven {
     fn update_pom_file(
         &self,
         manifest: &ManifestFile,
-        package: &UpdaterPackage,
     ) -> Result<Option<FileChange>> {
+        let Some(owner) = manifest.owner.as_ref() else {
+            return Ok(None);
+        };
+
         log::info!(
             "Updating Maven project: {}",
             manifest.path.to_string_lossy()
@@ -67,8 +70,7 @@ impl Maven {
                 Ok(Event::Text(ref e)) => {
                     if in_project_version && in_version_element {
                         // Replace the version text
-                        let new_version =
-                            package.next_version.semver.to_string();
+                        let new_version = owner.tag.semver.to_string();
                         log::info!(
                             "Updating Maven version to: {}",
                             new_version
@@ -96,38 +98,24 @@ impl Maven {
     }
 }
 
-impl PackageUpdater for Maven {
+impl FileUpdater for Maven {
     /// Update version fields in pom.xml files for all Java packages.
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename == "pom.xml"
-                && let Some(change) = self.update_pom_file(manifest, package)?
-            {
-                file_changes.push(change);
-            }
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename == "pom.xml" {
+            return self.update_pom_file(manifest);
         }
 
-        if file_changes.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(file_changes))
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
         config::release_type::ReleaseType, forge::request::Tag,
-        updater::dispatch::Updater,
+        packages::manifests::ManifestPackage,
     };
 
     use super::*;
@@ -139,24 +127,26 @@ mod tests {
 <project>
     <version>1.0.0</version>
 </project>"#;
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update_pom_file(&manifest, &package).unwrap();
+        let result = maven.update_pom_file(&manifest).unwrap();
 
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>2.0.0</version>"));
@@ -178,25 +168,26 @@ mod tests {
         </dependency>
     </dependencies>
 </project>"#;
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update_pom_file(&manifest, &package).unwrap();
-
+        let result = maven.update_pom_file(&manifest).unwrap();
         let updated = result.unwrap().content;
         assert!(updated.contains("<groupId>com.example</groupId>"));
         assert!(updated.contains("<artifactId>my-app</artifactId>"));
@@ -217,25 +208,26 @@ mod tests {
         </dependency>
     </dependencies>
 </project>"#;
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v3.0.0".into(),
+                    semver: semver::Version::new(3, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update_pom_file(&manifest, &package).unwrap();
-
+        let result = maven.update_pom_file(&manifest).unwrap();
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>3.0.0</version>"));
         assert!(updated.contains("<version>4.12</version>"));
@@ -254,25 +246,26 @@ mod tests {
     <version>1.0.0</version>
     <packaging>jar</packaging>
 </project>"#;
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.5.0".into(),
-                semver: semver::Version::parse("2.5.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.5.0".into(),
+                    semver: semver::Version::new(2, 5, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update_pom_file(&manifest, &package).unwrap();
-
+        let result = maven.update_pom_file(&manifest).unwrap();
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>2.5.0</version>"));
         assert!(updated.contains("<modelVersion>4.0.0</modelVersion>"));
@@ -280,61 +273,28 @@ mod tests {
     }
 
     #[test]
-    fn process_package_handles_multiple_pom_files() {
-        let maven = Maven::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("module1/pom.xml").to_path_buf(),
-            basename: "pom.xml".to_string(),
-            content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
-                .to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("module2/pom.xml").to_path_buf(),
-            basename: "pom.xml".to_string(),
-            content: r#"<?xml version="1.0"?><project><version>1.0.0</version></project>"#
-                .to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
-        };
-
-        let result = maven.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[test]
     fn process_package_returns_none_when_no_pom_files() {
         let maven = Maven::new();
+
         let manifest = ManifestFile {
             path: Path::new("build.gradle").to_path_buf(),
             basename: "build.gradle".to_string(),
             content: "version = \"1.0.0\"".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update(&package, &[]).unwrap();
-
+        let result = maven.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 
@@ -350,25 +310,26 @@ mod tests {
     </parent>
     <version>1.0.0</version>
 </project>"#;
+
         let manifest = ManifestFile {
             path: Path::new("pom.xml").to_path_buf(),
             basename: "pom.xml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v3.0.0".into(),
+                    semver: semver::Version::new(3, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = maven.update_pom_file(&manifest, &package).unwrap();
-
+        let result = maven.update_pom_file(&manifest).unwrap();
         let updated = result.unwrap().content;
         assert!(updated.contains("<version>3.0.0</version>"));
         assert!(updated.contains("<version>5.0.0</version>"));

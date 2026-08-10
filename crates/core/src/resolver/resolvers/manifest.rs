@@ -29,7 +29,7 @@ use crate::{
 /// - Regex pattern is invalid
 /// - Regex pattern is missing 'version' capture group
 /// - Version regex is unexpectedly None after conversion
-pub fn compile_additional_manifests(
+pub fn resolve_additional_manifests(
     normalized_full_package_path: &Path,
     package: &PackageConfig,
 ) -> Result<Vec<CompiledAdditionalManifest>> {
@@ -42,7 +42,7 @@ pub fn compile_additional_manifests(
     for spec in manifest_specs {
         let manifest = spec.into_manifest();
 
-        let compiled_manifest = compile_single_manifest(
+        let compiled_manifest = resolve_single_manifest(
             normalized_full_package_path,
             manifest.path,
             manifest.version_regex,
@@ -55,7 +55,7 @@ pub fn compile_additional_manifests(
 }
 
 /// Compiles a single manifest specification.
-fn compile_single_manifest(
+fn resolve_single_manifest(
     base_path: &Path,
     manifest_path: String,
     version_regex: Option<String>,
@@ -69,7 +69,9 @@ fn compile_single_manifest(
         ))
     })?;
 
-    let version_regex = compile_and_validate_regex(&manifest_path, &pattern)?;
+    let pattern = compile_regex(&manifest_path, &pattern)?;
+
+    validate_regex(&manifest_path, &pattern)?;
 
     let full_manifest_path =
         base_path.join(&manifest_path).to_string_lossy().to_string();
@@ -78,26 +80,33 @@ fn compile_single_manifest(
     let normalized_manifest_path_buf =
         Path::new(normalized_manifest_path.as_ref()).to_path_buf();
 
+    let basename = normalized_manifest_path_buf
+        .file_name()
+        .map(|f| f.to_string_lossy())
+        .ok_or(ReleasaurusError::invalid_config(format!(
+            "unable to determine basename for additional manifest path: {}",
+            full_manifest_path
+        )))?;
+
     Ok(CompiledAdditionalManifest {
-        path: normalized_manifest_path_buf,
-        version_regex,
+        basename: basename.to_string(),
+        full_path: normalized_manifest_path_buf,
+        version_regex: pattern,
     })
 }
 
-/// Compiles a regex pattern and validates it has a 'version'
-/// capture group.
-fn compile_and_validate_regex(
-    manifest_path: &str,
-    pattern: &str,
-) -> Result<Regex> {
-    let regex = Regex::new(pattern).map_err(|e| {
+/// Compiles a pattern, naming the manifest it came from.
+fn compile_regex(manifest_path: &str, pattern: &str) -> Result<Regex> {
+    Regex::new(pattern).map_err(|e| {
         ReleasaurusError::invalid_config(format!(
             "Invalid regex pattern in additional_manifest_files \
-             for '{}': {}",
-            manifest_path, e
+             for '{manifest_path}': {e}"
         ))
-    })?;
+    })
+}
 
+/// Validates regex has a 'version' capture group.
+fn validate_regex(manifest_path: &str, regex: &Regex) -> Result<()> {
     // Validate that the regex has a 'version' capture group
     let has_version_group =
         regex.capture_names().any(|name| name == Some("version"));
@@ -111,40 +120,40 @@ fn compile_and_validate_regex(
         )));
     }
 
-    Ok(regex)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // compile_and_validate_regex tests
+    /// `AdditionalManifestSpec` is `#[serde(untagged)]`, so a bad pattern
+    /// rejected at deserialization reports only "data did not match any
+    /// variant". Compiling here is what lets the error name the file.
+    #[test]
+    fn rejects_invalid_regex_and_names_the_manifest() {
+        let err = compile_regex("VERSION.txt", r"[invalid(").unwrap_err();
+
+        assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
+        assert!(err.to_string().contains("VERSION.txt"));
+    }
 
     #[test]
     fn validates_version_capture_group_required() {
         // Missing named group
-        let result =
-            compile_and_validate_regex("test.txt", r"version: (\d+\.\d+\.\d+)");
+        let regex = Regex::new(r"version: (\d+\.\d+\.\d+)").unwrap();
+        let result = validate_regex("test.txt", &regex);
         assert!(result.is_err());
     }
 
     #[test]
     fn validates_version_capture_group_present() {
         // Has named group
-        let regex = compile_and_validate_regex(
-            "test.txt",
-            r"version: (?<version>\d+\.\d+\.\d+)",
-        )
-        .unwrap();
+        let regex = Regex::new(r"version: (?<version>\d+\.\d+\.\d+)").unwrap();
+        validate_regex("test.txt", &regex).unwrap();
 
         // Verify it actually matches and captures
         let caps = regex.captures(r#"version: 1.2.3"#).unwrap();
         assert_eq!(&caps["version"], "1.2.3");
-    }
-
-    #[test]
-    fn rejects_invalid_regex() {
-        let result = compile_and_validate_regex("test.txt", r"[invalid(");
-        assert!(result.is_err());
     }
 }

@@ -114,22 +114,13 @@ pub fn releasable(name: &str, tag: &str) -> ReleasablePackage {
 
 /// Builds a release PR package for tests that drive the render helpers
 /// directly rather than going through `create_pr_branches`.
-pub fn release_pr_package(
-    name: &str,
-    tag: &str,
-    commit_message_template: &str,
-    pr_title_template: &str,
-) -> ReleasePRPackage {
+pub fn release_pr_package(name: &str, tag: &str) -> ReleasePRPackage {
     ReleasePRPackage {
         name: name.into(),
         tag: tag_for(tag),
         notes: String::new(),
         tag_compare_link: String::new(),
         sha_compare_link: String::new(),
-        file_changes: vec![],
-        release_branch: "releasaurus-release-main".into(),
-        commit_message_template: commit_message_template.into(),
-        pr_title_template: pr_title_template.into(),
     }
 }
 

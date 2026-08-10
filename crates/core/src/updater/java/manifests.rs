@@ -2,7 +2,8 @@ use std::path::Path;
 
 use crate::updater::{manager::ManifestTarget, traits::ManifestTargets};
 
-pub struct JavaManifests {}
+#[derive(Default)]
+pub struct JavaManifests;
 
 impl ManifestTargets for JavaManifests {
     fn manifest_targets(

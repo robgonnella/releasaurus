@@ -118,6 +118,13 @@ impl ComposerLock {
 mod tests {
     use std::path::PathBuf;
 
+    use semver::Version;
+
+    use crate::{
+        config::release_type::ReleaseType, forge::request::Tag,
+        packages::manifests::ManifestPackage,
+    };
+
     use super::*;
 
     fn make_manifest(path: &str, content: &str) -> ManifestFile {
@@ -125,6 +132,18 @@ mod tests {
             path: PathBuf::from(path),
             basename: "composer.lock".to_string(),
             content: content.to_string(),
+            release_type: ReleaseType::Php,
+            owner: Some(ManifestPackage {
+                name: "vendor/pkg".into(),
+                release_type: ReleaseType::Php,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
         }
     }
 

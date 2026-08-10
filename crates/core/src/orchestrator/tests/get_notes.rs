@@ -66,11 +66,13 @@ async fn recompile_notes_from_release_file_handles_multiple_packages() {
 
     let pkg_1 = PackageConfig {
         name: "package-one".into(),
+        path: "packages/one".into(),
         ..PackageConfig::default()
     };
 
     let pkg_2 = PackageConfig {
         name: "package-two".into(),
+        path: "packages/two".into(),
         ..PackageConfig::default()
     };
 

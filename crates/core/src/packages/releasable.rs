@@ -1,24 +1,29 @@
+use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use crate::{
-    analyzer::release::Release,
-    config::release_type::ReleaseType,
-    forge::request::Tag,
-    packages::manifests::{AdditionalManifestFile, ManifestFile},
+    analyzer::release::Release, config::release_type::ReleaseType,
+    forge::request::Tag, updater::manager::ManifestTarget,
 };
 
 pub type BranchName = String;
 
-pub type ReleasablePackageGroups = HashMap<BranchName, Vec<ReleasablePackage>>;
+/// Releasable packages keyed by the release branch they share. Ordered
+/// so a run's commits, PRs, and changelog sections come out the same way
+/// every time — the packages feeding it arrive in `HashMap` order.
+pub type ReleasablePackageGroups = BTreeMap<BranchName, Vec<ReleasablePackage>>;
 
 /// A sub-package sharing its parent's release tag and changelog but
 /// receiving its own independent manifest updates.
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct ReleasableSubPackage {
     pub name: String,
+    /// Normalized, repo-relative directory. Manifest ownership is
+    /// derived from it.
+    pub path: PathBuf,
     pub release_type: ReleaseType,
-    pub manifest_files: Option<Vec<ManifestFile>>,
+    pub manifest_targets: Vec<ManifestTarget>,
 }
 
 impl ReleasableSubPackage {
@@ -30,9 +35,10 @@ impl ReleasableSubPackage {
     ) -> ReleasablePackage {
         ReleasablePackage {
             name: self.name.clone(),
+            path: self.path.clone(),
             release_type: self.release_type,
             tag: parent.tag.clone(),
-            manifest_files: self.manifest_files.clone(),
+            manifest_targets: self.manifest_targets.clone(),
             ..Default::default()
         }
     }
@@ -44,14 +50,17 @@ impl ReleasableSubPackage {
 #[derive(Debug, Default, Clone)]
 pub struct ReleasablePackage {
     pub name: String,
+    /// Normalized, repo-relative directory. Manifest ownership is
+    /// derived from it.
+    pub path: PathBuf,
     pub release_type: ReleaseType,
     pub tag: Tag,
     pub notes: String,
     pub tag_compare_link: String,
     pub sha_compare_link: String,
     pub sub_packages: Vec<ReleasableSubPackage>,
-    pub manifest_files: Option<Vec<ManifestFile>>,
-    pub additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
+    pub manifest_targets: Vec<ManifestTarget>,
+    pub additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
 }
 
 /// Serializable form of a releasable package including full commit
@@ -67,7 +76,7 @@ pub struct SerializableReleasablePackage {
     #[serde(skip)]
     pub sub_packages: Vec<ReleasableSubPackage>,
     #[serde(skip)]
-    pub manifest_files: Option<Vec<ManifestFile>>,
+    pub manifest_targets: Vec<ManifestTarget>,
     #[serde(skip)]
-    pub additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
+    pub additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
 }

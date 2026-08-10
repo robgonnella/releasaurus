@@ -1,15 +1,17 @@
 //! Builder trait for constructing releasable package types.
 
+use regex::Regex;
+
 use crate::{
     analyzer::release::Release,
     packages::{
-        manifests::{AdditionalManifestFile, ManifestFile},
         releasable::{
             ReleasablePackage, ReleasableSubPackage,
             SerializableReleasablePackage,
         },
         resolved::ResolvedPackage,
     },
+    updater::manager::ManifestTarget,
 };
 
 /// Trait for building releasable package types from analyzed data.
@@ -19,8 +21,8 @@ pub trait ReleasablePackageBuilder: Sized {
         name: String,
         release: Release,
         pkg_config: &ResolvedPackage,
-        manifest_files: Option<Vec<ManifestFile>>,
-        additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
+        manifest_targets: Vec<ManifestTarget>,
+        additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
         sub_packages: Vec<ReleasableSubPackage>,
     ) -> Self;
 }
@@ -30,20 +32,21 @@ impl ReleasablePackageBuilder for ReleasablePackage {
         name: String,
         release: Release,
         pkg_config: &ResolvedPackage,
-        manifest_files: Option<Vec<ManifestFile>>,
-        additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
+        manifest_targets: Vec<ManifestTarget>,
+        additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
         sub_packages: Vec<ReleasableSubPackage>,
     ) -> Self {
         Self {
             name,
+            path: pkg_config.normalized_full_path.clone(),
             release_type: pkg_config.release_type,
             tag: release.tag,
             notes: release.notes,
             tag_compare_link: release.tag_compare_link,
             sha_compare_link: release.sha_compare_link,
             sub_packages,
-            additional_manifest_files,
-            manifest_files,
+            additional_manifest_targets,
+            manifest_targets,
         }
     }
 }
@@ -53,8 +56,8 @@ impl ReleasablePackageBuilder for SerializableReleasablePackage {
         name: String,
         release: Release,
         pkg_config: &ResolvedPackage,
-        manifest_files: Option<Vec<ManifestFile>>,
-        additional_manifest_files: Option<Vec<AdditionalManifestFile>>,
+        manifest_targets: Vec<ManifestTarget>,
+        additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
         sub_packages: Vec<ReleasableSubPackage>,
     ) -> Self {
         Self {
@@ -63,8 +66,8 @@ impl ReleasablePackageBuilder for SerializableReleasablePackage {
             release_type: pkg_config.release_type,
             release,
             sub_packages,
-            additional_manifest_files,
-            manifest_files,
+            additional_manifest_targets,
+            manifest_targets,
         }
     }
 }
@@ -93,7 +96,7 @@ mod tests {
             sub_packages: vec![],
             aggregate_prereleases: false,
             normalized_additional_paths: vec![],
-            compiled_additional_manifests: vec![],
+            additional_manifests: vec![],
             analyzer_config: Default::default(),
             versioning_config: Default::default(),
             commit_message_template: DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE
@@ -134,8 +137,8 @@ mod tests {
             "test-package".to_string(),
             release.clone(),
             &pkg_config,
-            None,
-            None,
+            vec![],
+            vec![],
             vec![],
         );
 
@@ -143,8 +146,8 @@ mod tests {
         assert_eq!(package.release_type, ReleaseType::Node);
         assert_eq!(package.tag.name, "v1.0.0");
         assert_eq!(package.notes, "Test release notes");
-        assert!(package.manifest_files.is_none());
-        assert!(package.additional_manifest_files.is_none());
+        assert!(package.manifest_targets.is_empty());
+        assert!(package.additional_manifest_targets.is_empty());
         assert!(package.sub_packages.is_empty());
     }
 
@@ -157,8 +160,8 @@ mod tests {
             "test-package".to_string(),
             release.clone(),
             &pkg_config,
-            None,
-            None,
+            vec![],
+            vec![],
             vec![],
         );
 
@@ -166,33 +169,31 @@ mod tests {
         assert_eq!(package.path, PathBuf::from("/test/path"));
         assert_eq!(package.release_type, ReleaseType::Node);
         assert_eq!(package.release.tag.name, "v1.0.0");
-        assert!(package.manifest_files.is_none());
-        assert!(package.additional_manifest_files.is_none());
+        assert!(package.manifest_targets.is_empty());
+        assert!(package.additional_manifest_targets.is_empty());
         assert!(package.sub_packages.is_empty());
     }
 
     #[test]
-    fn test_builder_with_manifest_files() {
+    fn test_builder_with_manifest_targets() {
         let pkg_config = create_test_resolved_package();
         let release = create_test_release();
 
-        let manifest_files = vec![ManifestFile {
+        let manifest_targets = vec![ManifestTarget {
             path: PathBuf::from("/test/package.json"),
             basename: "package.json".to_string(),
-            content: "{}".to_string(),
         }];
 
         let package = ReleasablePackage::build(
             "test-package".to_string(),
             release,
             &pkg_config,
-            Some(manifest_files),
-            None,
+            manifest_targets,
+            vec![],
             vec![],
         );
 
-        let manifest_files = package.manifest_files.as_ref().unwrap();
-        assert_eq!(manifest_files.len(), 1);
+        assert_eq!(package.manifest_targets.len(), 1);
     }
 
     #[test]
@@ -202,16 +203,17 @@ mod tests {
 
         let sub_packages = vec![ReleasableSubPackage {
             name: "sub-pkg".to_string(),
+            path: PathBuf::from("packages/sub-pkg"),
             release_type: ReleaseType::Node,
-            manifest_files: None,
+            manifest_targets: vec![],
         }];
 
         let package = ReleasablePackage::build(
             "test-package".to_string(),
             release,
             &pkg_config,
-            None,
-            None,
+            vec![],
+            vec![],
             sub_packages,
         );
 

@@ -2,8 +2,9 @@ use toml_edit::{DocumentMut, value};
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{manager::UpdaterPackage, traits::PackageUpdater},
+    updater::traits::FileUpdater,
 };
 
 pub struct PyProject {}
@@ -25,89 +26,78 @@ impl Default for PyProject {
     }
 }
 
-impl PackageUpdater for PyProject {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "pyproject.toml" {
-                continue;
-            }
-
-            let mut doc = self.load_doc(&manifest.content)?;
-
-            if let Some(project) = doc["project"].as_table_mut() {
-                if project.get("dynamic").is_some() {
-                    log::info!(
-                        "dynamic version found in pyproject.toml: skipping update"
-                    );
-                    continue;
-                }
-
-                log::info!(
-                    "updating {} project version to {}",
-                    manifest.path.to_string_lossy(),
-                    package.next_version.semver
-                );
-
-                project["version"] =
-                    value(package.next_version.semver.to_string());
-
-                file_changes.push(FileChange {
-                    path: manifest.path.to_string_lossy().to_string(),
-                    content: doc.to_string(),
-                    update_type: FileUpdateType::Replace,
-                });
-
-                continue;
-            }
-
-            if let Some(tool) = doc["tool"].as_table_mut()
-                && let Some(project) = tool["poetry"].as_table_mut()
-            {
-                if project.get("dynamic").is_some() {
-                    log::info!(
-                        "dynamic version found in pyproject.toml: skipping update"
-                    );
-                    continue;
-                }
-
-                log::info!(
-                    "updating {} tool.poetry version to {}",
-                    manifest.path.to_string_lossy(),
-                    package.next_version.semver
-                );
-
-                project["version"] =
-                    value(package.next_version.semver.to_string());
-
-                file_changes.push(FileChange {
-                    path: manifest.path.to_string_lossy().to_string(),
-                    content: doc.to_string(),
-                    update_type: FileUpdateType::Replace,
-                });
-            }
-        }
-
-        if file_changes.is_empty() {
+impl FileUpdater for PyProject {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "pyproject.toml" {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        let Some(owner) = manifest.owner.as_ref() else {
+            return Ok(None);
+        };
+
+        let mut doc = self.load_doc(&manifest.content)?;
+
+        if let Some(project) = doc["project"].as_table_mut() {
+            if project.get("dynamic").is_some() {
+                log::info!(
+                    "dynamic version found in pyproject.toml: skipping update"
+                );
+                return Ok(None);
+            }
+
+            log::info!(
+                "updating {} project version to {}",
+                manifest.path.to_string_lossy(),
+                owner.tag.semver
+            );
+
+            project["version"] = value(owner.tag.semver.to_string());
+
+            return Ok(Some(FileChange {
+                path: manifest.path.to_string_lossy().to_string(),
+                content: doc.to_string(),
+                update_type: FileUpdateType::Replace,
+            }));
+        }
+
+        if let Some(tool) = doc["tool"].as_table_mut()
+            && let Some(project) = tool["poetry"].as_table_mut()
+        {
+            if project.get("dynamic").is_some() {
+                log::info!(
+                    "dynamic version found in pyproject.toml: skipping update"
+                );
+                return Ok(None);
+            }
+
+            log::info!(
+                "updating {} tool.poetry version to {}",
+                manifest.path.to_string_lossy(),
+                owner.tag.semver
+            );
+
+            project["version"] = value(owner.tag.semver.to_string());
+
+            return Ok(Some(FileChange {
+                path: manifest.path.to_string_lossy().to_string(),
+                content: doc.to_string(),
+                update_type: FileUpdateType::Replace,
+            }));
+        }
+
+        Ok(None)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -119,26 +109,28 @@ mod tests {
 name = "my-package"
 version = "1.0.0"
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
     }
 
@@ -149,26 +141,28 @@ version = "1.0.0"
 name = "my-package"
 version = "1.0.0"
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
     }
 
@@ -180,24 +174,26 @@ name = "my-package"
 version = "1.0.0"
 dynamic = ["version"]
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }
@@ -210,24 +206,26 @@ name = "my-package"
 version = "1.0.0"
 dynamic = ["version"]
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }
@@ -244,26 +242,28 @@ requires-python = ">=3.8"
 [project.dependencies]
 requests = "^2.28.0"
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("version = \"2.0.0\""));
         assert!(updated.contains("description = \"A test package\""));
         assert!(updated.contains("requires-python = \">=3.8\""));
@@ -276,83 +276,53 @@ requests = "^2.28.0"
         let content = r#"[build-system]
 requires = ["setuptools", "wheel"]
 "#;
+
         let manifest = ManifestFile {
             path: Path::new("pyproject.toml").to_path_buf(),
             basename: "pyproject.toml".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }
 
     #[test]
-    fn process_package_handles_multiple_pyproject_files() {
-        let pyproject = PyProject::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("packages/a/pyproject.toml").to_path_buf(),
-            basename: "pyproject.toml".to_string(),
-            content: "[project]\nname = \"package-a\"\nversion = \"1.0.0\"\n"
-                .to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("packages/b/pyproject.toml").to_path_buf(),
-            basename: "pyproject.toml".to_string(),
-            content: "[project]\nname = \"package-b\"\nversion = \"1.0.0\"\n"
-                .to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
-        };
-
-        let result = pyproject.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
-    }
-
-    #[test]
     fn process_package_returns_none_when_no_pyproject_files() {
         let pyproject = PyProject::new();
+
         let manifest = ManifestFile {
             path: Path::new("setup.py").to_path_buf(),
             basename: "setup.py".to_string(),
             content: "setup(name='my-package', version='1.0.0')".to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Python)),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = pyproject.update(&package, &[]).unwrap();
+        let result = pyproject.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }

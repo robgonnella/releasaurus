@@ -14,7 +14,6 @@
 
 mod analyze;
 mod common;
-mod file_changes;
 mod pr_grouping;
 mod pr_requests;
 mod pr_templates;

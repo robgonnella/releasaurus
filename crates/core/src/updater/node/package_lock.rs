@@ -4,7 +4,7 @@ use crate::{
     forge::request::{FileChange, FileUpdateType},
     packages::manifests::ManifestFile,
     result::Result,
-    updater::{manager::UpdaterPackage, traits::PackageUpdater},
+    updater::traits::FileUpdater,
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -26,11 +26,16 @@ impl PackageLock {
     fn update_lock_file(
         &self,
         manifest: &ManifestFile,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
     ) -> Result<Option<FileChange>> {
         let mut lock_doc = self.load_doc(&manifest.content)?;
-        lock_doc["version"] = json!(package.next_version.semver.to_string());
+
+        // The lock's top-level `version` and its `packages[""]` entry both
+        // describe the package the lock sits beside. In a workspace whose
+        // root is not being released there is no such package, and writing
+        // a member's version into them would misreport the root.
+        if let Some(owner) = manifest.owner.as_ref() {
+            lock_doc["version"] = json!(owner.tag.semver.to_string());
+        }
 
         // Update packages section
         if let Some(packages) = lock_doc.get_mut("packages")
@@ -38,23 +43,24 @@ impl PackageLock {
         {
             for (key, package_info) in packages_obj {
                 if key.is_empty() {
-                    // Root package entry - update version for current package
-                    package_info["version"] =
-                        json!(package.next_version.semver.to_string());
+                    if let Some(owner) = manifest.owner.as_ref() {
+                        package_info["version"] =
+                            json!(owner.tag.semver.to_string());
+                    }
 
                     // Update dependencies within root package entry
                     if let Some(deps) = package_info.get_mut("dependencies")
                         && let Some(deps_obj) = deps.as_object_mut()
                     {
-                        for ws_package in workspace_packages.iter() {
+                        for ws_package in manifest.releasing.iter() {
                             if let Some((_, dep_info)) =
                                 deps_obj.iter_mut().find(|(name, _)| {
-                                    name.to_string() == ws_package.package_name
+                                    name.to_string() == ws_package.name
                                 })
                             {
                                 *dep_info = json!(format!(
                                     "{}",
-                                    ws_package.next_version.semver.to_string()
+                                    ws_package.tag.semver.to_string()
                                 ));
                             }
                         }
@@ -64,15 +70,15 @@ impl PackageLock {
                     if let Some(deps) = package_info.get_mut("devDependencies")
                         && let Some(deps_obj) = deps.as_object_mut()
                     {
-                        for ws_package in workspace_packages.iter() {
+                        for ws_package in manifest.releasing.iter() {
                             if let Some((_, dep_info)) =
                                 deps_obj.iter_mut().find(|(name, _)| {
-                                    name.to_string() == ws_package.package_name
+                                    name.to_string() == ws_package.name
                                 })
                             {
                                 *dep_info = json!(format!(
                                     "{}",
-                                    ws_package.next_version.semver.to_string()
+                                    ws_package.tag.semver.to_string()
                                 ));
                             }
                         }
@@ -83,12 +89,13 @@ impl PackageLock {
 
                 // Extract package name from node_modules/ key
                 if let Some(package_name) = key.strip_prefix("node_modules/")
-                    && let Some(ws_pkg) = workspace_packages
+                    && let Some(ws_pkg) = manifest
+                        .releasing
                         .iter()
-                        .find(|p| p.package_name == package_name)
+                        .find(|p| p.name == package_name)
                 {
                     package_info["version"] =
-                        json!(ws_pkg.next_version.semver.to_string());
+                        json!(ws_pkg.tag.semver.to_string());
                 }
             }
         }
@@ -108,42 +115,25 @@ impl PackageLock {
     }
 }
 
-impl PackageUpdater for PackageLock {
+impl FileUpdater for PackageLock {
     /// Update version fields in package-lock.json files for all Node packages.
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "package-lock.json" {
-                continue;
-            }
-
-            if let Some(change) =
-                self.update_lock_file(manifest, package, workspace_packages)?
-            {
-                file_changes.push(change);
-            }
-        }
-
-        if file_changes.is_empty() {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "package-lock.json" {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        self.update_lock_file(manifest)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
@@ -153,26 +143,28 @@ mod tests {
         let package_lock = PackageLock::new();
         let content =
             r#"{"name":"my-package","version":"1.0.0","packages":{}}"#;
+
         let manifest = ManifestFile {
             path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = package_lock.update(&package, &[]).unwrap();
+        let result = package_lock.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
     }
 
@@ -189,26 +181,28 @@ mod tests {
     }
   }
 }"#;
+
         let manifest = ManifestFile {
             path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = package_lock.update(&package, &[]).unwrap();
+        let result = package_lock.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
         // Should appear twice: once at root, once in packages[""]
         assert_eq!(updated.matches("\"version\": \"2.0.0\"").count(), 2);
@@ -230,39 +224,39 @@ mod tests {
     }
   }
 }"#;
-        let manifest = ManifestFile {
-            path: Path::new("package-lock.json").to_path_buf(),
-            basename: "package-lock.json".to_string(),
-            content: content.to_string(),
-        };
-        let package_a = UpdaterPackage {
-            package_name: "package-a".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
-        };
-        let package_b = UpdaterPackage {
-            package_name: "package-b".to_string(),
-            manifest_files: vec![],
-            next_version: Tag {
+
+        let package_b = ManifestPackage {
+            name: "package-b".to_string(),
+            release_type: ReleaseType::Node,
+            tag: Tag {
                 name: "v3.0.0".into(),
                 semver: semver::Version::parse("3.0.0").unwrap(),
                 sha: "def".into(),
                 ..Tag::default()
             },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
-        let result = package_lock
-            .update(&package_a, &[package_a.clone(), package_b])
-            .unwrap();
+        let manifest = ManifestFile {
+            path: Path::new("package-lock.json").to_path_buf(),
+            basename: "package-lock.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![package_b],
+        };
 
-        let updated = result.unwrap()[0].content.clone();
+        let result = package_lock.update(&manifest).unwrap();
+
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
@@ -282,39 +276,39 @@ mod tests {
     }
   }
 }"#;
-        let manifest = ManifestFile {
-            path: Path::new("package-lock.json").to_path_buf(),
-            basename: "package-lock.json".to_string(),
-            content: content.to_string(),
-        };
-        let package_a = UpdaterPackage {
-            package_name: "package-a".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
-        };
-        let package_b = UpdaterPackage {
-            package_name: "package-b".to_string(),
-            manifest_files: vec![],
-            next_version: Tag {
+
+        let package_b = ManifestPackage {
+            name: "package-b".to_string(),
+            release_type: ReleaseType::Node,
+            tag: Tag {
                 name: "v3.0.0".into(),
                 semver: semver::Version::parse("3.0.0").unwrap(),
                 sha: "def".into(),
                 ..Tag::default()
             },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
-        let result = package_lock
-            .update(&package_a, &[package_a.clone(), package_b])
-            .unwrap();
+        let manifest = ManifestFile {
+            path: Path::new("package-lock.json").to_path_buf(),
+            basename: "package-lock.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![package_b],
+        };
 
-        let updated = result.unwrap()[0].content.clone();
+        let result = package_lock.update(&manifest).unwrap();
+
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
@@ -334,39 +328,39 @@ mod tests {
     }
   }
 }"#;
-        let manifest = ManifestFile {
-            path: Path::new("package-lock.json").to_path_buf(),
-            basename: "package-lock.json".to_string(),
-            content: content.to_string(),
-        };
-        let package_a = UpdaterPackage {
-            package_name: "package-a".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
-        };
-        let package_b = UpdaterPackage {
-            package_name: "package-b".to_string(),
-            manifest_files: vec![],
-            next_version: Tag {
+
+        let package_b = ManifestPackage {
+            name: "package-b".to_string(),
+            release_type: ReleaseType::Node,
+            tag: Tag {
                 name: "v3.0.0".into(),
                 semver: semver::Version::parse("3.0.0").unwrap(),
                 sha: "def".into(),
                 ..Tag::default()
             },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
         };
 
-        let result = package_lock
-            .update(&package_a, &[package_a.clone(), package_b])
-            .unwrap();
+        let manifest = ManifestFile {
+            path: Path::new("package-lock.json").to_path_buf(),
+            basename: "package-lock.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "package-a".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![package_b],
+        };
 
-        let updated = result.unwrap()[0].content.clone();
+        let result = package_lock.update(&manifest).unwrap();
+
+        let updated = result.unwrap().content.clone();
         let parsed: Value = serde_json::from_str(&updated).unwrap();
         assert_eq!(
             parsed["packages"]["node_modules/package-b"]["version"],
@@ -387,84 +381,54 @@ mod tests {
     }
   }
 }"#;
+
         let manifest = ManifestFile {
             path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = package_lock.update(&package, &[]).unwrap();
+        let result = package_lock.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
-    }
-
-    #[test]
-    fn process_package_handles_multiple_lock_files() {
-        let package_lock = PackageLock::new();
-        let manifest1 = ManifestFile {
-            path: Path::new("packages/a/package-lock.json").to_path_buf(),
-            basename: "package-lock.json".to_string(),
-            content: r#"{"name":"package-a","version":"1.0.0","packages":{}}"#
-                .to_string(),
-        };
-        let manifest2 = ManifestFile {
-            path: Path::new("packages/b/package-lock.json").to_path_buf(),
-            basename: "package-lock.json".to_string(),
-            content: r#"{"name":"package-b","version":"1.0.0","packages":{}}"#
-                .to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest1, manifest2],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
-        };
-
-        let result = package_lock.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 2);
-        assert!(changes.iter().all(|c| c.content.contains("2.0.0")));
     }
 
     #[test]
     fn process_package_returns_none_when_no_lock_files() {
         let package_lock = PackageLock::new();
+
         let manifest = ManifestFile {
             path: Path::new("package.json").to_path_buf(),
             basename: "package.json".to_string(),
             content: r#"{"name":"my-package","version":"1.0.0"}"#.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "test".to_string(),
-            manifest_files: vec![manifest],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "test".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = package_lock.update(&package, &[]).unwrap();
+        let result = package_lock.update(&manifest).unwrap();
 
         assert!(result.is_none());
     }
@@ -484,26 +448,28 @@ mod tests {
     }
   }
 }"#;
+
         let manifest = ManifestFile {
             path: Path::new("package-lock.json").to_path_buf(),
             basename: "package-lock.json".to_string(),
             content: content.to_string(),
-        };
-        let package = UpdaterPackage {
-            package_name: "my-package".to_string(),
-            manifest_files: vec![manifest.clone()],
-            next_version: Tag {
-                name: "v2.0.0".into(),
-                semver: semver::Version::parse("2.0.0").unwrap(),
-                sha: "abc".into(),
-                ..Tag::default()
-            },
-            updater: Rc::new(Updater::new(ReleaseType::Node)),
+            release_type: ReleaseType::Node,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Node,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
         };
 
-        let result = package_lock.update(&package, &[]).unwrap();
+        let result = package_lock.update(&manifest).unwrap();
 
-        let updated = result.unwrap()[0].content.clone();
+        let updated = result.unwrap().content.clone();
         assert!(updated.contains("\"version\": \"2.0.0\""));
         assert!(updated.contains("\"lockfileVersion\": 2"));
         assert!(updated.contains("\"requires\": true"));

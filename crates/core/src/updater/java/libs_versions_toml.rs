@@ -2,8 +2,9 @@ use toml_edit::DocumentMut;
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
+    packages::manifests::ManifestFile,
     result::Result,
-    updater::{manager::UpdaterPackage, traits::PackageUpdater},
+    updater::traits::FileUpdater,
 };
 
 /// Handles gradle/libs.versions.toml (Gradle Version Catalog) parsing and
@@ -29,72 +30,59 @@ impl Default for LibsVersionsToml {
     }
 }
 
-impl PackageUpdater for LibsVersionsToml {
-    fn update(
-        &self,
-        package: &UpdaterPackage,
-        _workspace_packages: &[UpdaterPackage],
-    ) -> Result<Option<Vec<FileChange>>> {
-        let mut file_changes: Vec<FileChange> = vec![];
-
-        for manifest in package.manifest_files.iter() {
-            if manifest.basename != "libs.versions.toml" {
-                continue;
-            }
-
-            let mut doc = self.load_doc(&manifest.content)?;
-
-            let Some(versions) =
-                doc.get_mut("versions").and_then(|v| v.as_table_like_mut())
-            else {
-                continue;
-            };
-
-            let Some(version_key) =
-                find_version_key(versions, &package.package_name)
-            else {
-                continue;
-            };
-
-            let next_version = package.next_version.semver.to_string();
-
-            log::info!(
-                "setting version for {} to {next_version} in libs.versions.toml (key: {version_key})",
-                package.package_name
-            );
-
-            if let Some(item) = versions.get_mut(&version_key) {
-                if item.is_str() {
-                    // Replace the raw string value in the existing decorated
-                    // value, preserving comments and formatting.
-                    let decorated = item.as_value_mut().unwrap();
-                    let mut new_val =
-                        toml_edit::Value::from(next_version.as_str());
-                    // Copy original decorations (prefix whitespace, suffix,
-                    // comments) onto the new value.
-                    *new_val.decor_mut() = decorated.decor().clone();
-                    *decorated = new_val;
-                } else {
-                    log::debug!(
-                        "skipping non-string version key '{}' in libs.versions.toml",
-                        version_key
-                    );
-                    continue;
-                }
-            }
-
-            file_changes.push(FileChange {
-                path: manifest.path.to_string_lossy().to_string(),
-                content: doc.to_string(),
-                update_type: FileUpdateType::Replace,
-            });
-        }
-
-        if file_changes.is_empty() {
+impl FileUpdater for LibsVersionsToml {
+    fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
+        if manifest.basename != "libs.versions.toml" {
             return Ok(None);
         }
 
-        Ok(Some(file_changes))
+        let Some(owner) = manifest.owner.as_ref() else {
+            return Ok(None);
+        };
+
+        let mut doc = self.load_doc(&manifest.content)?;
+
+        let Some(versions) =
+            doc.get_mut("versions").and_then(|v| v.as_table_like_mut())
+        else {
+            return Ok(None);
+        };
+
+        let Some(version_key) = find_version_key(versions, &owner.name) else {
+            return Ok(None);
+        };
+
+        let next_version = owner.tag.semver.to_string();
+
+        log::info!(
+            "setting version for {} to {next_version} in libs.versions.toml (key: {version_key})",
+            owner.name
+        );
+
+        if let Some(item) = versions.get_mut(&version_key) {
+            if item.is_str() {
+                // Replace the raw string value in the existing decorated
+                // value, preserving comments and formatting.
+                let decorated = item.as_value_mut().unwrap();
+                let mut new_val = toml_edit::Value::from(next_version.as_str());
+                // Copy original decorations (prefix whitespace, suffix,
+                // comments) onto the new value.
+                *new_val.decor_mut() = decorated.decor().clone();
+                *decorated = new_val;
+            } else {
+                log::debug!(
+                    "skipping non-string version key '{}' in libs.versions.toml",
+                    version_key
+                );
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(FileChange {
+            path: manifest.path.to_string_lossy().to_string(),
+            content: doc.to_string(),
+            update_type: FileUpdateType::Replace,
+        }))
     }
 }
 
@@ -128,38 +116,37 @@ fn find_version_key(
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, rc::Rc};
+    use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
-        packages::manifests::ManifestFile, updater::dispatch::Updater,
+        config::release_type::ReleaseType,
+        forge::request::Tag,
+        packages::manifests::{ManifestFile, ManifestPackage},
     };
 
     use super::*;
 
-    fn make_package(
-        name: &str,
-        version: &str,
-        manifests: Vec<ManifestFile>,
-    ) -> UpdaterPackage {
-        UpdaterPackage {
-            package_name: name.to_string(),
-            manifest_files: manifests,
-            next_version: Tag {
+    fn make_package(name: &str, version: &str) -> ManifestPackage {
+        ManifestPackage {
+            name: name.to_string(),
+            release_type: ReleaseType::Java,
+            tag: Tag {
                 name: format!("v{version}"),
                 semver: semver::Version::parse(version).unwrap(),
                 sha: "abc".into(),
                 ..Tag::default()
             },
-            updater: Rc::new(Updater::new(ReleaseType::Java)),
         }
     }
 
-    fn make_manifest(content: &str) -> ManifestFile {
+    fn make_manifest(name: &str, version: &str, content: &str) -> ManifestFile {
         ManifestFile {
             path: Path::new("gradle/libs.versions.toml").to_path_buf(),
             basename: "libs.versions.toml".to_string(),
             content: content.to_string(),
+            release_type: ReleaseType::Java,
+            owner: Some(make_package(name, version)),
+            releasing: vec![],
         }
     }
 
@@ -173,16 +160,14 @@ kotlin = "1.9.20"
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
         let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        assert!(changes[0].content.contains("my-app = \"2.0.0\""));
+
+        assert!(changes.content.contains("my-app = \"2.0.0\""));
         assert!(
-            changes[0].content.contains("kotlin = \"1.9.20\""),
+            changes.content.contains("kotlin = \"1.9.20\""),
             "other versions should not be updated"
         );
     }
@@ -194,14 +179,11 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 myApp = "1.0.0"
 kotlin = "1.9.20"
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        assert!(changes[0].content.contains("myApp = \"2.0.0\""));
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
+        let change = result.unwrap();
+        assert!(change.content.contains("myApp = \"2.0.0\""));
     }
 
     #[test]
@@ -210,14 +192,11 @@ kotlin = "1.9.20"
         let content = r#"[versions]
 my_app = "1.0.0"
 "#;
-        let package =
-            make_package("my-app", "3.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        assert!(changes[0].content.contains("my_app = \"3.0.0\""));
+        let manifest = make_manifest("my-app", "3.0.0", content);
+        let result = updater.update(&manifest).unwrap();
+        let change = result.unwrap();
+        assert!(change.content.contains("my_app = \"3.0.0\""));
     }
 
     #[test]
@@ -227,11 +206,9 @@ my_app = "1.0.0"
 kotlin = "1.9.20"
 spring-boot = "3.2.0"
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 
@@ -241,26 +218,23 @@ spring-boot = "3.2.0"
         let content = r#"[libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn returns_none_for_non_libs_versions_toml_files() {
         let updater = LibsVersionsToml::new();
-        let manifest = ManifestFile {
-            path: Path::new("build.gradle").to_path_buf(),
-            basename: "build.gradle".to_string(),
-            content: "version = \"1.0.0\"".to_string(),
-        };
-        let package = make_package("my-app", "2.0.0", vec![manifest]);
 
-        let result = updater.update(&package, &[]).unwrap();
+        let mut manifest =
+            make_manifest("my-app", "2.0.0", "version = \"1.0.0\"");
 
+        manifest.path = Path::new("build.gradle").to_path_buf();
+        manifest.basename = "build.gradle".to_string();
+
+        let result = updater.update(&manifest).unwrap();
         assert!(result.is_none());
     }
 
@@ -277,18 +251,16 @@ kotlin = "1.9.20"
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
+        let change = result.unwrap();
 
-        let changes = result.unwrap();
-        let updated = &changes[0].content;
-        assert!(updated.contains("my-app = \"2.0.0\""));
-        assert!(updated.contains("# Project version"));
-        assert!(updated.contains("# Kotlin version"));
-        assert!(updated.contains("kotlin = \"1.9.20\""));
-        assert!(updated.contains("[libraries]"));
+        assert!(change.content.contains("my-app = \"2.0.0\""));
+        assert!(change.content.contains("# Project version"));
+        assert!(change.content.contains("# Kotlin version"));
+        assert!(change.content.contains("kotlin = \"1.9.20\""));
+        assert!(change.content.contains("[libraries]"));
     }
 
     #[test]
@@ -297,14 +269,11 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
         let content = r#"[versions]
 MyApp = "1.0.0"
 "#;
-        let package =
-            make_package("my-app", "2.0.0", vec![make_manifest(content)]);
 
-        let result = updater.update(&package, &[]).unwrap();
-
-        let changes = result.unwrap();
-        assert_eq!(changes.len(), 1);
-        assert!(changes[0].content.contains("MyApp = \"2.0.0\""));
+        let manifest = make_manifest("my-app", "2.0.0", content);
+        let result = updater.update(&manifest).unwrap();
+        let change = result.unwrap();
+        assert!(change.content.contains("MyApp = \"2.0.0\""));
     }
 
     #[test]

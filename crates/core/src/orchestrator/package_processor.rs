@@ -1,10 +1,7 @@
 use chrono::Utc;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    rc::Rc,
-};
+use std::{collections::HashSet, rc::Rc};
 
 use crate::{
     analyzer::Analyzer,
@@ -32,7 +29,10 @@ use crate::{
     },
     resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
-    updater::manager::UpdateManager,
+    updater::{
+        dispatch::Updater,
+        manager::{ManifestTarget, UpdateManager},
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -130,6 +130,8 @@ impl PackageProcessor {
             }
         }
 
+        prepared.sort_by(|a, b| a.name.cmp(&b.name));
+
         Ok(prepared)
     }
 
@@ -192,6 +194,12 @@ impl PackageProcessor {
             })
         }
 
+        // `package_configs` is a `HashMap`, so this order is otherwise
+        // whatever the hasher produced this run. It reaches the emitted
+        // file changes and the PR body sections, where a reshuffle looks
+        // like a real diff.
+        prepared_packages.sort_by(|a, b| a.name.cmp(&b.name));
+
         Ok(prepared_packages)
     }
 
@@ -229,123 +237,73 @@ impl PackageProcessor {
         self.build_releasable_packages(packages).await
     }
 
-    /// Builds the full set of file changes that releasing `pkg` implies:
-    /// its own manifest version bumps, updated versions for any other
-    /// releasable package it declares as a dependency, and the changelog
-    /// entry.
-    pub fn file_changes_for_releasable_package(
-        &self,
-        pkg: &ReleasablePackage,
-        all_releasable: &[ReleasablePackage],
-    ) -> Result<Vec<FileChange>> {
-        let pkg_config = self.config.package_configs.get(&pkg.name)?;
-
-        let releasable_refs: Vec<&ReleasablePackage> =
-            all_releasable.iter().collect();
-
-        let candidates =
-            self.cross_reference_candidates(pkg, pkg_config, &releasable_refs)?;
-
-        log::info!(
-            "Package: {}: {} other releasable package(s) may be \
-             referenced by its manifests",
-            pkg.name,
-            candidates.len(),
-        );
-
-        let mut file_changes =
-            UpdateManager::get_package_manifest_file_changes(pkg, &candidates)?;
-
-        file_changes.push(self.changelog_file_change(pkg, pkg_config));
-
-        Ok(file_changes)
-    }
-
-    pub fn release_commit_message_for_package(
-        &self,
-        pkg: &ReleasablePackage,
-    ) -> Result<String> {
-        let pkg_config = self.config.package_configs.get(&pkg.name)?;
-
-        self.render_release_template(
-            &pkg.name,
-            &pkg.tag,
-            &pkg_config.commit_message_template,
-            &self.config.monorepo_commit_message_template,
-        )
-    }
-
     pub fn release_pr_packages(
         &self,
-        packages: Vec<ReleasablePackage>,
+        packages: &[ReleasablePackage],
     ) -> Result<Vec<ReleasePRPackage>> {
         let mut finalized = vec![];
+
         for target in packages.iter() {
-            let target_config =
-                self.config.package_configs.get(&target.name)?;
-
-            let release_branch = self.config.release_branch_for(&target.name);
-
-            let file_changes =
-                self.file_changes_for_releasable_package(target, &packages)?;
-
             finalized.push(ReleasePRPackage {
                 name: target.name.clone(),
                 tag: target.tag.clone(),
                 notes: target.notes.clone(),
                 tag_compare_link: target.tag_compare_link.clone(),
                 sha_compare_link: target.sha_compare_link.clone(),
-                file_changes,
-                release_branch,
-                commit_message_template: target_config
-                    .commit_message_template
-                    .clone(),
-                pr_title_template: target_config.pr_title_template.clone(),
             });
         }
 
         Ok(finalized)
     }
 
-    pub async fn release_pr_packages_by_branch(
+    /// Everything one release branch needs, with its file changes read
+    /// off `base_branch` as it stands right now.
+    ///
+    /// Callers that commit several bundles to the *same* branch have to
+    /// build each one immediately before its commit: the changes carry
+    /// whole-file content, so a bundle built against a stale snapshot
+    /// reverts whatever landed after it was read.
+    pub async fn release_pr_bundle(
         &self,
-        groups: ReleasablePackageGroups,
-    ) -> Result<HashMap<String, PRBundle>> {
-        let mut map: HashMap<BranchName, Vec<ReleasePRPackage>> =
-            HashMap::new();
+        release_branch: BranchName,
+        group: &[ReleasablePackage],
+    ) -> Result<PRBundle> {
+        let package_refs = group.iter().collect::<Vec<&ReleasablePackage>>();
 
-        for (release_branch, group) in groups {
-            let release_prs = self.release_pr_packages(group)?;
+        let mut file_changes = UpdateManager::get_file_changes_for_packages(
+            &package_refs,
+            self.forge.as_ref(),
+            &self.config.base_branch,
+        )
+        .await?;
 
-            for pkg in release_prs {
-                let list = map.get_mut(&release_branch);
-
-                if let Some(list) = list {
-                    list.push(pkg)
-                } else {
-                    map.insert(pkg.release_branch.clone(), vec![pkg]);
-                };
-            }
+        for pkg in group.iter() {
+            let conf = self.config.package_configs.get(&pkg.name)?;
+            file_changes.push(self.changelog_file_change(pkg, conf))
         }
 
-        let mut bundles: HashMap<String, PRBundle> = HashMap::new();
+        Ok(PRBundle {
+            release_branch,
+            commit_message: self
+                .release_commit_message_for_pr_package_list(group)?,
+            pr_title: self.release_pr_title_for_pr_package_list(group)?,
+            packages: self.release_pr_packages(group)?,
+            file_changes,
+        })
+    }
 
-        for (branch, packages) in map {
-            let existing_pr = self
-                .forge
-                .get_open_release_pr(GetPrRequest {
-                    head_branch: branch.clone(),
-                    base_branch: self.config.base_branch.clone(),
-                })
-                .await?;
+    /// Every group's bundle, in release-branch order.
+    ///
+    /// Only safe for flows that commit each bundle to its own branch —
+    /// see [`PackageProcessor::release_pr_bundle`].
+    pub async fn release_pr_bundles(
+        &self,
+        groups: ReleasablePackageGroups,
+    ) -> Result<Vec<PRBundle>> {
+        let mut bundles = vec![];
 
-            bundles.insert(
-                branch,
-                PRBundle {
-                    existing_pr,
-                    packages,
-                },
-            );
+        for (release_branch, group) in groups {
+            bundles.push(self.release_pr_bundle(release_branch, &group).await?);
         }
 
         Ok(bundles)
@@ -353,30 +311,20 @@ impl PackageProcessor {
 
     pub async fn create_pr_branches(
         &self,
-        bundles: HashMap<String, PRBundle>,
+        bundles: Vec<PRBundle>,
     ) -> Result<Vec<PrBranchResult>> {
         let mut pr_results = vec![];
 
-        for (release_branch, bundle) in bundles.into_iter() {
-            let file_changes: Vec<FileChange> = bundle
-                .packages
-                .iter()
-                .flat_map(|p| p.file_changes.clone())
-                .collect();
-
-            let commit_message =
-                self.release_commit_message_for_pr_package_list(&bundle)?;
-
-            let pr_title =
-                self.release_pr_title_for_pr_package_list(&bundle)?;
+        for bundle in bundles.into_iter() {
+            let release_branch = bundle.release_branch;
 
             let created = self
                 .forge
                 .create_release_branch(CreateReleaseBranchRequest {
                     base_branch: self.config.base_branch.clone(),
                     release_branch: release_branch.clone(),
-                    message: commit_message,
-                    file_changes,
+                    message: bundle.commit_message,
+                    file_changes: bundle.file_changes,
                 })
                 .await?;
 
@@ -388,13 +336,23 @@ impl PackageProcessor {
                 continue;
             }
 
-            let existing_body =
-                bundle.existing_pr.as_ref().map(|pr| pr.body.as_str());
+            // Looked up here rather than while building the bundle: only
+            // this flow reads it, and only once there is a branch to open
+            // a PR from.
+            let existing_pr = self
+                .forge
+                .get_open_release_pr(GetPrRequest {
+                    head_branch: release_branch.clone(),
+                    base_branch: self.config.base_branch.clone(),
+                })
+                .await?;
+
+            let existing_body = existing_pr.as_ref().map(|pr| pr.body.as_str());
 
             let request = CreatePrRequest {
                 base_branch: self.config.base_branch.clone(),
                 head_branch: release_branch.clone(),
-                title: pr_title,
+                title: bundle.pr_title,
                 body: self.release_pr_body_for_pr_package_list(
                     &bundle.packages,
                     existing_body,
@@ -403,7 +361,7 @@ impl PackageProcessor {
 
             pr_results.push(PrBranchResult {
                 request,
-                existing_pr: bundle.existing_pr,
+                existing_pr,
             });
         }
 
@@ -414,38 +372,30 @@ impl PackageProcessor {
     /// release branch
     pub fn group_releasable_packages(
         &self,
-        releasable: &[ReleasablePackage],
-    ) -> Result<ReleasablePackageGroups> {
-        let mut groups = HashMap::new();
+        releasable: Vec<ReleasablePackage>,
+    ) -> ReleasablePackageGroups {
+        let mut groups = ReleasablePackageGroups::new();
 
         for p in releasable {
-            let release_branch = self.config.release_branch_for(&p.name);
-            if !groups.contains_key(&release_branch) {
-                groups.insert(release_branch.clone(), vec![p.clone()]);
-            } else {
-                let group =
-                    groups.get_mut(&release_branch).ok_or_else(|| {
-                        ReleasaurusError::Other(eyre!(
-                            "failed to get group mapping for package: {}",
-                            p.name
-                        ))
-                    })?;
-                group.push(p.clone());
-            }
+            groups
+                .entry(self.config.release_branch_for(&p.name))
+                .or_default()
+                .push(p);
         }
 
-        Ok(groups)
+        groups
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    //// Private
+    // Private
     ////////////////////////////////////////////////////////////////////////////
+
     fn release_commit_message_for_pr_package_list(
         &self,
-        pr_bundle: &PRBundle,
+        packages: &[ReleasablePackage],
     ) -> Result<String> {
-        self.render_bundle_template(
-            pr_bundle,
+        self.render_template_for_package_list(
+            packages,
             "commit message",
             |pkg| &pkg.commit_message_template,
             &self.config.monorepo_commit_message_template,
@@ -454,10 +404,10 @@ impl PackageProcessor {
 
     fn release_pr_title_for_pr_package_list(
         &self,
-        pr_bundle: &PRBundle,
+        packages: &[ReleasablePackage],
     ) -> Result<String> {
-        self.render_bundle_template(
-            pr_bundle,
+        self.render_template_for_package_list(
+            packages,
             "PR title",
             |pkg| &pkg.pr_title_template,
             &self.config.monorepo_pr_title_template,
@@ -466,23 +416,25 @@ impl PackageProcessor {
 
     /// Picks the package whose template applies to a bundle and renders
     /// it via [`PackageProcessor::render_release_template`].
-    fn render_bundle_template(
+    fn render_template_for_package_list(
         &self,
-        pr_bundle: &PRBundle,
+        packages: &[ReleasablePackage],
         what: &str,
-        package_template: impl Fn(&ReleasePRPackage) -> &str,
+        package_template: impl Fn(&ResolvedPackage) -> &str,
         monorepo_template: &str,
     ) -> Result<String> {
-        let Some(package) = pr_bundle.packages.first() else {
+        let Some(package) = packages.first() else {
             return Err(ReleasaurusError::Other(eyre!(
                 "Cannot generate {what} for empty package list"
             )));
         };
 
+        let resolved_pkg = self.config.package_configs.get(&package.name)?;
+
         self.render_release_template(
             &package.name,
             &package.tag,
-            package_template(package),
+            package_template(resolved_pkg),
             monorepo_template,
         )
     }
@@ -611,36 +563,41 @@ impl PackageProcessor {
             if let Some(release) = pkg.release {
                 let pkg_config = self.config.package_configs.get(&pkg.name)?;
 
-                let manifest_files = UpdateManager::load_manifests_for_package(
-                    pkg_config,
-                    self.forge.as_ref(),
-                    &self.config.base_branch,
-                )
-                .await?;
+                let updater = Updater::new(pkg_config.release_type);
 
-                let additional_manifest_files =
-                    UpdateManager::load_additional_manifests_for_package(
-                        pkg_config,
-                        self.forge.as_ref(),
-                        &self.config.base_branch,
-                    )
-                    .await?;
+                let manifest_targets = updater.manifest_targets(
+                    &pkg_config.name,
+                    &pkg_config.normalized_workspace_root,
+                    &pkg_config.normalized_full_path,
+                );
+
+                let mut additional_manifest_targets = vec![];
+
+                for additional in pkg_config.additional_manifests.iter() {
+                    let target = ManifestTarget {
+                        basename: additional.basename.clone(),
+                        path: additional.full_path.clone(),
+                    };
+                    additional_manifest_targets
+                        .push((target, additional.version_regex.clone()))
+                }
 
                 let mut sub_packages = vec![];
 
                 for sub in pkg_config.sub_packages.iter() {
-                    let manifest_files =
-                        UpdateManager::load_manifests_for_package(
-                            sub,
-                            self.forge.as_ref(),
-                            &self.config.base_branch,
-                        )
-                        .await?;
+                    let updater = Updater::new(sub.release_type);
+
+                    let sub_targets = updater.manifest_targets(
+                        &sub.name,
+                        &sub.normalized_workspace_root,
+                        &sub.normalized_full_path,
+                    );
 
                     sub_packages.push(ReleasableSubPackage {
                         name: sub.name.clone(),
+                        path: sub.normalized_full_path.clone(),
                         release_type: sub.release_type,
-                        manifest_files,
+                        manifest_targets: sub_targets,
                     })
                 }
 
@@ -648,38 +605,14 @@ impl PackageProcessor {
                     pkg.name.clone(),
                     release,
                     pkg_config,
-                    manifest_files,
-                    additional_manifest_files,
+                    manifest_targets,
+                    additional_manifest_targets,
                     sub_packages,
                 ));
             }
         }
 
         Ok(releasable)
-    }
-
-    /// The other releasable packages whose versions may need writing
-    /// into `target`'s manifests. Scoped by release type, not
-    /// workspace since there is no dependency relationship between
-    /// packages of different type.
-    fn cross_reference_candidates<'a>(
-        &self,
-        target: &ReleasablePackage,
-        target_config: &ResolvedPackage,
-        others: &'a [&'a ReleasablePackage],
-    ) -> Result<Vec<&'a ReleasablePackage>> {
-        let mut candidates = vec![];
-
-        for p in others.iter() {
-            let p_config = self.config.package_configs.get(&p.name)?;
-            if p.name != target.name
-                && p_config.release_type == target_config.release_type
-            {
-                candidates.push(*p);
-            }
-        }
-
-        Ok(candidates)
     }
 
     fn changelog_file_change(

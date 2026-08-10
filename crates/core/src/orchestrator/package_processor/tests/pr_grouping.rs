@@ -17,7 +17,7 @@ use crate::{
 use super::common::*;
 
 #[tokio::test]
-async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
+async fn release_pr_bundles_groups_all_when_not_separate() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -34,13 +34,13 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
 
     let pkg_a_config = PackageConfigBuilder::default()
         .name("pkg-a")
-        .path(".")
+        .path("packages/pkg-a")
         .build()
         .unwrap();
 
     let pkg_b_config = PackageConfigBuilder::default()
         .name("pkg-b")
-        .path(".")
+        .path("packages/pkg-b")
         .build()
         .unwrap();
 
@@ -72,23 +72,19 @@ async fn release_pr_packages_by_branch_groups_all_when_not_separate() {
         ..Default::default()
     };
 
-    let groups = processor
-        .group_releasable_packages(&[releasable_a, releasable_b])
-        .unwrap();
+    let groups =
+        processor.group_releasable_packages(vec![releasable_a, releasable_b]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
     // Should have one branch with both packages
     assert_eq!(grouped.len(), 1);
 
-    let bundle = grouped.values().next().unwrap();
+    let bundle = grouped.first().unwrap();
     assert_eq!(bundle.packages.len(), 2);
 }
 
 #[tokio::test]
-async fn release_pr_packages_by_branch_separates_when_configured() {
+async fn release_pr_bundles_separates_when_configured() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -105,13 +101,13 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
 
     let pkg_a_config = PackageConfigBuilder::default()
         .name("pkg-a")
-        .path(".")
+        .path("packages/pkg-a")
         .build()
         .unwrap();
 
     let pkg_b_config = PackageConfigBuilder::default()
         .name("pkg-b")
-        .path(".")
+        .path("packages/pkg-b")
         .build()
         .unwrap();
 
@@ -143,18 +139,14 @@ async fn release_pr_packages_by_branch_separates_when_configured() {
         ..Default::default()
     };
 
-    let groups = processor
-        .group_releasable_packages(&[releasable_a, releasable_b])
-        .unwrap();
+    let groups =
+        processor.group_releasable_packages(vec![releasable_a, releasable_b]);
 
-    let grouped = processor
-        .release_pr_packages_by_branch(groups)
-        .await
-        .unwrap();
+    let grouped = processor.release_pr_bundles(groups).await.unwrap();
     // Should have separate branches
     assert_eq!(grouped.len(), 2);
 
-    for bundle in grouped.values() {
+    for bundle in grouped.iter() {
         assert_eq!(bundle.packages.len(), 1);
     }
 }

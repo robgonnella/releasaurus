@@ -64,7 +64,10 @@ async fn get_next_releases_filters_by_package_name() {
                 .short_id("c1")
                 .message("feat: new feature")
                 .timestamp(1000)
-                .files(vec!["src/main.rs".to_string()])
+                .files(vec![
+                    "packages/pkg-a/src/main.rs".to_string(),
+                    "packages/pkg-b/src/main.rs".to_string(),
+                ])
                 .build()
                 .unwrap(),
         ])
@@ -76,12 +79,12 @@ async fn get_next_releases_filters_by_package_name() {
         vec![
             PackageConfigBuilder::default()
                 .name("pkg-a")
-                .path(".")
+                .path("packages/pkg-a")
                 .build()
                 .unwrap(),
             PackageConfigBuilder::default()
                 .name("pkg-b")
-                .path(".")
+                .path("packages/pkg-b")
                 .build()
                 .unwrap(),
         ],
