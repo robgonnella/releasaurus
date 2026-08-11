@@ -16,7 +16,7 @@ releasaurus release-pr --repo "https://github.com/owner/repo"
 releasaurus release --repo "https://github.com/owner/repo"
 ```
 
-`one-shot` replaces both steps for repos that don't want a review PR.
+`release-direct` replaces both steps for repos that don't want a review PR.
 `start-next` and `get` are optional helpers covered below.
 
 ## `release-pr`
@@ -54,7 +54,7 @@ releasaurus release --package my-pkg \
   --repo "https://github.com/owner/repo"
 ```
 
-## `one-shot`
+## `release-direct`
 
 Does everything `release-pr` and `release` do together, in a single pass
 and with no pull request: analyzes commits, bumps versions, writes the
@@ -63,10 +63,10 @@ publishes the release.
 
 ```bash
 # All packages
-releasaurus one-shot --repo "https://github.com/owner/repo"
+releasaurus release-direct --repo "https://github.com/owner/repo"
 
 # A single package in a monorepo
-releasaurus one-shot --package my-pkg \
+releasaurus release-direct --package my-pkg \
   --repo "https://github.com/owner/repo"
 ```
 
@@ -84,9 +84,9 @@ release PRs.
 
 > **Warning:** This is a separate, out-of-band flow — it never creates a
 > release PR. Do not mix it with the `release-pr` / `release` workflow on
-> the same packages: the tag `one-shot` creates will collide with the one
+> the same packages: the tag `release-direct` creates will collide with the one
 > `release` later tries to create for the merged PR. As a safety net,
-> `one-shot` refuses to run if a package it is about to release still has
+> `release-direct` refuses to run if a package it is about to release still has
 > a merged release PR waiting to be tagged, but it cannot detect every
 > ordering.
 

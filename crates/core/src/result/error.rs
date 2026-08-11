@@ -26,9 +26,9 @@ pub enum ReleasaurusError {
     PendingRelease { branch: String, pr_number: u64 },
 
     #[error(
-        "One-shot release only partially completed: release commit {sha} is on '{branch}' and tag(s) [{tags}] were created, but '{failed_tag}' failed to publish: {cause}. Re-running one-shot will not finish this release: check which of the tags listed above already have a published release and publish the rest manually"
+        "`release-direct` only partially completed: release commit {sha} is on '{branch}' and tag(s) [{tags}] were created, but '{failed_tag}' failed to publish: {cause}. Re-running `release-direct` will not finish this release: check which of the tags listed above already have a published release and publish the rest manually"
     )]
-    PartialOneShotRelease {
+    PartialDirectRelease {
         sha: String,
         branch: String,
         tags: String,
@@ -134,16 +134,16 @@ impl ReleasaurusError {
         }
     }
 
-    /// Create a partial one-shot release error. `tags` are the tags that
+    /// Create a partial `release-direct` error. `tags` are the tags that
     /// were created before `failed_tag` failed to publish.
-    pub fn partial_one_shot_release(
+    pub fn partial_direct_release(
         sha: impl Into<String>,
         branch: impl Into<String>,
         tags: &[&str],
         failed_tag: impl Into<String>,
         cause: &ReleasaurusError,
     ) -> Self {
-        Self::PartialOneShotRelease {
+        Self::PartialDirectRelease {
             sha: sha.into(),
             branch: branch.into(),
             tags: tags.join(", "),
@@ -404,17 +404,14 @@ mod tests {
         assert!(matches!(err, ReleasaurusError::PendingRelease { .. }));
 
         let cause = ReleasaurusError::forge("409 conflict");
-        let err = ReleasaurusError::partial_one_shot_release(
+        let err = ReleasaurusError::partial_direct_release(
             "abc123",
             "main",
             &["v1.0.0", "pkg-b-v2.0.0"],
             "pkg-b-v2.0.0",
             &cause,
         );
-        assert!(matches!(
-            err,
-            ReleasaurusError::PartialOneShotRelease { .. }
-        ));
+        assert!(matches!(err, ReleasaurusError::PartialDirectRelease { .. }));
 
         let err =
             ReleasaurusError::release_not_published("v1.0.0", "abc123", &cause);

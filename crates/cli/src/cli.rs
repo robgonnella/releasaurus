@@ -616,16 +616,16 @@ pub enum Command {
         dry_run: bool,
     },
 
-    /// Performs a "one shot" release where commit analysis, version bump,
-    /// tagging, and releasing occurs all at once with no PR involved
-    OneShot {
+    /// Releases directly to the base branch with no PR: commit analysis,
+    /// version bump, tagging, and releasing all happen in a single pass
+    ReleaseDirect {
         #[command(flatten)]
         commit_modifiers: CliCommitModifiers,
 
         #[command(flatten)]
         overrides: SharedCommandOverrides,
 
-        /// Targets a specific package in config for the one shot release
+        /// Targets a specific package in config for the direct release
         #[arg(short, long)]
         package: Option<String>,
 
@@ -647,7 +647,7 @@ impl Cli {
                         commit_modifiers, ..
                     },
             } => commit_modifiers.to_owned(),
-            Command::OneShot {
+            Command::ReleaseDirect {
                 commit_modifiers, ..
             } => commit_modifiers.to_owned(),
             Command::Get { .. } => CliCommitModifiers::default(),
@@ -709,7 +709,7 @@ impl Cli {
             } => {
                 map_overrides(overrides)?;
             }
-            Command::OneShot { overrides, .. } => {
+            Command::ReleaseDirect { overrides, .. } => {
                 map_overrides(overrides)?;
             }
             Command::Get { .. } => {}
@@ -731,7 +731,7 @@ impl Cli {
             Command::Get {
                 command: GetCommand::NextRelease { overrides, .. },
             } => Some(overrides),
-            Command::OneShot { overrides, .. } => Some(overrides),
+            Command::ReleaseDirect { overrides, .. } => Some(overrides),
             Command::Get { .. } => None,
             Command::Release { .. } => None,
         };

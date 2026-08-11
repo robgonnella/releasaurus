@@ -1,7 +1,7 @@
-//! Tests for the one-shot release workflow.
+//! Tests for the `release-direct` workflow.
 //!
 //! Tests for:
-//! - one_shot method
+//! - release_direct method
 //! - Commit grouping across a monorepo vs separate_pull_requests
 //! - Guarding against a merged-but-untagged release PR
 //! - Handling empty releasable packages
@@ -78,7 +78,7 @@ fn two_packages() -> Vec<crate::config::package::PackageConfig> {
 }
 
 #[tokio::test]
-async fn one_shot_commits_tags_and_releases_a_single_package() {
+async fn release_direct_commits_tags_and_releases_a_single_package() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -123,7 +123,7 @@ async fn one_shot_commits_tags_and_releases_a_single_package() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 
     let tagged = tagged.lock().unwrap();
     assert_eq!(tagged.len(), 1);
@@ -131,7 +131,7 @@ async fn one_shot_commits_tags_and_releases_a_single_package() {
 }
 
 #[tokio::test]
-async fn one_shot_creates_one_commit_for_a_monorepo_release() {
+async fn release_direct_creates_one_commit_for_a_monorepo_release() {
     let mut mock_forge = MockForge::new();
 
     // all packages share a release branch, so the guard looks it up once
@@ -161,7 +161,7 @@ async fn one_shot_creates_one_commit_for_a_monorepo_release() {
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 
     let tagged = tagged.lock().unwrap();
     assert_eq!(tagged.len(), 2);
@@ -178,7 +178,7 @@ async fn one_shot_creates_one_commit_for_a_monorepo_release() {
 }
 
 #[tokio::test]
-async fn one_shot_creates_a_commit_per_package_when_prs_are_separate() {
+async fn release_direct_creates_a_commit_per_package_when_prs_are_separate() {
     let mut mock_forge = MockForge::new();
 
     // separate branches per package means one lookup each
@@ -221,11 +221,11 @@ async fn one_shot_creates_a_commit_per_package_when_prs_are_separate() {
         Some(config),
     );
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 }
 
 #[tokio::test]
-async fn one_shot_targets_a_specific_package() {
+async fn release_direct_targets_a_specific_package() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -258,11 +258,14 @@ async fn one_shot_targets_a_specific_package() {
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
-    orchestrator.one_shot(Some("pkg-a".into())).await.unwrap();
+    orchestrator
+        .release_direct(Some("pkg-a".into()))
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
-async fn one_shot_does_nothing_when_no_commits_since_last_tag() {
+async fn release_direct_does_nothing_when_no_commits_since_last_tag() {
     let mut mock_forge = MockForge::new();
 
     // nothing releasable means no branch worth checking
@@ -287,11 +290,11 @@ async fn one_shot_does_nothing_when_no_commits_since_last_tag() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 }
 
 #[tokio::test]
-async fn one_shot_returns_error_when_merged_pr_not_yet_released() {
+async fn release_direct_returns_error_when_merged_pr_not_yet_released() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -326,7 +329,7 @@ async fn one_shot_returns_error_when_merged_pr_not_yet_released() {
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
-    let err = orchestrator.one_shot(None).await.unwrap_err();
+    let err = orchestrator.release_direct(None).await.unwrap_err();
 
     assert!(matches!(err, ReleasaurusError::PendingRelease { .. }));
 }
@@ -334,7 +337,7 @@ async fn one_shot_returns_error_when_merged_pr_not_yet_released() {
 /// A package with a pending release but nothing new of its own must not
 /// block a package that does have commits to release.
 #[tokio::test]
-async fn one_shot_ignores_a_pending_release_on_an_unrelated_package() {
+async fn release_direct_ignores_a_pending_release_on_an_unrelated_package() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -399,11 +402,11 @@ async fn one_shot_ignores_a_pending_release_on_an_unrelated_package() {
         Some(config),
     );
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 }
 
 #[tokio::test]
-async fn one_shot_returns_error_for_invalid_package_name() {
+async fn release_direct_returns_error_for_invalid_package_name() {
     let mut mock_forge = MockForge::new();
 
     // target validation happens before the forge is consulted
@@ -413,7 +416,7 @@ async fn one_shot_returns_error_for_invalid_package_name() {
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
     let err = orchestrator
-        .one_shot(Some("nope".into()))
+        .release_direct(Some("nope".into()))
         .await
         .unwrap_err();
 
@@ -424,7 +427,7 @@ async fn one_shot_returns_error_for_invalid_package_name() {
 /// failure there is reported with what is on the base branch rather than
 /// as a bare forge error.
 #[tokio::test]
-async fn one_shot_reports_a_partial_release_when_tagging_fails() {
+async fn release_direct_reports_a_partial_release_when_tagging_fails() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -461,18 +464,15 @@ async fn one_shot_reports_a_partial_release_when_tagging_fails() {
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
-    let err = orchestrator.one_shot(None).await.unwrap_err();
+    let err = orchestrator.release_direct(None).await.unwrap_err();
 
-    assert!(matches!(
-        err,
-        ReleasaurusError::PartialOneShotRelease { .. }
-    ));
+    assert!(matches!(err, ReleasaurusError::PartialDirectRelease { .. }));
 }
 
 /// A publish failure leaves every package in the group tagged, so the
 /// state is at least consistent and the error can name all of them.
 #[tokio::test]
-async fn one_shot_reports_a_partial_release_when_publishing_fails() {
+async fn release_direct_reports_a_partial_release_when_publishing_fails() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -498,12 +498,9 @@ async fn one_shot_reports_a_partial_release_when_publishing_fails() {
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
-    let err = orchestrator.one_shot(None).await.unwrap_err();
+    let err = orchestrator.release_direct(None).await.unwrap_err();
 
-    assert!(matches!(
-        err,
-        ReleasaurusError::PartialOneShotRelease { .. }
-    ));
+    assert!(matches!(err, ReleasaurusError::PartialDirectRelease { .. }));
 
     assert_eq!(tagged.lock().unwrap().len(), 2);
 }
@@ -511,7 +508,7 @@ async fn one_shot_reports_a_partial_release_when_publishing_fails() {
 /// Tagging the whole group before publishing any of it keeps a mid-flight
 /// failure from leaving some packages tagged and others not.
 #[tokio::test]
-async fn one_shot_tags_every_package_before_publishing_any() {
+async fn release_direct_tags_every_package_before_publishing_any() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -547,7 +544,7 @@ async fn one_shot_tags_every_package_before_publishing_any() {
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 
     let order = order.lock().unwrap();
     assert_eq!(*order, vec!["tag", "tag", "release", "release"]);
@@ -612,7 +609,7 @@ fn two_rust_packages() -> Vec<crate::config::package::PackageConfig> {
 /// manifest. Building every bundle up front would hand the second commit
 /// content read before the first one landed, reverting it.
 #[tokio::test]
-async fn one_shot_separate_commits_do_not_revert_each_other() {
+async fn release_direct_separate_commits_do_not_revert_each_other() {
     let mut mock_forge = MockForge::new();
 
     mock_forge
@@ -660,7 +657,7 @@ async fn one_shot_separate_commits_do_not_revert_each_other() {
         Some(config),
     );
 
-    orchestrator.one_shot(None).await.unwrap();
+    orchestrator.release_direct(None).await.unwrap();
 
     let tree = tree.lock().unwrap();
     let workspace = tree.get("Cargo.toml").unwrap();
