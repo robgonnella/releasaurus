@@ -50,7 +50,7 @@ pub struct Commit {
 impl Commit {
     /// Parse forge commit into structured format, extracting conventional
     /// commit fields or falling back to plain message parsing.
-    pub fn parse_forge_commit(
+    pub(crate) fn parse_forge_commit(
         group_parser: &GroupParser,
         forge_commit: &ForgeCommit,
         config: &AnalyzerConfig,

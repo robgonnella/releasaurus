@@ -20,7 +20,7 @@ use releasaurus_core::{
         local::{LocalRepo, Remote},
         traits::Forge,
     },
-    resolver::resolvers::commit_modifiers::validate_sha,
+    resolver::validate_sha,
     result::{ReleasaurusError, Result},
 };
 use secrecy::SecretString;

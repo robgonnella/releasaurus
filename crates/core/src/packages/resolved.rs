@@ -37,7 +37,7 @@ pub struct ResolvedPackage {
     pub normalized_additional_paths: Vec<PathBuf>,
     pub additional_manifests: Vec<CompiledAdditionalManifest>,
     pub aggregate_prereleases: bool,
-    pub analyzer_config: AnalyzerConfig,
+    pub(crate) analyzer_config: AnalyzerConfig,
     pub versioning_config: VersioningConfig,
     pub commit_message_template: String,
     pub pr_title_template: String,

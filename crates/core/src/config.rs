@@ -5,7 +5,7 @@
 //! [`Resolver`][crate::resolver::Resolver] merges the two with forge
 //! metadata to produce the types the pipeline actually runs on:
 //! [`ResolvedConfig`][crate::resolver::ResolvedConfig]
-//! and its [`ResolvedPackage`][crate::packages::resolved::ResolvedPackage]s.
+//! and its [`ResolvedPackage`][crate::resolver::ResolvedPackage]s.
 
 pub mod changelog;
 pub mod defaults;

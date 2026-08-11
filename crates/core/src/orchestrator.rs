@@ -22,24 +22,34 @@ use crate::{
         pr_body::parse_pr_body,
     },
     packages::{
-        releasable::{ReleasablePackageGroups, SerializableReleasablePackage},
-        resolved::ResolvedPackage,
+        releasable::ReleasablePackageGroups, resolved::ResolvedPackage,
     },
     resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
 };
 
-pub mod commit_fetcher;
-pub mod package_processor;
-pub mod pr_body;
+mod commit_fetcher;
+mod package_processor;
+mod pr_body;
+
+pub use crate::{
+    analyzer::{
+        commit::{Commit, CommitPR},
+        release::Release,
+    },
+    packages::releasable::{
+        ReleasableSubPackage, SerializableReleasablePackage,
+    },
+    updater::manager::ManifestTarget,
+};
 
 /// Information about a package's current release
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CurrentRelease {
-    name: String,
-    tag: String,
-    sha: String,
-    notes: String,
+    pub name: String,
+    pub tag: String,
+    pub sha: String,
+    pub notes: String,
 }
 
 /// Builder parameters for constructing an [`Orchestrator`].

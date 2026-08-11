@@ -43,19 +43,6 @@ fn extract_section_from_dom(dom: &tl::VDom, id: &str) -> String {
     node.inner_html(parser).trim().to_string()
 }
 
-/// Extracts the inner HTML of an element with the given `id` from `body`.
-/// Returns an empty string if the element is not found or its content is
-/// empty, so callers can treat a missing section as no preserved content.
-pub fn extract_preserved_section(body: &str, id: &str) -> String {
-    let Ok(dom) = tl::parse(body, tl::ParserOptions::default()) else {
-        log::debug!(
-            "extract_preserved_section: failed to parse body for id={id}"
-        );
-        return String::new();
-    };
-    extract_section_from_dom(&dom, id)
-}
-
 /// Extracts both the header (`{html_id}-header`) and footer
 /// (`{html_id}-footer`) preserved sections from `body` in a single DOM
 /// parse. Returns `(header, footer)`; either is an empty string when the
@@ -252,31 +239,33 @@ mod tests {
         assert_eq!(normalize_html_id(""), "");
     }
 
-    // extract_preserved_section
+    // extract_preserved_header_footer
 
     #[test]
-    fn extract_preserved_section_returns_content() {
-        let html = r#"<div id="hdr">User text</div>"#;
-        assert_eq!(extract_preserved_section(html, "hdr"), "User text");
+    fn extract_preserved_header_footer_returns_both_sections() {
+        let html = r#"<div id="pkg-header">Heads up</div>
+            <div id="pkg-footer">Ship it</div>"#;
+        assert_eq!(
+            extract_preserved_header_footer(html, "pkg"),
+            ("Heads up".to_string(), "Ship it".to_string())
+        );
     }
 
     #[test]
-    fn extract_preserved_section_returns_empty_for_missing_id() {
+    fn extract_preserved_header_footer_returns_empty_for_missing_ids() {
         let html = r#"<div id="other">content</div>"#;
-        assert_eq!(extract_preserved_section(html, "hdr"), "");
+        assert_eq!(
+            extract_preserved_header_footer(html, "pkg"),
+            (String::new(), String::new())
+        );
     }
 
     #[test]
-    fn extract_preserved_section_returns_empty_for_empty_element() {
-        let html = r#"<div id="hdr"></div>"#;
-        assert_eq!(extract_preserved_section(html, "hdr"), "");
-    }
-
-    #[test]
-    fn extract_preserved_section_graceful_on_malformed_html() {
-        // Should not panic and return empty string
-        let result = extract_preserved_section("<<broken>>>", "hdr");
-        assert_eq!(result, "");
+    fn extract_preserved_header_footer_graceful_on_malformed_html() {
+        assert_eq!(
+            extract_preserved_header_footer("<<broken>>>", "pkg"),
+            (String::new(), String::new())
+        );
     }
 
     // parse_pr_body

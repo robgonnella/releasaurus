@@ -9,7 +9,6 @@ use crate::{
         package::PackageConfig,
     },
     forge::config::DEFAULT_PR_BRANCH_PREFIX,
-    packages::resolved_hash::ResolvedPackageHash,
     resolver::resolvers::{
         base_branch::resolve_base_branch,
         commit_modifiers::resolve_commit_modifiers,
@@ -19,16 +18,21 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
-pub mod resolvers;
+mod resolvers;
+
+pub use crate::packages::{
+    resolved::{CompiledAdditionalManifest, ResolvedPackage},
+    resolved_hash::ResolvedPackageHash,
+};
+pub use resolvers::commit_modifiers::validate_sha;
 
 /// Fully resolved runtime configuration for the release pipeline.
 ///
 /// Produced by [`Resolver::resolve`] from the loaded TOML config, CLI
 /// overrides, and forge metadata. Carries only what the pipeline needs
 /// at runtime — everything else is consumed during resolution and
-/// baked into the per-package
-/// [`ResolvedPackage`][crate::packages::resolved::ResolvedPackage]s
-/// held by `package_configs`.
+/// baked into the per-package [`ResolvedPackage`]s held by
+/// `package_configs`.
 pub struct ResolvedConfig {
     /// Repository name
     pub repo_name: String,

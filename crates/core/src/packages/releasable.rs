@@ -26,24 +26,6 @@ pub struct ReleasableSubPackage {
     pub manifest_targets: Vec<ManifestTarget>,
 }
 
-impl ReleasableSubPackage {
-    /// Build a `ReleasablePackage` from this sub-package, inheriting
-    /// the parent's tag and release information.
-    pub fn to_releasable(
-        &self,
-        parent: &ReleasablePackage,
-    ) -> ReleasablePackage {
-        ReleasablePackage {
-            name: self.name.clone(),
-            path: self.path.clone(),
-            release_type: self.release_type,
-            tag: parent.tag.clone(),
-            manifest_targets: self.manifest_targets.clone(),
-            ..Default::default()
-        }
-    }
-}
-
 /// Package ready for manifest updates and PR creation, with a
 /// computed next-version tag, changelog notes, and loaded manifest
 /// file content.

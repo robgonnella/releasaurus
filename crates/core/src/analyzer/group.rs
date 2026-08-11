@@ -8,7 +8,7 @@ use crate::{
 /// The changelog group a commit was assigned to, plus whether the
 /// matching parser wants the commit dropped entirely.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Parsed {
+pub(crate) struct Parsed {
     /// The value for [`Commit::group`][crate::analyzer::commit::Commit]:
     /// the group title prefixed with its `<!-- NN -->` sort tag.
     pub group: String,
@@ -26,7 +26,7 @@ impl From<&Parser> for Parsed {
 
 /// Determines which changelog category a commit belongs to by matching
 /// against conventional commit type patterns.
-pub struct GroupParser<'a> {
+pub(crate) struct GroupParser<'a> {
     named_parsers: &'a IndexMap<Group, Parser>,
     custom_parsers: &'a [Parser],
 }
