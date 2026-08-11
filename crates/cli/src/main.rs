@@ -94,7 +94,7 @@ fn get_dry_run_value(cli: &Cli) -> bool {
         Command::Release { dry_run, .. } => dry_run,
         Command::ReleasePR { dry_run, .. } => dry_run,
         Command::StartNext { dry_run, .. } => dry_run,
-        Command::OneShot { dry_run, .. } => dry_run,
+        Command::ReleaseDirect { dry_run, .. } => dry_run,
         Command::Get { .. } => false,
     }
 }
@@ -198,8 +198,8 @@ async fn main() -> Result<()> {
             orchestrator.start_next_release(packages).await?;
             Ok(())
         }
-        Command::OneShot { package, .. } => {
-            orchestrator.one_shot(package).await?;
+        Command::ReleaseDirect { package, .. } => {
+            orchestrator.release_direct(package).await?;
             Ok(())
         }
     }
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn silence_logs_returns_false_for_non_get_commands() {
         let test_cases =
-            vec!["release-pr", "release", "start-next", "one-shot"];
+            vec!["release-pr", "release", "start-next", "release-direct"];
 
         for cmd in test_cases {
             let args = [create_base_args(), vec![cmd.to_string()]].concat();

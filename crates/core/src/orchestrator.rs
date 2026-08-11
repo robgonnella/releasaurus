@@ -95,7 +95,7 @@ impl Orchestrator {
         })
     }
 
-    /// Performs a single shot analyze and release operation
+    /// Analyzes and releases directly to the base branch, with no PR
     ///
     /// Analyzes commits and, if package is releasable, bumps version in
     /// appropriate manifest files, creates release commit, tags release
@@ -104,7 +104,7 @@ impl Orchestrator {
     /// This is a deliberately separate, out-of-band flow: it neither
     /// creates nor consults release PRs, and is not meant to be combined
     /// with the `release-pr` / `release` workflow.
-    pub async fn one_shot(&self, target: Option<String>) -> Result<()> {
+    pub async fn release_direct(&self, target: Option<String>) -> Result<()> {
         self.validate_target(target.as_deref())?;
 
         let prepared = self
@@ -180,7 +180,7 @@ impl Orchestrator {
                     .tag_commit(&pkg.tag.name, &commit.sha)
                     .await
                     .map_err(|e| {
-                        self.partial_one_shot(
+                        self.partial_direct_release(
                             &commit.sha,
                             &tagged,
                             &pkg.tag.name,
@@ -202,7 +202,7 @@ impl Orchestrator {
                     .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
                     .await
                     .map_err(|e| {
-                        self.partial_one_shot(
+                        self.partial_direct_release(
                             &commit.sha,
                             &tagged,
                             &pkg.tag.name,
@@ -543,17 +543,17 @@ impl Orchestrator {
         Ok(())
     }
 
-    /// Wraps a failure that happens once the one-shot release commit is
+    /// Wraps a failure that happens once the direct release commit is
     /// already on the base branch. Unlike the PR flow there is no label
     /// or PR body recording what landed, so the error has to carry it.
-    fn partial_one_shot(
+    fn partial_direct_release(
         &self,
         sha: &str,
         tagged: &[&str],
         failed_tag: &str,
         cause: ReleasaurusError,
     ) -> ReleasaurusError {
-        ReleasaurusError::partial_one_shot_release(
+        ReleasaurusError::partial_direct_release(
             sha,
             self.config.base_branch.as_str(),
             tagged,
@@ -612,8 +612,8 @@ impl Orchestrator {
         log::info!("creating release: tag: {}, sha: {}", tag, merged_pr.sha);
 
         // The tag is on the commit by now, so a publish failure leaves the
-        // same split state one-shot reports — except here the PR keeps its
-        // pending label and re-running picks it back up.
+        // same split state `release-direct` reports — except here the PR
+        // keeps its pending label and re-running picks it back up.
         self.forge
             .create_release(&tag, &merged_pr.sha, notes.trim())
             .await
