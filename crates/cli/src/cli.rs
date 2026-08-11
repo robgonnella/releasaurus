@@ -629,6 +629,11 @@ pub enum Command {
         #[arg(short, long)]
         package: Option<String>,
 
+        /// Skip the confirmation prompt. Required when stdin is not a
+        /// terminal, such as in CI
+        #[arg(long, default_value_t = false)]
+        auto_approve: bool,
+
         /// Execute in dry-run mode
         #[arg(long, default_value_t = false)]
         dry_run: bool,

@@ -82,6 +82,31 @@ commit, and each package's tag points at that commit. Setting
 you one commit per package instead, matching how that setting splits
 release PRs.
 
+### Confirmation
+
+Because there is no PR to review and no way to finish a partially failed
+run by repeating it, `release-direct` stops and asks you to type `yes`
+before it changes anything:
+
+```
+release-direct will make changes that re-running it cannot undo.
+
+  repository: https://github.com/owner/repo
+  branch:     main
+
+It commits the version bumps and changelog to that branch, creates and
+pushes the release tag(s), and publishes the release(s) on your forge.
+No pull request is created and there is no review step.
+
+Type 'yes' to continue:
+```
+
+Pass `--auto-approve` to skip it. **CI must pass `--auto-approve`** — when
+stdin is not a terminal the command refuses to run rather than hang or
+guess, and tells you to add the flag.
+
+`--dry-run` never prompts, since it writes nothing.
+
 > **Warning:** This is a separate, out-of-band flow — it never creates a
 > release PR. Do not mix it with the `release-pr` / `release` workflow on
 > the same packages: the tag `release-direct` creates will collide with the one
