@@ -145,7 +145,7 @@ impl Parser {
         self.pattern.as_ref().is_some_and(|p| p.is_match(msg))
     }
 
-    /// The value stored on [`Commit::group`][crate::analyzer::commit::Commit],
+    /// The value stored on [`Commit::group`][crate::orchestrator::Commit],
     /// which is both the changelog heading and its sort key: the title
     /// prefixed with a `<!-- NN -->` tag built from [`Self::order`].
     ///

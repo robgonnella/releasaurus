@@ -106,32 +106,8 @@ impl Updater {
         }
     }
 
-    /// Update package version files with static dispatch.
-    ///
-    /// This method dispatches to the appropriate language-specific updater
-    /// using static dispatch, avoiding the overhead of trait objects and
-    /// enabling compiler optimizations like inlining.
-    pub fn update(
-        &self,
-        manifest: &ManifestFile,
-    ) -> Result<Option<FileChange>> {
-        match self {
-            Updater::Generic(updater) => updater.update(manifest),
-            Updater::Go(updater) => updater.update(manifest),
-            Updater::Java(updater) => updater.update(manifest),
-            Updater::Node(updater) => updater.update(manifest),
-            Updater::Php(updater) => updater.update(manifest),
-            Updater::Python(updater) => updater.update(manifest),
-            Updater::Ruby(updater) => updater.update(manifest),
-            Updater::Rust(updater) => updater.update(manifest),
-        }
-    }
-
-    /// Update every manifest of this release type in one pass.
-    ///
-    /// Preferred over [`Updater::update`] for whole-package work: an
-    /// updater whose files depend on each other only sees that
-    /// relationship here.
+    /// Update every manifest of this release type in one pass, so an
+    /// updater whose files depend on each other sees that relationship.
     pub fn update_all(
         &self,
         manifests: &[ManifestFile],

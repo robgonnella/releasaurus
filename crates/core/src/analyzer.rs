@@ -14,11 +14,11 @@ use crate::{
     result::Result,
 };
 
-pub mod commit;
-pub mod config;
-pub mod group;
+pub(crate) mod commit;
+pub(crate) mod config;
+pub(crate) mod group;
 mod helpers;
-pub mod release;
+pub(crate) mod release;
 mod version_strategy;
 
 /// Analyzes commits using conventional commit patterns to determine version

@@ -25,7 +25,7 @@
 //!         manager::{ForgeManager, ForgeOptions},
 //!         config::{RepoUrl, Scheme},
 //!     },
-//!     orchestrator::Orchestrator,
+//!     orchestrator::{Orchestrator, SerializableReleasablePackage},
 //!     resolver::Resolver,
 //! };
 //!
@@ -77,14 +77,19 @@
 //!         .forge(Rc::clone(&fm))
 //!         .build()?;
 //!
+//!     // 5. Inspect the projected releases before acting on them.
+//!     let next: Vec<SerializableReleasablePackage> =
+//!         orchestrator.get_next_releases(None).await?;
+//!     for pkg in &next {
+//!         println!("{} → {}", pkg.name, pkg.release.tag.name);
+//!     }
+//!
 //!     orchestrator.create_release_prs(None).await
 //! }
 //! ```
 //!
 //! ## Modules
 //!
-//! - [`analyzer`] — conventional commit parsing and version
-//!   calculation
 //! - [`config`] — TOML configuration types and deserialization;
 //!   [`config::overrides`] holds the runtime override types callers
 //!   supply from CLI flags
@@ -94,21 +99,20 @@
 //!   implementations (GitHub, GitLab, Gitea, Local)
 //! - [`resolver`] — merges TOML config, CLI overrides, and defaults
 //!   into a [`resolver::ResolvedConfig`] holding the resolved
-//!   [`packages::resolved::ResolvedPackage`]s
+//!   [`resolver::ResolvedPackage`]s
 //! - [`orchestrator`] — all release operations flow through
-//!   [`Orchestrator`][orchestrator::Orchestrator]
-//! - [`packages`] — package lifecycle types
-//!   (`ResolvedPackage` → `PreparedPackage` → `AnalyzedPackage` →
-//!   `ReleasablePackage` → `ReleasePRPackage`)
-//! - [`updater`] — language-specific version file updaters
+//!   [`Orchestrator`][orchestrator::Orchestrator]; commit analysis,
+//!   package lifecycle staging, and language-specific manifest
+//!   updating are internal to the pipeline, and only the types the
+//!   orchestrator hands back are re-exported there
 //!
 //! [Releasaurus]: https://releasaurus.rgon.io
 
-pub mod analyzer;
+mod analyzer;
 pub mod config;
 pub mod forge;
 pub mod orchestrator;
-pub mod packages;
+mod packages;
 pub mod resolver;
 pub mod result;
-pub mod updater;
+mod updater;

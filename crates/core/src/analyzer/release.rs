@@ -125,7 +125,6 @@ impl Serialize for Release {
 mod tests {
     use super::*;
     use semver::Version;
-    use serde_json;
 
     // Tag tests
 
