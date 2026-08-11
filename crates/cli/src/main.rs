@@ -15,13 +15,14 @@
 //! See complete documentation at <https://releasaurus.rgon.io>
 
 use clap::Parser;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Result, bail};
 use releasaurus::cli::{Cli, Command, GetCommand, get};
 use releasaurus_core::config::overrides::PackageOverrides;
 use releasaurus_core::forge::manager::{ForgeManager, ForgeOptions};
 use releasaurus_core::orchestrator::Orchestrator;
 use releasaurus_core::resolver::Resolver;
 use std::collections::HashMap;
+use std::io::{BufRead, IsTerminal, Write};
 use std::rc::Rc;
 
 const DEBUG_ENV_VAR: &str = "RELEASAURUS_DEBUG";
@@ -99,7 +100,10 @@ fn get_dry_run_value(cli: &Cli) -> bool {
     }
 }
 
-async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
+async fn create_orchestrator(
+    cli: &Cli,
+    dry_run: bool,
+) -> Result<(Orchestrator, String)> {
     let mut forge = cli.forge_args.forge().await?;
 
     let global_overrides = cli.get_global_overrides();
@@ -127,7 +131,7 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
     log::debug!("cli commit modifiers: {:#?}", commit_modifiers);
 
     let repo_name = forge_manager.repo_name();
-    let default_branch = forge_manager.default_branch();
+    let default_branch = forge_manager.default_branch().to_string();
     let release_link_base_url = forge_manager.release_link_base_url();
     let compare_link_base_url = forge_manager.compare_link_base_url();
 
@@ -142,7 +146,7 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
         )
         .release_link_base_url(release_link_base_url.clone())
         .compare_link_base_url(compare_link_base_url.clone())
-        .repo_default_branch(default_branch)
+        .repo_default_branch(default_branch.clone())
         .repo_name(repo_name)
         .toml_config(Rc::clone(&config))
         .build()?;
@@ -154,7 +158,44 @@ async fn create_orchestrator(cli: &Cli, dry_run: bool) -> Result<Orchestrator> {
         .forge(Rc::new(forge_manager))
         .build()?;
 
-    Ok(orchestrator)
+    Ok((orchestrator, default_branch))
+}
+
+/// Blocks until the user acknowledges what `release-direct` is about to
+/// do. Unlike the PR flow there is nothing to review afterwards, and a
+/// run that fails part way through cannot be finished by re-running it,
+/// so the acknowledgement has to come first.
+///
+/// Generic over its streams so it can be exercised without a terminal.
+fn confirm_release_direct<R: BufRead, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    repo: &str,
+    base_branch: &str,
+) -> Result<()> {
+    writeln!(
+        writer,
+        "release-direct will make changes that re-running it cannot undo.\n\
+         \n  \
+         repository: {repo}\n  \
+         branch:     {base_branch}\n\
+         \n\
+         It commits the version bumps and changelog to that branch, creates \
+         and pushes the release tag(s), and publishes the release(s) on your \
+         forge. No pull request is created and there is no review step.\n"
+    )?;
+
+    write!(writer, "Type 'yes' to continue: ")?;
+    writer.flush()?;
+
+    let mut answer = String::new();
+    reader.read_line(&mut answer)?;
+
+    if !answer.trim().eq_ignore_ascii_case("yes") {
+        bail!("aborted: release-direct was not confirmed");
+    }
+
+    Ok(())
 }
 
 /// Main entry point that initializes error handling, logging, and dispatches
@@ -177,7 +218,12 @@ async fn main() -> Result<()> {
 
     initialize_logger(&cli)?;
 
-    let orchestrator = create_orchestrator(&cli, dry_run).await?;
+    let (orchestrator, default_branch) =
+        create_orchestrator(&cli, dry_run).await?;
+
+    // Captured before the match takes `cli.command` by value.
+    let repo = cli.forge_args.repo.clone();
+    let base_branch = cli.base_branch.clone();
 
     // wrap all errors using ? and manually return Ok(()) to get the benefit
     // of eyre Report
@@ -198,7 +244,30 @@ async fn main() -> Result<()> {
             orchestrator.start_next_release(packages).await?;
             Ok(())
         }
-        Command::ReleaseDirect { package, .. } => {
+        Command::ReleaseDirect {
+            package,
+            auto_approve,
+            ..
+        } => {
+            // Nothing is written under dry_run, so there is nothing to
+            // acknowledge and prompting would break it in CI.
+            if !auto_approve && !dry_run {
+                if !std::io::stdin().is_terminal() {
+                    bail!(
+                        "release-direct needs confirmation but stdin is not a \
+                         terminal: pass --auto-approve to run \
+                         non-interactively"
+                    );
+                }
+
+                confirm_release_direct(
+                    &mut std::io::stdin().lock(),
+                    &mut std::io::stdout(),
+                    repo.as_deref().unwrap_or("<unknown>"),
+                    base_branch.as_deref().unwrap_or(&default_branch),
+                )?;
+            }
+
             orchestrator.release_direct(package).await?;
             Ok(())
         }
@@ -362,5 +431,76 @@ mod tests {
                 cmd
             );
         }
+    }
+
+    /// Drives `confirm_release_direct` over in-memory streams and
+    /// returns whether it accepted, plus what it printed.
+    fn confirm(input: &str, base_branch: &str) -> (bool, String) {
+        let mut reader = std::io::Cursor::new(input.as_bytes());
+        let mut writer: Vec<u8> = vec![];
+
+        let result = confirm_release_direct(
+            &mut reader,
+            &mut writer,
+            "https://github.com/owner/repo",
+            base_branch,
+        );
+
+        (result.is_ok(), String::from_utf8(writer).unwrap())
+    }
+
+    #[test]
+    fn confirm_release_direct_accepts_yes_in_any_case_or_padding() {
+        for input in ["yes\n", "YES\n", "Yes\n", "  yes  \n"] {
+            let (accepted, _) = confirm(input, "main");
+            assert!(accepted, "should have accepted {input:?}");
+        }
+    }
+
+    /// A bare `y` is deliberately not enough: the whole point is that
+    /// the acknowledgement is hard to type by reflex.
+    #[test]
+    fn confirm_release_direct_rejects_anything_else() {
+        for input in ["y\n", "no\n", "\n", "yes please\n", ""] {
+            let (accepted, _) = confirm(input, "main");
+            assert!(!accepted, "should have rejected {input:?}");
+        }
+    }
+
+    #[test]
+    fn confirm_release_direct_names_the_branch_when_one_was_given() {
+        let (_, prompt) = confirm("yes\n", "release/2.x");
+
+        assert!(prompt.contains("release/2.x"), "prompt was: {prompt}");
+        assert!(prompt.contains("https://github.com/owner/repo"));
+    }
+
+    #[test]
+    fn release_direct_defaults_to_requiring_confirmation() {
+        let args =
+            [create_base_args(), vec!["release-direct".to_string()]].concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        let Command::ReleaseDirect { auto_approve, .. } = cli.command else {
+            panic!("expected a release-direct command");
+        };
+
+        assert!(!auto_approve);
+    }
+
+    #[test]
+    fn release_direct_accepts_auto_approve() {
+        let args = [
+            create_base_args(),
+            vec!["release-direct".to_string(), "--auto-approve".to_string()],
+        ]
+        .concat();
+        let cli = Cli::try_parse_from(args).unwrap();
+
+        let Command::ReleaseDirect { auto_approve, .. } = cli.command else {
+            panic!("expected a release-direct command");
+        };
+
+        assert!(auto_approve);
     }
 }
