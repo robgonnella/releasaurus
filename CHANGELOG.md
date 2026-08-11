@@ -1,3 +1,27 @@
+# [1.1.0](https://github.com/robgonnella/releasaurus/compare/v1.0.0...v1.1.0) - 2026-08-11
+
+### 🚀 Features
+
+- adds confirmation dialog in cli for release-direct [_(4cdc4b2)_](https://github.com/robgonnella/releasaurus/commit/4cdc4b2634929ff9354e40c11c40287f5488ab14) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+- adds option to run "one-shot" release [_(9132eab)_](https://github.com/robgonnella/releasaurus/commit/9132eabbe7104b40980c6485629957016bf51e98) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+### 🐛 Bug Fixes
+
+- restricts public API exposure to only what's necessary [_(93f68c7)_](https://github.com/robgonnella/releasaurus/commit/93f68c79a9f208999352a3fc5384d328168182cf) (Rob Gonnella) ([PR 363](https://github.com/robgonnella/releasaurus/pull/363))
+
+- renames one-shot feature to release-direct [_(4a8fbf2)_](https://github.com/robgonnella/releasaurus/commit/4a8fbf2126901b9ca5c8080792d6f79bd00b2770) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+- refactors updating logic to fix workspace handling [_(ffb7118)_](https://github.com/robgonnella/releasaurus/commit/ffb711823aaf5b057bd4d2385681435166770a36) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+- makes package processor reusable [_(85c6a5b)_](https://github.com/robgonnella/releasaurus/commit/85c6a5b12d5e1286ee8c9cb58d4d682aa2add6b8) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+- guards against partial release [_(c668d18)_](https://github.com/robgonnella/releasaurus/commit/c668d185c659ebcc8ad2383f1a6fb339fc139038) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
+### 🚜 Refactor
+
+- refactors how file changes are computed [_(643f123)_](https://github.com/robgonnella/releasaurus/commit/643f123178bf13934ba4b45cc8c63796c19292cc) (Rob Gonnella) ([PR 361](https://github.com/robgonnella/releasaurus/pull/361))
+
 # [1.0.0](https://github.com/robgonnella/releasaurus/compare/v1.0.0-rc.3...v1.0.0) - 2026-07-31
 
 ### ❌ Breaking
