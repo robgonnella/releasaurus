@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-61b31a11.js";
+            window.path_to_searchindex_js = "searchindex-6e7b3a0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -375,6 +375,10 @@ derived from the last path component. Match the manifest’s <code>name</code> f
 where one exists (<code>package.json</code>, <code>Cargo.toml</code>, etc.).</li>
 <li><strong>The full path (<code>workspace_root</code> + <code>path</code>) must be unique.</strong> Two
 packages may share a <code>path</code> only if their <code>workspace_root</code> differs.</li>
+<li><strong>Sub-packages count for both rules.</strong> A sub-package name or full path
+may not repeat one used by any other package or sub-package anywhere in
+the config. Names key dependency entries in lock files, and two entries
+on one path would both write the same <code>CHANGELOG.md</code>.</li>
 </ul>
 <h2 id="grouped-releases-sub-packages"><a class="header" href="#grouped-releases-sub-packages">Grouped Releases (Sub-Packages)</a></h2>
 <p>Use <code>sub_packages</code> to release several packages under <strong>one</strong> shared tag,

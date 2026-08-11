@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-61b31a11.js";
+            window.path_to_searchindex_js = "searchindex-6e7b3a0e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -190,7 +190,8 @@ releasaurus release-pr --repo "https://github.com/owner/repo"
 # 2. Review and merge the PR in your forge's UI, then publish:
 releasaurus release --repo "https://github.com/owner/repo"
 </code></pre>
-<p><code>start-next</code> and <code>get</code> are optional helpers covered below.</p>
+<p><code>release-direct</code> replaces both steps for repos that don’t want a review PR.
+<code>start-next</code> and <code>get</code> are optional helpers covered below.</p>
 <h2 id="release-pr"><a class="header" href="#release-pr"><code>release-pr</code></a></h2>
 <p>Analyzes commits since the last release, determines the version bump
 (patch/minor/major) from conventional commits, updates version files (if
@@ -217,6 +218,65 @@ releasaurus release --repo "https://github.com/owner/repo"
 releasaurus release --package my-pkg \
   --repo "https://github.com/owner/repo"
 </code></pre>
+<h2 id="release-direct"><a class="header" href="#release-direct"><code>release-direct</code></a></h2>
+<p>Does everything <code>release-pr</code> and <code>release</code> do together, in a single pass
+and with no pull request: analyzes commits, bumps versions, writes the
+changelog, commits <strong>directly to the base branch</strong>, tags that commit, and
+publishes the release.</p>
+<pre><code class="language-bash"># All packages
+releasaurus release-direct --repo "https://github.com/owner/repo"
+
+# A single package in a monorepo
+releasaurus release-direct --package my-pkg \
+  --repo "https://github.com/owner/repo"
+</code></pre>
+<p>Use it for trunk-based or fully automated releases where a review step
+adds nothing — internal tools, nightly builds, or CI that already gates
+on the merge into the base branch. Prefer <code>release-pr</code> + <code>release</code>
+whenever you want the version bump and changelog reviewed before they
+land.</p>
+<p>In a monorepo, every package released in a run shares a single release
+commit, and each package’s tag points at that commit. Setting
+<a href="./configuration-reference.html#repository"><code>separate_pull_requests</code></a> gives
+you one commit per package instead, matching how that setting splits
+release PRs.</p>
+<h3 id="confirmation"><a class="header" href="#confirmation">Confirmation</a></h3>
+<p>Because there is no PR to review and no way to finish a partially failed
+run by repeating it, <code>release-direct</code> stops and asks you to type <code>yes</code>
+before it changes anything:</p>
+<pre><code>release-direct will make changes that re-running it cannot undo.
+
+  repository: https://github.com/owner/repo
+  branch:     main
+
+It commits the version bumps and changelog to that branch, creates and
+pushes the release tag(s), and publishes the release(s) on your forge.
+No pull request is created and there is no review step.
+
+Type 'yes' to continue:
+</code></pre>
+<p>Pass <code>--auto-approve</code> to skip it. <strong>CI must pass <code>--auto-approve</code></strong> — when
+stdin is not a terminal the command refuses to run rather than hang or
+guess, and tells you to add the flag.</p>
+<p><code>--dry-run</code> never prompts, since it writes nothing.</p>
+<blockquote>
+<p><strong>Warning:</strong> This is a separate, out-of-band flow — it never creates a
+release PR. Do not mix it with the <code>release-pr</code> / <code>release</code> workflow on
+the same packages: the tag <code>release-direct</code> creates will collide with the one
+<code>release</code> later tries to create for the merged PR. As a safety net,
+<code>release-direct</code> refuses to run if a package it is about to release still has
+a merged release PR waiting to be tagged, but it cannot detect every
+ordering.</p>
+</blockquote>
+<blockquote>
+<p><strong>Note:</strong> Like <code>start-next</code>, this commits directly to your base branch,
+so your branch protection rules must permit it. Unlike <code>release</code>, it is
+not driven by <code>auto_start_next</code> and will not trigger a follow-up
+patch bump.</p>
+</blockquote>
+<p>Supports dry-run and the <a href="#configuration-overrides">overrides</a> below. Run
+it with <code>--dry-run</code> first to see exactly what it would commit, tag, and
+publish.</p>
 <h2 id="start-next"><a class="header" href="#start-next"><code>start-next</code></a></h2>
 <p>Bumps the patch version for each previously-tagged package and commits
 the manifest changes <strong>directly to the base branch</strong> as a <code>chore</code> commit.
