@@ -22,7 +22,9 @@ use crate::{
         pr_body::parse_pr_body,
     },
     packages::{
-        releasable::ReleasablePackageGroups, resolved::ResolvedPackage,
+        releasable::ReleasablePackageGroups,
+        release_pr::{PRBundle, ReleasePRPackage},
+        resolved::ResolvedPackage,
     },
     resolver::ResolvedConfig,
     result::{ReleasaurusError, Result},
@@ -148,78 +150,7 @@ impl Orchestrator {
                 .release_pr_bundle(release_branch, &group)
                 .await?;
 
-            let created = self
-                .forge
-                .create_commit(CreateCommitRequest {
-                    target_branch: self.config.base_branch.clone(),
-                    message: bundle.commit_message,
-                    file_changes: bundle.file_changes,
-                })
-                .await?;
-
-            let Some(commit) = created else {
-                log::warn!(
-                    "release commit produced no file changes: skipping tag \
-                     and release for: {}: the version bump may already be \
-                     on '{}'",
-                    bundle
-                        .packages
-                        .iter()
-                        .map(|pkg| pkg.name.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    self.config.base_branch,
-                );
-
-                continue;
-            };
-
-            // Tag the whole group before publishing any of it. A failure
-            // part way through then leaves every package tagged rather
-            // than a mix, and nothing published.
-            let mut tagged: Vec<&str> = vec![];
-
-            for pkg in bundle.packages.iter() {
-                log::info!(
-                    "tagging commit: tag: {}, sha: {}",
-                    pkg.tag.name,
-                    commit.sha
-                );
-
-                self.forge
-                    .tag_commit(&pkg.tag.name, &commit.sha)
-                    .await
-                    .map_err(|e| {
-                        self.partial_direct_release(
-                            &commit.sha,
-                            &tagged,
-                            &pkg.tag.name,
-                            e,
-                        )
-                    })?;
-
-                tagged.push(&pkg.tag.name);
-            }
-
-            for pkg in bundle.packages.iter() {
-                log::info!(
-                    "creating release: tag: {}, sha: {}",
-                    pkg.tag.name,
-                    commit.sha
-                );
-
-                self.forge
-                    .create_release(&pkg.tag.name, &commit.sha, &pkg.notes)
-                    .await
-                    .map_err(|e| {
-                        self.partial_direct_release(
-                            &commit.sha,
-                            &tagged,
-                            &pkg.tag.name,
-                            e,
-                        )
-                    })?;
-            }
+            self.direct_release_bundle(bundle).await?;
         }
 
         Ok(())
@@ -634,6 +565,97 @@ impl Orchestrator {
                     &e,
                 )
             })?;
+
+        Ok(())
+    }
+
+    async fn direct_release_bundle(&self, bundle: PRBundle) -> Result<()> {
+        let created = self
+            .forge
+            .create_commit(CreateCommitRequest {
+                target_branch: self.config.base_branch.clone(),
+                message: bundle.commit_message,
+                file_changes: bundle.file_changes,
+            })
+            .await?;
+
+        let Some(commit) = created else {
+            log::warn!(
+                "release commit produced no file changes: skipping tag \
+                 and release for: {}: the version bump may already be \
+                 on '{}'",
+                bundle
+                    .packages
+                    .iter()
+                    .map(|pkg| pkg.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                self.config.base_branch,
+            );
+
+            return Ok(());
+        };
+
+        self.tag_and_release_all_packages_in_bundle(
+            &bundle.packages,
+            &commit.sha,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn tag_and_release_all_packages_in_bundle(
+        &self,
+        packages: &[ReleasePRPackage],
+        commit_sha: &str,
+    ) -> Result<()> {
+        // Tag the whole group before publishing any of it. A failure
+        // part way through then leaves every package tagged rather
+        // than a mix, and nothing published.
+        let mut tagged: Vec<&str> = vec![];
+
+        for pkg in packages.iter() {
+            log::info!(
+                "tagging commit: tag: {}, sha: {}",
+                pkg.tag.name,
+                commit_sha
+            );
+
+            self.forge
+                .tag_commit(&pkg.tag.name, commit_sha)
+                .await
+                .map_err(|e| {
+                    self.partial_direct_release(
+                        commit_sha,
+                        &tagged,
+                        &pkg.tag.name,
+                        e,
+                    )
+                })?;
+
+            tagged.push(&pkg.tag.name);
+        }
+
+        for pkg in packages.iter() {
+            log::info!(
+                "creating release: tag: {}, sha: {}",
+                pkg.tag.name,
+                commit_sha
+            );
+
+            self.forge
+                .create_release(&pkg.tag.name, commit_sha, &pkg.notes)
+                .await
+                .map_err(|e| {
+                    self.partial_direct_release(
+                        commit_sha,
+                        &tagged,
+                        &pkg.tag.name,
+                        e,
+                    )
+                })?;
+        }
 
         Ok(())
     }
