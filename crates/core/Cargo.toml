@@ -15,12 +15,12 @@ exclude = ["src/bin/gen_schema.rs"]
 ignored = ["serde_regex"]
 
 [dependencies]
-async-trait = "0.1.91"
-base64 = "0.23.0"
+async-trait = "0.1.92"
+base64 = "0.23.1"
 chrono = "0.4.45"
 color-eyre.workspace = true
 derive_builder = "0.20.2"
-futures-util = "0.3.33"
+futures-util = "0.3.34"
 git-conventional = "1.1.0"
 git2 = { version = "0.21.0", default-features = false, features = [
     "https",
@@ -47,7 +47,7 @@ serde_json.workspace = true
 serde_regex.workspace = true
 strum = { version = "0.28.0", features = ["derive"] }
 tera = "1.20.1"
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 tl = "0.7.8"
 tokio.workspace = true
 toml = "1.1.4"
