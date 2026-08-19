@@ -13,9 +13,8 @@ use std::cmp;
 use url::Url;
 
 use crate::{
-    config::{
-        Config, DEFAULT_CONFIG_FILE,
-        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
+    config::repository::{
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
     },
     forge::{
         config::{
@@ -287,33 +286,6 @@ impl Forge for Gitea {
         let result = response.error_for_status()?;
         let content = result.text().await?;
         Ok(Some(content))
-    }
-
-    async fn load_config(
-        &self,
-        branch: Option<String>,
-        config_path: Option<String>,
-    ) -> Result<Config> {
-        let is_custom = config_path.is_some();
-        let path =
-            config_path.unwrap_or_else(|| DEFAULT_CONFIG_FILE.to_string());
-        if let Some(content) = self
-            .get_file_content(GetFileContentRequest {
-                branch,
-                path: path.clone(),
-            })
-            .await?
-        {
-            let config: Config = toml::from_str(&content)?;
-
-            Ok(config)
-        } else if is_custom {
-            Err(ReleasaurusError::invalid_config(format!(
-                "configuration file not found at: {path}"
-            )))
-        } else {
-            Ok(Config::default())
-        }
     }
 
     async fn get_release_by_tag(

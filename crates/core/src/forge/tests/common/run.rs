@@ -3,7 +3,6 @@ use tokio::time::{Duration, sleep};
 use url::Url;
 
 use crate::{
-    config::Config,
     forge::{
         config::{PENDING_LABEL, RepoUrl, Scheme},
         manager::ForgeManager,
@@ -446,56 +445,6 @@ pub async fn run_forge_test(
         .await
         .unwrap();
     assert!(!exists);
-
-    ////////////////////////////////////////////////////////////////////////////
-    // load_config -> Default::default()
-    ////////////////////////////////////////////////////////////////////////////
-    log::info!("loading non-existent config file");
-    let config = forge.load_config(None, None).await.unwrap();
-    assert_eq!(
-        config.packages[0].workspace_root,
-        Config::default().packages[0].workspace_root
-    );
-    assert_eq!(config.packages[0].path, Config::default().packages[0].path);
-
-    ////////////////////////////////////////////////////////////////////////////
-    // load_config -> Found config
-    ////////////////////////////////////////////////////////////////////////////
-    log::info!("creating commit to add releasaurus config file");
-    let releasaurus_toml_content = r#"
-[[package]]
-name = "test-package"
-workspace_root = "packages"
-path = "test-package"
-    "#;
-
-    let create_commit_req = CreateCommitRequest {
-        target_branch: default_branch.to_string(),
-        message: "chore: adds releasaurus.toml".into(),
-        file_changes: vec![FileChange {
-            content: releasaurus_toml_content.to_string(),
-            path: "releasaurus.toml".to_string(),
-            update_type: FileUpdateType::Replace,
-        }],
-    };
-
-    log::info!("loading newly created releasaurus config file");
-    let created_commit = forge
-        .create_commit(create_commit_req)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(!created_commit.sha.is_empty());
-    sleep(SHORT_WAIT).await;
-
-    let config = forge
-        .load_config(Some(default_branch.to_string()), None)
-        .await
-        .unwrap();
-
-    assert_eq!(config.packages[0].name, "test-package");
-    assert_eq!(config.packages[0].workspace_root, "packages");
-    assert_eq!(config.packages[0].path, "test-package");
 
     ////////////////////////////////////////////////////////////////////////////
     // get_commits(sha) -> exactly the one commit made after the tag

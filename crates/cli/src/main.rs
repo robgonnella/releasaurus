@@ -18,6 +18,7 @@ use clap::Parser;
 use color_eyre::eyre::{Result, bail};
 use releasaurus::cli::{Cli, Command, GetCommand, get};
 use releasaurus_core::config::overrides::PackageOverrides;
+use releasaurus_core::forge::config_loader::load_config;
 use releasaurus_core::forge::manager::{ForgeManager, ForgeOptions};
 use releasaurus_core::orchestrator::Orchestrator;
 use releasaurus_core::resolver::Resolver;
@@ -110,25 +111,28 @@ async fn create_orchestrator(
     let package_overrides = cli.get_package_overrides()?;
     let commit_modifiers = cli.get_commit_modifiers();
 
+    log::debug!("cli global overrides: {:#?}", global_overrides);
+    log::debug!("cli package overrides: {:#?}", package_overrides);
+    log::debug!("cli commit modifiers: {:#?}", commit_modifiers);
+
+    let config_path = cli
+        .config
+        .as_deref()
+        .map(|p| p.to_string_lossy().into_owned());
+
     let config = Rc::new(
-        forge
-            .load_config(
-                global_overrides.base_branch.clone(),
-                cli.config
-                    .as_deref()
-                    .map(|p| p.to_string_lossy().into_owned()),
-            )
-            .await?,
+        load_config(
+            &*forge,
+            global_overrides.base_branch.as_deref(),
+            config_path.as_deref(),
+        )
+        .await?,
     );
 
     forge.set_commit_search_depth(config.repository.first_release_search_depth);
     forge.set_tag_search_depth(config.repository.tag_search_depth);
 
     let forge_manager = ForgeManager::new(forge, ForgeOptions { dry_run });
-
-    log::debug!("cli global overrides: {:#?}", global_overrides);
-    log::debug!("cli package overrides: {:#?}", package_overrides);
-    log::debug!("cli commit modifiers: {:#?}", commit_modifiers);
 
     let repo_name = forge_manager.repo_name();
     let default_branch = forge_manager.default_branch().to_string();
