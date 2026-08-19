@@ -447,6 +447,34 @@ pub async fn run_forge_test(
     assert!(!exists);
 
     ////////////////////////////////////////////////////////////////////////////
+    // create new commit on default branch
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("creating commit to add releasaurus config file");
+    let releasaurus_toml_content = r#"
+[[package]]
+name = "test-package"
+workspace_root = "packages"
+path = "test-package"
+    "#;
+
+    let create_commit_req = CreateCommitRequest {
+        target_branch: default_branch.to_string(),
+        message: "chore: adds releasaurus.toml".into(),
+        file_changes: vec![FileChange {
+            content: releasaurus_toml_content.to_string(),
+            path: "releasaurus.toml".to_string(),
+            update_type: FileUpdateType::Replace,
+        }],
+    };
+    let created_commit = forge
+        .create_commit(create_commit_req)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!created_commit.sha.is_empty());
+    sleep(SHORT_WAIT).await;
+
+    ////////////////////////////////////////////////////////////////////////////
     // get_commits(sha) -> exactly the one commit made after the tag
     //
     // This exercises the SHA-based history walk used by the orchestrator.
