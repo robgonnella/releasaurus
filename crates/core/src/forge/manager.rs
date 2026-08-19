@@ -241,18 +241,24 @@ impl ForgeManager {
         &self,
         req: CreateReleaseBranchRequest,
     ) -> Result<Option<Commit>> {
-        if self.options.dry_run {
-            log::warn!("dry_run: would create release branch: req: {:?}", req);
-            return Ok(Some(Commit {
-                sha: DRY_RUN_SHA.into(),
-            }));
-        }
-
         let resolved_file_changes = self.resolve_file_changes(&req).await?;
 
         if resolved_file_changes.is_empty() {
             log::warn!("no changes to commit");
             return Ok(None);
+        }
+
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would create release branch {} from {} \
+                 with changes: {}",
+                req.release_branch,
+                req.base_branch,
+                summarize_file_changes(&resolved_file_changes)
+            );
+            return Ok(Some(Commit {
+                sha: DRY_RUN_SHA.into(),
+            }));
         }
 
         log::info!(
@@ -289,18 +295,22 @@ impl ForgeManager {
         &self,
         req: CreateCommitRequest,
     ) -> Result<Option<Commit>> {
-        if self.options.dry_run {
-            log::warn!("dry_run: would create commit: req: {:?}", req);
-            return Ok(Some(Commit {
-                sha: DRY_RUN_SHA.into(),
-            }));
-        }
-
         let resolved_file_changes = self.resolve_file_changes(&req).await?;
 
         if resolved_file_changes.is_empty() {
             log::warn!("no changes to commit");
             return Ok(None);
+        }
+
+        if self.options.dry_run {
+            log::warn!(
+                "dry_run: would commit to {} with changes: {}",
+                req.target_branch,
+                summarize_file_changes(&resolved_file_changes)
+            );
+            return Ok(Some(Commit {
+                sha: DRY_RUN_SHA.into(),
+            }));
         }
 
         log::info!(
@@ -526,6 +536,23 @@ impl ForgeManager {
 
         Ok(entries)
     }
+}
+
+/// Renders resolved changes for `dry_run` output. Content bodies are
+/// summarized by length: a prepend carries the whole existing file.
+fn summarize_file_changes(changes: &[ResolvedFileChange]) -> String {
+    changes
+        .iter()
+        .map(|c| {
+            format!(
+                "{} ({:?}, {} bytes)",
+                c.repo_path,
+                c.action,
+                c.full_content.len()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[async_trait]
@@ -780,7 +807,9 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_create_release_branch() {
-        let mock_forge = MockForge::new();
+        let mut mock_forge = MockForge::new();
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
         let manager = ForgeManager::new(
             Box::new(mock_forge),
@@ -791,7 +820,11 @@ mod tests {
             base_branch: "main".into(),
             release_branch: "release-branch".into(),
             message: "chore: release".into(),
-            file_changes: vec![],
+            file_changes: vec![FileChange {
+                path: "CHANGELOG.md".into(),
+                content: "notes".into(),
+                update_type: FileUpdateType::Prepend,
+            }],
         };
 
         let result = manager.create_release_branch(req).await.unwrap().unwrap();
@@ -801,7 +834,9 @@ mod tests {
 
     #[tokio::test]
     async fn dry_run_prevents_create_commit() {
-        let mock_forge = MockForge::new();
+        let mut mock_forge = MockForge::new();
+
+        mock_forge.expect_get_file_content().returning(|_| Ok(None));
 
         let manager = ForgeManager::new(
             Box::new(mock_forge),
@@ -821,6 +856,24 @@ mod tests {
         let result = manager.create_commit(req).await.unwrap().unwrap();
 
         assert_eq!(result.sha, DRY_RUN_SHA);
+    }
+
+    /// The empty check runs ahead of the `dry_run` short circuit, so a
+    /// dry run reports "nothing to commit" instead of a placeholder sha.
+    #[tokio::test]
+    async fn dry_run_returns_none_when_nothing_changed() {
+        let mut mock = MockForge::new();
+
+        mock.expect_get_file_content()
+            .returning(|_| Ok(Some("1.2.3".into())));
+        mock.expect_create_commit().times(0);
+
+        let manager =
+            ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: true });
+
+        let req = commit_req("version.txt", "1.2.3", FileUpdateType::Replace);
+
+        assert!(manager.create_commit(req).await.unwrap().is_none());
     }
 
     /// A manager whose forge answers every content lookup with `existing`.
