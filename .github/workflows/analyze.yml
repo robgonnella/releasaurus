@@ -55,10 +55,26 @@ jobs:
           cache_policy: pull
       - name: lint
         run: cargo clippy --all-targets --all-features -- -D warnings
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache_policy: pull
       - name: check
         env:
           RUSTFLAGS: "-D unnameable_types"
         run: cargo check --workspace --all-features
+
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache_policy: pull
       - name: doc
         env:
           RUSTDOCFLAGS: "-D warnings"
