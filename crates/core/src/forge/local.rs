@@ -15,9 +15,8 @@ use tokio::{fs, sync::Mutex};
 use url::Url;
 
 use crate::{
-    config::{
-        Config, DEFAULT_CONFIG_FILE,
-        repository::{DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH},
+    config::repository::{
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
     },
     forge::{
         config::RepoUrl,
@@ -374,33 +373,6 @@ impl Forge for LocalRepo {
         }
         let content = fs::read_to_string(full_path).await?;
         Ok(Some(content))
-    }
-
-    async fn load_config(
-        &self,
-        branch: Option<String>,
-        config_path: Option<String>,
-    ) -> Result<Config> {
-        let is_custom = config_path.is_some();
-        let path =
-            config_path.unwrap_or_else(|| DEFAULT_CONFIG_FILE.to_string());
-        if let Some(content) = self
-            .get_file_content(GetFileContentRequest {
-                branch,
-                path: path.clone(),
-            })
-            .await?
-        {
-            let config: Config = toml::from_str(&content)?;
-            Ok(config)
-        } else if is_custom {
-            Err(ReleasaurusError::invalid_config(format!(
-                "configuration file not found at: {path}"
-            )))
-        } else {
-            log::info!("repository configuration not found: using default");
-            Ok(Config::default())
-        }
     }
 
     async fn get_release_by_tag(
@@ -1095,119 +1067,6 @@ mod tests {
         assert!(
             result.is_err(),
             "should error when there is nothing to commit"
-        );
-    }
-
-    /// `load_config` with a custom config path reads that file
-    /// instead of the default `releasaurus.toml`.
-    #[tokio::test]
-    async fn load_config_custom_path() {
-        let dir = TempDir::new().unwrap();
-        let repo = git2::Repository::init(dir.path()).unwrap();
-        configure_git_user(&repo);
-        add_commit(&repo, "initial commit");
-
-        let custom_toml = dir.path().join("my-config.toml");
-        std::fs::write(
-            &custom_toml,
-            r#"
-[repository]
-base_branch = "develop"
-first_release_search_depth = 50
-tag_search_depth = 10
-"#,
-        )
-        .unwrap();
-
-        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let config = forge
-            .load_config(None, Some("my-config.toml".to_string()))
-            .await
-            .unwrap();
-
-        assert_eq!(config.repository.base_branch, Some("develop".to_string()));
-        assert_eq!(config.repository.first_release_search_depth, 50);
-        assert_eq!(config.repository.tag_search_depth, 10);
-    }
-
-    /// `load_config` with no config path reads the default
-    /// `releasaurus.toml` file.
-    #[tokio::test]
-    async fn load_config_default_path() {
-        let dir = TempDir::new().unwrap();
-        let repo = git2::Repository::init(dir.path()).unwrap();
-        configure_git_user(&repo);
-        add_commit(&repo, "initial commit");
-
-        let default_toml = dir.path().join("releasaurus.toml");
-        std::fs::write(
-            &default_toml,
-            r#"
-[repository]
-base_branch = "develop"
-first_release_search_depth = 50
-tag_search_depth = 10
-"#,
-        )
-        .unwrap();
-
-        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let config = forge.load_config(None, None).await.unwrap();
-
-        assert_eq!(config.repository.base_branch, Some("develop".to_string()));
-        assert_eq!(config.repository.first_release_search_depth, 50);
-        assert_eq!(config.repository.tag_search_depth, 10);
-    }
-
-    /// `load_config` with a non-existent custom path returns an error.
-    #[tokio::test]
-    async fn load_config_errors_when_custom_path_not_found() {
-        let dir = TempDir::new().unwrap();
-        let repo = git2::Repository::init(dir.path()).unwrap();
-        configure_git_user(&repo);
-        add_commit(&repo, "initial commit");
-
-        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let err = forge
-            .load_config(None, Some("nonexistent.toml".to_string()))
-            .await
-            .unwrap_err();
-
-        assert!(matches!(err, ReleasaurusError::InvalidConfig(_)));
-        assert!(
-            err.to_string()
-                .contains("configuration file not found at: nonexistent.toml")
-        );
-    }
-
-    /// `load_config` without a custom path and no default config file
-    /// returns the default config.
-    #[tokio::test]
-    async fn load_config_returns_default_when_no_custom() {
-        let dir = TempDir::new().unwrap();
-        let repo = git2::Repository::init(dir.path()).unwrap();
-        configure_git_user(&repo);
-        add_commit(&repo, "initial commit");
-
-        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
-        let config = forge.load_config(None, None).await.unwrap();
-
-        let default = Config::default();
-        assert_eq!(
-            config.repository.base_branch,
-            default.repository.base_branch
-        );
-        assert_eq!(
-            config.repository.first_release_search_depth,
-            default.repository.first_release_search_depth
-        );
-        assert_eq!(
-            config.repository.tag_search_depth,
-            default.repository.tag_search_depth
-        );
-        assert_eq!(
-            config.repository.separate_pull_requests,
-            default.repository.separate_pull_requests
         );
     }
 

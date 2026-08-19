@@ -699,6 +699,7 @@ mod tests {
         ];
 
         let (config, package) = create_test_package("pkg-a", "packages/pkg-a");
+
         let core = create_test_commit_fetcher(config);
 
         let filtered =

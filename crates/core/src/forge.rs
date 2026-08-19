@@ -5,9 +5,12 @@
 //! [`azure_devops`], [`local`].
 //! [`manager::ForgeManager`] wraps any `Forge` with caching,
 //! logging, and dry-run support.
+//! [`config_loader`] reads `releasaurus.toml` from a repository
+//! before the manager is built.
 
 pub mod azure_devops;
 pub mod config;
+pub mod config_loader;
 pub mod forgejo;
 pub mod gitea;
 pub mod github;

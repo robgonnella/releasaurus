@@ -17,6 +17,7 @@ use url::Url;
 use crate::{
     config::overrides::{CommitModifiers, GlobalOverrides},
     forge::{
+        config_loader::load_config,
         local::LocalRepo,
         manager::{ForgeManager, ForgeOptions},
         request::FileChange,
@@ -70,13 +71,16 @@ impl Scenario {
         let branch = repo.head().unwrap().shorthand().unwrap().to_string();
 
         let local = LocalRepo::new(dir.path(), None).await?;
+
+        // Read before wrapping, as the real entry point does: the config
+        // is what configures the forge, so it cannot come from the manager.
+        let toml_config = load_config(&local, Some(&branch), None).await?;
+        let packages = toml_config.packages.clone();
+
         let forge = Rc::new(ForgeManager::new(
             Box::new(local),
             ForgeOptions { dry_run: false },
         ));
-
-        let toml_config = forge.load_config(Some(branch.clone()), None).await?;
-        let packages = toml_config.packages.clone();
 
         let resolver = Resolver::builder()
             .toml_config(Rc::new(toml_config))

@@ -8,7 +8,6 @@ use secrecy::{ExposeSecret, SecretString};
 use url::Url;
 
 use crate::{
-    config::Config,
     forge::{
         config::{RepoUrl, TokenVar, USER_AGENT, resolve_token},
         forgejo::types::{
@@ -124,14 +123,6 @@ impl Forge for Forgejo {
         req: GetFileContentRequest,
     ) -> Result<Option<String>> {
         self.gitea.get_file_content(req).await
-    }
-
-    async fn load_config(
-        &self,
-        branch: Option<String>,
-        config_path: Option<String>,
-    ) -> Result<Config> {
-        self.gitea.load_config(branch, config_path).await
     }
 
     async fn get_release_by_tag(

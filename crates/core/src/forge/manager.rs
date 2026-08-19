@@ -4,7 +4,6 @@ use std::sync::OnceLock;
 use url::Url;
 
 use crate::{
-    config::Config,
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
@@ -88,26 +87,6 @@ impl ForgeManager {
 
         if let Err(e) = &result {
             log::error!("Failed to load file: {}", e);
-        }
-
-        result
-    }
-
-    pub async fn load_config(
-        &self,
-        branch: Option<String>,
-        config_path: Option<String>,
-    ) -> Result<Config> {
-        log::info!(
-            "Loading configuration from forge (branch: {:?}, config: {:?})",
-            branch,
-            config_path
-        );
-
-        let result = self.forge.load_config(branch, config_path).await;
-
-        if let Err(e) = &result {
-            log::error!("Failed to load configuration: {}", e);
         }
 
         result
@@ -586,6 +565,7 @@ mod tests {
     #[tokio::test]
     async fn get_latest_tag_returns_none_when_no_tags() {
         let mock = mock_returning_tags(vec![]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -620,6 +600,7 @@ mod tests {
             make_tag("v", "2.0.0"),
             make_tag("v", "1.5.0"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -641,6 +622,7 @@ mod tests {
             make_tag("v", "1.0.0-rc.1"),
             make_tag("v", "1.0.0"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -661,6 +643,7 @@ mod tests {
             make_tag("v", "2.0.0-beta.1"),
             make_tag("v", "2.0.0-alpha.1"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -681,6 +664,7 @@ mod tests {
             make_tag("v", "2.0.0-alpha.1"),
             make_tag("v", "2.0.0-beta.1"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -696,6 +680,7 @@ mod tests {
     #[tokio::test]
     async fn get_latest_stable_release_tag_returns_none_when_no_tags() {
         let mock = mock_returning_tags(vec![]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -714,6 +699,7 @@ mod tests {
             make_tag("v", "1.0.0-rc.1"),
             make_tag("v", "1.0.0-rc.2"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
@@ -736,6 +722,7 @@ mod tests {
             make_tag("v", "2.0.0"),
             make_tag("v", "0.9.0"),
         ]);
+
         let manager =
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 

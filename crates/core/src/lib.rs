@@ -21,6 +21,7 @@
 //! use releasaurus_core::{
 //!     config::overrides::{CommitModifiers, GlobalOverrides},
 //!     forge::{
+//!         config_loader::load_config,
 //!         github::Github,
 //!         manager::{ForgeManager, ForgeOptions},
 //!         config::{RepoUrl, Scheme},
@@ -42,16 +43,21 @@
 //!     };
 //!
 //!     // 1. Build a forge client.
-//!     let forge = Github::new(url, None).await?;
-//!     let forge_manager = ForgeManager::new(
-//!         Box::new(forge),
-//!         ForgeOptions { dry_run: false },
-//!     );
+//!     let mut forge: Box<dyn releasaurus_core::forge::traits::Forge> =
+//!         Box::new(Github::new(url, None).await?);
 //!
-//!     // 2. Load releasaurus.toml from the repository.
-//!     let config = Rc::new(
-//!         forge_manager.load_config(None, None).await?,
+//!     // 2. Load releasaurus.toml from the repository. This has to happen
+//!     //    before the manager is built: it carries the search depths the
+//!     //    forge is configured with.
+//!     let config = Rc::new(load_config(&*forge, None, None).await?);
+//!
+//!     forge.set_commit_search_depth(
+//!         config.repository.first_release_search_depth,
 //!     );
+//!     forge.set_tag_search_depth(config.repository.tag_search_depth);
+//!
+//!     let forge_manager =
+//!         ForgeManager::new(forge, ForgeOptions { dry_run: false });
 //!
 //!     // 3. Resolve packages and build config.
 //!     let resolved_config = Resolver::builder()
@@ -96,7 +102,9 @@
 //! - [`result`] — [`ReleasaurusError`][result::ReleasaurusError]
 //!   and [`Result`][result::Result]
 //! - [`forge`] — [`Forge`][forge::traits::Forge] trait and platform
-//!   implementations (GitHub, GitLab, Gitea, Local)
+//!   implementations (GitHub, GitLab, Gitea, Local);
+//!   [`forge::config_loader`] reads `releasaurus.toml` from the
+//!   repository before the manager is built
 //! - [`resolver`] — merges TOML config, CLI overrides, and defaults
 //!   into a [`resolver::ResolvedConfig`] holding the resolved
 //!   [`resolver::ResolvedPackage`]s
