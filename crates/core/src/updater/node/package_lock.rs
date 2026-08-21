@@ -58,10 +58,8 @@ impl PackageLock {
                                     name.to_string() == ws_package.name
                                 })
                             {
-                                *dep_info = json!(format!(
-                                    "{}",
-                                    ws_package.tag.semver.to_string()
-                                ));
+                                *dep_info =
+                                    json!(ws_package.tag.semver.to_string());
                             }
                         }
                     }
@@ -76,10 +74,8 @@ impl PackageLock {
                                     name.to_string() == ws_package.name
                                 })
                             {
-                                *dep_info = json!(format!(
-                                    "{}",
-                                    ws_package.tag.semver.to_string()
-                                ));
+                                *dep_info =
+                                    json!(ws_package.tag.semver.to_string());
                             }
                         }
                     }

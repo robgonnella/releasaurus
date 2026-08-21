@@ -17,16 +17,12 @@ run *args:
 fmt:
     cargo fmt
 
-# Fails on public API types downstream crates cannot name
-check:
-    RUSTFLAGS="-D unnameable_types" cargo check --workspace --all-features
-
 # Fails on broken intra-doc links
 doc:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 
 # Lints all rust code
-lint: && check doc
+lint: && doc
     cargo clippy --all-targets --all-features -- -D warnings
 
 gen-schema:

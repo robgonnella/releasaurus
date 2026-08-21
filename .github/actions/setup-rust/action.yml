@@ -1,19 +1,12 @@
 name: "Rust Setup"
 description: "Sets up rust for an environment"
 inputs:
-  targets:
-    description: "Rust targets to install"
+  cache-shared-key:
+    description: Key for cache sharing
     required: false
     default: ""
-  components:
-    description: "Additional components to install"
-    required: false
-    default: ""
-  include_llvm_cov:
-    description: Whether or not to also install cargo-llvm-cov
-    required: false
-    default: "false"
-  cache_policy:
+    type: string
+  cache-policy:
     description: How caching should behave
     required: true
     default: pull-push
@@ -26,35 +19,27 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: dtolnay/rust-toolchain@1.92.0
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        targets: ${{ inputs.targets }}
-        components: ${{ inputs.components }}
-    - name: Restore Cargo Cache
-      uses: actions/cache/restore@v4
-      if: ${{ inputs.cache_policy == 'pull' }}
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-    - name: Cache Cargo
-      uses: actions/cache@v4
-      if: ${{ inputs.cache_policy == 'pull-push' }}
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-    - uses: taiki-e/install-action@cargo-llvm-cov
-      if: ${{ inputs.include_llvm_cov == 'true' }}
+        cache: ${{ inputs.cache-policy != 'disable' }}
+        cache-save-if: ${{ inputs.cache-policy == 'pull-push' }}
+        cache-shared-key: ${{ inputs.cache-shared-key }}
+    - name: install cargo-binstall
+      shell: bash
+      run: |
+        if ! cargo binstall --version >/dev/null 2>&1; then
+          curl -L --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+        fi
+    - name: Install cargo machete
+      shell: bash
+      run: |
+        if ! cargo machete --version >/dev/null 2<&1; then
+          cargo binstall --no-confirm --force cargo-machete
+        fi
+    - name: Install cross
+      shell: bash
+      run: |
+        if ! cross --version >/dev/null 2>&1; then
+          cargo binstall --no-confirm --force cross
+        fi

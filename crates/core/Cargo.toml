@@ -2,6 +2,7 @@
 name = "releasaurus-core"
 version = "1.1.0"
 edition.workspace = true
+rust-version = "1.91.1"
 description.workspace = true
 readme = "README.md"
 homepage.workspace = true
@@ -64,3 +65,8 @@ wiremock = "0.6"
 [features]
 default = []
 _integration_tests = []
+
+# releasaurus-core is the only crate published as a library, so it is the only
+# one where "downstream crates cannot name this type" is a meaningful finding.
+[lints.rust]
+unnameable_types = "deny"
