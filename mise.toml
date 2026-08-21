@@ -2,9 +2,11 @@
 _.file = ".env"
 
 [tools]
-rust = "1.92.0"
-rust-analyzer = "2026-07-13"
 just = "1.49.0"
+
+# rust automatically configured from rust-toolchain.toml
+[settings]
+idiomatic_version_file_enable_tools = ["rust"]
 
 [hooks]
 postinstall = """

@@ -16,7 +16,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test
         run: |
           cargo test
@@ -29,7 +30,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test github
         env:
           GITHUB_TEST_REPO: ${{ vars.GH_TEST_REPO }}
@@ -46,7 +48,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test gitlab
         env:
           GITLAB_TEST_REPO: ${{ vars.GL_TEST_REPO }}
@@ -63,7 +66,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test gitea
         env:
           GITEA_TEST_REPO: ${{ vars.GT_TEST_REPO }}
@@ -80,7 +84,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test forgejo
         env:
           FORGEJO_TEST_REPO: ${{ vars.FJ_TEST_REPO }}
@@ -97,7 +102,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
-          cache_policy: pull-push
+          cache-shared-key: test
+          cache-policy: pull-push
       - name: test azure-devops
         env:
           AZURE_DEVOPS_TEST_REPO: ${{ vars.AZDO_TEST_REPO }}

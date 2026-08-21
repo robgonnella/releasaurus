@@ -509,7 +509,7 @@ impl Orchestrator {
         &self,
         groups: &ReleasablePackageGroups,
     ) -> Result<()> {
-        for (release_branch, _) in groups.iter() {
+        for release_branch in groups.keys() {
             if let Some(pending) = self
                 .forge
                 .get_merged_release_pr(GetPrRequest {
