@@ -1,0 +1,4 @@
+[[package]]
+name = "api"
+path = "charts/api"
+release_type = "helm"
