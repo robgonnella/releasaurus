@@ -38,12 +38,12 @@ use crate::{
             resolve_token,
         },
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
-            PrMetadataBlock, PullRequest, ReleaseByTagResponse,
-            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
-            ResolvedFileChange, ResolvedFileChangeAction, Tag, TagResponse,
-            UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PrMetadataBlock, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, ResolvedFileChange,
+            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -993,15 +993,11 @@ impl Forge for AzureDevops {
         Ok(())
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        _sha: &str,
-        _notes: &str,
-    ) -> Result<()> {
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
         log::info!(
-            "azure devops has no native release object — skipping release publish for tag {tag}; \
-             changelog commit and tag have already been pushed"
+            "azure devops has no native release object — skipping release publish for tag {}; \
+             changelog commit and tag have already been pushed",
+            req.tag
         );
         Ok(())
     }

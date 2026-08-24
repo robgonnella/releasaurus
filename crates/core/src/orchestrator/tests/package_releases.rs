@@ -42,10 +42,12 @@ async fn create_package_release_parses_metadata_from_pr_body() {
     mock_forge
         .expect_create_release()
         .times(1)
-        .withf(|tag, sha, notes| {
-            tag == "v1.2.3" && sha == "abc123" && notes == "Release notes here"
+        .withf(|req| {
+            req.tag == "v1.2.3"
+                && req.sha == "abc123"
+                && req.notes == "Release notes here"
         })
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     // Then create orchestrator with the mock
     let orchestrator = create_test_orchestrator(mock_forge);
@@ -134,8 +136,8 @@ async fn create_package_release_matches_correct_package_by_name() {
     mock_forge
         .expect_create_release()
         .times(1)
-        .withf(|_, _, notes| notes == "Correct notes")
-        .returning(|_, _, _| Ok(()));
+        .withf(|req| req.notes == "Correct notes")
+        .returning(|_| Ok(()));
 
     let orchestrator = create_test_orchestrator(mock_forge);
 
@@ -176,8 +178,8 @@ async fn create_package_release_trims_notes() {
     mock_forge
         .expect_create_release()
         .times(1)
-        .withf(|_, _, notes| notes == "Release notes")
-        .returning(|_, _, _| Ok(()));
+        .withf(|req| req.notes == "Release notes")
+        .returning(|_| Ok(()));
 
     let orchestrator = create_test_orchestrator(mock_forge);
 

@@ -9,10 +9,11 @@ use mockall::automock;
 use crate::{
     forge::request::{
         Commit, CreateCommitRequest, CreatePrRequest,
-        CreateReleaseBranchRequest, FileChange, ForgeCommit, ForgeCommitPR,
-        GetFileContentRequest, GetPrRequest, PrLabelsRequest, PrMetadataBlock,
-        PullRequest, ReleaseByTagResponse, ResolvedCreateCommitRequest,
-        ResolvedCreateReleaseBranchRequest, Tag, TagResponse, UpdatePrRequest,
+        CreateReleaseBranchRequest, CreateReleaseRequest, FileChange,
+        ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+        PrLabelsRequest, PrMetadataBlock, PullRequest, ReleaseByTagResponse,
+        ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest, Tag,
+        TagResponse, UpdatePrRequest,
     },
     result::Result,
 };
@@ -104,12 +105,7 @@ pub trait Forge: Any + Send + Sync {
     /// Replace all labels on a pull request with the provided set.
     async fn replace_pr_labels(&self, req: PrLabelsRequest) -> Result<()>;
     /// Publish a release on the forge platform with notes and tag reference.
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()>;
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()>;
     /// Encode metadata JSON for embedding in the PR body.
     ///
     /// The default writes metadata as an HTML comment inside the div. Forges

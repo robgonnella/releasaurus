@@ -13,8 +13,12 @@ use std::{
 
 use crate::{
     config::{
-        Config, package::PackageConfigBuilder, release_type::ReleaseType,
+        Config,
+        package::PackageConfigBuilder,
+        prerelease::{PrereleaseConfig, PrereleaseStrategy},
+        release_type::ReleaseType,
         repository::RepositoryConfig,
+        versioning::VersioningConfig,
     },
     forge::{
         request::{Commit, ForgeCommitBuilder, PullRequest, Tag},
@@ -113,7 +117,7 @@ async fn release_direct_commits_tags_and_releases_a_single_package() {
     mock_forge
         .expect_create_release()
         .times(1)
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     // no PR machinery should be touched by this flow
     mock_forge.expect_get_open_release_pr().times(0);
@@ -156,7 +160,7 @@ async fn release_direct_creates_one_commit_for_a_monorepo_release() {
     mock_forge
         .expect_create_release()
         .times(2)
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
@@ -205,7 +209,7 @@ async fn release_direct_creates_a_commit_per_package_when_prs_are_separate() {
     mock_forge
         .expect_create_release()
         .times(2)
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     let config = Config {
         repository: RepositoryConfig {
@@ -251,9 +255,9 @@ async fn release_direct_targets_a_specific_package() {
 
     mock_forge
         .expect_create_release()
-        .withf(|tag, _, _| tag.contains("pkg-a"))
+        .withf(|req| req.tag.contains("pkg-a"))
         .times(1)
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
@@ -386,7 +390,7 @@ async fn release_direct_ignores_a_pending_release_on_an_unrelated_package() {
     mock_forge
         .expect_create_release()
         .times(1)
-        .returning(|_, _, _| Ok(()));
+        .returning(|_| Ok(()));
 
     let config = Config {
         repository: RepositoryConfig {
@@ -493,7 +497,7 @@ async fn release_direct_reports_a_partial_release_when_publishing_fails() {
 
     mock_forge
         .expect_create_release()
-        .returning(|_, _, _| Err(ReleasaurusError::forge("409 conflict")));
+        .returning(|_| Err(ReleasaurusError::forge("409 conflict")));
 
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
@@ -534,12 +538,10 @@ async fn release_direct_tags_every_package_before_publishing_any() {
     });
 
     let sink = Arc::clone(&order);
-    mock_forge
-        .expect_create_release()
-        .returning(move |_, _, _| {
-            sink.lock().unwrap().push("release".to_string());
-            Ok(())
-        });
+    mock_forge.expect_create_release().returning(move |_| {
+        sink.lock().unwrap().push("release".to_string());
+        Ok(())
+    });
 
     let orchestrator =
         create_test_orchestrator_with_config(mock_forge, two_packages(), None);
@@ -619,9 +621,7 @@ async fn release_direct_separate_commits_do_not_revert_each_other() {
     expect_two_package_history(&mut mock_forge);
 
     mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
-    mock_forge
-        .expect_create_release()
-        .returning(|_, _, _| Ok(()));
+    mock_forge.expect_create_release().returning(|_| Ok(()));
 
     let tree = expect_committing_tree(
         &mut mock_forge,
@@ -671,4 +671,128 @@ async fn release_direct_separate_commits_do_not_revert_each_other() {
         workspace.contains("pkg-b = \"0.1.0\""),
         "pkg-b's bump was reverted by pkg-a's commit: {workspace}"
     );
+}
+
+// The direct flow still holds the computed `Tag`, so the prerelease flag
+// comes straight off the parsed semver rather than the tag string.
+
+#[tokio::test]
+async fn release_direct_marks_a_prerelease_version_as_a_prerelease() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_latest_tags_for_prefix()
+        .returning(|_, _, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0".to_string(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "old-sha".to_string(),
+                ..Default::default()
+            }])
+        });
+
+    mock_forge.expect_get_commits().returning(|_, _| {
+        Ok(vec![
+            ForgeCommitBuilder::default()
+                .id("abc123")
+                .message("feat: a new feature")
+                .files(vec!["dummy.txt".into()])
+                .build()
+                .unwrap(),
+        ])
+    });
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    mock_forge.expect_create_commit().times(1).returning(|_| {
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .withf(|req| req.tag == "v1.1.0-rc.1" && req.prerelease)
+        .returning(|_| Ok(()));
+
+    let versioning = VersioningConfig {
+        prerelease: Some(PrereleaseConfig {
+            suffix: "rc".to_string(),
+            strategy: PrereleaseStrategy::Versioned,
+        }),
+        ..Default::default()
+    };
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        vec![
+            PackageConfigBuilder::default()
+                .name(TEST_PKG_NAME)
+                .path(".")
+                .versioning(versioning)
+                .build()
+                .unwrap(),
+        ],
+        None,
+    );
+
+    orchestrator.release_direct(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn release_direct_does_not_mark_a_stable_version_as_a_prerelease() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+
+    mock_forge
+        .expect_get_latest_tags_for_prefix()
+        .returning(|_, _, _| {
+            Ok(vec![Tag {
+                name: "v1.0.0".to_string(),
+                semver: semver::Version::parse("1.0.0").unwrap(),
+                sha: "old-sha".to_string(),
+                ..Default::default()
+            }])
+        });
+
+    mock_forge.expect_get_commits().returning(|_, _| {
+        Ok(vec![
+            ForgeCommitBuilder::default()
+                .id("abc123")
+                .message("feat: a new feature")
+                .files(vec!["dummy.txt".into()])
+                .build()
+                .unwrap(),
+        ])
+    });
+
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    mock_forge.expect_create_commit().times(1).returning(|_| {
+        Ok(Commit {
+            sha: "release-sha".to_string(),
+        })
+    });
+
+    mock_forge.expect_tag_commit().returning(|_, _| Ok(()));
+
+    mock_forge
+        .expect_create_release()
+        .times(1)
+        .withf(|req| req.tag == "v1.1.0" && !req.prerelease)
+        .returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator(mock_forge);
+
+    orchestrator.release_direct(None).await.unwrap();
 }

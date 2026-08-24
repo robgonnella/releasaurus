@@ -29,11 +29,11 @@ use crate::{
             UpdatePullLabels,
         },
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, ResolvedCreateCommitRequest,
-            ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            TagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -871,19 +871,14 @@ impl Forge for Gitea {
         Ok(())
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()> {
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
         let data = CreateRelease {
-            tag_name: tag.to_string(),
-            target_commitish: sha.to_string(),
-            name: tag.to_string(),
-            body: notes.to_string(),
+            tag_name: req.tag.clone(),
+            target_commitish: req.sha,
+            name: req.tag,
+            body: req.notes,
             draft: false,
-            prerelease: false,
+            prerelease: req.prerelease,
         };
 
         let releases_url = self.base_url.join("releases")?;

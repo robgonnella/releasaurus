@@ -21,11 +21,11 @@ use crate::{
     forge::{
         config::RepoUrl,
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, ResolvedCreateCommitRequest,
-            ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
-            TagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChange, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -735,17 +735,17 @@ impl Forge for LocalRepo {
         }
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()> {
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
         if let Some(remote) = self.remote.as_ref() {
-            remote.forge.create_release(tag, sha, notes).await
+            remote.forge.create_release(req).await
         } else {
             log::warn!(
-                "local_mode: would create release: tag: {tag}, sha: {sha}, notes: {notes}"
+                "local_mode: would create release: tag: {}, sha: {}, \
+                 prerelease: {}, notes: {}",
+                req.tag,
+                req.sha,
+                req.prerelease,
+                req.notes
             );
             Ok(())
         }

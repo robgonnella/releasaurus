@@ -8,8 +8,8 @@ use crate::{
         manager::ForgeManager,
         request::{
             CreateCommitRequest, CreatePrRequest, CreateReleaseBranchRequest,
-            FileChange, FileUpdateType, GetFileContentRequest, GetPrRequest,
-            PrLabelsRequest,
+            CreateReleaseRequest, FileChange, FileUpdateType,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
         },
         tests::common::traits::ForgeTestHelper,
     },
@@ -403,10 +403,13 @@ pub async fn run_forge_test(
     // create_release -> succeeds
     ////////////////////////////////////////////////////////////////////////////
     log::info!("creating release for tag");
-    forge
-        .create_release(&current_tag.name, &current_tag.sha, "release notes")
-        .await
-        .unwrap();
+    let release_req = CreateReleaseRequest {
+        tag: current_tag.name.clone(),
+        sha: current_tag.sha.clone(),
+        notes: "release notes".into(),
+        prerelease: !current_tag.semver.pre.is_empty(),
+    };
+    forge.create_release(release_req).await.unwrap();
     sleep(SHORT_WAIT).await;
 
     if helper.supports_native_releases() {

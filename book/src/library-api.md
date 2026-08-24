@@ -90,7 +90,7 @@ use releasaurus_core::{
         request::Tag,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit,
+            CreateReleaseBranchRequest, CreateReleaseRequest, ForgeCommit,
             GetFileContentRequest, GetPrRequest, PrLabelsRequest,
             PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
@@ -143,7 +143,7 @@ impl Forge for MyForge {
     #     -> Result<()> { todo!() }
     # async fn replace_pr_labels(&self, _: PrLabelsRequest)
     #     -> Result<()> { todo!() }
-    # async fn create_release(&self, _: &str, _: &str, _: &str)
+    # async fn create_release(&self, _: CreateReleaseRequest)
     #     -> Result<()> { todo!() }
 }
 ```
