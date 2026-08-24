@@ -59,11 +59,11 @@ use crate::{
             },
         },
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, ResolvedCreateCommitRequest,
-            ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            TagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -781,19 +781,16 @@ impl Forge for Gitlab {
         Ok(())
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()> {
-        // Create the release
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
+        // `req.prerelease` is ignored: the GitLab releases API has no
+        // prerelease flag. Upcoming/historical releases are expressed
+        // through `released_at`, which is a different concept.
         let endpoint = CreateRelease::builder()
             .project(&self.project_id)
-            .tag_name(tag)
-            .name(tag)
-            .description(notes)
-            .ref_sha(sha)
+            .tag_name(&req.tag)
+            .name(&req.tag)
+            .description(&req.notes)
+            .ref_sha(&req.sha)
             .build()?;
 
         // Execute the creation using ignore since we don't need the response

@@ -76,6 +76,17 @@ pub struct PrLabelsRequest {
     pub labels: Vec<String>,
 }
 
+/// Request to publish a release on the forge.
+#[derive(Debug)]
+pub struct CreateReleaseRequest {
+    pub tag: String,
+    pub sha: String,
+    pub notes: String,
+    /// Marks the release as a prerelease on forges that support it.
+    /// Derived from the version's semver pre-release field, not config.
+    pub prerelease: bool,
+}
+
 /// How to apply file content changes during branch creation.
 #[derive(Debug, Copy, Clone, Serialize, PartialEq)]
 pub enum FileUpdateType {

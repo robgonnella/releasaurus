@@ -37,11 +37,11 @@ use crate::{
             },
         },
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, ResolvedCreateCommitRequest,
-            ResolvedCreateReleaseBranchRequest, ResolvedFileChange, Tag,
-            TagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChange, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -919,21 +919,16 @@ impl Forge for Github {
         Ok(())
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()> {
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
         self.instance
             .repos(&self.url.owner, &self.url.name)
             .releases()
-            .create(tag)
-            .name(tag)
-            .body(notes)
-            .target_commitish(sha)
+            .create(&req.tag)
+            .name(&req.tag)
+            .body(&req.notes)
+            .target_commitish(&req.sha)
             .draft(false)
-            .prerelease(false)
+            .prerelease(req.prerelease)
             .send()
             .await?;
 

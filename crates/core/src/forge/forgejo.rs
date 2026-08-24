@@ -16,11 +16,11 @@ use crate::{
         },
         gitea::Gitea,
         request::{
-            Commit, CreatePrRequest, ForgeCommit, ForgeCommitPR,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, ResolvedCreateCommitRequest,
-            ResolvedCreateReleaseBranchRequest, ResolvedFileChangeAction, Tag,
-            TagResponse, UpdatePrRequest,
+            Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
+            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
+            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -287,12 +287,7 @@ impl Forge for Forgejo {
         self.gitea.replace_pr_labels(req).await
     }
 
-    async fn create_release(
-        &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
-    ) -> Result<()> {
-        self.gitea.create_release(tag, sha, notes).await
+    async fn create_release(&self, req: CreateReleaseRequest) -> Result<()> {
+        self.gitea.create_release(req).await
     }
 }

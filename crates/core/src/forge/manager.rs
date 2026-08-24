@@ -7,8 +7,8 @@ use crate::{
     forge::{
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, FileUpdateType, ForgeCommit,
-            ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            CreateReleaseBranchRequest, CreateReleaseRequest, FileUpdateType,
+            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
             PrLabelsRequest, PrMetadataBlock, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChange,
@@ -435,20 +435,31 @@ impl ForgeManager {
 
     pub async fn create_release(
         &self,
-        tag: &str,
-        sha: &str,
-        notes: &str,
+        req: CreateReleaseRequest,
     ) -> Result<()> {
         if self.options.dry_run {
             log::warn!(
-                "dry_run: would create release: tag: {tag}, sha: {sha}, notes {notes}"
+                "dry_run: would create release: tag: {}, sha: {}, \
+                 prerelease: {}, notes {}",
+                req.tag,
+                req.sha,
+                req.prerelease,
+                req.notes
             );
             return Ok(());
         }
 
-        log::info!("Creating release: tag={}, sha={}", tag, sha);
+        log::info!(
+            "Creating release: tag={}, sha={}, prerelease={}",
+            req.tag,
+            req.sha,
+            req.prerelease
+        );
 
-        let result = self.forge.create_release(tag, sha, notes).await;
+        // Retained for the post-publish log lines: the request is moved
+        // into the forge call.
+        let tag = req.tag.clone();
+        let result = self.forge.create_release(req).await;
 
         match &result {
             Ok(_) => log::info!("Successfully created release: {}", tag),
@@ -1097,7 +1108,12 @@ mod tests {
         );
 
         manager
-            .create_release("v1.0.0", "abc123", "Release notes")
+            .create_release(CreateReleaseRequest {
+                tag: "v1.0.0".into(),
+                sha: "abc123".into(),
+                notes: "Release notes".into(),
+                prerelease: false,
+            })
             .await
             .unwrap();
     }

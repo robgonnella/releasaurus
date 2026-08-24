@@ -13,8 +13,9 @@ use crate::{
         config::{PENDING_LABEL, TAGGED_LABEL},
         manager::ForgeManager,
         request::{
-            CreateCommitRequest, GetPrRequest, PrLabelsRequest, PullRequest,
-            ReleaseByTagResponse, UpdatePrRequest,
+            CreateCommitRequest, CreateReleaseRequest, GetPrRequest,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            UpdatePrRequest,
         },
     },
     orchestrator::{
@@ -555,8 +556,22 @@ impl Orchestrator {
         // The tag is on the commit by now, so a publish failure leaves the
         // same split state `release-direct` reports — except here the PR
         // keeps its pending label and re-running picks it back up.
+
+        // Only the tag name survives in the merged PR body, so the
+        // prerelease flag is recovered from it. An unparseable tag falls
+        // back to a normal release rather than guessing.
+        let prerelease = tag
+            .strip_prefix(&package.tag_prefix)
+            .and_then(|v| semver::Version::parse(v).ok())
+            .is_some_and(|v| !v.pre.is_empty());
+
         self.forge
-            .create_release(&tag, &merged_pr.sha, notes.trim())
+            .create_release(CreateReleaseRequest {
+                tag: tag.clone(),
+                sha: merged_pr.sha.clone(),
+                notes: notes.trim().to_string(),
+                prerelease,
+            })
             .await
             .map_err(|e| {
                 ReleasaurusError::release_not_published(
@@ -645,7 +660,12 @@ impl Orchestrator {
             );
 
             self.forge
-                .create_release(&pkg.tag.name, commit_sha, &pkg.notes)
+                .create_release(CreateReleaseRequest {
+                    tag: pkg.tag.name.clone(),
+                    sha: commit_sha.to_string(),
+                    notes: pkg.notes.clone(),
+                    prerelease: !pkg.tag.semver.pre.is_empty(),
+                })
                 .await
                 .map_err(|e| {
                     self.partial_direct_release(
