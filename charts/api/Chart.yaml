@@ -3,7 +3,7 @@ apiVersion: v2
 name: api
 description: The API service
 type: application
-version: 1.2.3        # chart version
+version: 0.1.0        # chart version
 appVersion: "4.5.6"   # app lives in another repo
 dependencies:
   - name: redis
