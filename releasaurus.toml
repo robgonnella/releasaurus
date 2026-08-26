@@ -13,9 +13,9 @@ ci.skip = true
 chore.skip = true
 miscellaneous.skip = false
 
-[defaults.versioning.prerelease]
-strategy = "versioned"
-suffix = "rc"
+# [defaults.versioning.prerelease]
+# strategy = "versioned"
+# suffix = "rc"
 
 [[package]]
 name = "workspace"
