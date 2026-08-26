@@ -23,11 +23,23 @@ pub struct RewordedCommit {
     pub message: String,
 }
 
+/// Git user config for creating commits
+#[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GitUserConfig {
+    /// Display name recorded on the commit
+    pub name: String,
+    /// Email address recorded on the commit
+    pub email: String,
+}
+
 /// Repository configuration (applies to all packages)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Builder)]
 #[builder(setter(into, strip_option), default)]
 #[serde(default, deny_unknown_fields)] // Use default for missing fields
 pub struct RepositoryConfig {
+    /// Git user config for creating commits
+    pub git_user: Option<GitUserConfig>,
     /// The base branch to target for release PRs, tagging, and releases
     /// defaults to default_branch for repository
     pub base_branch: Option<String>,
@@ -52,6 +64,7 @@ pub struct RepositoryConfig {
 impl Default for RepositoryConfig {
     fn default() -> Self {
         Self {
+            git_user: None,
             base_branch: None,
             first_release_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,

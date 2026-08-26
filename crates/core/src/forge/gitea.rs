@@ -14,7 +14,7 @@ use url::Url;
 
 use crate::{
     config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
     },
     forge::{
         config::{
@@ -23,10 +23,10 @@ use crate::{
         },
         gitea::types::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitPR,
-            GiteaCommitQueryObject, GiteaCreatedCommit, GiteaFileChange,
-            GiteaFileChangeOperation, GiteaIssue, GiteaLabel, GiteaModifyFiles,
-            GiteaPullRequest, GiteaRelease, GiteaTag, UpdatePullBody,
-            UpdatePullLabels,
+            GiteaCommitQueryObject, GiteaCommitter, GiteaCreatedCommit,
+            GiteaFileChange, GiteaFileChangeOperation, GiteaIssue, GiteaLabel,
+            GiteaModifyFiles, GiteaPullRequest, GiteaRelease, GiteaTag,
+            UpdatePullBody, UpdatePullLabels,
         },
         request::{
             Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
@@ -48,6 +48,7 @@ pub struct Gitea {
     url: RepoUrl,
     commit_search_depth: usize,
     tag_search_depth: usize,
+    git_user: Option<GitUserConfig>,
     base_url: Url,
     client: Client,
     default_branch: String,
@@ -125,6 +126,7 @@ impl Gitea {
             url,
             commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
             client,
             base_url,
             release_link_base_url,
@@ -266,6 +268,10 @@ impl Forge for Gitea {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.git_user = user;
     }
 
     async fn get_file_content(
@@ -550,12 +556,18 @@ impl Forge for Gitea {
             })
         }
 
+        let committer = self.git_user.as_ref().map(|user| GiteaCommitter {
+            name: user.name.clone(),
+            email: user.email.clone(),
+        });
+
         let body = GiteaModifyFiles {
             branch: req.base_branch,
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
             force_push: Some(true),
+            committer,
         };
 
         let contents_url = self.base_url.join("contents")?;
@@ -594,12 +606,18 @@ impl Forge for Gitea {
             })
         }
 
+        let committer = self.git_user.as_ref().map(|user| GiteaCommitter {
+            name: user.name.clone(),
+            email: user.email.clone(),
+        });
+
         let body = GiteaModifyFiles {
             new_branch: None,
             branch: req.target_branch,
             message: req.message,
             files: file_changes,
             force_push: None,
+            committer,
         };
 
         let contents_url = self.base_url.join("contents")?;

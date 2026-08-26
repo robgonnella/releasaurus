@@ -16,7 +16,7 @@ use url::Url;
 
 use crate::{
     config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
     },
     forge::{
         config::RepoUrl,
@@ -60,6 +60,7 @@ pub struct LocalRepo {
     remote: Option<Remote>,
     commit_search_depth: usize,
     tag_search_depth: usize,
+    git_user: Option<GitUserConfig>,
     // only used in testing
     push_targets_disabled: bool,
 }
@@ -126,6 +127,7 @@ impl LocalRepo {
             remote,
             commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
             push_targets_disabled: false,
         })
     }
@@ -227,15 +229,24 @@ impl LocalRepo {
 
         // If the list of statuses is empty, there are no changes to be committed
         if !statuses.is_empty() {
-            let config = repo.config()?.snapshot()?;
-            let user = config.get_str("user.name")?;
-            let email = config.get_str("user.email")?;
-            log::debug!("using committer: user: {user}, email: {email}");
+            let (name, email) = match self.git_user.as_ref() {
+                Some(user) => (user.name.clone(), user.email.clone()),
+                None => {
+                    // snapshot owns the strings get_str borrows from, so copy
+                    // them out before it drops
+                    let config = repo.config()?.snapshot()?;
+                    (
+                        config.get_str("user.name")?.to_string(),
+                        config.get_str("user.email")?.to_string(),
+                    )
+                }
+            };
+            log::debug!("using committer: user: {name}, email: {email}");
             let mut index = repo.index()?;
             let oid = index.write_tree()?;
             let tree = repo.find_tree(oid)?;
             let parent_commit = repo.head()?.peel_to_commit()?;
-            let committer = git2::Signature::now(user, email)?;
+            let committer = git2::Signature::now(&name, &email)?;
             let oid = repo.commit(
                 Some("HEAD"),
                 &committer,
@@ -361,6 +372,10 @@ impl Forge for LocalRepo {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.git_user = user;
     }
 
     async fn get_file_content(
@@ -965,6 +980,41 @@ mod tests {
         let written =
             std::fs::read_to_string(dir.path().join("version.txt")).unwrap();
         assert_eq!(written, "1.2.3");
+    }
+
+    /// A configured `git_user` overrides the repository's own git config
+    /// for both the author and the committer of the commit.
+    #[tokio::test]
+    async fn local_commit_uses_configured_git_user() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        configure_git_user(&repo);
+        add_commit(&repo, "initial commit");
+
+        let mut forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        forge.set_git_user(Some(GitUserConfig {
+            name: "Releasaurus Bot".into(),
+            email: "bot@releasaurus.io".into(),
+        }));
+
+        let change = ResolvedFileChange {
+            repo_path: "version.txt".to_string(),
+            full_content: "1.2.3".to_string(),
+            action: ResolvedFileChangeAction::Create,
+        };
+
+        forge
+            .local_commit("chore: bump version", &[change])
+            .await
+            .unwrap();
+
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let commit = repo.head().unwrap().peel_to_commit().unwrap();
+
+        assert_eq!(commit.author().name().unwrap(), "Releasaurus Bot");
+        assert_eq!(commit.author().email().unwrap(), "bot@releasaurus.io");
+        assert_eq!(commit.committer().name().unwrap(), "Releasaurus Bot");
+        assert_eq!(commit.committer().email().unwrap(), "bot@releasaurus.io");
     }
 
     #[tokio::test]

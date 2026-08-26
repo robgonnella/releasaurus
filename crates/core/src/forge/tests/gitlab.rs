@@ -1,12 +1,16 @@
 use secrecy::SecretString;
 use std::env;
 
-use crate::forge::{
-    gitlab::Gitlab,
-    manager::{ForgeManager, ForgeOptions},
-    tests::common::{
-        gitlab::GitlabForgeTestHelper,
-        run::{parse_repo_url, run_forge_test},
+use crate::{
+    config::repository::GitUserConfig,
+    forge::{
+        gitlab::Gitlab,
+        manager::{ForgeManager, ForgeOptions},
+        tests::common::{
+            gitlab::GitlabForgeTestHelper,
+            run::{parse_repo_url, run_forge_test},
+        },
+        traits::Forge,
     },
 };
 
@@ -29,9 +33,14 @@ async fn test_gitlab_forge() {
     let helper =
         GitlabForgeTestHelper::new(&repo, &token_str, &reset_sha).await;
 
-    let gitlab_forge = Gitlab::new(repo, Some(token_secret))
+    let mut gitlab_forge = Gitlab::new(repo, Some(token_secret))
         .await
         .expect("failed to create Gitlab forge");
+
+    gitlab_forge.set_git_user(Some(GitUserConfig {
+        name: "Test User".into(),
+        email: "test@releasaurus.io".into(),
+    }));
 
     let manager = ForgeManager::new(
         Box::new(gitlab_forge),

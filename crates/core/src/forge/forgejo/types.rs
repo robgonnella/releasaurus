@@ -18,6 +18,12 @@ pub struct ForgejoFileChange {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ForgejoCommitter {
+    pub name: String,
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct ForgejoModifyFiles {
     pub branch: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,6 +32,8 @@ pub struct ForgejoModifyFiles {
     pub files: Vec<ForgejoFileChange>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_overwrite_new_branch: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub committer: Option<ForgejoCommitter>,
 }
 
 #[derive(Debug, Deserialize)]

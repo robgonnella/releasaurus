@@ -126,6 +126,15 @@ pub struct Change {
     pub new_content: Option<NewContent>,
 }
 
+/// Author or committer information attached to an Azure DevOps commit.
+#[derive(Debug, Serialize)]
+pub struct AzureCommitter {
+    /// Display name of the user.
+    pub name: String,
+    /// Email address of the user.
+    pub email: String,
+}
+
 /// A commit to be created as part of a push operation.
 #[derive(Debug, Serialize)]
 pub struct PushCommit {
@@ -133,6 +142,9 @@ pub struct PushCommit {
     pub comment: String,
     /// File changes included in this commit.
     pub changes: Vec<Change>,
+    /// The author of the commit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<AzureCommitter>,
 }
 
 /// Request body for the Azure DevOps Git Push API.

@@ -8,6 +8,7 @@
       "description": "Repository configuration",
       "$ref": "#/$defs/RepositoryConfig",
       "default": {
+        "git_user": null,
         "base_branch": null,
         "first_release_search_depth": 400,
         "tag_search_depth": 100,
@@ -58,6 +59,18 @@
       "description": "Repository configuration (applies to all packages)",
       "type": "object",
       "properties": {
+        "git_user": {
+          "description": "Git user config for creating commits",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitUserConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "base_branch": {
           "description": "The base branch to target for release PRs, tagging, and releases\ndefaults to default_branch for repository",
           "type": [
@@ -103,6 +116,25 @@
         }
       },
       "additionalProperties": false
+    },
+    "GitUserConfig": {
+      "description": "Git user config for creating commits",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Display name recorded on the commit",
+          "type": "string"
+        },
+        "email": {
+          "description": "Email address recorded on the commit",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "email"
+      ]
     },
     "RewordedCommit": {
       "description": "Rewords messages in changelog for targeted commit shas",

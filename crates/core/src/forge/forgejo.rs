@@ -8,10 +8,11 @@ use secrecy::{ExposeSecret, SecretString};
 use url::Url;
 
 use crate::{
+    config::repository::GitUserConfig,
     forge::{
         config::{RepoUrl, TokenVar, USER_AGENT, resolve_token},
         forgejo::types::{
-            ForgejoCreatedCommit, ForgejoFileChange,
+            ForgejoCommitter, ForgejoCreatedCommit, ForgejoFileChange,
             ForgejoFileChangeOperation, ForgejoModifyFiles,
         },
         gitea::Gitea,
@@ -33,6 +34,7 @@ pub struct Forgejo {
     gitea: Gitea,
     base_url: Url,
     client: Client,
+    git_user: Option<GitUserConfig>,
 }
 
 impl Forgejo {
@@ -88,6 +90,7 @@ impl Forgejo {
             client,
             base_url,
             gitea,
+            git_user: None,
         })
     }
 }
@@ -116,6 +119,11 @@ impl Forge for Forgejo {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.gitea.set_tag_search_depth(depth)
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.gitea.set_git_user(user.clone());
+        self.git_user = user;
     }
 
     async fn get_file_content(
@@ -181,12 +189,18 @@ impl Forge for Forgejo {
             })
         }
 
+        let committer = self.git_user.as_ref().map(|user| ForgejoCommitter {
+            name: user.name.clone(),
+            email: user.email.clone(),
+        });
+
         let body = ForgejoModifyFiles {
             branch: req.base_branch,
             new_branch: Some(req.release_branch),
             message: req.message,
             files: file_changes,
             force_overwrite_new_branch: Some(true),
+            committer,
         };
 
         let contents_url = self.base_url.join("contents")?;
@@ -236,12 +250,18 @@ impl Forge for Forgejo {
             })
         }
 
+        let committer = self.git_user.as_ref().map(|user| ForgejoCommitter {
+            name: user.name.clone(),
+            email: user.email.clone(),
+        });
+
         let body = ForgejoModifyFiles {
             new_branch: None,
             branch: req.target_branch,
             message: req.message,
             files: file_changes,
             force_overwrite_new_branch: None,
+            committer,
         };
 
         let contents_url = self.base_url.join("contents")?;

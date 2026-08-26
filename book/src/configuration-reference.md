@@ -18,6 +18,7 @@ Repository-wide settings:
 
 | Key                          | Type     | Default      | Description                                                                                                  |
 | ---------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `git_user`                   | object   | none         | Git user info to use when creating commits. Consists of `name` and `email`.                                  |
 | `base_branch`                | string   | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                                   |
 | `first_release_search_depth` | integer  | `400`        | Commits to analyze for the **first** release (when no matching tag exists).                                  |
 | `tag_search_depth`           | integer  | `100`        | Max tags fetched when searching for a previous release. `0` = all tags.                                      |
@@ -31,6 +32,7 @@ a SHA already listed in config takes precedence over the config entry.
 
 ```toml
 [repository]
+git_user = { name = "My User", email = "myuser@email.com" }
 base_branch = "main"
 tag_search_depth = 100
 separate_pull_requests = false
@@ -81,8 +83,8 @@ table (see [`[[package]]`](#package)).
 | `auto_start_next`                 | bool   | `false`             | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
 | `breaking_always_increment_major` | bool   | `true`              | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
 | `features_always_increment_minor` | bool   | `true`              | `feat:` commits bump minor.                                                                                                                           |
-| `custom_major_increment_regex`    | string | none                | Additional regex marking a commit breaking: bumps major **and** groups it under `❌ Breaking`.                                                         |
-| `custom_minor_increment_regex`    | string | none                | Additional regex that triggers a minor bump. No grouping effect.                                                                                       |
+| `custom_major_increment_regex`    | string | none                | Additional regex marking a commit breaking: bumps major **and** groups it under `❌ Breaking`.                                                        |
+| `custom_minor_increment_regex`    | string | none                | Additional regex that triggers a minor bump. No grouping effect.                                                                                      |
 | `skip_merge_commits`              | bool   | `true`              | Exclude merge commits.                                                                                                                                |
 | `named_parsers`                   | table  | built-in groups     | Override built-in commit groups (`pattern`/`title`/`order`/`skip` per group). See [Changelog Customization](./changelog.md#commit-groups--filtering). |
 | `custom_parser`                   | array  | none                | Define additional commit groups, checked before the defaults. Note the singular key. `pattern`, `title` and `order` are all required.                 |
@@ -165,12 +167,12 @@ built-in position to fall back on.
 Controls how the included commits are rendered. See
 [Changelog Customization](./changelog.md) for the template and variables.
 
-| Key                     | Type   | Default           | Description                                                                                            |
-| ----------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------ |
-| `include_author`        | bool   | `false`           | Include commit author names.                                                                           |
-| `include_pr_link`       | bool   | `false`           | Link the pull request that introduced each commit. Costs extra API requests — see below.                |
-| `aggregate_prereleases` | bool   | `false`           | On graduation, fold prior prerelease notes into the stable release.                                    |
-| `body`                  | string | standard template | Tera template for the changelog body.                                                                  |
+| Key                     | Type   | Default           | Description                                                                              |
+| ----------------------- | ------ | ----------------- | ---------------------------------------------------------------------------------------- |
+| `include_author`        | bool   | `false`           | Include commit author names.                                                             |
+| `include_pr_link`       | bool   | `false`           | Link the pull request that introduced each commit. Costs extra API requests — see below. |
+| `aggregate_prereleases` | bool   | `false`           | On graduation, fold prior prerelease notes into the stable release.                      |
+| `body`                  | string | standard template | Tera template for the changelog body.                                                    |
 
 ```toml
 [defaults.changelog]

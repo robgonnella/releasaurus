@@ -23,13 +23,13 @@ use url::Url;
 
 use crate::{
     config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
     },
     forge::{
         azure_devops::types::{
-            AzureCommit, AzureCommitChanges, AzureList, AzurePullRequest,
-            AzureRef, AzureRepo, Change, ChangeItem, CreateLabel,
-            CreatePullRequest, NewContent, PullRequestQuery,
+            AzureCommit, AzureCommitChanges, AzureCommitter, AzureList,
+            AzurePullRequest, AzureRef, AzureRepo, Change, ChangeItem,
+            CreateLabel, CreatePullRequest, NewContent, PullRequestQuery,
             PullRequestQueryInput, PullRequestQueryResponse, Push, PushCommit,
             PushResponse, RefUpdate, UpdatePullRequest,
         },
@@ -72,6 +72,7 @@ pub struct AzureDevops {
     url: RepoUrl,
     commit_search_depth: usize,
     tag_search_depth: usize,
+    git_user: Option<GitUserConfig>,
     /// API base: `https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/`
     base_url: Url,
     /// Web base: `https://dev.azure.com/{org}/{project}/_git/{repo}`
@@ -165,6 +166,7 @@ impl AzureDevops {
             url,
             commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
             client,
             base_url,
             web_repo_url,
@@ -322,6 +324,10 @@ impl AzureDevops {
         changes: Vec<Change>,
     ) -> Result<String> {
         let url = self.endpoint("pushes")?;
+        let author = self.git_user.as_ref().map(|user| AzureCommitter {
+            name: user.name.clone(),
+            email: user.email.clone(),
+        });
         let body = Push {
             ref_updates: vec![RefUpdate {
                 name: format!("refs/heads/{branch}"),
@@ -331,6 +337,7 @@ impl AzureDevops {
             commits: vec![PushCommit {
                 comment: message.to_string(),
                 changes,
+                author,
             }],
         };
         let response = self.client.post(url).json(&body).send().await?;
@@ -556,6 +563,10 @@ impl Forge for AzureDevops {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.git_user = user;
     }
 
     async fn get_file_content(

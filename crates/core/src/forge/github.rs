@@ -19,7 +19,7 @@ mod types;
 
 use crate::{
     config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
     },
     forge::{
         config::{
@@ -54,6 +54,7 @@ pub struct Github {
     url: RepoUrl,
     commit_search_depth: usize,
     tag_search_depth: usize,
+    git_user: Option<GitUserConfig>,
     base_uri: String,
     instance: Octocrab,
     default_branch: String,
@@ -109,6 +110,7 @@ impl Github {
             url,
             commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
             base_uri,
             instance,
             default_branch,
@@ -165,11 +167,23 @@ impl Github {
 
         let parents = serde_json::json!(vec![parent_sha.to_string()]);
 
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
           "message": message.to_string(),
           "tree": tree_sha.to_string(),
           "parents": parents,
         });
+
+        if let Some(git_user) = self.git_user.as_ref()
+            && let serde_json::Value::Object(ref mut map) = body
+        {
+            map.insert(
+                "author".into(),
+                serde_json::json!({
+                  "name": git_user.name.clone(),
+                  "email": git_user.email.clone(),
+                }),
+            );
+        }
 
         let commit: Commit = self.instance.post(endpoint, Some(&body)).await?;
 
@@ -220,6 +234,10 @@ impl Forge for Github {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.git_user = user;
     }
 
     async fn get_file_content(
