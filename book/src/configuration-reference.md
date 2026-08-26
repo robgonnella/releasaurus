@@ -230,6 +230,11 @@ additional_manifest_files = [
 ]
 ```
 
+The chart line above works because this package is `rust`, not `helm`, so
+nothing else claims `helm/Chart.yaml`. A package that *is*
+`release_type = "helm"` cannot point this at its own `Chart.yaml` — see
+[Helm charts](#helm-charts).
+
 The default regex matches common forms like `version = "1.0.0"`,
 `version: "1.0.0"`, `VERSION='1.0.0'`, and `"version": "1.0.0"`. A custom
 `version_regex` **must** include a named capture group `(?<version>...)`;
@@ -398,9 +403,31 @@ languages support workspace/monorepo layouts.
 | -------------- | ----------------------------------------------------------------------------------------------- |
 | `generic`      | Custom files via [`additional_manifest_files`](#additional_manifest_files)                      |
 | `go`           | `version.go`, `version/version.go`, `internal/version.go`, `internal/version/version.go`        |
+| `helm`         | `Chart.yaml` (the chart `version` only — see below)                                             |
 | `java`         | `pom.xml`, `build.gradle`, `build.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml` |
 | `node`         | `package.json`, `package-lock.json`, `yarn.lock`                                                |
 | `php`          | `composer.json`, `composer.lock`                                                                |
 | `python`       | `pyproject.toml`, `setup.py`, `setup.cfg`                                                       |
 | `ruby`         | `*.gemspec`, `Gemfile`, `Gemfile.lock`                                                          |
 | `rust`         | `Cargo.toml`, `Cargo.lock`                                                                      |
+
+### Helm charts
+
+`helm` writes the chart's own top-level `version` and nothing else.
+Three fields in a `Chart.yaml` look like versions and only one is the
+chart's:
+
+- **`appVersion`** names the application the chart deploys, which is
+  often released from a different repository on its own cadence. The
+  chart version is not a valid value for it, so it is left alone.
+- **`dependencies[].version`** pins another chart, including sibling
+  charts in the same repo. These are not rewritten when a sibling
+  releases; an umbrella chart keeps pointing at the previous version
+  until you update it.
+- **`Chart.lock`** carries a digest over the resolved dependency set.
+  Releasaurus does not write it — re-run `helm dependency update`.
+
+Because `Chart.yaml` is a `helm` package's own manifest, pointing
+[`additional_manifest_files`](#additional_manifest_files) back at it does
+not work: a path already claimed by a `release_type` is skipped, with a
+warning in `--debug` output.

@@ -20,6 +20,7 @@ pub enum ReleaseType {
     #[default]
     Generic,
     Go,
+    Helm,
     Node,
     Rust,
     Python,
@@ -33,6 +34,7 @@ impl Display for ReleaseType {
         match self {
             ReleaseType::Generic => f.write_str("generic"),
             ReleaseType::Go => f.write_str("go"),
+            ReleaseType::Helm => f.write_str("helm"),
             ReleaseType::Java => f.write_str("java"),
             ReleaseType::Node => f.write_str("node"),
             ReleaseType::Php => f.write_str("php"),
