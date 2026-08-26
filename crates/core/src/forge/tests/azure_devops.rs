@@ -1,11 +1,15 @@
 use secrecy::SecretString;
 use std::env;
 
-use crate::forge::{
-    azure_devops::{AzureDevops, url_parse::azure_git_url_to_repo_url},
-    manager::{ForgeManager, ForgeOptions},
-    tests::common::{
-        azure_devops::AzureDevopsForgeTestHelper, run::run_forge_test,
+use crate::{
+    config::repository::GitUserConfig,
+    forge::{
+        azure_devops::{AzureDevops, url_parse::azure_git_url_to_repo_url},
+        manager::{ForgeManager, ForgeOptions},
+        tests::common::{
+            azure_devops::AzureDevopsForgeTestHelper, run::run_forge_test,
+        },
+        traits::Forge,
     },
 };
 
@@ -29,9 +33,14 @@ async fn test_azure_devops_forge() {
     let helper =
         AzureDevopsForgeTestHelper::new(&repo, &token_str, &reset_sha).await;
 
-    let azure_forge = AzureDevops::new(repo, Some(token_secret))
+    let mut azure_forge = AzureDevops::new(repo, Some(token_secret))
         .await
         .expect("failed to create AzureDevops forge");
+
+    azure_forge.set_git_user(Some(GitUserConfig {
+        name: "Test User".into(),
+        email: "test@releasaurus.io".into(),
+    }));
 
     let manager = ForgeManager::new(
         Box::new(azure_forge),

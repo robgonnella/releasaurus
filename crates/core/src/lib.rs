@@ -55,6 +55,7 @@
 //!         config.repository.first_release_search_depth,
 //!     );
 //!     forge.set_tag_search_depth(config.repository.tag_search_depth);
+//!     forge.set_git_user(config.repository.git_user.clone());
 //!
 //!     let forge_manager =
 //!         ForgeManager::new(forge, ForgeOptions { dry_run: false });

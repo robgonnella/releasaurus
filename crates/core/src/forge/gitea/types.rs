@@ -139,6 +139,12 @@ pub struct GiteaFileChange {
 }
 
 #[derive(Debug, Serialize)]
+pub struct GiteaCommitter {
+    pub name: String,
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct GiteaModifyFiles {
     pub branch: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -147,6 +153,8 @@ pub struct GiteaModifyFiles {
     pub files: Vec<GiteaFileChange>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_push: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub committer: Option<GiteaCommitter>,
 }
 
 #[derive(Debug, Deserialize)]

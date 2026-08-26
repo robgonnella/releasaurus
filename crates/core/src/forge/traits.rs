@@ -7,6 +7,7 @@ use url::Url;
 use mockall::automock;
 
 use crate::{
+    config::repository::GitUserConfig,
     forge::request::{
         Commit, CreateCommitRequest, CreatePrRequest,
         CreateReleaseBranchRequest, CreateReleaseRequest, FileChange,
@@ -37,6 +38,8 @@ pub trait Forge: Any + Send + Sync {
     /// Sets the tag search depth when searching for tags. Previous tags are
     /// used as markers for commits to include in next release
     fn set_tag_search_depth(&mut self, depth: usize);
+    /// Sets the git user for creating commits
+    fn set_git_user(&mut self, user: Option<GitUserConfig>);
     /// Fetch file content from repository by path, returning None if file
     /// doesn't exist.
     async fn get_file_content(

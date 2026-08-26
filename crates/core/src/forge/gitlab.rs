@@ -43,7 +43,7 @@ pub use types::GitlabCommitMergeRequestsBuilderError;
 
 use crate::{
     config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
     },
     forge::{
         config::{
@@ -76,6 +76,7 @@ pub struct Gitlab {
     url: RepoUrl,
     commit_search_depth: usize,
     tag_search_depth: usize,
+    git_user: Option<GitUserConfig>,
     gl: AsyncGitlab,
     project_id: String,
     default_branch: String,
@@ -128,6 +129,7 @@ impl Gitlab {
             url,
             commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
             tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
             gl,
             project_id,
             default_branch,
@@ -208,6 +210,10 @@ impl Forge for Gitlab {
 
     fn set_tag_search_depth(&mut self, depth: usize) {
         self.tag_search_depth = if depth == 0 { usize::MAX } else { depth }
+    }
+
+    fn set_git_user(&mut self, user: Option<GitUserConfig>) {
+        self.git_user = user;
     }
 
     async fn get_file_content(
@@ -518,14 +524,23 @@ impl Forge for Gitlab {
             actions.push(action)
         }
 
-        let endpoint = CreateCommit::builder()
+        let mut builder = CreateCommit::builder();
+
+        builder
             .project(&self.project_id)
             .start_branch(req.base_branch)
             .branch(req.release_branch)
             .actions(actions)
             .commit_message(req.message)
-            .force(true)
-            .build()?;
+            .force(true);
+
+        if let Some(git_user) = self.git_user.as_ref() {
+            builder
+                .author_name(git_user.name.clone())
+                .author_email(git_user.email.clone());
+        }
+
+        let endpoint = builder.build()?;
 
         let commit: CreatedCommit = endpoint.query_async(&self.gl).await?;
 
@@ -557,13 +572,22 @@ impl Forge for Gitlab {
             actions.push(action)
         }
 
-        let endpoint = CreateCommit::builder()
+        let mut builder = CreateCommit::builder();
+
+        builder
             .project(&self.project_id)
             .branch(&req.target_branch)
             .actions(actions)
             .commit_message(req.message)
-            .force(false)
-            .build()?;
+            .force(false);
+
+        if let Some(git_user) = self.git_user.as_ref() {
+            builder
+                .author_name(git_user.name.clone())
+                .author_email(git_user.email.clone());
+        }
+
+        let endpoint = builder.build()?;
 
         let commit: CreatedCommit = endpoint.query_async(&self.gl).await?;
 

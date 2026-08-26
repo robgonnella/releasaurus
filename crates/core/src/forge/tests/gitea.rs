@@ -1,12 +1,16 @@
 use secrecy::SecretString;
 use std::env;
 
-use crate::forge::{
-    gitea::Gitea,
-    manager::{ForgeManager, ForgeOptions},
-    tests::common::{
-        gitea::GiteaForgeTestHelper,
-        run::{parse_repo_url, run_forge_test},
+use crate::{
+    config::repository::GitUserConfig,
+    forge::{
+        gitea::Gitea,
+        manager::{ForgeManager, ForgeOptions},
+        tests::common::{
+            gitea::GiteaForgeTestHelper,
+            run::{parse_repo_url, run_forge_test},
+        },
+        traits::Forge,
     },
 };
 
@@ -28,9 +32,14 @@ async fn test_gitea_forge() {
 
     let helper = GiteaForgeTestHelper::new(&repo, &token_str, &reset_sha).await;
 
-    let gitea_forge = Gitea::new(repo, Some(token_secret), None)
+    let mut gitea_forge = Gitea::new(repo, Some(token_secret), None)
         .await
         .expect("failed to create Gitea forge");
+
+    gitea_forge.set_git_user(Some(GitUserConfig {
+        name: "Test User".into(),
+        email: "test@releasaurus.io".into(),
+    }));
 
     let manager = ForgeManager::new(
         Box::new(gitea_forge),
