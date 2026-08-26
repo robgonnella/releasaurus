@@ -134,7 +134,10 @@ pub fn resolve_package(
         for (package, release_type) in packages {
             if matches!(
                 release_type,
-                ReleaseType::Rust | ReleaseType::Node | ReleaseType::Go
+                ReleaseType::Rust
+                    | ReleaseType::Node
+                    | ReleaseType::Go
+                    | ReleaseType::Helm(_)
             ) {
                 log::warn!(
                     "package \"{package}\": version_type {fmt} produces \

@@ -755,17 +755,51 @@
     },
     "ReleaseType": {
       "description": "Supported release types for updating package manifest files",
-      "type": "string",
-      "enum": [
-        "generic",
-        "go",
-        "node",
-        "rust",
-        "python",
-        "php",
-        "ruby",
-        "java"
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "generic",
+            "go",
+            "helm",
+            "node",
+            "rust",
+            "python",
+            "php",
+            "ruby",
+            "java"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "helm": {
+              "$ref": "#/$defs/HelmConfig"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "helm"
+          ]
+        }
       ]
+    },
+    "HelmConfig": {
+      "description": "Config specific to the helm updater",
+      "type": "object",
+      "properties": {
+        "update_app_version": {
+          "description": "Also write the release version to the chart's top-level\n`appVersion`. Only a value containing an `X.Y.Z` is rewritten.",
+          "type": "boolean",
+          "default": false
+        },
+        "app_version_tag_prefix": {
+          "description": "Write the full tag name, `tag_prefix` included, to `appVersion`\ninstead of the bare version. Has no effect unless\n`update_app_version` is set.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
     },
     "SubPackage": {
       "description": "Sub-package definition allowing grouping of packages under a parent package\nconfiguration. Sub-packages share changelog, tag, and release with the\nparent package definition but receive independent manifest version file\nupdates according to their defined release type",

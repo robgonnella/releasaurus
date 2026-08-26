@@ -6,8 +6,10 @@
 //! per-leaf unit tests cannot — a shared workspace lock rewritten once
 //! per member and reduced to the last writer's bump.
 
+mod calver;
 mod common;
 mod config;
+mod helm;
 mod node;
 mod php;
 mod rust;
