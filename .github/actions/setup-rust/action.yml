@@ -1,20 +1,22 @@
 name: "Rust Setup"
 description: "Sets up rust for an environment"
 inputs:
+  machete:
+    description: Include cargo-machete
+    required: false
+    default: "false"
+  cross:
+    description: Include cross
+    required: false
+    default: "false"
   cache-shared-key:
     description: Key for cache sharing
     required: false
     default: ""
-    type: string
   cache-policy:
-    description: How caching should behave
+    description: How caching should behave (pull-push, pull, disable)
     required: true
     default: pull-push
-    type: choice
-    options:
-      - pull-push
-      - pull
-      - disable
 
 runs:
   using: "composite"
@@ -25,6 +27,7 @@ runs:
         cache-save-if: ${{ inputs.cache-policy == 'pull-push' }}
         cache-shared-key: ${{ inputs.cache-shared-key }}
     - name: install cargo-binstall
+      if: inputs.machete == 'true' || inputs.cross == 'true'
       shell: bash
       run: |
         if ! cargo binstall --version >/dev/null 2>&1; then
@@ -32,12 +35,14 @@ runs:
             https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
         fi
     - name: Install cargo machete
+      if: inputs.machete == 'true'
       shell: bash
       run: |
-        if ! cargo machete --version >/dev/null 2<&1; then
+        if ! cargo machete --version >/dev/null 2>&1; then
           cargo binstall --no-confirm --force cargo-machete
         fi
     - name: Install cross
+      if: inputs.cross == 'true'
       shell: bash
       run: |
         if ! cross --version >/dev/null 2>&1; then

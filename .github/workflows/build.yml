@@ -33,6 +33,7 @@ jobs:
         uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
         with:
+          cross: true
           cache-shared-key: ${{ matrix.platform.target }}
           cache-policy: pull-push
       - name: install musl-tools
