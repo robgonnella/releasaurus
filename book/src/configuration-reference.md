@@ -194,7 +194,7 @@ One entry per package; repeatable.
 | `path`                      | string              | `.`                              | Package directory, relative to `workspace_root`.                                                                          |
 | `workspace_root`            | string              | `.`                              | Workspace root, relative to repo root.                                                                                    |
 | `name`                      | string              | derived from path                | Explicit package name; must be unique.                                                                                    |
-| `release_type`              | string              | none                             | Language for version updates (see [Supported Languages](#supported-languages)). Omit for changelog/tagging only.          |
+| `release_type`              | string / table      | none                             | Language for version updates (see [Supported Languages](#supported-languages)). Omit for changelog/tagging only.          |
 | `tag_prefix`                | string              | `v` (root) / `<name>-v` (nested) | Git tag prefix. Override: `--tag-prefix` or `--set-package <name>.tag_prefix=`.                                           |
 | `sub_packages`              | object[]            | none                             | Group packages under one shared tag/changelog (see [Grouped Releases](./configuration.md#grouped-releases-sub-packages)). |
 | `additional_paths`          | string[]            | none                             | Extra directories whose changes trigger a release for this package.                                                       |
@@ -226,12 +226,17 @@ release_type = "rust"
 additional_manifest_files = [
     "VERSION",                    # default regex
     "README.md",                  # default regex
-    { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?<version>\\d+\\.\\d+\\.\\d+)\"?" },
+    { path = "docker-compose.yml", version_regex = "image:\\s*myorg/app:(?<version>\\d+\\.\\d+\\.\\d+)" },
 ]
 ```
 
-The default regex matches common forms like `version = "1.0.0"`,
-`version: "1.0.0"`, `VERSION='1.0.0'`, and `"version": "1.0.0"`. A custom
+The default regex is best effort: it matches a line whose key is
+`version` — any case, optionally quoted, optionally indented — followed by
+`:` or `=`, such as `version = "1.0.0"`, `version: 1.0.0`,
+`VERSION='1.0.0'`, or `"version": "1.0.0"`. Whatever value follows is
+replaced, whatever its format. Other lines are left alone, so in a file
+like `README.md` only lines of that shape are updated; anything else needs
+a custom `version_regex`. A custom
 `version_regex` **must** include a named capture group `(?<version>...)`;
 only that group is replaced. Files without a match are skipped; an invalid
 regex errors during config resolution.
@@ -398,9 +403,79 @@ languages support workspace/monorepo layouts.
 | -------------- | ----------------------------------------------------------------------------------------------- |
 | `generic`      | Custom files via [`additional_manifest_files`](#additional_manifest_files)                      |
 | `go`           | `version.go`, `version/version.go`, `internal/version.go`, `internal/version/version.go`        |
+| `helm`         | `Chart.yaml` (the chart `version`; `appVersion` opt-in — see below)                             |
 | `java`         | `pom.xml`, `build.gradle`, `build.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml` |
 | `node`         | `package.json`, `package-lock.json`, `yarn.lock`                                                |
 | `php`          | `composer.json`, `composer.lock`                                                                |
 | `python`       | `pyproject.toml`, `setup.py`, `setup.cfg`                                                       |
 | `ruby`         | `*.gemspec`, `Gemfile`, `Gemfile.lock`                                                          |
 | `rust`         | `Cargo.toml`, `Cargo.lock`                                                                      |
+
+### Helm charts
+
+By default `helm` writes the chart's own top-level `version` and nothing
+else. Three fields in a `Chart.yaml` look like versions and only one is
+the chart's:
+
+- **`appVersion`** names the application the chart deploys, which is
+  often released from a different repository on its own cadence. It is
+  left alone unless you opt in (see
+  [Updating `appVersion`](#updating-appversion)).
+- **`dependencies[].version`** pins another chart, including sibling
+  charts in the same repo. These are not rewritten when a sibling
+  releases; an umbrella chart keeps pointing at the previous version
+  until you update it.
+- **`Chart.lock`** carries a digest over the resolved dependency set.
+  Releasaurus does not write it — re-run `helm dependency update`.
+
+#### Updating `appVersion`
+
+When the application and its chart are released together, write the
+release version to `appVersion` as well by giving `release_type` a
+`helm` table:
+
+```toml
+[[package]]
+path = "charts/my-app"
+release_type = { helm = { update_app_version = true } }
+```
+
+The usual layout is the chart as a
+[sub-package](./configuration.md#grouped-releases-sub-packages) of the
+application, so the chart's `version` and `appVersion` both take the
+application's release version:
+
+```toml
+[[package]]
+path = "."
+release_type = "rust"
+sub_packages = [
+  { name = "my-chart", path = "chart", release_type = { helm = { update_app_version = true } } },
+]
+```
+
+`release_type = "helm"` is shorthand for
+`{ helm = { update_app_version = false } }`.
+
+`appVersion` is set to the package's release version, the same value
+written to `version`. It is **not** bumped from its own current value.
+
+When `appVersion` names an image tag that carries the git tag's prefix,
+add `app_version_tag_prefix` to write the full tag name instead
+(`v1.2.0` rather than `1.2.0`):
+
+```toml
+[[package]]
+path = "."
+release_type = { helm = { update_app_version = true, app_version_tag_prefix = true } }
+```
+
+The prefix is the package's resolved `tag_prefix`: `v` at the repository
+root and `<name>-v` for a nested package unless `tag_prefix` is set. A
+sub-package uses its parent's. `app_version_tag_prefix` has no effect
+unless `update_app_version` is also set.
+
+Whatever value the top-level `version` and `appVersion` currently hold
+(`latest`, `1.16`, `v1.2.3`, …) is replaced whole; quotes and trailing
+comments are kept. `dependencies[].version` and `Chart.lock` are still
+not written.

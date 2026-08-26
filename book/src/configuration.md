@@ -46,7 +46,7 @@ The most common setup — bump versions in one package's manifests:
 ```toml
 [[package]]
 path = "."
-release_type = "node"  # or rust, python, java, php, ruby, go, generic
+release_type = "node"  # or rust, python, java, php, ruby, go, helm, generic
 ```
 
 `release_type` selects which manifest and lock files are updated. See
@@ -352,12 +352,13 @@ The format is checked when the configuration loads and rejected if it
 - cannot be parsed back from the names it produces (`%A`, or a format
   with no year), since that is how the current release is found.
 
-> **Package-manager compatibility.** Cargo, npm and Go modules accept only
-> semver, and semver forbids leading zeros: `2026.06.14` is not a valid
-> Cargo or npm version. Releasaurus writes the rendered version into
-> manifests as-is and logs a warning when a `rust`, `node` or `go` package
-> uses a format whose output is not semver. For those ecosystems use the
-> `year.month.day` types, or an unpadded format such as `%Y.%-m.%-d`.
+> **Package-manager compatibility.** Cargo, npm, Go modules and Helm chart
+> versions accept only semver, and semver forbids leading zeros:
+> `2026.06.14` is not a valid Cargo or npm version. Releasaurus writes the
+> rendered version into manifests as-is and logs a warning when a `rust`,
+> `node`, `go` or `helm` package uses a format whose output is not semver.
+> For those ecosystems use the `year.month.day` types, or an unpadded
+> format such as `%Y.%-m.%-d`.
 
 On the command line, quote the value so the shell leaves `%` alone:
 `--version-type '%Y.%m.%d'`.

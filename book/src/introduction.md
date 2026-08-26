@@ -25,7 +25,8 @@ step; Releasaurus handles the tedious version and changelog work.
 - **Multi-forge** — GitHub, GitLab, Gitea, Forgejo, and Azure DevOps
   (experimental), whether cloud-hosted or self-hosted.
 - **Multi-language version updates** — Rust, Node.js, Python, Java, PHP,
-  Ruby, Go, and a generic regex-based updater for anything else.
+  Ruby, Go, Helm charts, and a generic regex-based updater for anything
+  else.
 - **Monorepo ready** — multiple independently-versioned packages, with
   combined or separate release PRs.
 - **Conventional-commit aware** — version bumps follow
