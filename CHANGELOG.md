@@ -1,3 +1,21 @@
+# [1.2.0](https://github.com/robgonnella/releasaurus/compare/v1.2.0-rc.1...v1.2.0) - 2026-09-01
+
+### 🚀 Features
+
+- adds ability to configure custom git user [_(940eec4)_](https://github.com/robgonnella/releasaurus/commit/940eec4d353ce8afa683a1de4d264c0a5566c855) (Rob Gonnella) ([PR 371](https://github.com/robgonnella/releasaurus/pull/371))
+
+- adds support for prerelease flags in forge releases [_(c35c80a)_](https://github.com/robgonnella/releasaurus/commit/c35c80ab9404160f9e60c7055cc9eca4365e010f) (Rob Gonnella) ([PR 369](https://github.com/robgonnella/releasaurus/pull/369))
+
+### 🐛 Bug Fixes
+
+- fixes issue with package updaters [_(08ec419)_](https://github.com/robgonnella/releasaurus/commit/08ec4197fcc37a3ce707dc4229becc638bd77198) (Rob Gonnella) ([PR 376](https://github.com/robgonnella/releasaurus/pull/376))
+
+- improves logging output when running in dry-run mode [_(cff0dfd)_](https://github.com/robgonnella/releasaurus/commit/cff0dfd3c55c3d4f31244ff49a8e8dd7804c8ede) (Rob Gonnella) ([PR 367](https://github.com/robgonnella/releasaurus/pull/367))
+
+### 🚜 Refactor
+
+- refactors config loading [_(b04b9f7)_](https://github.com/robgonnella/releasaurus/commit/b04b9f71e466653c8a4ad315ed756e1250f6a74b) (Rob Gonnella) ([PR 365](https://github.com/robgonnella/releasaurus/pull/365))
+
 # [1.2.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.1.0...v1.2.0-rc.1) - 2026-08-26
 
 ### 🚀 Features
