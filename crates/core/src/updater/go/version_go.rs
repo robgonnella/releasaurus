@@ -144,4 +144,33 @@ mod tests {
         let updated = result.unwrap().content.clone();
         assert!(updated.contains("const VERSION = \"2.0.0\""));
     }
+
+    #[test]
+    fn updates_all_caps_version_2() {
+        let version_go = VersionGo::new();
+
+        let content = "package internal\n\nconst VERSION = \"0.0.1\"\n";
+        let manifest = ManifestFile {
+            path: Path::new("internal/version.go").to_path_buf(),
+            basename: "version.go".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Go,
+            owner: Some(ManifestPackage {
+                name: "gopher".to_string(),
+                release_type: ReleaseType::Go,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    semver: Version::new(2, 0, 0),
+                    sha: "abc".into(),
+                    ..Default::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let result = version_go.update(&manifest).unwrap();
+
+        let updated = result.unwrap().content.clone();
+        assert!(updated.contains("const VERSION = \"2.0.0\""));
+    }
 }
