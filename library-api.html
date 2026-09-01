@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e7b3a0e.js";
+            window.path_to_searchindex_js = "searchindex-595e1d18.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -259,7 +259,7 @@ use releasaurus_core::{
         request::Tag,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit,
+            CreateReleaseBranchRequest, CreateReleaseRequest, ForgeCommit,
             GetFileContentRequest, GetPrRequest, PrLabelsRequest,
             PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
@@ -312,7 +312,7 @@ impl Forge for MyForge {
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
 </span><span class="boring">    async fn replace_pr_labels(&amp;self, _: PrLabelsRequest)
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
-</span><span class="boring">    async fn create_release(&amp;self, _: &amp;str, _: &amp;str, _: &amp;str)
+</span><span class="boring">    async fn create_release(&amp;self, _: CreateReleaseRequest)
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
 </span>}
 <span class="boring">}</span></code></pre>

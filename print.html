@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e7b3a0e.js";
+            window.path_to_searchindex_js = "searchindex-595e1d18.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -2110,6 +2110,7 @@ config load rather than being silently ignored.</p>
 <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
+<tr><td><code>git_user</code></td><td>object</td><td>none</td><td>Git user info to use when creating commits. Consists of <code>name</code> and <code>email</code>.</td></tr>
 <tr><td><code>base_branch</code></td><td>string</td><td>repo default</td><td>Branch targeted for PRs, tagging, and releases. Override: <code>--base-branch</code>.</td></tr>
 <tr><td><code>first_release_search_depth</code></td><td>integer</td><td><code>400</code></td><td>Commits to analyze for the <strong>first</strong> release (when no matching tag exists).</td></tr>
 <tr><td><code>tag_search_depth</code></td><td>integer</td><td><code>100</code></td><td>Max tags fetched when searching for a previous release. <code>0</code> = all tags.</td></tr>
@@ -2123,6 +2124,7 @@ config load rather than being silently ignored.</p>
 so they are repo-wide and cannot be overridden per package. A <code>--reword</code> for
 a SHA already listed in config takes precedence over the config entry.</p>
 <pre><code class="language-toml">[repository]
+git_user = { name = "My User", email = "myuser@email.com" }
 base_branch = "main"
 tag_search_depth = 100
 separate_pull_requests = false
@@ -2565,7 +2567,7 @@ use releasaurus_core::{
         request::Tag,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
-            CreateReleaseBranchRequest, ForgeCommit,
+            CreateReleaseBranchRequest, CreateReleaseRequest, ForgeCommit,
             GetFileContentRequest, GetPrRequest, PrLabelsRequest,
             PullRequest, ReleaseByTagResponse, UpdatePrRequest,
         },
@@ -2618,7 +2620,7 @@ impl Forge for MyForge {
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
 </span><span class="boring">    async fn replace_pr_labels(&amp;self, _: PrLabelsRequest)
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
-</span><span class="boring">    async fn create_release(&amp;self, _: &amp;str, _: &amp;str, _: &amp;str)
+</span><span class="boring">    async fn create_release(&amp;self, _: CreateReleaseRequest)
 </span><span class="boring">        -&gt; Result&lt;()&gt; { todo!() }
 </span>}
 <span class="boring">}</span></code></pre>
