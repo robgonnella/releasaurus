@@ -196,8 +196,14 @@ impl UpdateManager {
         by_type
     }
 
-    /// The package whose directory holds `path`, if any is being
+    /// The package whose directory contains `path`, if any is being
     /// released.
+    ///
+    /// Matched by deepest containing package directory rather than by
+    /// exact parent, because a manifest can sit below its package
+    /// root: `internal/version.go`, `lib/<gem>/version.rb`,
+    /// `gradle/libs.versions.toml`. Deepest wins so a nested member
+    /// claims its own file ahead of an enclosing workspace root.
     ///
     /// `None` means no releasing package's own version fields live in
     /// this file — a virtual workspace manifest, or a root lock file in
@@ -210,7 +216,8 @@ impl UpdateManager {
 
         releasing
             .iter()
-            .find(|p| p.path == dir)
+            .filter(|p| dir.starts_with(&p.path))
+            .max_by_key(|p| p.path.components().count())
             .map(|p| p.manifest.clone())
     }
 
@@ -348,8 +355,9 @@ mod tests {
         forge::request::Tag,
         packages::releasable::ReleasableSubPackage,
         updater::{
-            php::manifests::PhpManifests, rust::manifests::RustManifests,
-            traits::ManifestTargets,
+            go::manifests::GoManifests, java::manifests::JavaManifests,
+            php::manifests::PhpManifests, ruby::manifests::RubyManifests,
+            rust::manifests::RustManifests, traits::ManifestTargets,
         },
     };
 
@@ -455,6 +463,72 @@ mod tests {
             ),
             ..Default::default()
         }
+    }
+
+    fn go_package(
+        name: &str,
+        version: &str,
+        pkg_path: &str,
+    ) -> ReleasablePackage {
+        ReleasablePackage {
+            name: name.into(),
+            path: Path::new(pkg_path).to_path_buf(),
+            release_type: ReleaseType::Go,
+            tag: tag(version),
+            manifest_targets: GoManifests::manifest_targets(
+                name,
+                Path::new(""),
+                Path::new(pkg_path),
+            ),
+            ..Default::default()
+        }
+    }
+
+    fn ruby_package(
+        name: &str,
+        version: &str,
+        pkg_path: &str,
+    ) -> ReleasablePackage {
+        ReleasablePackage {
+            name: name.into(),
+            path: Path::new(pkg_path).to_path_buf(),
+            release_type: ReleaseType::Ruby,
+            tag: tag(version),
+            manifest_targets: RubyManifests::manifest_targets(
+                name,
+                Path::new(""),
+                Path::new(pkg_path),
+            ),
+            ..Default::default()
+        }
+    }
+
+    fn java_package(
+        name: &str,
+        version: &str,
+        pkg_path: &str,
+    ) -> ReleasablePackage {
+        ReleasablePackage {
+            name: name.into(),
+            path: Path::new(pkg_path).to_path_buf(),
+            release_type: ReleaseType::Java,
+            tag: tag(version),
+            manifest_targets: JavaManifests::manifest_targets(
+                name,
+                Path::new(""),
+                Path::new(pkg_path),
+            ),
+            ..Default::default()
+        }
+    }
+
+    fn content_of<'a>(changes: &'a [FileChange], path: &str) -> &'a str {
+        changes
+            .iter()
+            .find(|c| c.path == path)
+            .unwrap_or_else(|| panic!("no change for {path}"))
+            .content
+            .as_str()
     }
 
     fn count(changes: &[FileChange], path: &str) -> usize {
@@ -825,5 +899,124 @@ version = "1.0.0"
 
         assert_eq!(count(&changes, "VERSION"), 1);
         assert_eq!(loader.load_count("VERSION"), 1);
+    }
+
+    /// A manifest does not have to sit directly in its package's
+    /// directory. Go's idiomatic spot is `internal/version.go`, whose
+    /// parent is `internal` — a directory no package is rooted at.
+    /// Keying ownership on exact parent equality drops the file
+    /// silently: it is fetched, handed to the updater, and discarded
+    /// before the version regex ever runs.
+    #[tokio::test]
+    async fn a_nested_version_file_is_owned_by_its_package() {
+        let loader = StubLoader::new(&[(
+            "internal/version.go",
+            "package internal\n\nconst VERSION = \"1.0.0\"\n",
+        )]);
+
+        let pkg = go_package("gopher", "2.0.0", "");
+
+        let changes = UpdateManager::get_file_changes_for_packages(
+            &[&pkg],
+            &loader,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(count(&changes, "internal/version.go"), 1);
+        assert!(
+            content_of(&changes, "internal/version.go")
+                .contains("const VERSION = \"2.0.0\"")
+        );
+    }
+
+    /// Every releasing package's directory is an ancestor of a nested
+    /// member's file, so ownership must resolve to the *deepest* match.
+    /// Taking the first ancestor found writes the root's version into
+    /// the member's manifest.
+    #[tokio::test]
+    async fn the_deepest_package_owns_a_nested_manifest() {
+        let loader = StubLoader::new(&[
+            (
+                "internal/version.go",
+                "package internal\n\nconst VERSION = \"1.0.0\"\n",
+            ),
+            (
+                "packages/a/internal/version.go",
+                "package internal\n\nconst VERSION = \"1.0.0\"\n",
+            ),
+        ]);
+
+        let root = go_package("gopher", "2.0.0", "");
+        let member = go_package("gopher-a", "3.1.0", "packages/a");
+
+        let changes = UpdateManager::get_file_changes_for_packages(
+            &[&root, &member],
+            &loader,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            content_of(&changes, "internal/version.go")
+                .contains("const VERSION = \"2.0.0\"")
+        );
+        assert!(
+            content_of(&changes, "packages/a/internal/version.go")
+                .contains("const VERSION = \"3.1.0\"")
+        );
+    }
+
+    /// Ruby's gem version lives two directories below the package root.
+    #[tokio::test]
+    async fn a_nested_version_rb_is_owned_by_its_package() {
+        let loader = StubLoader::new(&[(
+            "lib/mygem/version.rb",
+            "module MyGem\n  VERSION = \"1.0.0\"\nend\n",
+        )]);
+
+        let pkg = ruby_package("mygem", "2.0.0", "");
+
+        let changes = UpdateManager::get_file_changes_for_packages(
+            &[&pkg],
+            &loader,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(count(&changes, "lib/mygem/version.rb"), 1);
+        assert!(
+            content_of(&changes, "lib/mygem/version.rb")
+                .contains("VERSION = \"2.0.0\"")
+        );
+    }
+
+    /// Gradle's version catalog sits under `gradle/`, and its updater
+    /// reads the owner's *name* to pick a key — so a missing owner
+    /// costs more than the version here.
+    #[tokio::test]
+    async fn a_nested_libs_versions_toml_is_owned_by_its_package() {
+        let loader = StubLoader::new(&[(
+            "gradle/libs.versions.toml",
+            "[versions]\nmylib = \"1.0.0\"\n",
+        )]);
+
+        let pkg = java_package("mylib", "2.0.0", "");
+
+        let changes = UpdateManager::get_file_changes_for_packages(
+            &[&pkg],
+            &loader,
+            "main",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(count(&changes, "gradle/libs.versions.toml"), 1);
+        assert!(
+            content_of(&changes, "gradle/libs.versions.toml").contains("2.0.0")
+        );
     }
 }
