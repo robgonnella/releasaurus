@@ -8,6 +8,7 @@
 
 mod common;
 mod config;
+mod helm;
 mod node;
 mod php;
 mod rust;

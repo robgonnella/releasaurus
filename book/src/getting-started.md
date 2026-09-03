@@ -91,7 +91,7 @@ versions in your manifests (`package.json`, `Cargo.toml`, etc.), add a
 ```toml
 [[package]]
 path = "."
-release_type = "node"  # or rust, python, java, php, ruby, go, generic
+release_type = "node"  # or rust, python, java, php, ruby, go, helm, generic
 ```
 
 See [Configuration](./configuration.md) for monorepos, prereleases,

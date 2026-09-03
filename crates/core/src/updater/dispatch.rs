@@ -10,6 +10,7 @@ use crate::{
     updater::{
         generic::updater::GenericUpdater,
         go::{manifests::GoManifests, updater::GoUpdater},
+        helm::{manifests::HelmManifests, updater::HelmUpdater},
         java::{manifests::JavaManifests, updater::JavaUpdater},
         manager::ManifestTarget,
         node::{manifests::NodeManifests, updater::NodeUpdater},
@@ -31,6 +32,8 @@ pub enum Updater {
     Generic(GenericUpdater),
     /// Golang updater for version.go files
     Go(GoUpdater),
+    /// Helm updater for Chart.yaml files
+    Helm(HelmUpdater),
     /// Java/Maven updater for pom.xml files
     Java(JavaUpdater),
     /// Node.js updater for package.json, package-lock.json, and yarn.lock
@@ -51,6 +54,7 @@ impl Updater {
         match release_type {
             ReleaseType::Generic => Updater::Generic(GenericUpdater::default()),
             ReleaseType::Go => Updater::Go(GoUpdater::new()),
+            ReleaseType::Helm => Updater::Helm(HelmUpdater::new()),
             ReleaseType::Java => Updater::Java(JavaUpdater::new()),
             ReleaseType::Node => Updater::Node(NodeUpdater::new()),
             ReleaseType::Php => Updater::Php(PhpUpdater::new()),
@@ -69,6 +73,11 @@ impl Updater {
         match self {
             Updater::Generic(_) => vec![],
             Updater::Go(_) => GoManifests::manifest_targets(
+                pkg_name,
+                workspace_path,
+                pkg_path,
+            ),
+            Updater::Helm(_) => HelmManifests::manifest_targets(
                 pkg_name,
                 workspace_path,
                 pkg_path,
@@ -115,6 +124,7 @@ impl Updater {
         match self {
             Updater::Generic(updater) => updater.update_all(manifests),
             Updater::Go(updater) => updater.update_all(manifests),
+            Updater::Helm(updater) => updater.update_all(manifests),
             Updater::Java(updater) => updater.update_all(manifests),
             Updater::Node(updater) => updater.update_all(manifests),
             Updater::Php(updater) => updater.update_all(manifests),
@@ -130,6 +140,7 @@ impl std::fmt::Debug for Updater {
         match self {
             Updater::Generic(_) => write!(f, "Updater::Generic"),
             Updater::Go(_) => write!(f, "Updater::Go"),
+            Updater::Helm(_) => write!(f, "Updater::Helm"),
             Updater::Java(_) => write!(f, "Updater::Java"),
             Updater::Node(_) => write!(f, "Updater::Node"),
             Updater::Php(_) => write!(f, "Updater::Php"),
@@ -148,6 +159,8 @@ mod tests {
     fn creates_updater_for_each_release_type() {
         let types = vec![
             ReleaseType::Generic,
+            ReleaseType::Go,
+            ReleaseType::Helm,
             ReleaseType::Java,
             ReleaseType::Node,
             ReleaseType::Php,
@@ -162,6 +175,8 @@ mod tests {
             assert!(matches!(
                 updater,
                 Updater::Generic(_)
+                    | Updater::Go(_)
+                    | Updater::Helm(_)
                     | Updater::Java(_)
                     | Updater::Node(_)
                     | Updater::Php(_)

@@ -751,6 +751,7 @@
       "enum": [
         "generic",
         "go",
+        "helm",
         "node",
         "rust",
         "python",
