@@ -1,3 +1,11 @@
+# [1.2.1](https://github.com/robgonnella/releasaurus/compare/v1.2.0...v1.2.1) - 2026-09-16
+
+### 🐛 Bug Fixes
+
+- _(gitea)_ fixes issue with PR lookin up in gitea/forgejo [_(eb3da49)_](https://github.com/robgonnella/releasaurus/commit/eb3da4968c140515d65187b267e9711a4be97434) (Rob Gonnella) ([PR 381](https://github.com/robgonnella/releasaurus/pull/381))
+
+- simplifies packaged binary archive tree [_(225013b)_](https://github.com/robgonnella/releasaurus/commit/225013bc66199ef246ca1b4ef9114e53d93c3749) (Rob Gonnella) ([PR 379](https://github.com/robgonnella/releasaurus/pull/379))
+
 # [1.2.0](https://github.com/robgonnella/releasaurus/compare/v1.2.0-rc.1...v1.2.0) - 2026-09-01
 
 ### 🚀 Features
