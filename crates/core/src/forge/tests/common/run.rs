@@ -314,6 +314,30 @@ pub async fn run_forge_test(
     );
 
     ////////////////////////////////////////////////////////////////////////////
+    // get_merged_pull_request_for_commit -> also resolves the PR's own
+    // constituent commit, not just its merge commit
+    //
+    // `re_create_commit` is the individual commit the PR was built from,
+    // distinct from the merge commit above.
+    ////////////////////////////////////////////////////////////////////////////
+    log::info!("looking up the PR that introduced the PR's own commit");
+
+    let sub_commit_pr = forge
+        .get_merged_pull_request_for_commit(
+            &re_create_commit.sha,
+            Some(default_branch.to_string()),
+        )
+        .await
+        .unwrap()
+        .expect(
+            "expected the PR's own constituent commit to resolve to its PR",
+        );
+    assert_eq!(
+        sub_commit_pr.id, commit_pr.id,
+        "PR's own commit must resolve to the same PR as its merge commit"
+    );
+
+    ////////////////////////////////////////////////////////////////////////////
     // get_merged_pull_request_for_commit -> None for a direct push
     //
     // `created_commit` was pushed straight to the base branch, so it has no
