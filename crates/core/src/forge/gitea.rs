@@ -9,7 +9,7 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use secrecy::{ExposeSecret, SecretString};
-use std::cmp;
+use std::{cmp, collections::HashMap, sync::Mutex};
 use url::Url;
 
 use crate::{
@@ -25,8 +25,8 @@ use crate::{
             CreateLabel, CreatePull, CreateRelease, GiteaCommitPR,
             GiteaCommitQueryObject, GiteaCommitter, GiteaCreatedCommit,
             GiteaFileChange, GiteaFileChangeOperation, GiteaIssue, GiteaLabel,
-            GiteaModifyFiles, GiteaPullRequest, GiteaRelease, GiteaTag,
-            UpdatePullBody, UpdatePullLabels,
+            GiteaModifyFiles, GiteaPullCommit, GiteaPullRequest, GiteaRelease,
+            GiteaTag, UpdatePullBody, UpdatePullLabels,
         },
         request::{
             Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
@@ -54,6 +54,13 @@ pub struct Gitea {
     default_branch: String,
     release_link_base_url: Url,
     compare_link_base_url: Url,
+    /// This horrible hack exists because Gitea's `commits/{sha}/pull` endpoint
+    /// only resolves a PR for its exact merge-commit sha, not for the PR's
+    /// individual constituent commits. Whenever that lookup succeeds, every
+    /// sha in the PR's commit list is primed into this cache so a later lookup
+    /// for one of those constituent commits resolves without a second,
+    /// always-404 round-trip. See `get_merged_pull_request_for_commit`.
+    pr_commit_cache: Mutex<HashMap<String, ForgeCommitPR>>,
 }
 
 impl Gitea {
@@ -132,6 +139,7 @@ impl Gitea {
             release_link_base_url,
             compare_link_base_url,
             default_branch: default_branch.into(),
+            pr_commit_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -198,23 +206,47 @@ impl Gitea {
         Ok(label)
     }
 
-    /// Returns whether or not PENDING_LABEL exists.
-    ///
-    /// Gitea's issues endpoint silently discards non-existent label
-    /// names from the `labels` query parameter, which causes the
-    /// filter to match every issue. To prevent that, only return
-    /// labels that already exist in the repository. Missing labels
-    /// are created on demand by the PR-management code paths, so
-    /// there is nothing to filter on until they exist.
-    ///
-    /// Callers MUST skip the API query entirely when this returns false.
-    /// Issuing a request without any label filter would match all issues.
     async fn pending_label_exists(&self) -> Result<bool> {
         let all_labels = self.get_all_labels().await?;
         if all_labels.iter().any(|l| l.name == PENDING_LABEL) {
             return Ok(true);
         }
         Ok(false)
+    }
+
+    /// Lists every commit sha belonging to pull request `pr_number`.
+    async fn get_pull_request_commit_shas(
+        &self,
+        pr_number: u64,
+    ) -> Result<Vec<String>> {
+        let mut has_more = true;
+        let mut page = 1;
+        let page_limit = DEFAULT_PAGE_SIZE.to_string();
+        let mut shas = vec![];
+
+        while has_more {
+            let mut commits_url =
+                self.base_url.join(&format!("pulls/{pr_number}/commits"))?;
+
+            commits_url
+                .query_pairs_mut()
+                .append_pair("limit", &page_limit)
+                .append_pair("page", &page.to_string());
+
+            let request = self.client.get(commits_url).build()?;
+            let response = self.client.execute(request).await?;
+            let headers = response.headers();
+            has_more = headers
+                .get("x-hasmore")
+                .map(|h| h.to_str().unwrap_or_default() == "true")
+                .unwrap_or(false);
+            let result = response.error_for_status()?;
+            let batch: Vec<GiteaPullCommit> = result.json().await?;
+            shas.extend(batch.into_iter().map(|c| c.sha));
+            page += 1;
+        }
+
+        Ok(shas)
     }
 
     /// Returns true if `tag_sha` is an ancestor of `branch`. Uses the
@@ -512,6 +544,15 @@ impl Forge for Gitea {
         commit_sha: &str,
         branch: Option<String>,
     ) -> Result<Option<ForgeCommitPR>> {
+        if let Some(pr) = self
+            .pr_commit_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(commit_sha)
+        {
+            return Ok(Some(pr.clone()));
+        }
+
         let branch = branch.as_deref().unwrap_or(&self.default_branch);
         let url = self.base_url.join(&format!("commits/{commit_sha}/pull"))?;
         let request = self.client.get(url).build()?;
@@ -524,10 +565,27 @@ impl Forge for Gitea {
         if !pr.merged || pr.base.reference != branch {
             return Ok(None);
         }
-        Ok(Some(ForgeCommitPR {
+
+        let forge_pr = ForgeCommitPR {
             id: pr.number.to_string(),
             link: pr.html_url,
-        }))
+        };
+
+        // `commits/{sha}/pull` only resolves the exact merge-commit sha,
+        // never the PR's individual constituent commits. Prime those into
+        // the cache now so a later lookup for one of them is a cache hit
+        // rather than another always-404 round-trip.
+        let pr_commit_shas =
+            self.get_pull_request_commit_shas(pr.number).await?;
+        let mut cache = self
+            .pr_commit_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        for sha in pr_commit_shas {
+            cache.insert(sha, forge_pr.clone());
+        }
+
+        Ok(Some(forge_pr))
     }
 
     async fn create_release_branch(
@@ -664,6 +722,16 @@ impl Forge for Gitea {
         req: GetPrRequest,
     ) -> Result<Option<PullRequest>> {
         if !self.pending_label_exists().await? {
+            // Gitea's issues endpoint silently discards non-existent label
+            // names from the `labels` query parameter, which causes the
+            // filter to match every issue. To prevent that, only return
+            // labels that already exist in the repository. Missing labels
+            // are created on demand by the PR-management code paths, so
+            // there is nothing to filter on until they exist.
+            //
+            // Callers MUST skip the API query entirely when this returns
+            // false. Issuing a request without any label filter would match
+            // all issues.
             return Ok(None);
         }
 
@@ -948,6 +1016,31 @@ mod tests {
             .await;
     }
 
+    /// Mocks `GET pulls/{pr_number}/commits`, called after a successful
+    /// `.../pull` lookup to prime `pr_commit_cache` for the PR's other
+    /// commits.
+    async fn mount_pull_commits(
+        server: &MockServer,
+        pr_number: u64,
+        shas: &[&str],
+    ) {
+        let body: Vec<serde_json::Value> = shas
+            .iter()
+            .map(|sha| serde_json::json!({ "sha": sha }))
+            .collect();
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/v1/repos/foo/bar/pulls/{pr_number}/commits"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(body)
+                    .insert_header("x-hasmore", "false"),
+            )
+            .mount(server)
+            .await;
+    }
+
     /// Build a [`RepoUrl`] pointing at `server` with the given owner/name.
     fn make_repo_url(server: &MockServer, owner: &str, name: &str) -> RepoUrl {
         let uri = server.uri();
@@ -1093,6 +1186,7 @@ mod tests {
         let server = MockServer::start().await;
         let gitea = make_gitea(&server, "foo", "bar").await;
         mount_pr(&server, merged_pr_body("main")).await;
+        mount_pull_commits(&server, 42, &[COMMIT_SHA]).await;
 
         let pr = gitea
             .get_merged_pull_request_for_commit(COMMIT_SHA, Some("main".into()))
@@ -1112,6 +1206,7 @@ mod tests {
         let gitea = make_gitea(&server, "foo", "bar").await;
         // `make_gitea` reports `main` as the default branch.
         mount_pr(&server, merged_pr_body("main")).await;
+        mount_pull_commits(&server, 42, &[COMMIT_SHA]).await;
 
         let pr = gitea
             .get_merged_pull_request_for_commit(COMMIT_SHA, None)
@@ -1192,5 +1287,54 @@ mod tests {
             result,
             Err(super::ReleasaurusError::NetworkError(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn get_merged_pull_request_for_commit_resolves_sub_commit() {
+        const MERGE_SHA: &str = "merge0000000";
+        const SUB_SHA: &str = "sub00000000";
+
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/v1/repos/foo/bar/commits/{MERGE_SHA}/pull"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(merged_pr_body("main")),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        mount_pull_commits(&server, 42, &[MERGE_SHA, SUB_SHA]).await;
+
+        // The sub-commit's own `.../pull` endpoint must never be hit: the
+        // fix propagates the PR from the merge commit's lookup instead.
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/api/v1/repos/foo/bar/commits/{SUB_SHA}/pull"
+            )))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(0)
+            .mount(&server)
+            .await;
+
+        let merge_pr = gitea
+            .get_merged_pull_request_for_commit(MERGE_SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected a PR for the merge commit");
+
+        let sub_pr = gitea
+            .get_merged_pull_request_for_commit(SUB_SHA, Some("main".into()))
+            .await
+            .unwrap()
+            .expect("expected the sub-commit to resolve via the cache");
+
+        assert_eq!(merge_pr.id, sub_pr.id);
+        assert_eq!(merge_pr.link, sub_pr.link);
     }
 }

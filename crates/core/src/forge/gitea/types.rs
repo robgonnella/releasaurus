@@ -168,12 +168,15 @@ pub struct GiteaCommitPRBase {
     pub reference: String,
 }
 
+/// A single entry from `GET pulls/{index}/commits`.
+#[derive(Debug, Deserialize)]
+pub struct GiteaPullCommit {
+    pub sha: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GiteaCommitPR {
-    /// Per-repository index shown in the UI (`#42`). Distinct from `id`,
-    /// which is an instance-global database identifier.
     pub number: u64,
-    /// Browsable web URL. Distinct from `url`, which is the API URL.
     pub html_url: String,
     pub merged: bool,
     pub base: GiteaCommitPRBase,
