@@ -76,8 +76,9 @@ jobs:
         uses: a7ul/tar-action@v1.2.0
         with:
           command: c
+          cwd: ./target/${{ matrix.platform.target }}/release
           files: |
-            ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.executable }}
+            ${{ matrix.platform.executable }}
           outPath: releasaurus-${{ github.ref_name }}-${{ matrix.platform.target }}.tgz
       - name: Upload artifact
         uses: actions/upload-artifact@v5
