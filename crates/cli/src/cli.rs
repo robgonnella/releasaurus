@@ -93,7 +93,7 @@ impl ForgeArgs {
         {
             let forge: Box<dyn Forge> = match forge_type {
                 ForgeType::Github => {
-                    let repo = git_url_to_repo_url(git_url)?;
+                    let repo = git_url_to_repo_url(git_url, *forge_type)?;
                     let github =
                         Github::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -109,7 +109,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Gitlab => {
-                    let repo = git_url_to_repo_url(git_url)?;
+                    let repo = git_url_to_repo_url(git_url, *forge_type)?;
                     let gitlab =
                         Gitlab::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -125,7 +125,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Gitea => {
-                    let repo = git_url_to_repo_url(git_url)?;
+                    let repo = git_url_to_repo_url(git_url, *forge_type)?;
                     let gitea =
                         Gitea::new(repo.clone(), self.token.clone(), None)
                             .await?;
@@ -142,7 +142,7 @@ impl ForgeArgs {
                     }
                 }
                 ForgeType::Forgejo => {
-                    let repo = git_url_to_repo_url(git_url)?;
+                    let repo = git_url_to_repo_url(git_url, *forge_type)?;
                     let forgejo =
                         Forgejo::new(repo.clone(), self.token.clone()).await?;
                     if let Some(local_path) = self.local_path.as_ref() {
@@ -238,7 +238,7 @@ fn infer_forge_from_url(url: &str) -> Option<ForgeType> {
     }
 }
 
-fn git_url_to_repo_url(url: &str) -> Result<RepoUrl> {
+fn git_url_to_repo_url(url: &str, forge: ForgeType) -> Result<RepoUrl> {
     let git_url = GitUrl::parse(url).map_err(|e| {
         ReleasaurusError::InvalidArgs(format!(
             "failed to parse repo url as git url: {}",
@@ -270,8 +270,24 @@ fn git_url_to_repo_url(url: &str) -> Result<RepoUrl> {
     ))?;
 
     let owner = provider.owner();
-    let name = provider.repo();
     let path = git_url.path();
+    let (name, path) = if forge == ForgeType::Gitlab {
+        // GenericProvider treats the first subgroup as the repository.
+        let path = path.trim_end_matches('/');
+        let path = path.strip_suffix(".git").unwrap_or(path);
+        let name = path
+            .rsplit('/')
+            .next()
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                ReleasaurusError::InvalidArgs(
+                    "missing GitLab project name".into(),
+                )
+            })?;
+        (name, path)
+    } else {
+        (provider.repo().as_str(), path)
+    };
     let port = git_url.port();
     let token = git_url.password().map(SecretString::from);
 
@@ -758,6 +774,31 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gitlab_project_name_excludes_subgroups() {
+        for namespace in ["group", "group/subgroup", "group/subgroup/nested"] {
+            for suffix in ["", "/", ".git", ".git/"] {
+                let url = format!(
+                    "https://gitlab.example.com/{namespace}/project{suffix}"
+                );
+                let repo =
+                    git_url_to_repo_url(&url, ForgeType::Gitlab).unwrap();
+                assert_eq!(repo.name, "project");
+                assert_eq!(repo.owner, "group");
+                assert_eq!(repo.path, format!("/{namespace}/project"));
+            }
+        }
+        for forge in [ForgeType::Github, ForgeType::Gitea, ForgeType::Forgejo] {
+            let repo = git_url_to_repo_url(
+                "https://git.example.com/owner/repo/nested",
+                forge,
+            )
+            .unwrap();
+            assert_eq!(repo.name, "repo");
+            assert_eq!(repo.path, "/owner/repo/nested");
+        }
+    }
 
     #[tokio::test]
     async fn forge_args_errors_if_missing_forge_type_and_url_unrecognized() {

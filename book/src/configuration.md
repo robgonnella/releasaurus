@@ -223,6 +223,9 @@ This updates `backend/services/api/Cargo.toml` and the workspace
 - **Names must be unique** across all packages. If omitted, the name is
   derived from the last path component. Match the manifest's `name` field
   where one exists (`package.json`, `Cargo.toml`, etc.).
+  Root packages fall back to the repository name: a nested GitLab URL like
+  `https://gitlab.example.com/group/subgroup/project` uses `project`, not
+  `subgroup`. An explicit `name` always takes precedence.
 - **The full path (`workspace_root` + `path`) must be unique.** Two
   packages may share a `path` only if their `workspace_root` differs.
 - **Sub-packages count for both rules.** A sub-package name or full path
