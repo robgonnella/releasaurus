@@ -1,7 +1,7 @@
 //! CLI top-level definition for release automation workflow.
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use git_url_parse::{GitUrl, types::provider::GenericProvider};
+use git_url_parse::GitUrl;
 use merge::Merge;
 use releasaurus_core::{
     config::{
@@ -258,28 +258,48 @@ fn git_url_to_repo_url(url: &str) -> Result<RepoUrl> {
         )),
     }?;
 
-    let provider: GenericProvider = git_url.provider_info().map_err(|e| {
-        ReleasaurusError::InvalidArgs(format!(
-            "failed to parse provider info from repo url: {}",
-            e
-        ))
-    })?;
+    let host = git_url
+        .host()
+        .ok_or(ReleasaurusError::InvalidArgs(
+            "failed to parse host from repo url".into(),
+        ))?
+        .to_string();
 
-    let host = git_url.host().ok_or(ReleasaurusError::InvalidArgs(
-        "failed to parse host from repo url".into(),
-    ))?;
-
-    let owner = provider.owner();
-    let name = provider.repo();
     let path = git_url.path();
+    let path = path.strip_suffix(".git").unwrap_or(path).to_string();
+    let path_buf = Path::new(&path);
+
+    let name = path_buf
+        .file_name()
+        .ok_or(ReleasaurusError::InvalidArgs(
+            "failed to parse repo name from repo url".into(),
+        ))?
+        .to_string_lossy()
+        .to_string();
+
+    let owner = path_buf.parent().ok_or(ReleasaurusError::InvalidArgs(
+        "failed to parse owner from repo url".into(),
+    ))?;
+    let owner = owner
+        .strip_prefix("/")
+        .unwrap_or(owner)
+        .to_string_lossy()
+        .to_string();
+
+    if owner.is_empty() {
+        return Err(ReleasaurusError::InvalidArgs(
+            "failed to parse owner from repo url".into(),
+        ));
+    }
+
     let port = git_url.port();
     let token = git_url.password().map(SecretString::from);
 
     Ok(RepoUrl {
-        host: host.to_string(),
-        owner: owner.to_string(),
-        name: name.to_string(),
-        path: path.to_string(),
+        host,
+        owner,
+        name,
+        path,
         port,
         scheme,
         token,
@@ -955,6 +975,89 @@ mod tests {
             infer_forge_from_url("https://dev.azure.com/org/proj/_git/r"),
             Some(ForgeType::AzureDevops),
         );
+    }
+
+    #[test]
+    fn git_url_to_repo_url_parses_gitlab_subgroup() {
+        let repo =
+            git_url_to_repo_url("https://gitlab.com/group/subgroup/project")
+                .unwrap();
+
+        assert_eq!(repo.host, "gitlab.com");
+        assert_eq!(repo.owner, "group/subgroup");
+        assert_eq!(repo.name, "project");
+        assert_eq!(repo.path, "/group/subgroup/project");
+    }
+
+    #[test]
+    fn git_url_to_repo_url_parses_deeply_nested_gitlab_groups() {
+        let repo = git_url_to_repo_url("https://gitlab.com/a/b/c/project.git")
+            .unwrap();
+
+        assert_eq!(repo.owner, "a/b/c");
+        assert_eq!(repo.name, "project");
+        assert_eq!(repo.path, "/a/b/c/project");
+    }
+
+    #[test]
+    fn git_url_to_repo_url_parses_two_segment_path() {
+        let repo =
+            git_url_to_repo_url("https://github.com/owner/repo").unwrap();
+
+        assert_eq!(repo.host, "github.com");
+        assert_eq!(repo.owner, "owner");
+        assert_eq!(repo.name, "repo");
+        assert_eq!(repo.path, "/owner/repo");
+        assert!(matches!(repo.scheme, Scheme::Https));
+        assert_eq!(repo.port, None);
+        assert!(repo.token.is_none());
+    }
+
+    #[test]
+    fn git_url_to_repo_url_strips_dot_git_suffix() {
+        let repo =
+            git_url_to_repo_url("https://github.com/owner/repo.git").unwrap();
+
+        assert_eq!(repo.owner, "owner");
+        assert_eq!(repo.name, "repo");
+        assert_eq!(repo.path, "/owner/repo");
+    }
+
+    #[test]
+    fn git_url_to_repo_url_preserves_dot_git_inside_name() {
+        let repo =
+            git_url_to_repo_url("https://github.com/owner/foo.github.io")
+                .unwrap();
+
+        assert_eq!(repo.name, "foo.github.io");
+        assert_eq!(repo.path, "/owner/foo.github.io");
+    }
+
+    #[test]
+    fn git_url_to_repo_url_parses_subgroup_with_port_and_http() {
+        let repo = git_url_to_repo_url(
+            "http://gitlab.internal:8443/group/sub/project",
+        )
+        .unwrap();
+
+        assert!(matches!(repo.scheme, Scheme::Http));
+        assert_eq!(repo.host, "gitlab.internal");
+        assert_eq!(repo.port, Some(8443));
+        assert_eq!(repo.owner, "group/sub");
+        assert_eq!(repo.name, "project");
+        assert_eq!(repo.path, "/group/sub/project");
+    }
+
+    #[test]
+    fn git_url_to_repo_url_rejects_single_segment_path() {
+        let result = git_url_to_repo_url("https://github.com/repo");
+
+        match result {
+            Ok(_) => unreachable!("single segment path should have errored"),
+            Err(err) => {
+                assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
+            }
+        }
     }
 
     #[test]
