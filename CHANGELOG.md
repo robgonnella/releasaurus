@@ -1,3 +1,9 @@
+# [1.2.2](https://github.com/robgonnella/releasaurus/compare/v1.2.1...v1.2.2) - 2026-09-18
+
+### 🐛 Bug Fixes
+
+- fixes issue with parsing deeply nested subgroups in repo url [_(c3e1e11)_](https://github.com/robgonnella/releasaurus/commit/c3e1e11789b385b6a223c74403675dc32af36a27) (Rob Gonnella) ([PR 384](https://github.com/robgonnella/releasaurus/pull/384))
+
 # [1.2.1](https://github.com/robgonnella/releasaurus/compare/v1.2.0...v1.2.1) - 2026-09-16
 
 ### 🐛 Bug Fixes
