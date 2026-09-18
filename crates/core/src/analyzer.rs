@@ -114,8 +114,20 @@ impl<'a> Analyzer<'a> {
 
         let mut next_tag_name = next.to_string();
 
+        if self.config.date_zero_padding
+            && self.config.version_type.is_date_based()
+        {
+            next_tag_name = format!(
+                "{:04}.{:02}.{:02}",
+                next.major, next.minor, next.patch
+            );
+            if !next.build.is_empty() {
+                next_tag_name.push_str(&format!("+{}", next.build));
+            }
+        }
+
         if let Some(prefix) = self.config.tag_prefix.as_ref() {
-            next_tag_name = format!("{prefix}{}", next);
+            next_tag_name = format!("{prefix}{next_tag_name}");
         }
 
         let next_tag = Tag {

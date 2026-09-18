@@ -37,6 +37,8 @@ pub struct AnalyzerConfig {
     pub prerelease: Option<PrereleaseConfig>,
     /// Type of versioning to perform (semantic, date, etc)
     pub version_type: VersionType,
+    /// Zero-pad date-based tag names, not canonical versions.
+    pub date_zero_padding: bool,
     /// Always increments major version on breaking commits. `None` defers to
     /// the default (true), applied only when a semantic version updater is
     /// built; not consulted for date-based version types.
@@ -83,6 +85,7 @@ impl Default for AnalyzerConfig {
             compare_link_base_url: None,
             prerelease: None,
             version_type: DEFAULT_VERSION_TYPE,
+            date_zero_padding: false,
             breaking_always_increment_major: None,
             features_always_increment_minor: None,
             custom_major_increment_regex: None,

@@ -27,6 +27,7 @@ fn default_monorepo_commit_and_pr_title() -> String {
 fn default_versioning() -> VersioningConfig {
     VersioningConfig {
         version_type: Some(DEFAULT_VERSION_TYPE),
+        date_zero_padding: Some(false),
         prerelease: None,
         auto_start_next: Some(false),
         breaking_always_increment_major: Some(

@@ -373,7 +373,7 @@ impl Forge for Github {
 
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(sver) = semver::Version::parse(&stripped) {
+                    if let Ok(sver) = Tag::parse_version(&stripped) {
                         let sha = tag
                             .target
                             .target

@@ -300,6 +300,10 @@ date-based types those settings are ignored — if you set any of them
 explicitly alongside a date-based `version_type`, Releasaurus logs a warning
 naming the package and setting so the no-op config does not pass silently.
 
+Set `date_zero_padding = true` in `[defaults.versioning]` or a package's
+`versioning` table for tags such as `v2026.06.04` (default: `false`).
+This requires a date-based `version_type`.
+
 ## Prereleases
 
 Publish alpha/beta/rc/snapshot versions before a stable release. Configure

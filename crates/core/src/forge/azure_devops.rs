@@ -642,7 +642,7 @@ impl Forge for AzureDevops {
                 continue;
             }
             let stripped = re.replace_all(&name, "").to_string();
-            let Ok(sver) = semver::Version::parse(&stripped) else {
+            let Ok(sver) = Tag::parse_version(&stripped) else {
                 continue;
             };
             // Only return tags reachable from the target branch.

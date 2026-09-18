@@ -440,6 +440,42 @@ fn commit_for_date_test() -> Vec<ForgeCommit> {
     }]
 }
 
+#[test]
+fn test_date_zero_padding_preserves_versions_and_history() {
+    for version_type in [
+        VersionType::Date,
+        VersionType::DateWithTime,
+        VersionType::DateWithTimeMicro,
+    ] {
+        let config = AnalyzerConfig {
+            version_type,
+            date_zero_padding: true,
+            tag_prefix: Some("project-v".into()),
+            ..AnalyzerConfig::default()
+        };
+        let analyzer = Analyzer::new(&config).unwrap();
+        let old = Tag {
+            name: "project-v2000.01.02".into(),
+            semver: Tag::parse_version("2000.01.02").unwrap(),
+            ..Tag::default()
+        };
+        let release = analyzer
+            .analyze(commit_for_date_test(), Some(old))
+            .unwrap()
+            .unwrap();
+        let version = &release.tag.semver;
+        let expected = format!(
+            "project-v{:04}.{:02}.{:02}",
+            version.major, version.minor, version.patch
+        );
+        assert!(release.tag.name.starts_with(&expected));
+        assert_eq!(
+            Tag::parse_version(&release.tag.name[9..]).unwrap(),
+            *version
+        );
+    }
+}
+
 /// Plain `year.month.day` allows one release per day by design, so a
 /// same-day re-run has nothing to release rather than re-tagging the version
 /// already out.
@@ -451,12 +487,12 @@ fn test_date_version_same_day_is_not_releasable() {
     };
     let analyzer = Analyzer::new(&config).unwrap();
 
-    let today = today();
+    let name = Utc::now().format("%Y.%m.%d").to_string();
 
     let current_tag = Tag {
         sha: "old123".to_string(),
-        name: today.to_string(),
-        semver: today,
+        semver: Tag::parse_version(&name).unwrap(),
+        name,
         ..Tag::default()
     };
 

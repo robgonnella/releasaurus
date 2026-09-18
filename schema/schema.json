@@ -203,6 +203,7 @@
           ],
           "default": {
             "version_type": "major.minor.patch",
+            "date_zero_padding": false,
             "prerelease": null,
             "auto_start_next": false,
             "breaking_always_increment_major": true,
@@ -317,6 +318,14 @@
             }
           ],
           "default": "major.minor.patch"
+        },
+        "date_zero_padding": {
+          "description": "Zero-pad date-based tag names",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": false
         },
         "prerelease": {
           "description": "Prerelease configuration (suffix + strategy)",

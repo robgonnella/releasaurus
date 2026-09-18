@@ -57,6 +57,17 @@ pub fn resolve_versioning(
         final_versioning.version_type = Some(version_type);
     }
 
+    if final_versioning.date_zero_padding.unwrap_or(false)
+        && !final_versioning
+            .version_type
+            .unwrap_or_default()
+            .is_date_based()
+    {
+        return Err(ReleasaurusError::invalid_config(
+            "date_zero_padding requires a date-based version_type",
+        ));
+    }
+
     // Prerelease has its own precedence chain (config, then global CLI
     // overrides, then per-package CLI overrides), so it is resolved
     // separately and assigned over whatever the merge above produced.

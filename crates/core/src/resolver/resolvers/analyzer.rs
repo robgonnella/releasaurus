@@ -42,6 +42,7 @@ pub struct AnalyzerParams {
 /// commit matcher).
 pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
     AnalyzerConfig {
+        date_zero_padding: params.versioning.date_zero_padding.unwrap_or(false),
         version_type: params
             .versioning
             .version_type

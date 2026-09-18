@@ -439,7 +439,7 @@ impl Forge for LocalRepo {
                         break;
                     }
 
-                    let Ok(semver) = semver::Version::parse(
+                    let Ok(semver) = Tag::parse_version(
                         tag_prefix_regex.replace_all(stripped, "").as_ref(),
                     ) else {
                         continue;

@@ -1,3 +1,4 @@
+use chrono::{Datelike, NaiveDate};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use std::{fmt::Display, hash::Hash};
@@ -169,6 +170,35 @@ pub struct Tag {
     pub timestamp: Option<i64>,
 }
 
+impl Tag {
+    /// Parses an unprefixed SemVer or fixed-width YYYY.MM.DD tag version.
+    pub fn parse_version(
+        value: &str,
+    ) -> Result<semver::Version, semver::Error> {
+        let original = semver::Version::parse(value);
+        if original.is_ok() {
+            return original;
+        }
+        let core = value.split('+').next().unwrap_or(value);
+        let Ok(date) = NaiveDate::parse_from_str(core, "%Y.%m.%d") else {
+            return original;
+        };
+        if date.year() <= 0
+            || core.len() != 10
+            || date.format("%Y.%m.%d").to_string() != core
+        {
+            return original;
+        }
+        let suffix = &value[core.len()..];
+        semver::Version::parse(&format!(
+            "{}.{}.{}{suffix}",
+            date.year(),
+            date.month(),
+            date.day()
+        ))
+    }
+}
+
 impl Default for Tag {
     fn default() -> Self {
         Self {
@@ -232,5 +262,30 @@ impl PartialEq for ForgeCommit {
 impl Hash for ForgeCommit {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_tag_versions() {
+        for (raw, canonical) in [
+            ("1.2.3-rc.1+001.sha", "1.2.3-rc.1+001.sha"),
+            ("2026.13.31", "2026.13.31"),
+            ("2024.02.29", "2024.2.29"),
+            ("2026.01.02+03.04.05.000006", "2026.1.2+03.04.05.000006"),
+        ] {
+            assert_eq!(Tag::parse_version(raw).unwrap().to_string(), canonical);
+        }
+        for raw in "2025.02.29|2024.02.30|2026.04.31|2026.00.01|\
+            2026.13.01|2026.01.00|0000.01.01|02026.01.02|2026.001.02|\
+            2026.1.02|2026.01.2|01.2.3|2026.01.02-rc.1|2026.01.02+|\
+            2026.01.02+a..b|2026.01.02+a+b| 2026.01.02|\u{ff12}026.01.02"
+            .split('|')
+        {
+            assert!(Tag::parse_version(raw).is_err(), "{raw}");
+        }
     }
 }

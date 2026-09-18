@@ -14,7 +14,7 @@ use crate::{
         manager::ForgeManager,
         request::{
             CreateCommitRequest, CreateReleaseRequest, GetPrRequest,
-            PrLabelsRequest, PullRequest, ReleaseByTagResponse,
+            PrLabelsRequest, PullRequest, ReleaseByTagResponse, Tag,
             UpdatePrRequest,
         },
     },
@@ -562,7 +562,7 @@ impl Orchestrator {
         // back to a normal release rather than guessing.
         let prerelease = tag
             .strip_prefix(&package.tag_prefix)
-            .and_then(|v| semver::Version::parse(v).ok())
+            .and_then(|v| Tag::parse_version(v).ok())
             .is_some_and(|v| !v.pre.is_empty());
 
         self.forge

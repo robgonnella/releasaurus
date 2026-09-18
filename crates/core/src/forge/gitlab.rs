@@ -355,7 +355,7 @@ impl Forge for Gitlab {
         for tag in gitlab_tags.into_iter() {
             if re.is_match(&tag.name) {
                 let stripped = re.replace_all(&tag.name, "").to_string();
-                if let Ok(sver) = semver::Version::parse(&stripped)
+                if let Ok(sver) = Tag::parse_version(&stripped)
                     && self
                         .is_tag_ancestor_of_branch(&tag.commit.id, branch)
                         .await?

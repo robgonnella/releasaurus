@@ -175,6 +175,39 @@ mod tests {
         }
     }
 
+    #[test]
+    fn resolve_date_zero_padding() {
+        let config: Config = toml::from_str(
+            r#"
+            [defaults.versioning]
+            version_type = "year.month.day"
+            date_zero_padding = true
+            [[package]]
+            name = "first"
+            path = "first"
+            [[package]]
+            name = "second"
+            path = "second"
+            versioning.date_zero_padding = false
+        "#,
+        )
+        .unwrap();
+        let mut resolver = resolver(config.clone());
+        let resolved = resolver.resolve(config.packages.clone()).unwrap();
+        let first = resolved.package_configs.get("first").unwrap();
+        let second = resolved.package_configs.get("second").unwrap();
+        assert!(first.analyzer_config.date_zero_padding);
+        assert!(!second.analyzer_config.date_zero_padding);
+        resolver.global_overrides.version_type =
+            Some(crate::config::versioning::VersionType::Semantic);
+        let error = resolver.resolve(config.packages).err().unwrap();
+        assert!(
+            error.to_string().contains(
+                "date_zero_padding requires a date-based version_type"
+            )
+        );
+    }
+
     /// `repo_name` and the two monorepo templates live on `ResolvedConfig`
     /// rather than on a package, so nothing else in the pipeline covers
     /// them reaching the other side of resolution.

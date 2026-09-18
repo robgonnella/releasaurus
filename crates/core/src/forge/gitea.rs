@@ -406,7 +406,7 @@ impl Forge for Gitea {
                 count += 1;
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(sver) = semver::Version::parse(&stripped)
+                    if let Ok(sver) = Tag::parse_version(&stripped)
                         && self
                             .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
                             .await?

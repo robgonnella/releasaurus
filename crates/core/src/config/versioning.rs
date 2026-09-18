@@ -287,6 +287,10 @@ pub struct VersioningConfig {
     #[merge(strategy = merge::option::overwrite_none)]
     #[schemars(default = "default_version_type")]
     pub version_type: Option<VersionType>,
+    /// Zero-pad date-based tag names only; canonical versions stay unchanged.
+    #[merge(strategy = merge::option::overwrite_none)]
+    #[schemars(default = "bool::default")]
+    pub date_zero_padding: Option<bool>,
     /// Prerelease configuration (suffix + strategy)
     // Excluded from the merge: `resolve_prerelease` has its own precedence
     // chain (config, then global CLI overrides, then per-package ones) and
