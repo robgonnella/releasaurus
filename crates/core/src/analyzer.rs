@@ -127,20 +127,26 @@ impl<'a> Analyzer<'a> {
             sha: "".into(),
         };
 
+        let link_style = self.config.link_style;
+
         if let Some(base_url) = self.config.release_link_base_url.as_ref() {
-            release.link = base_url.join(&next_tag.name)?.to_string();
+            release.link = link_style.release_link(base_url, &next_tag.name)?;
         }
 
         if let Some(base_url) = self.config.compare_link_base_url.as_ref()
             && let Some(current) = current_tag
         {
-            release.tag_compare_link = base_url
-                .join(&format!("{}...{}", current.name, next_tag.name))?
-                .to_string();
+            release.tag_compare_link = link_style.tag_compare_link(
+                base_url,
+                &current.name,
+                &next_tag.name,
+            )?;
 
-            release.sha_compare_link = base_url
-                .join(&format!("{}...{}", current.name, release.sha))?
-                .to_string();
+            release.sha_compare_link = link_style.sha_compare_link(
+                base_url,
+                &current.name,
+                &release.sha,
+            )?;
         }
 
         release.tag = next_tag;

@@ -71,6 +71,7 @@
 //!         .compare_link_base_url(
 //!             forge_manager.compare_link_base_url().clone(),
 //!         )
+//!         .link_style(forge_manager.link_style())
 //!         .global_overrides(GlobalOverrides::default())
 //!         .package_overrides(HashMap::new())
 //!         .commit_modifiers(CommitModifiers::default())

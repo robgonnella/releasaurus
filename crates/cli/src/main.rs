@@ -151,6 +151,7 @@ async fn create_orchestrator(
         )
         .release_link_base_url(release_link_base_url.clone())
         .compare_link_base_url(compare_link_base_url.clone())
+        .link_style(forge_manager.link_style())
         .repo_default_branch(default_branch.clone())
         .repo_name(repo_name)
         .toml_config(Rc::clone(&config))

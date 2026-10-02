@@ -301,18 +301,18 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 
 ### Release
 
-| Variable           | Description                                                    |
-| ------------------ | -------------------------------------------------------------- |
-| `version`          | Semantic version (e.g. `1.2.3`)                                |
-| `tag_name`         | Full tag including prefix/suffix                               |
-| `link`             | URL to the release                                             |
-| `tag_compare_link` | Diff vs. previous tag (empty for first release)                |
-| `sha_compare_link` | Diff vs. previous tag, by commit SHA (empty for first release) |
-| `sha`              | Release commit SHA                                             |
-| `short_sha`        | Abbreviated release commit SHA                                 |
-| `timestamp`        | Unix timestamp                                                 |
-| `include_author`   | Whether author display is enabled                              |
-| `include_pr_link`  | Whether PR-link display is enabled                             |
+| Variable           | Description                                                                    |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `version`          | Semantic version (e.g. `1.2.3`)                                                |
+| `tag_name`         | Full tag including prefix/suffix                                               |
+| `link`             | URL to the release                                                             |
+| `tag_compare_link` | Diff from the previous tag to this release's tag (empty for first release)     |
+| `sha_compare_link` | Diff from the previous tag to the release commit SHA (empty for first release) |
+| `sha`              | Release commit SHA                                                             |
+| `short_sha`        | Abbreviated release commit SHA                                                 |
+| `timestamp`        | Unix timestamp                                                                 |
+| `include_author`   | Whether author display is enabled                                              |
+| `include_pr_link`  | Whether PR-link display is enabled                                             |
 
 ### Commit (each item in `commits`)
 

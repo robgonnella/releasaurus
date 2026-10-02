@@ -8,7 +8,7 @@ use crate::{
         overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
     },
-    forge::config::DEFAULT_PR_BRANCH_PREFIX,
+    forge::{config::DEFAULT_PR_BRANCH_PREFIX, link::LinkStyle},
     resolver::resolvers::{
         base_branch::resolve_base_branch,
         commit_modifiers::resolve_commit_modifiers,
@@ -70,6 +70,8 @@ pub struct Resolver {
     pub repo_default_branch: String,
     pub release_link_base_url: Url,
     pub compare_link_base_url: Url,
+    #[builder(default)]
+    pub link_style: LinkStyle,
     pub package_overrides: PackageOverridesHash,
     pub global_overrides: GlobalOverrides,
     pub commit_modifiers: CommitModifiers,
@@ -124,6 +126,7 @@ impl Resolver {
                 global_overrides: &self.global_overrides,
                 compare_link_base_url: &self.compare_link_base_url,
                 release_link_base_url: &self.release_link_base_url,
+                link_style: self.link_style,
             };
 
             let resolved_package = resolve_package(params)?;

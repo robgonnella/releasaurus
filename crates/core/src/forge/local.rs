@@ -20,6 +20,7 @@ use crate::{
     },
     forge::{
         config::RepoUrl,
+        link::LinkStyle,
         request::{
             Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
             ForgeCommitPR, GetFileContentRequest, GetPrRequest,
@@ -363,6 +364,14 @@ impl Forge for LocalRepo {
             remote.forge.compare_link_base_url()
         } else {
             self.link_base_url.clone()
+        }
+    }
+
+    fn link_style(&self) -> LinkStyle {
+        if let Some(remote) = self.remote.as_ref() {
+            remote.forge.link_style()
+        } else {
+            LinkStyle::Path
         }
     }
 

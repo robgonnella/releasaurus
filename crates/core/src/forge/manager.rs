@@ -5,6 +5,7 @@ use url::Url;
 
 use crate::{
     forge::{
+        link::LinkStyle,
         request::{
             Commit, CreateCommitRequest, CreatePrRequest,
             CreateReleaseBranchRequest, CreateReleaseRequest, FileUpdateType,
@@ -70,6 +71,10 @@ impl ForgeManager {
     pub fn compare_link_base_url(&self) -> &Url {
         self.compare_link_base_url
             .get_or_init(|| self.forge.compare_link_base_url())
+    }
+
+    pub fn link_style(&self) -> LinkStyle {
+        self.forge.link_style()
     }
 
     pub fn default_branch(&self) -> &str {

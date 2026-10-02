@@ -14,7 +14,10 @@ use url::Url;
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
     config::versioning::NAMED_PARSERS,
-    forge::request::{ForgeCommit, Tag},
+    forge::{
+        link::LinkStyle,
+        request::{ForgeCommit, Tag},
+    },
 };
 
 #[test]
@@ -335,6 +338,53 @@ fn test_sha_compare_link_spans_filtered_newest_commit() {
     assert_eq!(
         release.sha_compare_link,
         "https://example.com/compare/1.0.0...merge999"
+    );
+}
+
+#[test]
+fn test_azure_devops_links_use_version_query_params() {
+    let web_url = "https://dev.azure.com/org/project/_git/repo";
+    let config = AnalyzerConfig {
+        named_parsers: NAMED_PARSERS.clone(),
+        release_link_base_url: Some(Url::parse(web_url).unwrap()),
+        compare_link_base_url: Some(
+            Url::parse(&format!("{web_url}/branchCompare")).unwrap(),
+        ),
+        link_style: LinkStyle::AzureDevops,
+        tag_prefix: Some("v".to_string()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: "v1.0.0".to_string(),
+        semver: SemVer::parse("1.0.0").unwrap(),
+        ..Tag::default()
+    };
+
+    let commits = vec![ForgeCommit {
+        id: "new456".to_string(),
+        message: "fix: a bug fix".to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
+
+    let release = result.unwrap();
+    assert_eq!(release.link, format!("{web_url}?path=/&version=GTv1.0.1"));
+    assert_eq!(
+        release.tag_compare_link,
+        format!(
+            "{web_url}/branchCompare?baseVersion=GTv1.0.0&targetVersion=GTv1.0.1"
+        )
+    );
+    assert_eq!(
+        release.sha_compare_link,
+        format!(
+            "{web_url}/branchCompare?baseVersion=GTv1.0.0&targetVersion=GCnew456"
+        )
     );
 }
 

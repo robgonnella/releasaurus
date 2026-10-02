@@ -8,13 +8,17 @@ use mockall::automock;
 
 use crate::{
     config::repository::GitUserConfig,
-    forge::request::{
-        Commit, CreateCommitRequest, CreatePrRequest,
-        CreateReleaseBranchRequest, CreateReleaseRequest, FileChange,
-        ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
-        PrLabelsRequest, PrMetadataBlock, PullRequest, ReleaseByTagResponse,
-        ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest, Tag,
-        TagResponse, UpdatePrRequest,
+    forge::{
+        link::LinkStyle,
+        request::{
+            Commit, CreateCommitRequest, CreatePrRequest,
+            CreateReleaseBranchRequest, CreateReleaseRequest, FileChange,
+            ForgeCommit, ForgeCommitPR, GetFileContentRequest, GetPrRequest,
+            PrLabelsRequest, PrMetadataBlock, PullRequest,
+            ReleaseByTagResponse, ResolvedCreateCommitRequest,
+            ResolvedCreateReleaseBranchRequest, Tag, TagResponse,
+            UpdatePrRequest,
+        },
     },
     result::Result,
 };
@@ -30,6 +34,11 @@ pub trait Forge: Any + Send + Sync {
     fn release_link_base_url(&self) -> Url;
     /// Get the base URL for comparing releases and showing diffs
     fn compare_link_base_url(&self) -> Url;
+    /// How refs are encoded into release and compare links built from the
+    /// base URLs above.
+    fn link_style(&self) -> LinkStyle {
+        LinkStyle::Path
+    }
     /// Fetch the default branch name (e.g., "main" or "master").
     fn default_branch(&self) -> String;
     /// Sets the commit search depth when fetching commit for the first release.

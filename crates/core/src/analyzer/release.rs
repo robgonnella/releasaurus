@@ -36,11 +36,11 @@ pub struct Release {
     pub tag: Tag,
     /// Release URL link
     pub link: String,
-    /// Link to diff between new tag and previous release tag
+    /// Link to diff from the previous release tag to the new release tag
     /// This won't be valid until after we finish tagging the release
     /// but we still want to reference it when updating changelog
     pub tag_compare_link: String,
-    /// Link to diff between new release sha and previous release tag
+    /// Link to diff from the previous release tag to the new release sha
     /// This should always be valid
     pub sha_compare_link: String,
     /// Git commit SHA for the release
