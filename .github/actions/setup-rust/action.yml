@@ -21,11 +21,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Run sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.11
+      with:
+        version: "v0.18.0"
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        cache: ${{ inputs.cache-policy != 'disable' }}
-        cache-save-if: ${{ inputs.cache-policy == 'pull-push' }}
-        cache-shared-key: ${{ inputs.cache-shared-key }}
+        cache: false
+        # cache: ${{ inputs.cache-policy != 'disable' }}
+        # cache-save-if: ${{ inputs.cache-policy == 'pull-push' }}
+        # cache-shared-key: ${{ inputs.cache-shared-key }}
     - name: install cargo-binstall
       if: inputs.machete == 'true' || inputs.cross == 'true'
       shell: bash

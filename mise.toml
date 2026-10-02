@@ -1,8 +1,10 @@
 [env]
 _.file = ".env"
+RUSTC_WRAPPER = "sccache"
 
 [tools]
 just = "1.49.0"
+sccache = "0.18"
 
 # rust automatically configured from rust-toolchain.toml
 [settings]
