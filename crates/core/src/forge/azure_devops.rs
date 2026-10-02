@@ -37,6 +37,7 @@ use crate::{
             DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl, TokenVar, USER_AGENT,
             resolve_token,
         },
+        link::LinkStyle,
         request::{
             Commit, CreatePrRequest, CreateReleaseRequest, ForgeCommit,
             ForgeCommitPR, GetFileContentRequest, GetPrRequest,
@@ -112,13 +113,12 @@ impl AzureDevops {
         // Web URL prefix: https://dev.azure.com/{org}/{project}/_git/{repo}
         let web_repo_url = format!("{}{}", link_base_url, url.path);
 
-        // Azure DevOps has no Releases page; link tags to the tag listing.
-        let release_link_base_url =
-            Url::parse(&format!("{}?path=/&version=GT", web_repo_url))?;
-        let compare_link_base_url = Url::parse(&format!(
-            "{}/branchCompare?baseVersion=GT",
-            web_repo_url
-        ))?;
+        // Azure DevOps has no Releases page; link tags to the repo browser
+        // at that tag. Refs are added as query parameters by
+        // `LinkStyle::AzureDevops`.
+        let release_link_base_url = Url::parse(&web_repo_url)?;
+        let compare_link_base_url =
+            Url::parse(&format!("{}/branchCompare", web_repo_url))?;
 
         let mut headers = HeaderMap::new();
 
@@ -551,6 +551,10 @@ impl Forge for AzureDevops {
 
     fn compare_link_base_url(&self) -> Url {
         self.compare_link_base_url.clone()
+    }
+
+    fn link_style(&self) -> LinkStyle {
+        LinkStyle::AzureDevops
     }
 
     fn default_branch(&self) -> String {

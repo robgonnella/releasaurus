@@ -14,6 +14,7 @@ use crate::config::{
         Parser, VersionType,
     },
 };
+use crate::forge::link::LinkStyle;
 
 /// Configuration for commit analysis and changelog generation.
 #[derive(Debug, Clone, Builder)]
@@ -33,6 +34,8 @@ pub struct AnalyzerConfig {
     pub release_link_base_url: Option<Url>,
     /// Base URL for comparing releases and showing diffs
     pub compare_link_base_url: Option<Url>,
+    /// How refs are encoded into release and compare links
+    pub link_style: LinkStyle,
     /// Prerelease settings (if enabled).
     pub prerelease: Option<PrereleaseConfig>,
     /// Type of versioning to perform (semantic, date, etc)
@@ -81,6 +84,7 @@ impl Default for AnalyzerConfig {
             tag_prefix: None,
             release_link_base_url: None,
             compare_link_base_url: None,
+            link_style: LinkStyle::default(),
             prerelease: None,
             version_type: DEFAULT_VERSION_TYPE,
             breaking_always_increment_major: None,

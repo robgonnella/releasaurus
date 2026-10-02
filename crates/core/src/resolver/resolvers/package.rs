@@ -8,6 +8,7 @@ use crate::{
         package::PackageConfig,
         versioning::{DEFAULT_VERSION_TYPE, VersioningConfig},
     },
+    forge::link::LinkStyle,
     packages::resolved::ResolvedPackage,
     resolver::resolvers::{
         analyzer::{AnalyzerParams, build_analyzer_config},
@@ -32,6 +33,7 @@ pub struct PackageResolverParams<'a> {
     pub global_overrides: &'a GlobalOverrides,
     pub compare_link_base_url: &'a Url,
     pub release_link_base_url: &'a Url,
+    pub link_style: LinkStyle,
 }
 
 pub fn resolve_package(
@@ -46,6 +48,7 @@ pub fn resolve_package(
         global_overrides,
         compare_link_base_url,
         release_link_base_url,
+        link_style,
     } = params;
 
     let name = resolve_package_name(&package_config, repo_name);
@@ -99,6 +102,7 @@ pub fn resolve_package(
         commit_modifiers: commit_modifiers.clone(),
         compare_link_base_url: Some(compare_link_base_url.clone()),
         release_link_base_url: Some(release_link_base_url.clone()),
+        link_style,
         tag_prefix: tag_prefix.clone(),
     });
 

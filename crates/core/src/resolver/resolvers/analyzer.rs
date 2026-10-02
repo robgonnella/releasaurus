@@ -19,6 +19,7 @@ use crate::{
             VersioningConfig,
         },
     },
+    forge::link::LinkStyle,
 };
 
 /// Parameters for building an analyzer configuration.
@@ -32,6 +33,7 @@ pub struct AnalyzerParams {
     pub tag_prefix: String,
     pub release_link_base_url: Option<Url>,
     pub compare_link_base_url: Option<Url>,
+    pub link_style: LinkStyle,
     pub commit_modifiers: CommitModifiers,
 }
 
@@ -70,6 +72,7 @@ pub fn build_analyzer_config(params: AnalyzerParams) -> AnalyzerConfig {
         prerelease: params.versioning.prerelease,
         release_link_base_url: params.release_link_base_url,
         compare_link_base_url: params.compare_link_base_url,
+        link_style: params.link_style,
         skip_merge_commits: params
             .versioning
             .skip_merge_commits

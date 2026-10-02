@@ -3,6 +3,7 @@
 //! The [`traits::Forge`] trait defines the common interface.
 //! Implementations: [`github`], [`gitlab`], [`gitea`], [`forgejo`],
 //! [`azure_devops`], [`local`].
+//! [`link::LinkStyle`] builds release and compare links per forge.
 //! [`manager::ForgeManager`] wraps any `Forge` with caching,
 //! logging, and dry-run support.
 //! [`config_loader`] reads `releasaurus.toml` from a repository
@@ -15,6 +16,7 @@ pub mod forgejo;
 pub mod gitea;
 pub mod github;
 pub mod gitlab;
+pub mod link;
 pub mod local;
 pub mod manager;
 pub mod request;
