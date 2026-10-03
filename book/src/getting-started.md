@@ -6,10 +6,12 @@ Install Releasaurus and cut your first release in a few minutes.
 
 ### Pre-built binary (recommended)
 
-The fastest option, via
-[cargo-binstall](https://github.com/cargo-bins/cargo-binstall):
+From github releases: <https://github.com/robgonnella/releasaurus/releases>
+
+Or via [cargo-binstall](https://github.com/cargo-bins/cargo-binstall):
 
 ```bash
+cargo install cargo-binstall
 cargo binstall releasaurus
 ```
 
@@ -19,6 +21,24 @@ Compiles from source:
 
 ```bash
 cargo install releasaurus
+```
+
+### Aqua
+
+```bash
+aqua g -i robgonnella/releasaurus
+```
+
+### Mise
+
+```bash
+mise use aqua:robgonnella/releasaurus
+```
+
+```toml
+# mise.toml
+[tools]
+"aqua:robgonnella/releasaurus" = "<version>"
 ```
 
 ### Docker
