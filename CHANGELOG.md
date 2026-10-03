@@ -1,3 +1,13 @@
+# [1.2.3](https://github.com/robgonnella/releasaurus/compare/v1.2.2...v1.2.3) - 2026-10-03
+
+### 🐛 Bug Fixes
+
+- _(azure)_ use branchCompare query format for changelog links [_(ebc4347)_](https://github.com/robgonnella/releasaurus/commit/ebc4347dbb23579acef2c85361ca29b8cee4af5d) (Michal Dvořák) ([PR 387](https://github.com/robgonnella/releasaurus/pull/387))
+
+### 📚 Documentation
+
+- updates docs for installing [_(a8ff919)_](https://github.com/robgonnella/releasaurus/commit/a8ff9197640e54fe25076046409ee303489d9651) (Rob Gonnella)
+
 # [1.2.2](https://github.com/robgonnella/releasaurus/compare/v1.2.1...v1.2.2) - 2026-09-18
 
 ### 🐛 Bug Fixes
