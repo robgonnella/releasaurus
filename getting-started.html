@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595e1d18.js";
+            window.path_to_searchindex_js = "searchindex-6da03f34.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -181,13 +181,24 @@
 <p>Install Releasaurus and cut your first release in a few minutes.</p>
 <h2 id="install"><a class="header" href="#install">Install</a></h2>
 <h3 id="pre-built-binary-recommended"><a class="header" href="#pre-built-binary-recommended">Pre-built binary (recommended)</a></h3>
-<p>The fastest option, via
-<a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a>:</p>
-<pre><code class="language-bash">cargo binstall releasaurus
+<p>From github releases: <a href="https://github.com/robgonnella/releasaurus/releases">https://github.com/robgonnella/releasaurus/releases</a></p>
+<p>Or via <a href="https://github.com/cargo-bins/cargo-binstall">cargo-binstall</a>:</p>
+<pre><code class="language-bash">cargo install cargo-binstall
+cargo binstall releasaurus
 </code></pre>
 <h3 id="from-cratesio"><a class="header" href="#from-cratesio">From crates.io</a></h3>
 <p>Compiles from source:</p>
 <pre><code class="language-bash">cargo install releasaurus
+</code></pre>
+<h3 id="aqua"><a class="header" href="#aqua">Aqua</a></h3>
+<pre><code class="language-bash">aqua g -i robgonnella/releasaurus
+</code></pre>
+<h3 id="mise"><a class="header" href="#mise">Mise</a></h3>
+<pre><code class="language-bash">mise use aqua:robgonnella/releasaurus
+</code></pre>
+<pre><code class="language-toml"># mise.toml
+[tools]
+"aqua:robgonnella/releasaurus" = "&lt;version&gt;"
 </code></pre>
 <h3 id="docker"><a class="header" href="#docker">Docker</a></h3>
 <pre><code class="language-bash">docker pull rgonnella/releasaurus:latest
