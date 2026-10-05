@@ -52,7 +52,7 @@ impl FileUpdater for LibsVersionsToml {
             return Ok(None);
         };
 
-        let next_version = owner.tag.semver.to_string();
+        let next_version = owner.tag.version.to_string();
 
         log::info!(
             "setting version for {} to {next_version} in libs.versions.toml (key: {version_key})",
@@ -120,7 +120,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -132,7 +132,9 @@ mod tests {
             release_type: ReleaseType::Java,
             tag: Tag {
                 name: format!("v{version}"),
-                semver: semver::Version::parse(version).unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse(version).unwrap(),
+                ),
                 sha: "abc".into(),
                 ..Tag::default()
             },

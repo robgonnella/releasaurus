@@ -13,8 +13,12 @@ use std::{cmp, collections::HashMap, sync::Mutex};
 use url::Url;
 
 use crate::{
-    config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
+    config::{
+        repository::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+            GitUserConfig,
+        },
+        versioning::VersionType,
     },
     forge::{
         config::{
@@ -33,7 +37,8 @@ use crate::{
             ForgeCommitPR, GetFileContentRequest, GetPrRequest,
             PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
-            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
+            ResolvedFileChangeAction, Tag, TagResponse, TagVersion,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -367,6 +372,7 @@ impl Forge for Gitea {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
@@ -406,7 +412,7 @@ impl Forge for Gitea {
                 count += 1;
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(sver) = semver::Version::parse(&stripped)
+                    if let Ok(ver) = TagVersion::parse(&stripped, version_type)
                         && self
                             .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
                             .await?
@@ -425,7 +431,7 @@ impl Forge for Gitea {
 
                         tags.push(Tag {
                             name: tag.name,
-                            semver: sver,
+                            version: ver,
                             sha: tag.commit.sha,
                             timestamp: DateTime::parse_from_rfc3339(
                                 &tag.commit.created,

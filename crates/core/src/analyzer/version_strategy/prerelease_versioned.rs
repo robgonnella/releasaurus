@@ -6,6 +6,7 @@ use crate::{
         version_strategy::{context::Context, traits::VersionStrategy},
     },
     config::prerelease::PrereleaseStrategy,
+    forge::request::TagVersion,
     result::Result,
 };
 
@@ -22,17 +23,19 @@ impl VersionedPrereleaseStrategy {
 }
 
 impl VersionStrategy for VersionedPrereleaseStrategy {
-    fn calculate_next_version(&self, ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, ctx: &Context) -> Result<TagVersion> {
         if let Some(current) = ctx.current_tag {
-            if current.semver.pre.is_empty() {
+            let current_semver = current.version.semver()?;
+
+            if current_semver.pre.is_empty() {
                 // Starting new prerelease from stable
                 log::info!(
                     "versioned prerelease strategy: starting new prerelease from stable {}",
-                    current.semver
+                    current_semver
                 );
                 let version_updater = ctx.create_version_updater()?;
                 let next_stable =
-                    version_updater.increment(&current.semver, ctx.commits);
+                    version_updater.increment(current_semver, ctx.commits);
                 helpers::add_prerelease(
                     next_stable,
                     &self.identifier,
@@ -41,16 +44,18 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
             } else {
                 // Currently in a prerelease
                 let current_pre_id =
-                    current.semver.pre.as_str().split('.').next().unwrap_or("");
+                    current_semver.pre.as_str().split('.').next().unwrap_or("");
 
                 if current_pre_id == self.identifier {
                     // Same prerelease identifier - increment it
                     log::info!(
                         "versioned prerelease strategy: incrementing prerelease {}",
-                        current.semver
+                        current_semver
                     );
                     let version_updater = ctx.create_version_updater()?;
-                    Ok(version_updater.increment(&current.semver, ctx.commits))
+                    let next =
+                        version_updater.increment(current_semver, ctx.commits);
+                    Ok(TagVersion::Semantic(next))
                 } else {
                     // Different prerelease identifier - switch to new one
                     log::info!(
@@ -59,7 +64,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
                         self.identifier
                     );
                     let stable_current =
-                        helpers::graduate_prerelease(&current.semver);
+                        helpers::graduate_prerelease(current_semver);
                     let version_updater = ctx.create_version_updater()?;
                     let stable_next =
                         version_updater.increment(&stable_current, ctx.commits);
@@ -75,7 +80,7 @@ impl VersionStrategy for VersionedPrereleaseStrategy {
             log::info!(
                 "versioned prerelease strategy: first release as prerelease"
             );
-            let version = Version::parse("0.1.0")?;
+            let version = Version::new(0, 1, 0);
             helpers::add_prerelease(
                 version,
                 &self.identifier,

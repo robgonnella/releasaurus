@@ -2,12 +2,12 @@ use crate::{
     analyzer::{
         config::AnalyzerConfig,
         version_strategy::{
-            date::DateVersionStrategy,
-            date_with_time::DateWithTimeVersionStrategy,
-            date_with_time_micro::DateWithTimeMicroVersionStrategy,
             semantic::SemanticVersionStrategy,
             semantic_build::SemanticBuildVersionStrategy,
-            traits::VersionStrategy,
+            semantic_date::DateVersionStrategy,
+            semantic_date_with_time::DateWithTimeVersionStrategy,
+            semantic_date_with_time_micro::DateWithTimeMicroVersionStrategy,
+            strftime::StrftimeVersionStrategy, traits::VersionStrategy,
         },
     },
     config::versioning::VersionType,
@@ -25,12 +25,15 @@ impl VersionStrategyFactory {
             VersionType::SemanticWithBuild => {
                 Ok(Box::new(SemanticBuildVersionStrategy))
             }
-            VersionType::Date => Ok(Box::new(DateVersionStrategy)),
-            VersionType::DateWithTime => {
+            VersionType::SemanticDate => Ok(Box::new(DateVersionStrategy)),
+            VersionType::SemanticDateWithTime => {
                 Ok(Box::new(DateWithTimeVersionStrategy))
             }
-            VersionType::DateWithTimeMicro => {
+            VersionType::SemanticDateWithTimeMicro => {
                 Ok(Box::new(DateWithTimeMicroVersionStrategy))
+            }
+            VersionType::Strftime(ref fmt) => {
+                Ok(Box::new(StrftimeVersionStrategy::new(fmt.clone())))
             }
         }
     }

@@ -54,7 +54,8 @@ impl PackageJson {
                 if let Some(package) =
                     other_packages.iter().find(|p| p.name == dep_name)
                 {
-                    deps[&dep_name] = json!(format!("^{}", package.tag.semver));
+                    deps[&dep_name] =
+                        json!(format!("^{}", package.tag.version));
                 }
             }
         }
@@ -80,7 +81,7 @@ impl FileUpdater for PackageJson {
         };
 
         let mut doc = self.load_doc(&manifest.content)?;
-        doc["version"] = json!(owner.tag.semver.to_string());
+        doc["version"] = json!(owner.tag.version.to_string());
 
         let other_pkgs = manifest
             .releasing
@@ -110,7 +111,8 @@ mod tests {
     use std::path::Path;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
+        config::release_type::ReleaseType,
+        forge::request::{Tag, TagVersion},
         packages::manifests::ManifestFile,
     };
 
@@ -131,7 +133,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -161,7 +165,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -177,7 +183,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -207,7 +215,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -223,7 +233,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -253,7 +265,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -269,7 +283,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -299,7 +315,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -315,7 +333,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -346,7 +366,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -362,7 +384,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -390,7 +414,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -426,7 +452,9 @@ mod tests {
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

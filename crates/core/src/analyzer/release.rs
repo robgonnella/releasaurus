@@ -1,7 +1,13 @@
 //! Data types for releases, tags, and commits.
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize, ser::SerializeStruct};
 
-use crate::{analyzer::commit::Commit, forge::request::Tag};
+use crate::{
+    analyzer::commit::Commit,
+    config::versioning::VersionType,
+    forge::request::{Tag, TagVersion},
+};
 
 /// Represents the serialized structure of a release that we actually use when
 /// passing as a context to the Tera template. Really the only difference
@@ -25,6 +31,7 @@ struct ShadowRelease {
     pub tag_compare_link: Option<String>,
     pub sha_compare_link: Option<String>,
     pub include_pr_link: Option<bool>,
+    pub version_format: Option<String>,
 }
 
 /// Complete release package containing version tag, changelog notes, and all
@@ -32,6 +39,8 @@ struct ShadowRelease {
 #[derive(Clone, Default, Deserialize)]
 #[serde(from = "ShadowRelease")]
 pub struct Release {
+    /// Formatting string for the version type
+    pub version_format: String,
     /// Associated version tag
     pub tag: Tag,
     /// Release URL link
@@ -61,6 +70,10 @@ pub struct Release {
 
 impl From<ShadowRelease> for Release {
     fn from(value: ShadowRelease) -> Self {
+        let version_format =
+            value.version_format.unwrap_or("major.minor.patch".into());
+        let version_type =
+            VersionType::from_str(&version_format).unwrap_or_default();
         Self {
             commits: value.commits,
             include_author: value.include_author,
@@ -74,11 +87,14 @@ impl From<ShadowRelease> for Release {
             timestamp: value.timestamp,
             tag: Tag {
                 name: value.tag_name,
-                semver: semver::Version::parse(&value.version)
-                    .unwrap_or(semver::Version::new(0, 0, 0)),
+                version: TagVersion::parse(&value.version, &version_type)
+                    .unwrap_or(TagVersion::Semantic(semver::Version::new(
+                        0, 0, 0,
+                    ))),
                 sha: "".into(),
                 timestamp: None,
             },
+            version_format,
         }
     }
 }
@@ -108,7 +124,8 @@ impl Serialize for Release {
         s.serialize_field("link", &self.link)?;
         s.serialize_field("tag_compare_link", &self.tag_compare_link)?;
         s.serialize_field("sha_compare_link", &self.sha_compare_link)?;
-        s.serialize_field("version", &self.tag.semver.to_string())?;
+        s.serialize_field("version", &self.tag.version.to_string())?;
+        s.serialize_field("version_format", &self.version_format)?;
         s.serialize_field("tag_name", &self.tag.name)?;
         s.serialize_field("sha", &self.sha)?;
         s.serialize_field("short_sha", &self.short_sha)?;
@@ -133,7 +150,7 @@ mod tests {
         let tag = Tag::default();
         assert_eq!(tag.name, "");
         assert_eq!(tag.sha, "");
-        assert_eq!(tag.semver, Version::new(0, 0, 0));
+        assert_eq!(tag.version, TagVersion::Semantic(Version::new(0, 0, 0)));
         assert_eq!(tag.timestamp, None);
     }
 
@@ -142,7 +159,7 @@ mod tests {
         let tag = Tag {
             name: "v1.2.3".to_string(),
             sha: "abc123".to_string(),
-            semver: Version::new(1, 2, 3),
+            version: TagVersion::Semantic(Version::new(1, 2, 3)),
             timestamp: Some(1234567890),
         };
         assert_eq!(format!("{}", tag), "v1.2.3");
@@ -159,14 +176,14 @@ mod tests {
         let tag = Tag {
             name: "v1.2.3".to_string(),
             sha: "abc123def456".to_string(),
-            semver: Version::new(1, 2, 3),
+            version: TagVersion::Semantic(Version::new(1, 2, 3)),
             timestamp: Some(1234567890),
         };
 
         let json = serde_json::to_value(&tag).unwrap();
         assert_eq!(json["name"], "v1.2.3");
         assert_eq!(json["sha"], "abc123def456");
-        assert_eq!(json["semver"], "1.2.3");
+        assert_eq!(json["version"], "1.2.3");
     }
 
     #[test]
@@ -174,12 +191,14 @@ mod tests {
         let tag = Tag {
             name: "v2.0.0-beta.1".to_string(),
             sha: "xyz789".to_string(),
-            semver: Version::parse("2.0.0-beta.1").unwrap(),
+            version: TagVersion::Semantic(
+                Version::parse("2.0.0-beta.1").unwrap(),
+            ),
             timestamp: None,
         };
 
         let json = serde_json::to_value(&tag).unwrap();
-        assert_eq!(json["semver"], "2.0.0-beta.1");
+        assert_eq!(json["version"], "2.0.0-beta.1");
     }
 
     #[test]
@@ -187,13 +206,13 @@ mod tests {
         let tag1 = Tag {
             name: "v1.0.0".to_string(),
             sha: "abc".to_string(),
-            semver: Version::new(1, 0, 0),
+            version: TagVersion::Semantic(Version::new(1, 0, 0)),
             timestamp: Some(123),
         };
         let tag2 = Tag {
             name: "v1.0.0".to_string(),
             sha: "abc".to_string(),
-            semver: Version::new(1, 0, 0),
+            version: TagVersion::Semantic(Version::new(1, 0, 0)),
             timestamp: Some(123),
         };
         assert_eq!(tag1, tag2);
@@ -204,13 +223,13 @@ mod tests {
         let tag1 = Tag {
             name: "v1.0.0".to_string(),
             sha: "abc".to_string(),
-            semver: Version::new(1, 0, 0),
+            version: TagVersion::Semantic(Version::new(1, 0, 0)),
             timestamp: None,
         };
         let tag2 = Tag {
             name: "v1.0.1".to_string(),
             sha: "abc".to_string(),
-            semver: Version::new(1, 0, 1),
+            version: TagVersion::Semantic(Version::new(1, 0, 1)),
             timestamp: None,
         };
         assert_ne!(tag1, tag2);
@@ -221,10 +240,11 @@ mod tests {
     #[test]
     fn release_debug_excludes_commits_and_notes() {
         let release = Release {
+            version_format: "major.minor.patch".into(),
             tag: Tag {
                 name: "v1.0.0".to_string(),
                 sha: "tag_sha".to_string(),
-                semver: Version::new(1, 0, 0),
+                version: TagVersion::Semantic(Version::new(1, 0, 0)),
                 timestamp: Some(1234567890),
             },
             link: "https://example.com/release".to_string(),
@@ -263,7 +283,7 @@ mod tests {
         let tag = Tag {
             name: "v2.1.0".to_string(),
             sha: "tag_sha_123".to_string(),
-            semver: Version::new(2, 1, 0),
+            version: TagVersion::Semantic(Version::new(2, 1, 0)),
             timestamp: Some(1111111111),
         };
 
@@ -274,6 +294,7 @@ mod tests {
         };
 
         let release = Release {
+            version_format: "major.minor.patch".into(),
             tag,
             link: "https://github.com/owner/repo/releases/tag/v2.1.0"
                 .to_string(),
@@ -317,6 +338,7 @@ mod tests {
     #[test]
     fn release_serialize_empty_commits() {
         let release = Release {
+            version_format: "major.minor.patch".into(),
             tag: Tag::default(),
             link: "".to_string(),
             tag_compare_link: "".to_string(),
@@ -356,6 +378,7 @@ mod tests {
         ];
 
         let release = Release {
+            version_format: "major.minor.patch".into(),
             tag: Tag::default(),
             link: "".to_string(),
             tag_compare_link: "".to_string(),

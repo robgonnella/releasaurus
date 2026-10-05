@@ -79,7 +79,7 @@ table (see [`[[package]]`](#package)).
 
 | Key                               | Type   | Default             | Description                                                                                                                                           |
 | --------------------------------- | ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version_type`                    | string | `major.minor.patch` | Version format to produce. See [Version Types](./configuration.md#version-types) for the five accepted values.                                        |
+| `version_type`                    | string | `major.minor.patch` | Version format to produce: a named type or a strftime format such as `%Y.%m.%d`. See [Version Types](./configuration.md#version-types).               |
 | `auto_start_next`                 | bool   | `false`             | Bump patch versions automatically after a release (see [`start-next`](./commands.md#start-next)).                                                     |
 | `breaking_always_increment_major` | bool   | `true`              | Breaking changes (`feat!:`, `BREAKING CHANGE:`) bump major.                                                                                           |
 | `features_always_increment_minor` | bool   | `true`              | `feat:` commits bump minor.                                                                                                                           |

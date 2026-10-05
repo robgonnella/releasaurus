@@ -18,8 +18,12 @@ mod graphql;
 mod types;
 
 use crate::{
-    config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
+    config::{
+        repository::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+            GitUserConfig,
+        },
+        versioning::VersionType,
     },
     forge::{
         config::{
@@ -41,7 +45,7 @@ use crate::{
             ForgeCommitPR, GetFileContentRequest, GetPrRequest,
             PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
-            ResolvedFileChange, Tag, TagResponse, UpdatePrRequest,
+            ResolvedFileChange, Tag, TagResponse, TagVersion, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -337,6 +341,7 @@ impl Forge for Github {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
@@ -373,7 +378,8 @@ impl Forge for Github {
 
                 if re.is_match(&tag.name) {
                     let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(sver) = semver::Version::parse(&stripped) {
+                    if let Ok(ver) = TagVersion::parse(&stripped, version_type)
+                    {
                         let sha = tag
                             .target
                             .target
@@ -404,7 +410,7 @@ impl Forge for Github {
                                 );
                             tags.push(Tag {
                                 name: tag.name,
-                                semver: sver,
+                                version: ver,
                                 sha,
                                 timestamp: DateTime::parse_from_rfc3339(
                                     &committed_date,

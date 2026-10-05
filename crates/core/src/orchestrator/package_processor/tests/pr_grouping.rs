@@ -10,7 +10,10 @@ use crate::{
     config::{
         Config, package::PackageConfigBuilder, repository::RepositoryConfig,
     },
-    forge::{request::Tag, traits::MockForge},
+    forge::{
+        request::{Tag, TagVersion},
+        traits::MockForge,
+    },
     packages::releasable::ReleasablePackage,
 };
 
@@ -54,7 +57,7 @@ async fn release_pr_bundles_groups_all_when_not_separate() {
         name: "pkg-a".to_string(),
         tag: Tag {
             name: "v1.0.0".to_string(),
-            semver: Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release A".to_string(),
@@ -65,7 +68,7 @@ async fn release_pr_bundles_groups_all_when_not_separate() {
         name: "pkg-b".to_string(),
         tag: Tag {
             name: "v2.0.0".to_string(),
-            semver: Version::parse("2.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("2.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release B".to_string(),
@@ -121,7 +124,7 @@ async fn release_pr_bundles_separates_when_configured() {
         name: "pkg-a".to_string(),
         tag: Tag {
             name: "v1.0.0".to_string(),
-            semver: Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release A".to_string(),
@@ -132,7 +135,7 @@ async fn release_pr_bundles_separates_when_configured() {
         name: "pkg-b".to_string(),
         tag: Tag {
             name: "v2.0.0".to_string(),
-            semver: Version::parse("2.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("2.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release B".to_string(),

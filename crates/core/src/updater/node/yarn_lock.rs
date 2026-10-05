@@ -55,7 +55,7 @@ impl FileUpdater for YarnLock {
                 && let Some(pkg) =
                     manifest.releasing.iter().find(|p| p.name == *pkg_name)
             {
-                let new_line = format!("{}\"{}\"", &caps[1], pkg.tag.semver);
+                let new_line = format!("{}\"{}\"", &caps[1], pkg.tag.version);
                 lines.push(new_line);
                 updated = true;
                 continue;
@@ -93,7 +93,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -105,7 +105,9 @@ mod tests {
             release_type: ReleaseType::Node,
             tag: Tag {
                 name: format!("v{version}"),
-                semver: semver::Version::parse(version).unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse(version).unwrap(),
+                ),
                 sha: "abc".into(),
                 ..Tag::default()
             },

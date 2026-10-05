@@ -121,7 +121,8 @@ mod tests {
     use semver::Version;
 
     use crate::{
-        config::release_type::ReleaseType, forge::request::Tag,
+        config::release_type::ReleaseType,
+        forge::request::{Tag, TagVersion},
         packages::manifests::ManifestPackage,
     };
 
@@ -138,7 +139,7 @@ mod tests {
                 release_type: ReleaseType::Php,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },

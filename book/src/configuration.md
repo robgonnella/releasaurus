@@ -271,6 +271,7 @@ to override the global value.
 | `year.month.day`                          | `2026.6.14`                 |
 | `year.month.day+hour.minute.second`       | `2026.6.14+15.30.45`        |
 | `year.month.day+hour.minute.second.micro` | `2026.6.14+15.30.45.123456` |
+| a strftime format, e.g. `%Y.%m.%d`        | `2026.06.14`                |
 
 ```toml
 [defaults.versioning]
@@ -280,6 +281,11 @@ version_type = "major.minor.patch"
 path = "./nightly"
 release_type = "node"
 versioning = { version_type = "year.month.day+hour.minute.second" }
+
+[[package]]
+path = "./docs"
+release_type = "generic"
+versioning = { version_type = "%y.%m" }
 ```
 
 - **`major.minor.patch`** — standard semver driven by conventional commits.
@@ -290,15 +296,71 @@ versioning = { version_type = "year.month.day+hour.minute.second" }
   the previous tag are ignored. Plain `year.month.day` allows **one
   release per day** by design; a same-day re-run reports nothing to
   release. Use a time-based variant when you need multiple releases per
-  day.
+  day. These stay valid semver, so they work with every package manager.
+- **A strftime format** (any value containing `%`) — calendar versions in
+  exactly the layout you write, for CalVer schemes the semver-shaped types
+  cannot express, such as zero-padded `2026.06.14` or two-digit `26.06`.
+  See [Custom calendar formats](#custom-calendar-formats) below.
 
 `major.minor.patch` and `major.minor.patch+timestamp.sha` both honor
 `[prerelease]` (below) and the semver increment controls
 (`breaking_always_increment_major`, `features_always_increment_minor`,
 `custom_major_increment_regex`, `custom_minor_increment_regex`). For
-date-based types those settings are ignored — if you set any of them
-explicitly alongside a date-based `version_type`, Releasaurus logs a warning
-naming the package and setting so the no-op config does not pass silently.
+date-based types, including strftime formats, those settings are ignored —
+if you set any of them explicitly alongside a date-based `version_type`,
+Releasaurus logs a warning naming the package and setting so the no-op
+config does not pass silently.
+
+### Custom calendar formats
+
+A strftime `version_type` is rendered from the current UTC time with the
+[chrono specifiers](https://docs.rs/chrono/latest/chrono/format/strftime/index.html).
+The ones most CalVer schemes need (the chrono page lists the rest):
+
+| Specifier      | Meaning                                | Example           |
+| -------------- | -------------------------------------- | ----------------- |
+| `%Y` / `%y`    | Four- / two-digit year                 | `2026` / `26`     |
+| `%m` / `%-m`   | Zero-padded / unpadded month           | `06` / `6`        |
+| `%d` / `%-d`   | Zero-padded / unpadded day             | `04` / `4`        |
+| `%j`           | Day of year, zero-padded               | `155`             |
+| `%H%M%S`       | Time, 24-hour                          | `153045`          |
+| `%6f` / `%.3f` | Fractional seconds: 6 digits / `.` + 3 | `123456` / `.123` |
+
+`%3f`, `%6f` and `%9f` print that many sub-second digits; `%.3f`, `%.6f`
+and `%.9f` the same with a leading dot; `%f` all nine digits.
+
+The tag name is the tag prefix followed by the rendered version, exactly —
+`v2026.06.14` for `%Y.%m.%d` with the default prefix. Existing tags are
+recognised by parsing their names in the same format, which accepts
+unpadded fields, so a project moving from `year.month.day` to `%Y.%m.%d`
+keeps finding its `v2026.6.14` tags.
+
+Each format allows **one release per period it can express**: `%Y.%m.%d`
+once a day, `%Y.%m` once a month, `%Y.%m.%d.%H%M` once a minute, and
+`%Y.%-m.%-d+%H.%M.%S.%6f` is the strftime equivalent of
+`year.month.day+hour.minute.second.micro`. A re-run within the same period
+reports nothing to release, exactly like `year.month.day`.
+
+The format is checked when the configuration loads and rejected if it
+
+- is not valid strftime (`%Q`);
+- renders something git refuses as a tag name — a space, `~`, `^`, `:`,
+  `?`, `*`, `[`, `\`, `..`, `@{`, `//`, a trailing `.` or `/`, or a
+  `.lock` component — which rules out `%T`, `%c` and `%+`, and any
+  space-padded field (`%e`, `%k`, `%_m`) even when the current value
+  happens to fill it; or
+- cannot be parsed back from the names it produces (`%A`, or a format
+  with no year), since that is how the current release is found.
+
+> **Package-manager compatibility.** Cargo, npm and Go modules accept only
+> semver, and semver forbids leading zeros: `2026.06.14` is not a valid
+> Cargo or npm version. Releasaurus writes the rendered version into
+> manifests as-is and logs a warning when a `rust`, `node` or `go` package
+> uses a format whose output is not semver. For those ecosystems use the
+> `year.month.day` types, or an unpadded format such as `%Y.%-m.%-d`.
+
+On the command line, quote the value so the shell leaves `%` alone:
+`--version-type '%Y.%m.%d'`.
 
 ## Prereleases
 

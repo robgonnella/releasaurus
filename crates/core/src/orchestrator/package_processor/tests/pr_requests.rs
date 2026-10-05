@@ -17,6 +17,7 @@ use crate::{
     forge::{
         request::{
             Commit, PullRequest, ResolvedCreateReleaseBranchRequest, Tag,
+            TagVersion,
         },
         traits::MockForge,
     },
@@ -58,7 +59,7 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.2.3".to_string(),
-            semver: Version::parse("1.2.3").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
             ..Default::default()
         },
         notes: "Test release notes".to_string(),
@@ -106,7 +107,7 @@ async fn create_pr_branches_includes_metadata_in_body() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.2.3".to_string(),
-            semver: Version::parse("1.2.3").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
             ..Default::default()
         },
         notes: "Test release notes".to_string(),
@@ -162,7 +163,7 @@ async fn create_pr_branches_uses_sha_compare_link() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.2.3".to_string(),
-            semver: Version::parse("1.2.3").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
             ..Default::default()
         },
         notes: format!("Test release notes\n\n{tag_compare_link}"),
@@ -251,7 +252,7 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         name: "pkg-a".to_string(),
         tag: Tag {
             name: "v1.0.0".to_string(),
-            semver: Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release A".to_string(),
@@ -262,7 +263,7 @@ async fn create_pr_branches_handles_multiple_packages_on_same_branch() {
         name: "pkg-b".to_string(),
         tag: Tag {
             name: "v2.0.0".to_string(),
-            semver: Version::parse("2.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("2.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release B".to_string(),
@@ -345,7 +346,7 @@ async fn create_pr_branches_handles_separate_branches() {
         name: "pkg-a".to_string(),
         tag: Tag {
             name: "v1.0.0".to_string(),
-            semver: Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release A".to_string(),
@@ -356,7 +357,7 @@ async fn create_pr_branches_handles_separate_branches() {
         name: "pkg-b".to_string(),
         tag: Tag {
             name: "v2.0.0".to_string(),
-            semver: Version::parse("2.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("2.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release B".to_string(),
@@ -413,7 +414,7 @@ async fn create_pr_branches_includes_file_changes() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.0.0".to_string(),
-            semver: Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
             ..Default::default()
         },
         notes: "Release notes".to_string(),
@@ -456,7 +457,7 @@ async fn create_pr_branches_uses_correct_title_format() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.2.3".to_string(),
-            semver: Version::parse("1.2.3").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
             ..Default::default()
         },
         notes: "Test release".to_string(),
@@ -519,7 +520,7 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
         name: "test-pkg".to_string(),
         tag: Tag {
             name: "v1.2.3".to_string(),
-            semver: Version::parse("1.2.3").unwrap(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
             ..Default::default()
         },
         notes: "Freshly generated release notes".to_string(),

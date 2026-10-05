@@ -28,6 +28,7 @@ use serde::Deserialize;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 
@@ -378,8 +379,8 @@ pub struct SharedCommandOverrides {
 
     /// Global override for version_type. Overrides package config. Can
     /// be overridden via explicit "--set-package" override
-    #[arg(long)]
-    version_type: Option<CliVersionType>,
+    #[arg(long, value_parser = VersionType::from_str)]
+    version_type: Option<VersionType>,
 
     /// Global override for prerelease suffix. Overrides package config. Can
     /// be overridden via explicit "--set-package" override. To disable
@@ -393,21 +394,6 @@ pub struct SharedCommandOverrides {
     /// be overridden via explicit "--set-package" override
     #[arg(long, value_parser = parse_prerelease_strategy)]
     prerelease_strategy: Option<PrereleaseStrategy>,
-}
-
-/// Determines what type of versioning to use (semantic, date, etc.)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum CliVersionType {
-    #[value(name = "major.minor.patch")]
-    Semantic,
-    #[value(name = "major.minor.patch+timestamp.sha")]
-    SemanticWithBuild,
-    #[value(name = "year.month.day")]
-    Date,
-    #[value(name = "year.month.day+hour.minute.second")]
-    DateWithTime,
-    #[value(name = "year.month.day+hour.minute.second.micro")]
-    DateWithTimeMicro,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -429,18 +415,6 @@ pub struct CliCommitModifiers {
     /// Example: --reword "abc123de=fix: a new message\n\nMore content"
     #[arg(long, value_parser = parse_reworded_commit, value_name = "KEY=VALUE")]
     pub reword: Vec<RewordedCommit>,
-}
-
-impl From<CliVersionType> for VersionType {
-    fn from(value: CliVersionType) -> Self {
-        match value {
-            CliVersionType::Date => VersionType::Date,
-            CliVersionType::DateWithTime => VersionType::DateWithTime,
-            CliVersionType::DateWithTimeMicro => VersionType::DateWithTimeMicro,
-            CliVersionType::Semantic => VersionType::Semantic,
-            CliVersionType::SemanticWithBuild => VersionType::SemanticWithBuild,
-        }
-    }
 }
 
 impl From<CommitModifiers> for CliCommitModifiers {
@@ -763,8 +737,7 @@ impl Cli {
 
         if let Some(overrides) = cmd_overrides {
             global_overrides.tag_prefix = overrides.tag_prefix.clone();
-            global_overrides.version_type =
-                overrides.version_type.map(Into::into);
+            global_overrides.version_type = overrides.version_type.clone();
             global_overrides.prerelease_suffix =
                 overrides.prerelease_suffix.clone();
             global_overrides.prerelease_strategy =
@@ -834,7 +807,7 @@ mod tests {
             .expect("overrides should be keyed by package name");
 
         assert_eq!(frontend.tag_prefix.as_deref(), Some("fe-v"));
-        assert_eq!(frontend.version_type, Some(VersionType::Date));
+        assert_eq!(frontend.version_type, Some(VersionType::SemanticDate));
         assert_eq!(frontend.prerelease_suffix.as_deref(), Some("beta"));
         assert_eq!(
             frontend.prerelease_strategy,
@@ -904,6 +877,47 @@ mod tests {
             Err(err) => {
                 assert!(matches!(err, ReleasaurusError::InvalidConfig(_)))
             }
+        }
+    }
+
+    #[test]
+    fn version_type_flag_accepts_strftime_and_rejects_unknown() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--version-type",
+            "%Y.%m.%d",
+        ])
+        .expect("strftime version type should parse");
+        assert_eq!(
+            cli.get_global_overrides().version_type,
+            Some(VersionType::Strftime("%Y.%m.%d".into()))
+        );
+
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--set-package",
+            "frontend.versioning.version_type=%Y.%m",
+        ])
+        .expect("strftime package override should parse");
+        let overrides = cli.get_package_overrides().unwrap();
+        assert_eq!(
+            overrides["frontend"].version_type,
+            Some(VersionType::Strftime("%Y.%m".into()))
+        );
+
+        for bad in ["year.month.dya", "%Q", "%Y %m"] {
+            assert!(
+                Cli::try_parse_from([
+                    "releasaurus",
+                    "release-pr",
+                    "--version-type",
+                    bad,
+                ])
+                .is_err(),
+                "{bad:?} should be rejected"
+            );
         }
     }
 

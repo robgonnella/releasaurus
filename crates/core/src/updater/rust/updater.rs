@@ -51,7 +51,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
         result::ReleasaurusError,
     };
@@ -76,7 +76,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -103,7 +105,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -133,7 +137,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Node,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

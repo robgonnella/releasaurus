@@ -24,7 +24,7 @@ use crate::{
         repository::RewordedCommit,
         versioning::{Group, NAMED_PARSERS, Parser},
     },
-    forge::request::{ForgeCommit, Tag},
+    forge::request::{ForgeCommit, Tag, TagVersion},
 };
 
 /// Convenience constructor for test commits.
@@ -52,7 +52,7 @@ fn test_skip_ci_filters_ci_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -106,7 +106,7 @@ fn test_skip_chore_filters_chore_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -160,7 +160,7 @@ fn test_skip_miscellaneous_filters_non_conventional_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -214,7 +214,7 @@ fn test_skip_docs_filters_docs_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -277,7 +277,7 @@ fn test_skip_multiple_types_combined() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -371,7 +371,7 @@ fn test_skip_all_types_results_in_no_release() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -582,7 +582,7 @@ fn test_reword_changes_version_calculation() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -595,7 +595,10 @@ fn test_reword_changes_version_calculation() {
         .unwrap();
 
     // Should be minor bump (1.1.0) because reworded to feat, not patch (1.0.1)
-    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.1.0").unwrap())
+    );
 }
 
 #[test]
@@ -666,7 +669,7 @@ fn test_skip_test_filters_test_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -719,7 +722,7 @@ fn test_skip_style_filters_style_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -771,7 +774,7 @@ fn test_skip_refactor_filters_refactor_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -823,7 +826,7 @@ fn test_skip_perf_filters_perf_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -875,7 +878,7 @@ fn test_skip_revert_filters_revert_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -929,7 +932,7 @@ fn test_custom_parser_groups_commits_and_still_bumps_version() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -947,7 +950,10 @@ fn test_custom_parser_groups_commits_and_still_bumps_version() {
     assert_eq!(release.commits[0].group, "<!-- 02 -->📦 Dependencies");
     // the custom-grouped commit is not skipped, so it still feeds version
     // calculation - `fix:` drives the patch bump
-    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.1").unwrap())
+    );
 }
 
 #[test]
@@ -969,7 +975,7 @@ fn test_custom_parser_takes_precedence_over_named_parser() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -981,7 +987,10 @@ fn test_custom_parser_takes_precedence_over_named_parser() {
         .unwrap();
 
     assert_eq!(release.commits[0].group, "<!-- 01 -->Custom Features");
-    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.1.0").unwrap())
+    );
 }
 
 #[test]
@@ -1001,7 +1010,7 @@ fn test_custom_parser_skip_excludes_from_changelog_and_version() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -1020,7 +1029,10 @@ fn test_custom_parser_skip_excludes_from_changelog_and_version() {
     assert_eq!(release.commits.len(), 1);
     assert_eq!(release.commits[0].id, "def456");
     // ...and from version calculation: patch, not major
-    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.1").unwrap())
+    );
 }
 
 #[test]

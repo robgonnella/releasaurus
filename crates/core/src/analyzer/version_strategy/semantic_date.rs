@@ -3,6 +3,7 @@ use semver::Version;
 
 use crate::{
     analyzer::version_strategy::{context::Context, traits::VersionStrategy},
+    forge::request::TagVersion,
     result::Result,
 };
 
@@ -49,9 +50,13 @@ impl DateParts {
 pub struct DateVersionStrategy;
 
 impl VersionStrategy for DateVersionStrategy {
-    fn calculate_next_version(&self, _ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, _ctx: &Context) -> Result<TagVersion> {
         let parts = DateParts::now();
-        Ok(Version::new(parts.year, parts.month, parts.day))
+        Ok(TagVersion::Semantic(Version::new(
+            parts.year,
+            parts.month,
+            parts.day,
+        )))
     }
 }
 

@@ -1,15 +1,15 @@
-use semver::Version;
 use tokio::time::{Duration, sleep};
 use url::Url;
 
 use crate::{
+    config::versioning::VersionType,
     forge::{
         config::{PENDING_LABEL, RepoUrl, Scheme},
         manager::ForgeManager,
         request::{
             CreateCommitRequest, CreatePrRequest, CreateReleaseBranchRequest,
             CreateReleaseRequest, FileChange, FileUpdateType,
-            GetFileContentRequest, GetPrRequest, PrLabelsRequest,
+            GetFileContentRequest, GetPrRequest, PrLabelsRequest, TagVersion,
         },
         tests::common::traits::ForgeTestHelper,
     },
@@ -364,7 +364,7 @@ pub async fn run_forge_test(
     let semver = "1.1.0";
     let tag = format!("v{}", semver);
     let current_tag = forge
-        .get_latest_tag_for_prefix("v", default_branch)
+        .get_latest_tag_for_prefix("v", default_branch, &VersionType::Semantic)
         .await
         .unwrap();
     assert!(current_tag.is_none());
@@ -381,13 +381,16 @@ pub async fn run_forge_test(
     ////////////////////////////////////////////////////////////////////////////
     log::info!("looking for newly tagged commit by prefix");
     let current_tag = forge
-        .get_latest_tag_for_prefix("v", default_branch)
+        .get_latest_tag_for_prefix("v", default_branch, &VersionType::Semantic)
         .await
         .unwrap();
     assert!(current_tag.is_some());
     let current_tag = current_tag.unwrap();
     assert_eq!(current_tag.name, tag);
-    assert_eq!(current_tag.semver, Version::parse(semver).unwrap());
+    assert_eq!(
+        current_tag.version,
+        TagVersion::parse(semver, &VersionType::Semantic).unwrap()
+    );
     assert_eq!(current_tag.sha, merged_pr.sha);
     assert!(
         current_tag.timestamp.is_some(),
@@ -402,7 +405,7 @@ pub async fn run_forge_test(
     ////////////////////////////////////////////////////////////////////////////
     log::info!("verifying tag is not visible on branch forked before release");
     let pre_tag_result = forge
-        .get_latest_tag_for_prefix("v", pre_tag_branch)
+        .get_latest_tag_for_prefix("v", pre_tag_branch, &VersionType::Semantic)
         .await
         .unwrap();
     assert!(
@@ -431,7 +434,7 @@ pub async fn run_forge_test(
         tag: current_tag.name.clone(),
         sha: current_tag.sha.clone(),
         notes: "release notes".into(),
-        prerelease: !current_tag.semver.pre.is_empty(),
+        prerelease: !current_tag.version.pre().is_empty(),
     };
     forge.create_release(release_req).await.unwrap();
     sleep(SHORT_WAIT).await;

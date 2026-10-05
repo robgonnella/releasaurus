@@ -21,7 +21,7 @@ use crate::{
         versioning::VersioningConfig,
     },
     forge::{
-        request::{Commit, ForgeCommitBuilder, PullRequest, Tag},
+        request::{Commit, ForgeCommitBuilder, PullRequest, Tag, TagVersion},
         traits::MockForge,
     },
     result::ReleasaurusError,
@@ -50,7 +50,7 @@ fn capture_tagged_commits(
 /// Two packages, each with their own commit, no tags yet.
 fn expect_two_package_history(mock: &mut MockForge) {
     mock.expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| Ok(vec![]));
+        .returning(|_, _, _, _| Ok(vec![]));
 
     mock.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -92,7 +92,7 @@ async fn release_direct_commits_tags_and_releases_a_single_package() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| Ok(vec![]));
+        .returning(|_, _, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -277,10 +277,10 @@ async fn release_direct_does_nothing_when_no_commits_since_last_tag() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
-                semver: Version::parse("1.0.0").unwrap(),
+                version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
                 sha: "abc123".to_string(),
                 timestamp: Some(1234567890),
             }])
@@ -303,7 +303,7 @@ async fn release_direct_returns_error_when_merged_pr_not_yet_released() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| Ok(vec![]));
+        .returning(|_, _, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -346,7 +346,7 @@ async fn release_direct_ignores_a_pending_release_on_an_unrelated_package() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| Ok(vec![]));
+        .returning(|_, _, _, _| Ok(vec![]));
 
     mock_forge.expect_get_commits().returning(|_, _| {
         Ok(vec![
@@ -686,10 +686,12 @@ async fn release_direct_marks_a_prerelease_version_as_a_prerelease() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
-                semver: semver::Version::parse("1.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("1.0.0").unwrap(),
+                ),
                 sha: "old-sha".to_string(),
                 ..Default::default()
             }])
@@ -756,10 +758,12 @@ async fn release_direct_does_not_mark_a_stable_version_as_a_prerelease() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(vec![Tag {
                 name: "v1.0.0".to_string(),
-                semver: semver::Version::parse("1.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("1.0.0").unwrap(),
+                ),
                 sha: "old-sha".to_string(),
                 ..Default::default()
             }])

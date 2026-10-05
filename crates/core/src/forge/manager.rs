@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 use url::Url;
 
 use crate::{
+    config::versioning::VersionType,
     forge::{
         link::LinkStyle,
         request::{
@@ -108,21 +109,23 @@ impl ForgeManager {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
     ) -> Result<Option<Tag>> {
         let mut tags = self
             .forge
-            .get_latest_tags_for_prefix(prefix, branch, None)
+            .get_latest_tags_for_prefix(prefix, branch, version_type, None)
             .await?;
 
         if tags.is_empty() {
             return Ok(None);
         }
 
-        // Sort by semantic version descending so the highest version is
-        // first. Tag ordering from forge APIs is unreliable and none handle
+        // Sort by version descending so the highest version is first. Tag
+        // ordering from forge APIs is unreliable and none handle
         // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
-        // Semver ordering is the single source of truth for all forge backends.
-        tags.sort_by(|a, b| b.semver.cmp(&a.semver));
+        // `TagVersion` ordering (semver, or chronological for strftime) is
+        // the single source of truth for all forge backends.
+        tags.sort_by(|a, b| b.version.cmp(&a.version));
         Ok(tags.into_iter().next())
     }
 
@@ -130,12 +133,14 @@ impl ForgeManager {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: &str,
     ) -> Result<Vec<Tag>> {
         self.forge
             .get_latest_tags_for_prefix(
                 prefix,
                 branch,
+                version_type,
                 Some(starting_sha.to_string()),
             )
             .await
@@ -145,27 +150,29 @@ impl ForgeManager {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
     ) -> Result<Option<Tag>> {
         let mut tags = self
             .forge
-            .get_latest_tags_for_prefix(prefix, branch, None)
+            .get_latest_tags_for_prefix(prefix, branch, version_type, None)
             .await?;
 
         if tags.is_empty() {
             return Ok(None);
         }
 
-        // Sort by semantic version descending so the highest version is first.
-        // Tag ordering from forge APIs is unreliable and none handle
+        // Sort by version descending so the highest version is first. Tag
+        // ordering from forge APIs is unreliable and none handle
         // pre-release ordering correctly (e.g. 1.0.0-rc.1 vs 1.0.0).
-        // Semver ordering is the single source of truth for all forge backends.
-        tags.sort_by(|a, b| b.semver.cmp(&a.semver));
+        // `TagVersion` ordering (semver, or chronological for strftime) is
+        // the single source of truth for all forge backends.
+        tags.sort_by(|a, b| b.version.cmp(&a.version));
 
         // iterate to find where current prerelease series stops at last
         // stable release
         for tag in tags {
             // skip prereleases until we get to stable release
-            if !tag.semver.pre.is_empty() {
+            if !tag.version.pre().is_empty() {
                 continue;
             }
 
@@ -585,14 +592,19 @@ impl FileLoader for ForgeManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::forge::{request::FileChange, traits::MockForge};
+    use crate::forge::{
+        request::{FileChange, TagVersion},
+        traits::MockForge,
+    };
 
     use super::*;
 
     fn make_tag(prefix: &str, version: &str) -> Tag {
         Tag {
             name: format!("{prefix}{version}"),
-            semver: semver::Version::parse(version).unwrap(),
+            version: TagVersion::Semantic(
+                semver::Version::parse(version).unwrap(),
+            ),
             sha: format!("sha-{version}"),
             timestamp: None,
         }
@@ -601,7 +613,7 @@ mod tests {
     fn mock_returning_tags(tags: Vec<Tag>) -> MockForge {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(move |_, _, _| Ok(tags.clone()));
+            .returning(move |_, _, _, _| Ok(tags.clone()));
         mock
     }
 
@@ -613,7 +625,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap();
 
@@ -627,7 +639,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();
@@ -648,7 +660,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();
@@ -670,7 +682,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();
@@ -691,7 +703,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();
@@ -712,7 +724,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_tag_for_prefix("v", "main")
+            .get_latest_tag_for_prefix("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();
@@ -728,7 +740,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_stable_release_tag("v", "main")
+            .get_latest_stable_release_tag("v", "main", &VersionType::Semantic)
             .await
             .unwrap();
 
@@ -747,7 +759,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_stable_release_tag("v", "main")
+            .get_latest_stable_release_tag("v", "main", &VersionType::Semantic)
             .await
             .unwrap();
 
@@ -770,7 +782,7 @@ mod tests {
             ForgeManager::new(Box::new(mock), ForgeOptions { dry_run: false });
 
         let result = manager
-            .get_latest_stable_release_tag("v", "main")
+            .get_latest_stable_release_tag("v", "main", &VersionType::Semantic)
             .await
             .unwrap()
             .unwrap();

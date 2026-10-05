@@ -47,12 +47,13 @@ pub fn resolve_versioning(
 
     // CLI overrides sit above both config tiers, so they are layered on
     // after the merge: global first, then per-package, which wins.
-    if let Some(version_type) = global_overrides.version_type {
-        final_versioning.version_type = Some(version_type);
+    if let Some(version_type) = &global_overrides.version_type {
+        final_versioning.version_type = Some(version_type.clone());
     }
 
-    if let Some(version_type) =
-        package_overrides.get(name).and_then(|o| o.version_type)
+    if let Some(version_type) = package_overrides
+        .get(name)
+        .and_then(|o| o.version_type.clone())
     {
         final_versioning.version_type = Some(version_type);
     }
@@ -463,7 +464,7 @@ mod tests {
 
         // Global CLI override beats both config tiers
         let global_overrides = GlobalOverrides {
-            version_type: Some(VersionType::Date),
+            version_type: Some(VersionType::SemanticDate),
             ..GlobalOverrides::default()
         };
 
@@ -476,13 +477,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(resolved.version_type, Some(VersionType::Date));
+        assert_eq!(resolved.version_type, Some(VersionType::SemanticDate));
 
         // Per-package CLI override beats everything
         let package_overrides = HashMap::from([(
             "frontend".to_string(),
             PackageOverrides {
-                version_type: Some(VersionType::DateWithTime),
+                version_type: Some(VersionType::SemanticDateWithTime),
                 tag_prefix: None,
                 prerelease_suffix: None,
                 prerelease_strategy: None,
@@ -498,7 +499,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(resolved.version_type, Some(VersionType::DateWithTime));
+        assert_eq!(
+            resolved.version_type,
+            Some(VersionType::SemanticDateWithTime)
+        );
 
         // A per-package override for a different package does not leak
         let resolved = resolve_versioning(
@@ -513,7 +517,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(resolved.version_type, Some(VersionType::Date));
+        assert_eq!(resolved.version_type, Some(VersionType::SemanticDate));
     }
 
     /// A `[[package]]` without a `name` is addressed by its *resolved* name
@@ -524,7 +528,7 @@ mod tests {
         let package_overrides = HashMap::from([(
             "myrepo".to_string(),
             PackageOverrides {
-                version_type: Some(VersionType::Date),
+                version_type: Some(VersionType::SemanticDate),
                 tag_prefix: None,
                 prerelease_suffix: Some("beta".to_string()),
                 prerelease_strategy: None,
@@ -540,7 +544,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(resolved.version_type, Some(VersionType::Date));
+        assert_eq!(resolved.version_type, Some(VersionType::SemanticDate));
         assert_eq!(
             resolved.prerelease.map(|p| p.suffix),
             Some("beta".to_string())

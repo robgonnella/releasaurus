@@ -17,6 +17,7 @@ use crate::{
         manager::{ForgeManager, ForgeOptions},
         request::{
             Commit, PrMetadataBlock, ResolvedCreateReleaseBranchRequest, Tag,
+            TagVersion,
         },
         traits::MockForge,
     },
@@ -128,7 +129,9 @@ pub fn release_pr_package(name: &str, tag: &str) -> ReleasePRPackage {
 fn tag_for(name: &str) -> Tag {
     Tag {
         name: name.into(),
-        semver: Version::parse(name.trim_start_matches('v')).unwrap(),
+        version: TagVersion::Semantic(
+            Version::parse(name.trim_start_matches('v')).unwrap(),
+        ),
         ..Default::default()
     }
 }

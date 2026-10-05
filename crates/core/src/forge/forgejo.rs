@@ -8,7 +8,7 @@ use secrecy::{ExposeSecret, SecretString};
 use url::Url;
 
 use crate::{
-    config::repository::GitUserConfig,
+    config::{repository::GitUserConfig, versioning::VersionType},
     forge::{
         config::{RepoUrl, TokenVar, USER_AGENT, resolve_token},
         forgejo::types::{
@@ -146,10 +146,16 @@ impl Forge for Forgejo {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         self.gitea
-            .get_latest_tags_for_prefix(prefix, branch, starting_sha)
+            .get_latest_tags_for_prefix(
+                prefix,
+                branch,
+                version_type,
+                starting_sha,
+            )
             .await
     }
 

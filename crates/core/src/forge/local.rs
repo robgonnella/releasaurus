@@ -15,8 +15,12 @@ use tokio::{fs, sync::Mutex};
 use url::Url;
 
 use crate::{
-    config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
+    config::{
+        repository::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+            GitUserConfig,
+        },
+        versioning::VersionType,
     },
     forge::{
         config::RepoUrl,
@@ -26,7 +30,7 @@ use crate::{
             ForgeCommitPR, GetFileContentRequest, GetPrRequest,
             PrLabelsRequest, PullRequest, ReleaseByTagResponse,
             ResolvedCreateCommitRequest, ResolvedCreateReleaseBranchRequest,
-            ResolvedFileChange, Tag, TagResponse, UpdatePrRequest,
+            ResolvedFileChange, Tag, TagResponse, TagVersion, UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -414,6 +418,7 @@ impl Forge for LocalRepo {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let regex_prefix = format!(r"^{}", prefix);
@@ -448,8 +453,9 @@ impl Forge for LocalRepo {
                         break;
                     }
 
-                    let Ok(semver) = semver::Version::parse(
+                    let Ok(ver) = TagVersion::parse(
                         tag_prefix_regex.replace_all(stripped, "").as_ref(),
+                        version_type,
                     ) else {
                         continue;
                     };
@@ -457,7 +463,7 @@ impl Forge for LocalRepo {
                     let tag = Tag {
                         sha: commit.id().to_string(),
                         name: stripped.to_string(),
-                        semver,
+                        version: ver,
                         timestamp: Some(commit.time().seconds()),
                     };
 
@@ -849,13 +855,47 @@ mod tests {
 
         let forge = LocalRepo::new(dir.path(), None).await.unwrap();
         let mut result = forge
-            .get_latest_tags_for_prefix("v", &branch, None)
+            .get_latest_tags_for_prefix(
+                "v",
+                &branch,
+                &VersionType::Semantic,
+                None,
+            )
             .await
             .unwrap();
-        result.sort_by(|a, b| b.semver.cmp(&a.semver));
+        result.sort_by(|a, b| b.version.cmp(&a.version));
 
         assert!(!result.is_empty(), "tag at branch head should be found");
         assert_eq!(result[0].name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn strftime_tags_are_parsed_in_configured_format() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let first = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "v2026.09.30", first);
+        tag_oid(&repo, "v1.0.0", first);
+        let second = add_commit(&repo, "second commit");
+        tag_oid(&repo, "v2026.10.05", second);
+        let branch = current_branch_name(&repo);
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let mut result = forge
+            .get_latest_tags_for_prefix(
+                "v",
+                &branch,
+                &VersionType::Strftime("%Y.%m.%d".into()),
+                None,
+            )
+            .await
+            .unwrap();
+        result.sort_by(|a, b| b.version.cmp(&a.version));
+
+        let names: Vec<_> = result.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, ["v2026.10.05", "v2026.09.30"]);
+        assert_eq!(result[0].version.to_string(), "2026.10.05");
+        assert_eq!(result[0].sha, second.to_string());
     }
 
     /// `create_branch` must create a branch pointing to current HEAD.
@@ -1209,10 +1249,15 @@ mod tests {
         // Querying main_branch must return v1.0.0 only; v2.0.0 is
         // not in main_branch's history.
         let mut result = forge
-            .get_latest_tags_for_prefix("v", &main_branch, None)
+            .get_latest_tags_for_prefix(
+                "v",
+                &main_branch,
+                &VersionType::Semantic,
+                None,
+            )
             .await
             .unwrap();
-        result.sort_by(|a, b| b.semver.cmp(&a.semver));
+        result.sort_by(|a, b| b.version.cmp(&a.version));
 
         assert!(
             !result.is_empty(),

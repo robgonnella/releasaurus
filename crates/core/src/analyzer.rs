@@ -97,16 +97,16 @@ impl<'a> Analyzer<'a> {
         // catching there.
         if let Some(current) = current_tag {
             let stalled = if self.config.version_type.is_date_based() {
-                next <= current.semver
+                next <= current.version
             } else {
-                next == current.semver
+                next == current.version
             };
 
             if stalled {
                 log::info!(
                     "next version {next} does not advance past current tag \
                      {}: nothing to release",
-                    current.semver
+                    current.version
                 );
                 return Ok(false);
             }
@@ -120,7 +120,7 @@ impl<'a> Analyzer<'a> {
 
         let next_tag = Tag {
             name: next_tag_name,
-            semver: next,
+            version: next,
             // timestamp and sha are unknown until release-pr is merged
             timestamp: None,
             // SHA will be set when the release PR merges and creates a commit
@@ -167,6 +167,7 @@ impl<'a> Analyzer<'a> {
         // fill out and append to list of releases as we process commits
         // include_* flags gate the optional segments of the body template
         let mut release = release::Release {
+            version_format: self.config.version_type.to_string(),
             include_author: self.config.include_author,
             include_pr_link: self.config.include_pr_link,
             ..Default::default()

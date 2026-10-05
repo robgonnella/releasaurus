@@ -48,7 +48,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -73,7 +73,9 @@ end
                 release_type: ReleaseType::Ruby,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -100,7 +102,9 @@ end
                 release_type: ReleaseType::Ruby,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

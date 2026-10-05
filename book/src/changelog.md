@@ -303,7 +303,8 @@ body = """## Release v{{ version }} — {{ timestamp | date(format="%Y-%m-%d") }
 
 | Variable           | Description                                                                    |
 | ------------------ | ------------------------------------------------------------------------------ |
-| `version`          | Semantic version (e.g. `1.2.3`)                                                |
+| `version`          | Version as it appears in the tag (e.g. `1.2.3`, `2026.06.14`)                  |
+| `version_format`   | The configured `version_type` (e.g. `major.minor.patch`, `%Y.%m.%d`)           |
 | `tag_name`         | Full tag including prefix/suffix                                               |
 | `link`             | URL to the release                                                             |
 | `tag_compare_link` | Diff from the previous tag to this release's tag (empty for first release)     |

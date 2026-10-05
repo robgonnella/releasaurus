@@ -6,6 +6,7 @@ use crate::{
         version_strategy::{context::Context, traits::VersionStrategy},
     },
     config::prerelease::PrereleaseStrategy,
+    forge::request::TagVersion,
     result::Result,
 };
 
@@ -22,17 +23,18 @@ impl StaticPrereleaseStrategy {
 }
 
 impl VersionStrategy for StaticPrereleaseStrategy {
-    fn calculate_next_version(&self, ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, ctx: &Context) -> Result<TagVersion> {
         if let Some(current) = ctx.current_tag {
-            if current.semver.pre.is_empty() {
+            let current_semver = current.version.semver()?;
+            if current_semver.pre.is_empty() {
                 // Starting new prerelease from stable
                 log::info!(
                     "static prerelease strategy: starting new prerelease from stable {}",
-                    current.semver
+                    current_semver
                 );
                 let version_updater = ctx.create_version_updater()?;
                 let next_stable =
-                    version_updater.increment(&current.semver, ctx.commits);
+                    version_updater.increment(current_semver, ctx.commits);
                 helpers::add_prerelease(
                     next_stable,
                     &self.identifier,
@@ -41,16 +43,16 @@ impl VersionStrategy for StaticPrereleaseStrategy {
             } else {
                 // Currently in a prerelease
                 let current_pre_id =
-                    current.semver.pre.as_str().split('.').next().unwrap_or("");
+                    current_semver.pre.as_str().split('.').next().unwrap_or("");
 
                 if current_pre_id == self.identifier {
                     // Same static identifier - increment version and re-add suffix
                     log::info!(
                         "static prerelease strategy: incrementing prerelease {}",
-                        current.semver
+                        current_semver
                     );
                     let mut version =
-                        helpers::graduate_prerelease(&current.semver);
+                        helpers::graduate_prerelease(current_semver);
                     let version_updater = ctx.create_version_updater()?;
                     version = version_updater.increment(&version, ctx.commits);
                     helpers::add_prerelease(
@@ -66,7 +68,7 @@ impl VersionStrategy for StaticPrereleaseStrategy {
                         self.identifier
                     );
                     let stable_current =
-                        helpers::graduate_prerelease(&current.semver);
+                        helpers::graduate_prerelease(current_semver);
                     let version_updater = ctx.create_version_updater()?;
                     let stable_next =
                         version_updater.increment(&stable_current, ctx.commits);

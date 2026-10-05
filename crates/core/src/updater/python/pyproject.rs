@@ -49,10 +49,10 @@ impl FileUpdater for PyProject {
             log::info!(
                 "updating {} project version to {}",
                 manifest.path.to_string_lossy(),
-                owner.tag.semver
+                owner.tag.version
             );
 
-            project["version"] = value(owner.tag.semver.to_string());
+            project["version"] = value(owner.tag.version.to_string());
 
             return Ok(Some(FileChange {
                 path: manifest.path.to_string_lossy().to_string(),
@@ -74,10 +74,10 @@ impl FileUpdater for PyProject {
             log::info!(
                 "updating {} tool.poetry version to {}",
                 manifest.path.to_string_lossy(),
-                owner.tag.semver
+                owner.tag.version
             );
 
-            project["version"] = value(owner.tag.semver.to_string());
+            project["version"] = value(owner.tag.version.to_string());
 
             return Ok(Some(FileChange {
                 path: manifest.path.to_string_lossy().to_string(),
@@ -96,7 +96,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -120,7 +120,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -152,7 +154,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -185,7 +189,9 @@ dynamic = ["version"]
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -217,7 +223,9 @@ dynamic = ["version"]
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -253,7 +261,9 @@ requests = "^2.28.0"
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -287,7 +297,9 @@ requires = ["setuptools", "wheel"]
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -314,7 +326,9 @@ requires = ["setuptools", "wheel"]
                 release_type: ReleaseType::Python,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

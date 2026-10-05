@@ -56,7 +56,7 @@ impl FileUpdater for CargoLock {
                 continue;
             };
 
-            let next_version = pkg.tag.semver.to_string();
+            let next_version = pkg.tag.version.to_string();
 
             if found.get("version").and_then(|v| v.as_str())
                 != Some(next_version.as_str())
@@ -84,7 +84,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -96,7 +96,9 @@ mod tests {
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: format!("v{version}"),
-                semver: semver::Version::parse(version).unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse(version).unwrap(),
+                ),
                 sha: "abc".into(),
                 ..Tag::default()
             },
