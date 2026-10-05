@@ -18,7 +18,7 @@ use crate::{
             DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR,
         },
     },
-    forge::request::Tag,
+    forge::request::{Tag, TagVersion},
     result::Result,
 };
 
@@ -81,13 +81,13 @@ impl<'a> Context<'a> {
     /// every later `major.minor.patch` release.
     /// [`SemanticBuildVersionStrategy`][super::semantic_build] assigns fresh
     /// metadata after calling this, so it is unaffected.
-    pub fn get_next_semantic_version(&self) -> Result<Version> {
+    pub fn get_next_semantic_version(&self) -> Result<TagVersion> {
         let mut version = self.next_semantic_version_from_tag()?;
-        version.build = BuildMetadata::EMPTY;
+        version.set_build(BuildMetadata::EMPTY);
         Ok(version)
     }
 
-    fn next_semantic_version_from_tag(&self) -> Result<Version> {
+    fn next_semantic_version_from_tag(&self) -> Result<TagVersion> {
         if let Some(prerelease_config) = self.config.prerelease.as_ref() {
             let identifier = prerelease_config.suffix.clone();
 
@@ -102,25 +102,30 @@ impl<'a> Context<'a> {
                 }
             }
         } else if let Some(current) = self.current_tag {
-            if current.semver.pre.is_empty() {
+            let current_semver = current.version.semver()?;
+
+            if current.version.pre().is_empty() {
                 // Normal stable version bump
                 log::debug!(
                     "semantic version strategy: performing standard version update"
                 );
                 let version_updater = self.create_version_updater()?;
-                Ok(version_updater.increment(&current.semver, self.commits))
+                let next =
+                    version_updater.increment(current_semver, self.commits);
+                Ok(TagVersion::Semantic(next))
             } else {
                 // Graduate from prerelease to stable
                 log::info!(
                     "semantic version strategy: graduating prerelease {} to stable",
-                    current.semver
+                    current_semver
                 );
-                Ok(helpers::graduate_prerelease(&current.semver))
+                let next = helpers::graduate_prerelease(current_semver);
+                Ok(TagVersion::Semantic(next))
             }
         } else {
             // First release
             log::debug!("semantic version strategy: first release");
-            Ok(Version::parse("0.1.0")?)
+            Ok(TagVersion::Semantic(Version::new(0, 1, 0)))
         }
     }
 }

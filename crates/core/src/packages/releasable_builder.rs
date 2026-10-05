@@ -81,7 +81,7 @@ mod tests {
             defaults::DEFAULT_COMMIT_AND_PR_TITLE_TEMPLATE,
             release_type::ReleaseType,
         },
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
     };
 
     use super::*;
@@ -107,10 +107,11 @@ mod tests {
 
     fn create_test_release() -> Release {
         Release {
+            version_format: "major.minor.patch".into(),
             tag: Tag {
                 sha: "abc123".to_string(),
                 name: "v1.0.0".to_string(),
-                semver: semver::Version::new(1, 0, 0),
+                version: TagVersion::Semantic(semver::Version::new(1, 0, 0)),
                 timestamp: Some(1234567890),
             },
             link: "https://example.com".to_string(),

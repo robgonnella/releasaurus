@@ -1,7 +1,8 @@
-use semver::{BuildMetadata, Version};
+use semver::BuildMetadata;
 
 use crate::{
     analyzer::version_strategy::{context::Context, traits::VersionStrategy},
+    forge::request::TagVersion,
     result::Result,
 };
 
@@ -11,10 +12,10 @@ use crate::{
 pub struct SemanticBuildVersionStrategy;
 
 impl VersionStrategy for SemanticBuildVersionStrategy {
-    fn calculate_next_version(&self, ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, ctx: &Context) -> Result<TagVersion> {
         let mut version = ctx.get_next_semantic_version()?;
         let build_metadata = format!("{}.{}", ctx.timestamp, ctx.short_sha);
-        version.build = BuildMetadata::new(&build_metadata)?;
+        version.set_build(BuildMetadata::new(&build_metadata)?);
         Ok(version)
     }
 }

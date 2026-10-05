@@ -105,7 +105,7 @@ impl FileUpdater for CargoToml {
         // not part of this release has no owner. Indexing `[package]` into
         // existence would invent a package carrying nothing but a version.
         if let Some(owner) = manifest.owner.as_ref() {
-            let next_version = owner.tag.semver.to_string();
+            let next_version = owner.tag.version.to_string();
 
             if let Some(pkg_table) = Self::dep_table_mut(&mut doc, &["package"])
                 && pkg_table.get("version").and_then(|v| v.as_str())
@@ -124,7 +124,7 @@ impl FileUpdater for CargoToml {
         let next_versions = manifest
             .releasing
             .iter()
-            .map(|p| (p.name.clone(), p.tag.semver.to_string()))
+            .map(|p| (p.name.clone(), p.tag.version.to_string()))
             .collect::<Vec<(String, String)>>();
 
         for kind in DEP_KINDS {
@@ -167,7 +167,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -191,7 +191,9 @@ version = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -221,7 +223,9 @@ package-b = "1.0.0"
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -237,7 +241,9 @@ package-b = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -267,7 +273,9 @@ package-b = { version = "1.0.0", features = ["serde"] }
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -283,7 +291,9 @@ package-b = { version = "1.0.0", features = ["serde"] }
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -314,7 +324,9 @@ package-b = "1.0.0"
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -330,7 +342,9 @@ package-b = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -360,7 +374,9 @@ package-b = "1.0.0"
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::parse("3.0.0").unwrap(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -376,7 +392,9 @@ package-b = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -407,7 +425,9 @@ members = ["packages/*"]
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -438,7 +458,7 @@ package-b = "1.0.0"
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::new(3, 0, 0),
+                version: TagVersion::Semantic(semver::Version::new(3, 0, 0)),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -454,7 +474,9 @@ package-b = "1.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -492,7 +514,9 @@ members = ["crates/*"]
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -525,7 +549,7 @@ members = ["crates/*"]
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::new(3, 0, 0),
+                version: TagVersion::Semantic(semver::Version::new(3, 0, 0)),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -541,7 +565,9 @@ members = ["crates/*"]
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -574,7 +600,7 @@ package-b = { path = "../b" }
             release_type: ReleaseType::Rust,
             tag: Tag {
                 name: "v3.0.0".into(),
-                semver: semver::Version::new(3, 0, 0),
+                version: TagVersion::Semantic(semver::Version::new(3, 0, 0)),
                 sha: "def".into(),
                 ..Tag::default()
             },
@@ -590,7 +616,9 @@ package-b = { path = "../b" }
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -625,7 +653,9 @@ version = "2.0.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -659,7 +689,9 @@ serde = "1.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -690,7 +722,9 @@ serde = "1.0"
                 release_type: ReleaseType::Rust,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

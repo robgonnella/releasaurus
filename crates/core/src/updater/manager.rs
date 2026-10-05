@@ -352,7 +352,7 @@ mod tests {
 
     use crate::{
         config::package::GENERIC_VERSION_REGEX,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::releasable::ReleasableSubPackage,
         updater::{
             go::manifests::GoManifests, java::manifests::JavaManifests,
@@ -406,7 +406,9 @@ mod tests {
     fn tag(version: &str) -> Tag {
         Tag {
             name: format!("v{version}"),
-            semver: semver::Version::parse(version).unwrap(),
+            version: TagVersion::Semantic(
+                semver::Version::parse(version).unwrap(),
+            ),
             sha: "abc".into(),
             ..Tag::default()
         }

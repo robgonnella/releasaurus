@@ -2,8 +2,9 @@ use semver::{BuildMetadata, Version};
 
 use crate::{
     analyzer::version_strategy::{
-        context::Context, date::DateParts, traits::VersionStrategy,
+        context::Context, semantic_date::DateParts, traits::VersionStrategy,
     },
+    forge::request::TagVersion,
     result::Result,
 };
 
@@ -11,7 +12,7 @@ use crate::{
 pub struct DateWithTimeMicroVersionStrategy;
 
 impl VersionStrategy for DateWithTimeMicroVersionStrategy {
-    fn calculate_next_version(&self, _ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, _ctx: &Context) -> Result<TagVersion> {
         let parts = DateParts::now();
         let mut version = Version::new(parts.year, parts.month, parts.day);
         // Padded to the six digits the microsecond field can hold, for the
@@ -21,6 +22,6 @@ impl VersionStrategy for DateWithTimeMicroVersionStrategy {
             parts.time_build_metadata(),
             parts.micro
         ))?;
-        Ok(version)
+        Ok(TagVersion::Semantic(version))
     }
 }

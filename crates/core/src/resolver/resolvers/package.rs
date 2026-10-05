@@ -1,3 +1,4 @@
+use chrono::{TimeZone, Utc};
 use url::Url;
 
 use crate::{
@@ -6,7 +7,8 @@ use crate::{
         defaults::DefaultsConfig,
         overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
-        versioning::{DEFAULT_VERSION_TYPE, VersioningConfig},
+        release_type::ReleaseType,
+        versioning::{DEFAULT_VERSION_TYPE, VersionType, VersioningConfig},
     },
     forge::link::LinkStyle,
     packages::resolved::ResolvedPackage,
@@ -121,6 +123,28 @@ pub fn resolve_package(
         &versioning_config,
     );
 
+    if let Some(VersionType::Strftime(fmt)) = &versioning_config.version_type
+        && let Some(sample) = non_semver_sample(fmt)
+    {
+        let packages = std::iter::once((name.as_str(), release_type)).chain(
+            sub_packages
+                .iter()
+                .map(|s| (s.name.as_str(), s.release_type)),
+        );
+        for (package, release_type) in packages {
+            if matches!(
+                release_type,
+                ReleaseType::Rust | ReleaseType::Node | ReleaseType::Go
+            ) {
+                log::warn!(
+                    "package \"{package}\": version_type {fmt} produces \
+                     versions such as {sample} that are not semver; \
+                     {release_type} tooling will reject them in the manifest"
+                );
+            }
+        }
+    }
+
     Ok(ResolvedPackage {
         name,
         normalized_workspace_root,
@@ -136,6 +160,18 @@ pub fn resolve_package(
         commit_message_template: templates.commit_message,
         pr_title_template: templates.pr_title,
     })
+}
+
+/// What a strftime `version_type` renders, when that is not semver. The
+/// fields are single-digit so zero padding, which semver forbids, shows up
+/// regardless of today's date.
+fn non_semver_sample(fmt: &str) -> Option<String> {
+    let sample = Utc
+        .with_ymd_and_hms(2026, 1, 2, 3, 4, 5)
+        .unwrap()
+        .format(fmt)
+        .to_string();
+    semver::Version::parse(&sample).is_err().then_some(sample)
 }
 
 /// Warns when semantic-only settings are configured alongside a date-based
@@ -156,7 +192,10 @@ fn warn_ignored_semantic_config(
     resolved: &VersioningConfig,
     package_versioning: Option<&VersioningConfig>,
 ) {
-    let version_type = resolved.version_type.unwrap_or(DEFAULT_VERSION_TYPE);
+    let version_type = resolved
+        .version_type
+        .as_ref()
+        .unwrap_or(&DEFAULT_VERSION_TYPE);
 
     if !version_type.is_date_based() {
         return;
@@ -191,6 +230,30 @@ fn warn_ignored_semantic_config(
                  {version_type}; it only applies to major.minor.patch and \
                  major.minor.patch+timestamp.sha"
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn non_semver_sample_flags_zero_padding_regardless_of_date() {
+        // %d only pads on days 1–9, so a sample taken from "now" would
+        // miss this most of the month
+        assert_eq!(
+            non_semver_sample("%Y.%-m.%d").as_deref(),
+            Some("2026.1.02")
+        );
+        assert_eq!(non_semver_sample("%Y.%m").as_deref(), Some("2026.01"));
+        assert_eq!(non_semver_sample("%y%m%d").as_deref(), Some("260102"));
+    }
+
+    #[test]
+    fn non_semver_sample_accepts_semver_shaped_formats() {
+        for fmt in ["%Y.%-m.%-d", "%y.%-m.%-d", "%Y.%-m.%-d+%H.%M.%S"] {
+            assert_eq!(non_semver_sample(fmt), None, "{fmt:?}");
         }
     }
 }

@@ -11,7 +11,7 @@ use semver::Version;
 use crate::{
     config::package::PackageConfigBuilder,
     forge::{
-        request::{Commit, Tag},
+        request::{Commit, Tag, TagVersion},
         traits::MockForge,
     },
 };
@@ -25,9 +25,9 @@ async fn start_next_release_creates_commits_for_tagged_packages() {
 
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| {
+        .returning(|_, _, _, _| {
             Ok(vec![Tag {
-                semver: Version::parse("1.0.0").unwrap(),
+                version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
                 ..Default::default()
             }])
         });
@@ -59,15 +59,19 @@ async fn start_next_release_filters_by_target_packages() {
     mock_forge
         .expect_get_latest_tags_for_prefix()
         .times(2)
-        .returning(|prefix, _branch, _sha| {
+        .returning(|prefix, _branch, _, _sha| {
             if prefix.contains("pkg-a") {
                 Ok(vec![Tag {
-                    semver: Version::parse("1.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        Version::parse("1.0.0").unwrap(),
+                    ),
                     ..Default::default()
                 }])
             } else {
                 Ok(vec![Tag {
-                    semver: Version::parse("2.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        Version::parse("2.0.0").unwrap(),
+                    ),
                     ..Default::default()
                 }])
             }
@@ -117,7 +121,7 @@ async fn start_next_release_skips_untagged_packages() {
     // Return None indicating no tag exists for this package
     mock_forge
         .expect_get_latest_tags_for_prefix()
-        .returning(|_, _, _| Ok(vec![]));
+        .returning(|_, _, _, _| Ok(vec![]));
 
     // Should NOT call create_commit since package has no tag
     mock_forge.expect_create_commit().times(0);

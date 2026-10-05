@@ -51,12 +51,12 @@ impl FileUpdater for ComposerJson {
                 log::info!(
                     "updating {} version to {}",
                     manifest.path.to_string_lossy(),
-                    owner.tag.semver
+                    owner.tag.version
                 );
 
                 obj.insert(
                     "version".to_string(),
-                    json!(owner.tag.semver.to_string()),
+                    json!(owner.tag.version.to_string()),
                 );
 
                 let formatted = serde_json::to_string_pretty(&doc)?;
@@ -84,7 +84,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -105,7 +105,9 @@ mod tests {
                 release_type: ReleaseType::Php,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -133,7 +135,9 @@ mod tests {
                 release_type: ReleaseType::Php,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -173,7 +177,9 @@ mod tests {
                 release_type: ReleaseType::Php,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },
@@ -207,7 +213,9 @@ mod tests {
                 release_type: ReleaseType::Php,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: semver::Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
                     sha: "abc".into(),
                     ..Tag::default()
                 },

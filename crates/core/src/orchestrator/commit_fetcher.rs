@@ -142,6 +142,7 @@ impl CommitFetcher {
             .get_latest_stable_release_tag(
                 &pkg.tag_prefix,
                 &self.config.base_branch,
+                &pkg.analyzer_config.version_type,
             )
             .await?;
 
@@ -154,6 +155,7 @@ impl CommitFetcher {
                 .get_tags_for_prefix_since(
                     &pkg.tag_prefix,
                     &self.config.base_branch,
+                    &pkg.analyzer_config.version_type,
                     &tag.sha,
                 )
                 .await?
@@ -286,6 +288,7 @@ impl CommitFetcher {
                 .get_latest_tag_for_prefix(
                     &package.tag_prefix,
                     &self.config.base_branch,
+                    &package.analyzer_config.version_type,
                 )
                 .await?;
 
@@ -295,7 +298,7 @@ impl CommitFetcher {
                     // We are graduating when the current tag carries a
                     // pre-release identifier but the package no longer asks
                     // for one.
-                    if t.semver.pre.is_empty() {
+                    if t.version.pre().is_empty() {
                         // current tag does not have pre-release identifier
                         // so nothing to graduate from
                         return false;
@@ -396,7 +399,8 @@ mod tests {
             versioning::VersioningConfig,
         },
         forge::{
-            manager::ForgeOptions, request::ForgeCommitBuilder,
+            manager::ForgeOptions,
+            request::{ForgeCommitBuilder, TagVersion},
             traits::MockForge,
         },
         resolver::ResolverBuilder,
@@ -841,7 +845,7 @@ mod tests {
         mock_forge
             .expect_get_latest_tags_for_prefix()
             .times(2)
-            .returning(|prefix, _branch, _sha| {
+            .returning(|prefix, _branch, _, _sha| {
                 if prefix.contains("pkg-a") {
                     // pkg-a has newer tag (timestamp 2000)
                     Ok(vec![Tag {
@@ -928,7 +932,7 @@ mod tests {
         mock_forge
             .expect_get_latest_tags_for_prefix()
             .times(2)
-            .returning(|prefix, _branch, _sha| {
+            .returning(|prefix, _branch, _, _sha| {
                 if prefix.contains("pkg-a") {
                     Ok(vec![Tag {
                         sha: "some-sha".to_string(),
@@ -986,10 +990,12 @@ mod tests {
     async fn graduating_to_stable_true_when_prerelease_tag_and_no_config() {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
+            .returning(|_, _, _, _| {
                 Ok(vec![Tag {
                     name: "v1.0.0-rc.1".to_string(),
-                    semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    ),
                     sha: "sha-rc1".to_string(),
                     timestamp: Some(1000),
                 }])
@@ -1019,10 +1025,12 @@ mod tests {
     async fn graduating_to_stable_false_when_stable_tag() {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
+            .returning(|_, _, _, _| {
                 Ok(vec![Tag {
                     name: "v1.0.0".to_string(),
-                    semver: semver::Version::parse("1.0.0").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("1.0.0").unwrap(),
+                    ),
                     sha: "sha-1.0.0".to_string(),
                     timestamp: Some(1000),
                 }])
@@ -1054,10 +1062,12 @@ mod tests {
         // a prerelease strategy — so we are NOT graduating to stable.
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
+            .returning(|_, _, _, _| {
                 Ok(vec![Tag {
                     name: "v1.0.0-rc.1".to_string(),
-                    semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    ),
                     sha: "sha-rc1".to_string(),
                     timestamp: Some(1000),
                 }])
@@ -1096,7 +1106,7 @@ mod tests {
     async fn graduating_to_stable_false_when_no_tag() {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| Ok(vec![]));
+            .returning(|_, _, _, _| Ok(vec![]));
         mock.expect_get_commits().returning(|_, _| Ok(vec![]));
 
         let pkg = PackageConfigBuilder::default()
@@ -1126,10 +1136,12 @@ mod tests {
     async fn graduating_to_stable_true_when_prerelease_tag_and_empty_suffix() {
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
+            .returning(|_, _, _, _| {
                 Ok(vec![Tag {
                     name: "v1.0.0-rc.1".to_string(),
-                    semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("1.0.0-rc.1").unwrap(),
+                    ),
                     sha: "sha-rc1".to_string(),
                     timestamp: Some(1000),
                 }])
@@ -1181,17 +1193,21 @@ mod tests {
         // Only prerelease tags exist — no stable tag to aggregate from.
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(|_, _, _| {
+            .returning(|_, _, _, _| {
                 Ok(vec![
                     Tag {
                         name: "v1.0.0-rc.1".to_string(),
-                        semver: semver::Version::parse("1.0.0-rc.1").unwrap(),
+                        version: TagVersion::Semantic(
+                            semver::Version::parse("1.0.0-rc.1").unwrap(),
+                        ),
                         sha: "sha-rc1".to_string(),
                         timestamp: None,
                     },
                     Tag {
                         name: "v1.0.0-rc.2".to_string(),
-                        semver: semver::Version::parse("1.0.0-rc.2").unwrap(),
+                        version: TagVersion::Semantic(
+                            semver::Version::parse("1.0.0-rc.2").unwrap(),
+                        ),
                         sha: "sha-rc2".to_string(),
                         timestamp: None,
                     },
@@ -1221,7 +1237,9 @@ mod tests {
     async fn fetch_additional_returns_commits_from_stable_tag_sha() {
         let stable_tag = Tag {
             name: "v1.0.0".to_string(),
-            semver: semver::Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(
+                semver::Version::parse("1.0.0").unwrap(),
+            ),
             sha: "sha-1.0.0".to_string(),
             timestamp: Some(0),
         };
@@ -1249,7 +1267,7 @@ mod tests {
         let mut mock = MockForge::new();
 
         mock.expect_get_latest_tags_for_prefix()
-            .returning(move |_, _, _| Ok(vec![stable_tag.clone()]));
+            .returning(move |_, _, _, _| Ok(vec![stable_tag.clone()]));
         mock.expect_get_commits()
             .returning(move |_, _| Ok(commits.clone()));
 
@@ -1278,7 +1296,9 @@ mod tests {
     async fn fetch_additional_filters_commits_by_package_path() {
         let stable_tag = Tag {
             name: "v1.0.0".to_string(),
-            semver: semver::Version::parse("1.0.0").unwrap(),
+            version: TagVersion::Semantic(
+                semver::Version::parse("1.0.0").unwrap(),
+            ),
             sha: "sha-1.0.0".to_string(),
             timestamp: Some(0),
         };
@@ -1305,7 +1325,7 @@ mod tests {
 
         let mut mock = MockForge::new();
         mock.expect_get_latest_tags_for_prefix()
-            .returning(move |_, _, _| Ok(vec![stable_tag.clone()]));
+            .returning(move |_, _, _, _| Ok(vec![stable_tag.clone()]));
         mock.expect_get_commits()
             .returning(move |_, _| Ok(commits.clone()));
 

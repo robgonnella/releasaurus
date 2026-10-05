@@ -9,7 +9,7 @@ use semver::Version;
 
 use crate::{
     forge::{
-        request::{ForgeCommitBuilder, Tag},
+        request::{ForgeCommitBuilder, Tag, TagVersion},
         traits::MockForge,
     },
     packages::prepared::PreparedPackage,
@@ -70,7 +70,7 @@ fn analyze_packages_with_existing_tag() {
     ];
 
     let current_tag = Some(Tag {
-        semver: Version::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(Version::parse("1.0.0").unwrap()),
         timestamp: Some(2000),
         ..Default::default()
     });
@@ -86,9 +86,7 @@ fn analyze_packages_with_existing_tag() {
 
     if let Some(release) = &analyzed[0].release {
         // Should bump from 1.0.0 to 1.0.1 for a fix
-        assert_eq!(release.tag.semver.major, 1);
-        assert_eq!(release.tag.semver.minor, 0);
-        assert_eq!(release.tag.semver.patch, 1);
+        assert_eq!(release.tag.version.to_string(), "1.0.1");
     }
 }
 

@@ -372,7 +372,7 @@ impl Orchestrator {
             let bumped = bundle
                 .packages
                 .iter()
-                .map(|pkg| format!("{} {}", pkg.name, pkg.tag.semver))
+                .map(|pkg| format!("{} {}", pkg.name, pkg.tag.version))
                 .collect::<Vec<_>>()
                 .join(", ");
 
@@ -417,6 +417,7 @@ impl Orchestrator {
                 .get_latest_tag_for_prefix(
                     &package.tag_prefix,
                     &self.config.base_branch,
+                    &package.analyzer_config.version_type,
                 )
                 .await?;
 
@@ -664,7 +665,7 @@ impl Orchestrator {
                     tag: pkg.tag.name.clone(),
                     sha: commit_sha.to_string(),
                     notes: pkg.notes.clone(),
-                    prerelease: !pkg.tag.semver.pre.is_empty(),
+                    prerelease: !pkg.tag.version.pre().is_empty(),
                 })
                 .await
                 .map_err(|e| {

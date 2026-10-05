@@ -5,15 +5,15 @@
 //! - `SemanticWithBuild`: semantic version + `{timestamp}.{short_sha}`
 //!   build metadata (deterministic, asserted exactly), including
 //!   prerelease + build combinations
-//! - `Date`: `year.month.day`
-//! - `DateWithTime`: `year.month.day+hour.minute.second`
-//! - `DateWithTimeMicro`: `year.month.day+hour.minute.second.micro`
+//! - `SemanticDate`: `year.month.day`
+//! - `SemanticDateWithTime`: `year.month.day+hour.minute.second`
+//! - `SemanticDateWithTimeMicro`: `year.month.day+hour.minute.second.micro`
 //!
 //! Date-based strategies derive from `chrono::Utc::now()`, so these tests
 //! assert structure (major == current UTC year, build-segment counts)
 //! rather than exact values.
 
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use semver::{BuildMetadata, Version as SemVer};
 
 use crate::{
@@ -22,7 +22,7 @@ use crate::{
         prerelease::{PrereleaseConfig, PrereleaseStrategy},
         versioning::VersionType,
     },
-    forge::request::{ForgeCommit, Tag},
+    forge::request::{ForgeCommit, Tag, TagVersion},
 };
 
 #[test]
@@ -45,10 +45,10 @@ fn test_semantic_with_build_first_release() {
 
     // First release starts at 0.1.0 with build metadata appended.
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("0.1.0+1000.abc1234").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("0.1.0+1000.abc1234").unwrap())
     );
-    assert_eq!(release.tag.semver.build.as_str(), "1000.abc1234");
+    assert_eq!(release.tag.version.build(), "1000.abc1234");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_semantic_with_build_increment_from_stable() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.2.3".to_string(),
-        semver: SemVer::parse("1.2.3").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.2.3").unwrap()),
         ..Tag::default()
     };
 
@@ -80,10 +80,8 @@ fn test_semantic_with_build_increment_from_stable() {
         .unwrap();
 
     // Base bumps patch; build metadata reflects newest commit.
-    assert_eq!(release.tag.semver.major, 1);
-    assert_eq!(release.tag.semver.minor, 2);
-    assert_eq!(release.tag.semver.patch, 4);
-    assert_eq!(release.tag.semver.build.as_str(), "2000.def4567");
+    assert_eq!(release.tag.version.to_string(), "1.2.4+2000.def4567");
+    assert_eq!(release.tag.version.build(), "2000.def4567");
 }
 
 #[test]
@@ -110,11 +108,13 @@ fn test_semantic_with_build_versioned_prerelease_first_release() {
 
     // First release carries both a versioned prerelease and build metadata.
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("0.1.0-alpha.1+1000.abc1234").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(
+            SemVer::parse("0.1.0-alpha.1+1000.abc1234").unwrap()
+        )
     );
-    assert_eq!(release.tag.semver.pre.as_str(), "alpha.1");
-    assert_eq!(release.tag.semver.build.as_str(), "1000.abc1234");
+    assert_eq!(release.tag.version.pre(), "alpha.1");
+    assert_eq!(release.tag.version.build(), "1000.abc1234");
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn test_semantic_with_build_versioned_prerelease_increment() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.2.0-alpha.1".to_string(),
-        semver: SemVer::parse("1.2.0-alpha.1").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.2.0-alpha.1").unwrap()),
         ..Tag::default()
     };
 
@@ -150,11 +150,13 @@ fn test_semantic_with_build_versioned_prerelease_increment() {
         .unwrap();
 
     // Existing prerelease increments rather than graduating; build refreshed.
-    assert_eq!(release.tag.semver.pre.as_str(), "alpha.2");
-    assert_eq!(release.tag.semver.build.as_str(), "2000.def4567");
+    assert_eq!(release.tag.version.pre(), "alpha.2");
+    assert_eq!(release.tag.version.build(), "2000.def4567");
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("1.2.0-alpha.2+2000.def4567").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(
+            SemVer::parse("1.2.0-alpha.2+2000.def4567").unwrap()
+        )
     );
 }
 
@@ -173,7 +175,7 @@ fn test_semantic_with_build_static_prerelease() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -191,11 +193,11 @@ fn test_semantic_with_build_static_prerelease() {
         .unwrap();
 
     // Static suffix has no numeric counter; build metadata appended.
-    assert_eq!(release.tag.semver.pre.as_str(), "dev");
-    assert_eq!(release.tag.semver.build.as_str(), "3000.def4567");
+    assert_eq!(release.tag.version.pre(), "dev");
+    assert_eq!(release.tag.version.build(), "3000.def4567");
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("1.1.0-dev+3000.def4567").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.1.0-dev+3000.def4567").unwrap())
     );
 }
 
@@ -212,7 +214,7 @@ fn test_semantic_with_build_graduate_prerelease() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0-alpha.5".to_string(),
-        semver: SemVer::parse("1.0.0-alpha.5").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0-alpha.5").unwrap()),
         ..Tag::default()
     };
 
@@ -229,11 +231,11 @@ fn test_semantic_with_build_graduate_prerelease() {
         .unwrap()
         .unwrap();
 
-    assert!(release.tag.semver.pre.is_empty());
-    assert_eq!(release.tag.semver.build.as_str(), "4000.def4567");
+    assert!(release.tag.version.pre().is_empty());
+    assert_eq!(release.tag.version.build(), "4000.def4567");
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("1.0.0+4000.def4567").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.0+4000.def4567").unwrap())
     );
 }
 
@@ -251,7 +253,9 @@ fn test_semantic_with_build_replaces_previous_build_metadata() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.2.3+2000.def4567".to_string(),
-        semver: SemVer::parse("1.2.3+2000.def4567").unwrap(),
+        version: TagVersion::Semantic(
+            SemVer::parse("1.2.3+2000.def4567").unwrap(),
+        ),
         ..Tag::default()
     };
 
@@ -269,10 +273,10 @@ fn test_semantic_with_build_replaces_previous_build_metadata() {
         .unwrap();
 
     assert_eq!(
-        release.tag.semver,
-        SemVer::parse("1.2.4+5000.abc7890").unwrap()
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.2.4+5000.abc7890").unwrap())
     );
-    assert_eq!(release.tag.semver.build.as_str(), "5000.abc7890");
+    assert_eq!(release.tag.version.build(), "5000.abc7890");
 }
 
 /// Switching from `major.minor.patch+timestamp.sha` back to plain
@@ -289,7 +293,9 @@ fn test_semantic_clears_build_metadata_from_current_tag() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.2.3+2000.def4567".to_string(),
-        semver: SemVer::parse("1.2.3+2000.def4567").unwrap(),
+        version: TagVersion::Semantic(
+            SemVer::parse("1.2.3+2000.def4567").unwrap(),
+        ),
         ..Tag::default()
     };
 
@@ -306,8 +312,11 @@ fn test_semantic_clears_build_metadata_from_current_tag() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(release.tag.semver, SemVer::parse("1.2.4").unwrap());
-    assert!(release.tag.semver.build.is_empty());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.2.4").unwrap())
+    );
+    assert!(release.tag.version.build().is_empty());
 }
 
 /// Same for the graduation path, which clones the current version wholesale
@@ -323,7 +332,9 @@ fn test_semantic_clears_build_metadata_when_graduating() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0-alpha.5+2000.def4567".to_string(),
-        semver: SemVer::parse("1.0.0-alpha.5+2000.def4567").unwrap(),
+        version: TagVersion::Semantic(
+            SemVer::parse("1.0.0-alpha.5+2000.def4567").unwrap(),
+        ),
         ..Tag::default()
     };
 
@@ -340,14 +351,17 @@ fn test_semantic_clears_build_metadata_when_graduating() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(release.tag.semver, SemVer::parse("1.0.0").unwrap());
-    assert!(release.tag.semver.build.is_empty());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.0").unwrap())
+    );
+    assert!(release.tag.version.build().is_empty());
 }
 
 #[test]
 fn test_date_version() {
     let config = AnalyzerConfig {
-        version_type: VersionType::Date,
+        version_type: VersionType::SemanticDate,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -362,19 +376,20 @@ fn test_date_version() {
     }];
 
     let release = analyzer.analyze(commits, None).unwrap().unwrap();
-    let version = &release.tag.semver;
-
-    assert_eq!(version.major, Utc::now().year() as u64);
-    assert!((1..=12).contains(&version.minor));
-    assert!((1..=31).contains(&version.patch));
-    assert!(version.pre.is_empty());
-    assert!(version.build.is_empty());
+    let version = &release.tag.version;
+    let now = Utc::now();
+    assert_eq!(
+        version.to_string(),
+        format!("{}.{}.{}", now.year(), now.month(), now.day())
+    );
+    assert!(version.pre().is_empty());
+    assert!(version.build().is_empty());
 }
 
 #[test]
 fn test_date_with_time_version() {
     let config = AnalyzerConfig {
-        version_type: VersionType::DateWithTime,
+        version_type: VersionType::SemanticDateWithTime,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -387,20 +402,27 @@ fn test_date_with_time_version() {
     }];
 
     let release = analyzer.analyze(commits, None).unwrap().unwrap();
-    let version = &release.tag.semver;
+    let version = &release.tag.version;
+    let now = Utc::now();
 
-    assert_eq!(version.major, Utc::now().year() as u64);
-
-    // Build metadata is hour.minute.second — three numeric segments.
-    let segments: Vec<&str> = version.build.as_str().split('.').collect();
-    assert_eq!(segments.len(), 3);
-    assert!(segments.iter().all(|s| s.parse::<u64>().is_ok()));
+    assert_eq!(
+        version.to_string(),
+        format!(
+            "{}.{}.{}+{:02}.{:02}.{:02}",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second()
+        )
+    );
 }
 
 #[test]
 fn test_date_with_time_micro_version() {
     let config = AnalyzerConfig {
-        version_type: VersionType::DateWithTimeMicro,
+        version_type: VersionType::SemanticDateWithTimeMicro,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -413,14 +435,16 @@ fn test_date_with_time_micro_version() {
     }];
 
     let release = analyzer.analyze(commits, None).unwrap().unwrap();
-    let version = &release.tag.semver;
+    let version = &release.tag.version;
+    let now = Utc::now();
 
-    assert_eq!(version.major, Utc::now().year() as u64);
-
-    // Build metadata is hour.minute.second.micro — four numeric segments.
-    let segments: Vec<&str> = version.build.as_str().split('.').collect();
-    assert_eq!(segments.len(), 4);
-    assert!(segments.iter().all(|s| s.parse::<u64>().is_ok()));
+    assert!(version.to_string().starts_with(&format!(
+        "{}.{}.{}+{:02}.",
+        now.year(),
+        now.month(),
+        now.day(),
+        now.hour(),
+    )));
 }
 
 /// Today's `year.month.day`, the version the date strategy is about to
@@ -446,7 +470,7 @@ fn commit_for_date_test() -> Vec<ForgeCommit> {
 #[test]
 fn test_date_version_same_day_is_not_releasable() {
     let config = AnalyzerConfig {
-        version_type: VersionType::Date,
+        version_type: VersionType::SemanticDate,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -456,7 +480,7 @@ fn test_date_version_same_day_is_not_releasable() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: today.to_string(),
-        semver: today,
+        version: TagVersion::Semantic(today),
         ..Tag::default()
     };
 
@@ -473,7 +497,7 @@ fn test_date_version_same_day_is_not_releasable() {
 #[test]
 fn test_date_version_does_not_go_backwards() {
     let config = AnalyzerConfig {
-        version_type: VersionType::Date,
+        version_type: VersionType::SemanticDate,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -483,7 +507,7 @@ fn test_date_version_does_not_go_backwards() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: future.to_string(),
-        semver: future,
+        version: TagVersion::Semantic(future),
         ..Tag::default()
     };
 
@@ -498,7 +522,7 @@ fn test_date_version_does_not_go_backwards() {
 #[test]
 fn test_date_version_advances_from_older_tag() {
     let config = AnalyzerConfig {
-        version_type: VersionType::Date,
+        version_type: VersionType::SemanticDate,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -508,7 +532,7 @@ fn test_date_version_advances_from_older_tag() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: past.to_string(),
-        semver: past,
+        version: TagVersion::Semantic(past),
         ..Tag::default()
     };
 
@@ -517,7 +541,7 @@ fn test_date_version_advances_from_older_tag() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(release.tag.semver, today());
+    assert_eq!(release.tag.version.to_string(), today().to_string());
 }
 
 /// The time-based variants are free to release repeatedly within one day —
@@ -525,7 +549,7 @@ fn test_date_version_advances_from_older_tag() {
 #[test]
 fn test_date_with_time_version_releases_twice_in_one_day() {
     let config = AnalyzerConfig {
-        version_type: VersionType::DateWithTime,
+        version_type: VersionType::SemanticDateWithTime,
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -536,7 +560,7 @@ fn test_date_with_time_version_releases_twice_in_one_day() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: earlier_today.to_string(),
-        semver: earlier_today,
+        version: TagVersion::Semantic(earlier_today),
         ..Tag::default()
     };
 
@@ -545,16 +569,32 @@ fn test_date_with_time_version_releases_twice_in_one_day() {
         .unwrap()
         .unwrap();
 
-    assert_eq!(release.tag.semver.major, Utc::now().year() as u64);
-    assert!(!release.tag.semver.build.is_empty());
+    let now = Utc::now();
+
+    assert!(release.tag.version.to_string().starts_with(&format!(
+        "{}.{}.{}+{:02}.",
+        now.year(),
+        now.month(),
+        now.day(),
+        now.hour()
+    )));
+    assert!(!release.tag.version.build().is_empty());
 }
 
-/// Segments are zero-padded so a tag name sorts as text in the same order it
-/// sorts numerically.
+fn strftime_tag(name: &str, fmt: &str) -> Tag {
+    Tag {
+        sha: "old123".to_string(),
+        name: name.to_string(),
+        version: TagVersion::parse(name, &VersionType::Strftime(fmt.into()))
+            .unwrap(),
+        ..Tag::default()
+    }
+}
+
 #[test]
-fn test_date_with_time_build_metadata_is_zero_padded() {
+fn test_strftime_version_renders_current_utc_time_in_format() {
     let config = AnalyzerConfig {
-        version_type: VersionType::DateWithTime,
+        version_type: VersionType::Strftime("%Y.%m.%d".into()),
         ..AnalyzerConfig::default()
     };
     let analyzer = Analyzer::new(&config).unwrap();
@@ -564,9 +604,123 @@ fn test_date_with_time_build_metadata_is_zero_padded() {
         .unwrap()
         .unwrap();
 
-    let segments: Vec<&str> =
-        release.tag.semver.build.as_str().split('.').collect();
+    let rendered = Utc::now().format("%Y.%m.%d").to_string();
+    assert_eq!(release.tag.version.to_string(), rendered);
+    assert!(
+        release.tag.name.ends_with(&rendered),
+        "tag name {} should end with {rendered}",
+        release.tag.name
+    );
+    assert!(release.tag.version.pre().is_empty());
+    assert!(release.tag.version.build().is_empty());
+}
 
-    assert_eq!(segments.len(), 3);
-    assert!(segments.iter().all(|s| s.len() == 2));
+#[test]
+fn test_strftime_version_same_period_is_not_releasable() {
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime("%Y.%m.%d".into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let today = Utc::now().format("%Y.%m.%d").to_string();
+    let current_tag = strftime_tag(&today, "%Y.%m.%d");
+
+    let result = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap();
+    assert!(result.is_none(), "same-day re-run should not release");
+}
+
+#[test]
+fn test_strftime_version_does_not_go_backwards() {
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime("%Y.%m.%d".into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = strftime_tag("2999.01.01", "%Y.%m.%d");
+
+    let result = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap();
+    assert!(
+        result.is_none(),
+        "a future-dated tag must not be superseded"
+    );
+}
+
+#[test]
+fn test_strftime_version_advances_from_older_tag() {
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime("%Y.%m.%d".into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = strftime_tag("2020.01.01", "%Y.%m.%d");
+
+    let release = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        release.tag.version.to_string(),
+        Utc::now().format("%Y.%m.%d").to_string()
+    );
+}
+
+#[test]
+fn test_strftime_version_with_time_releases_twice_in_one_day() {
+    let fmt = "%Y.%m.%d.%H%M%S";
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime(fmt.into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let an_hour_ago = (Utc::now() - chrono::Duration::hours(1))
+        .format(fmt)
+        .to_string();
+    let current_tag = strftime_tag(&an_hour_ago, fmt);
+
+    let release = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap()
+        .unwrap();
+
+    assert!(
+        release.tag.version
+            > TagVersion::parse(
+                &an_hour_ago,
+                &VersionType::Strftime(fmt.into())
+            )
+            .unwrap()
+    );
+    assert_eq!(release.tag.version.to_string().len(), an_hour_ago.len());
+}
+
+#[test]
+fn test_strftime_version_ignores_prerelease_config() {
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime("%Y.%m.%d".into()),
+        prerelease: Some(PrereleaseConfig {
+            suffix: "alpha".into(),
+            strategy: PrereleaseStrategy::Versioned,
+        }),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let release = analyzer
+        .analyze(commit_for_date_test(), None)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        release.tag.version.to_string(),
+        Utc::now().format("%Y.%m.%d").to_string()
+    );
 }

@@ -8,7 +8,7 @@ use crate::{
         release::Release,
     },
     config::prerelease::PrereleaseStrategy,
-    forge::request::ForgeCommit,
+    forge::request::{ForgeCommit, TagVersion},
     result::Result,
 };
 
@@ -53,7 +53,7 @@ pub fn add_prerelease(
     mut version: Version,
     identifier: &str,
     strategy: PrereleaseStrategy,
-) -> Result<Version> {
+) -> Result<TagVersion> {
     // Use Cow to avoid allocation for Static strategy
     let pre_str: Cow<str> = if matches!(strategy, PrereleaseStrategy::Versioned)
     {
@@ -62,7 +62,7 @@ pub fn add_prerelease(
         Cow::Borrowed(identifier)
     };
     version.pre = Prerelease::new(&pre_str)?;
-    Ok(version)
+    Ok(TagVersion::Semantic(version))
 }
 
 /// Removes prerelease identifiers from a version (e.g., "1.0.0-alpha.5" -> "1.0.0").
@@ -656,7 +656,10 @@ mod tests {
         let result =
             add_prerelease(version, "alpha", PrereleaseStrategy::Versioned)
                 .unwrap();
-        assert_eq!(result, Version::parse("1.0.0-alpha.1").unwrap());
+        assert_eq!(
+            result,
+            TagVersion::Semantic(Version::parse("1.0.0-alpha.1").unwrap())
+        );
     }
 
     #[test]
@@ -665,7 +668,10 @@ mod tests {
         let result =
             add_prerelease(version, "SNAPSHOT", PrereleaseStrategy::Static)
                 .unwrap();
-        assert_eq!(result, Version::parse("0.1.0-SNAPSHOT").unwrap());
+        assert_eq!(
+            result,
+            TagVersion::Semantic(Version::parse("0.1.0-SNAPSHOT").unwrap())
+        );
     }
 
     #[test]
@@ -675,7 +681,10 @@ mod tests {
         let result =
             add_prerelease(version, "beta", PrereleaseStrategy::Versioned)
                 .unwrap();
-        assert_eq!(result, Version::parse("1.0.0-beta.1").unwrap());
+        assert_eq!(
+            result,
+            TagVersion::Semantic(Version::parse("1.0.0-beta.1").unwrap())
+        );
     }
 
     #[test]

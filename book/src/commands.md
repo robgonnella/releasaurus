@@ -299,7 +299,7 @@ CI settings.
 | ------------------------------------------- | ---------------------------------------------- |
 | `--base-branch <branch>`                    | Override the base branch                       |
 | `--tag-prefix <prefix>`                     | Global tag prefix for all packages             |
-| `--version-type <value>`                    | Global version type for all packages           |
+| `--version-type <value>`                    | Named type or strftime format for all packages |
 | `--prerelease-suffix <suffix>`              | Global prerelease suffix (empty `""` disables) |
 | `--prerelease-strategy <versioned\|static>` | Global prerelease strategy                     |
 | `--skip-sha <sha>`                          | Skip a commit by SHA prefix (repeatable)       |
@@ -328,6 +328,10 @@ releasaurus release-pr \
 # Date-based versioning for just the nightly package
 releasaurus release-pr \
   --set-package nightly.versioning.version_type=year.month.day \
+  --repo "https://github.com/owner/repo"
+
+# Zero-padded calendar versions; quote the value so the shell leaves % alone
+releasaurus release-pr --version-type '%Y.%m.%d' \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another

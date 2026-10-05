@@ -16,7 +16,7 @@ use crate::{
     config::versioning::NAMED_PARSERS,
     forge::{
         link::LinkStyle,
-        request::{ForgeCommit, Tag},
+        request::{ForgeCommit, Tag, TagVersion},
     },
 };
 
@@ -67,7 +67,10 @@ fn test_analyze_first_release_no_tag() {
     let result = analyzer.analyze(commits, None).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("0.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("0.1.0").unwrap())
+    );
     assert_eq!(release.commits.len(), 2);
 }
 
@@ -82,7 +85,7 @@ fn test_analyze_with_current_tag_patch_bump() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -96,7 +99,10 @@ fn test_analyze_with_current_tag_patch_bump() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.1").unwrap())
+    );
 }
 
 #[test]
@@ -110,7 +116,7 @@ fn test_analyze_with_current_tag_minor_bump() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -124,7 +130,10 @@ fn test_analyze_with_current_tag_minor_bump() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.1.0").unwrap())
+    );
 }
 
 #[test]
@@ -138,7 +147,7 @@ fn test_analyze_with_current_tag_major_bump() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -152,7 +161,10 @@ fn test_analyze_with_current_tag_major_bump() {
     let result = analyzer.analyze(commits, Some(current_tag)).unwrap();
 
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("2.0.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("2.0.0").unwrap())
+    );
 }
 
 #[test]
@@ -209,7 +221,7 @@ fn test_analyze_multiple_commits() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -239,7 +251,10 @@ fn test_analyze_multiple_commits() {
     let release = result.unwrap();
     assert_eq!(release.commits.len(), 3);
     // Should bump minor due to features
-    assert_eq!(release.tag.semver, SemVer::parse("1.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.1.0").unwrap())
+    );
 }
 
 #[test]
@@ -256,7 +271,7 @@ fn test_sha_compare_link_uses_newest_commit() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -307,7 +322,7 @@ fn test_sha_compare_link_spans_filtered_newest_commit() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -359,7 +374,7 @@ fn test_azure_devops_links_use_version_query_params() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "v1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -408,7 +423,10 @@ fn test_chore_only_with_no_tag() {
 
     // Chore commits still trigger a first release
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("0.1.0").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("0.1.0").unwrap())
+    );
     assert_eq!(release.commits.len(), 1);
 }
 
@@ -423,7 +441,7 @@ fn test_chore_only_with_existing_tag() {
     let current_tag = Tag {
         sha: "old123".to_string(),
         name: "1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     };
 
@@ -439,6 +457,9 @@ fn test_chore_only_with_existing_tag() {
 
     // Chore commits bump patch version (per next_version crate behavior)
     let release = result.unwrap();
-    assert_eq!(release.tag.semver, SemVer::parse("1.0.1").unwrap());
+    assert_eq!(
+        release.tag.version,
+        TagVersion::Semantic(SemVer::parse("1.0.1").unwrap())
+    );
     assert_eq!(release.commits.len(), 1);
 }

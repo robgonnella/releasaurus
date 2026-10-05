@@ -22,8 +22,12 @@ use std::sync::{LazyLock, Once};
 use url::Url;
 
 use crate::{
-    config::repository::{
-        DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH, GitUserConfig,
+    config::{
+        repository::{
+            DEFAULT_COMMIT_SEARCH_DEPTH, DEFAULT_TAG_SEARCH_DEPTH,
+            GitUserConfig,
+        },
+        versioning::VersionType,
     },
     forge::{
         azure_devops::types::{
@@ -44,7 +48,8 @@ use crate::{
             PrLabelsRequest, PrMetadataBlock, PullRequest,
             ReleaseByTagResponse, ResolvedCreateCommitRequest,
             ResolvedCreateReleaseBranchRequest, ResolvedFileChange,
-            ResolvedFileChangeAction, Tag, TagResponse, UpdatePrRequest,
+            ResolvedFileChangeAction, Tag, TagResponse, TagVersion,
+            UpdatePrRequest,
         },
         traits::Forge,
     },
@@ -629,6 +634,7 @@ impl Forge for AzureDevops {
         &self,
         prefix: &str,
         branch: &str,
+        version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let re = Regex::new(format!(r"^{prefix}").as_str())?;
@@ -646,7 +652,7 @@ impl Forge for AzureDevops {
                 continue;
             }
             let stripped = re.replace_all(&name, "").to_string();
-            let Ok(sver) = semver::Version::parse(&stripped) else {
+            let Ok(ver) = TagVersion::parse(&stripped, version_type) else {
                 continue;
             };
             // Only return tags reachable from the target branch.
@@ -661,7 +667,7 @@ impl Forge for AzureDevops {
             let timestamp = self.get_commit_timestamp(&r.object_id).await.ok();
             tags.push(Tag {
                 name,
-                semver: sver,
+                version: ver,
                 sha: r.object_id,
                 timestamp,
             });

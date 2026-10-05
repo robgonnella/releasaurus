@@ -102,6 +102,7 @@ impl PackageProcessor {
                 .get_latest_tag_for_prefix(
                     &pkg.tag_prefix,
                     &self.config.base_branch,
+                    &pkg.analyzer_config.version_type,
                 )
                 .await?;
 
@@ -469,7 +470,7 @@ impl PackageProcessor {
         {
             context.insert("package_name", package_name);
             context.insert("tag", &tag.name);
-            context.insert("semver", &tag.semver.to_string());
+            context.insert("semver", &tag.version.to_string());
             package_template
         } else {
             monorepo_template

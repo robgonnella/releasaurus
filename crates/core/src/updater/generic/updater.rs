@@ -34,7 +34,7 @@ impl GenericUpdater {
                 let version_match = &caps["version"];
                 full_match.replacen(
                     version_match,
-                    &owner.tag.semver.to_string(),
+                    &owner.tag.version.to_string(),
                     1,
                 )
             })
@@ -65,7 +65,7 @@ mod tests {
 
     use crate::{
         config::{package::GENERIC_VERSION_REGEX, release_type::ReleaseType},
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::ManifestPackage,
     };
 
@@ -82,7 +82,7 @@ mod tests {
                 release_type: ReleaseType::Generic,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc123".into(),
                     ..Default::default()
                 },
@@ -137,8 +137,8 @@ mod tests {
     fn update_manifest_updates_version_with_prerelease() {
         let mut manifest = create_manifest(r#"version = "1.0.0-alpha.1""#);
         manifest.owner.as_mut().unwrap().tag.name = "v2.0.0-beta.2".into();
-        manifest.owner.as_mut().unwrap().tag.semver =
-            Version::parse("2.0.0-beta.2").unwrap();
+        manifest.owner.as_mut().unwrap().tag.version =
+            TagVersion::Semantic(Version::parse("2.0.0-beta.2").unwrap());
 
         let result =
             GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
@@ -197,7 +197,8 @@ mod tests {
             "metadata:\n  version: \"1.0.0\"\n  description: \"My app\"",
         );
         manifest.owner.as_mut().unwrap().tag.name = "v2.5.3".into();
-        manifest.owner.as_mut().unwrap().tag.semver = Version::new(2, 5, 3);
+        manifest.owner.as_mut().unwrap().tag.version =
+            TagVersion::Semantic(Version::new(2, 5, 3));
 
         let result =
             GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
@@ -214,7 +215,8 @@ mod tests {
             "package main\n\nconst Version = \"1.0.0\"\nconst AppName = \"myapp\"",
         );
         manifest.owner.as_mut().unwrap().tag.name = "v3.2.1".into();
-        manifest.owner.as_mut().unwrap().tag.semver = Version::new(3, 2, 1);
+        manifest.owner.as_mut().unwrap().tag.version =
+            TagVersion::Semantic(Version::new(3, 2, 1));
 
         let result =
             GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
@@ -237,7 +239,8 @@ mod tests {
     fn update_manifest_handles_multi_digit_versions() {
         let mut manifest = create_manifest(r#"version = "10.200.3""#);
         manifest.owner.as_mut().unwrap().tag.name = "v11.0.0".into();
-        manifest.owner.as_mut().unwrap().tag.semver = Version::new(11, 0, 0);
+        manifest.owner.as_mut().unwrap().tag.version =
+            TagVersion::Semantic(Version::new(11, 0, 0));
 
         let result =
             GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX)

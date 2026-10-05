@@ -13,7 +13,10 @@ use tempfile::NamedTempFile;
 use crate::{
     analyzer::release::Release,
     config::{Config, changelog::ChangelogConfig, package::PackageConfig},
-    forge::{request::Tag, traits::MockForge},
+    forge::{
+        request::{Tag, TagVersion},
+        traits::MockForge,
+    },
     packages::releasable::SerializableReleasablePackage,
 };
 
@@ -22,7 +25,7 @@ fn create_test_release(version: &str, notes: &str) -> Release {
     Release {
         tag: Tag {
             name: format!("v{}", version),
-            semver: Version::parse(version).unwrap(),
+            version: TagVersion::Semantic(Version::parse(version).unwrap()),
             sha: "abc123".to_string(),
             ..Default::default()
         },

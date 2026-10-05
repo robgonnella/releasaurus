@@ -16,7 +16,7 @@ use crate::{
         changelog::DEFAULT_BODY,
         versioning::{Group, NAMED_PARSERS, Parser},
     },
-    forge::request::{ForgeCommit, ForgeCommitPR, Tag},
+    forge::request::{ForgeCommit, ForgeCommitPR, Tag, TagVersion},
 };
 
 /// The entry a commit renders as when no PR segment is appended.
@@ -62,7 +62,7 @@ fn current_tag() -> Tag {
     Tag {
         sha: "old123".to_string(),
         name: "v1.0.0".to_string(),
-        semver: SemVer::parse("1.0.0").unwrap(),
+        version: TagVersion::Semantic(SemVer::parse("1.0.0").unwrap()),
         ..Tag::default()
     }
 }

@@ -39,7 +39,7 @@ pub async fn load_config(
         .await?;
 
     match content {
-        Some(content) => Ok(::toml::from_str(&content)?),
+        Some(content) => Ok(toml::from_str(&content)?),
         None if config_path.is_some() => Err(ReleasaurusError::invalid_config(
             format!("configuration file not found at: {path}"),
         )),

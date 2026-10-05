@@ -55,7 +55,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -76,7 +76,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -104,7 +104,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -132,7 +132,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v3.5.0".into(),
-                    semver: Version::new(3, 5, 0),
+                    version: TagVersion::Semantic(Version::new(3, 5, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -160,7 +160,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v4.0.0".into(),
-                    semver: Version::new(4, 0, 0),
+                    version: TagVersion::Semantic(Version::new(4, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -188,7 +188,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -214,7 +214,7 @@ mod tests {
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -252,7 +252,7 @@ version = "1.0.0"
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -295,7 +295,7 @@ version = "1.0.0"
                 release_type: ReleaseType::Java,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },

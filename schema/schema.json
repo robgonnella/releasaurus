@@ -512,13 +512,21 @@
     },
     "VersionType": {
       "description": "Determines what type of versioning to use (semantic, date, etc.)",
-      "type": "string",
-      "enum": [
-        "major.minor.patch",
-        "major.minor.patch+timestamp.sha",
-        "year.month.day",
-        "year.month.day+hour.minute.second",
-        "year.month.day+hour.minute.second.micro"
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "major.minor.patch",
+            "major.minor.patch+timestamp.sha",
+            "year.month.day",
+            "year.month.day+hour.minute.second",
+            "year.month.day+hour.minute.second.micro"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "%"
+        }
       ]
     },
     "PrereleaseConfig": {

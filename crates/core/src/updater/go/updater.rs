@@ -43,7 +43,7 @@ mod tests {
 
     use crate::{
         config::release_type::ReleaseType,
-        forge::request::Tag,
+        forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
 
@@ -65,7 +65,7 @@ const Version = "1.0.0"
                 release_type: ReleaseType::Go,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
@@ -92,7 +92,7 @@ const Version = "1.0.0"
                 release_type: ReleaseType::Go,
                 tag: Tag {
                     name: "v2.0.0".into(),
-                    semver: Version::new(2, 0, 0),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
                     sha: "abc".into(),
                     ..Default::default()
                 },
