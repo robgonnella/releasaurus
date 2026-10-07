@@ -24,7 +24,7 @@ jobs:
           cname: releasaurus.rgon.io
 
   publish-crate:
-    if: ${{ github.repository == 'robgonnella/releasaurus' }}
+    if: ${{ github.repository == 'robgonnella/releasaurus' && !contains(github.ref_name, '-rc.') }}
     concurrency: publish-crate
     runs-on: ubuntu-latest
     steps:
