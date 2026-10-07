@@ -1,3 +1,9 @@
+# [1.3.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.2.3...v1.3.0-rc.1) - 2026-10-07
+
+### 🚀 Features
+
+- adds full support for CalVer using strftime [_(068e78c)_](https://github.com/robgonnella/releasaurus/commit/068e78c5a37a9fae56e88f2b6ffa9c20d36cca85) (Rob Gonnella) ([PR 390](https://github.com/robgonnella/releasaurus/pull/390))
+
 # [1.2.3](https://github.com/robgonnella/releasaurus/compare/v1.2.2...v1.2.3) - 2026-10-03
 
 ### 🐛 Bug Fixes
