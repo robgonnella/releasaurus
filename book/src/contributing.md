@@ -91,17 +91,18 @@ module, file parsers, tests, and docs. To add one:
    `crates/core/src/config/release_type.rs`.
 2. **Create the manifests module**
    (`crates/core/src/updater/<lang>/manifests.rs`, implementing
-   `ManifestTargets`) and register it in
-   `crates/core/src/updater/manager.rs` under
-   `release_type_manifest_targets()`.
+   `ManifestTargets`).
 3. **Create the updater** (`crates/core/src/updater/<lang>/updater.rs`
-   implementing `PackageUpdater`, plus per-format file parsers), declare
-   the module in `crates/core/src/updater.rs`, and register it in the
-   `updater()` function in `manager.rs`.
-4. **Add tests** for manifest generation, updater integration, and each
+   implementing `FileUpdater`, plus per-format file parsers) and declare
+   the module in `crates/core/src/updater.rs`.
+4. **Register both** in `crates/core/src/updater/dispatch.rs`: add an
+   `Updater` variant and an arm to each of `new`, `manifest_targets`,
+   `update_all`, and the `Debug` impl.
+5. **Add tests** for manifest generation, updater integration, and each
    file parser.
-5. **Update the docs** — add the language to the Supported Languages
-   table in `book/src/configuration-reference.md`.
+6. **Update the docs** — add the language to the Supported Languages
+   table in `book/src/configuration-reference.md`, and regenerate the
+   config schema with `just gen-schema`.
 
 **Reference implementations:** PHP and Python are good simple starting
 points; Node, Rust, and Java show workspace support, lock files, and

@@ -46,7 +46,7 @@ The most common setup — bump versions in one package's manifests:
 ```toml
 [[package]]
 path = "."
-release_type = "node"  # or rust, python, java, php, ruby, go, generic
+release_type = "node"  # or rust, python, java, php, ruby, go, helm, generic
 ```
 
 `release_type` selects which manifest and lock files are updated. See
