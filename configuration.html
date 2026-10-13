@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6da03f34.js";
+            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -214,7 +214,7 @@ key.</p>
 <p>The most common setup — bump versions in one package’s manifests:</p>
 <pre><code class="language-toml">[[package]]
 path = "."
-release_type = "node"  # or rust, python, java, php, ruby, go, generic
+release_type = "node"  # or rust, python, java, php, ruby, go, helm, generic
 </code></pre>
 <p><code>release_type</code> selects which manifest and lock files are updated. See
 <a href="./configuration-reference.html#supported-languages">Supported Languages</a>
@@ -419,6 +419,7 @@ to override the global value.</p>
 <tr><td><code>year.month.day</code></td><td><code>2026.6.14</code></td></tr>
 <tr><td><code>year.month.day+hour.minute.second</code></td><td><code>2026.6.14+15.30.45</code></td></tr>
 <tr><td><code>year.month.day+hour.minute.second.micro</code></td><td><code>2026.6.14+15.30.45.123456</code></td></tr>
+<tr><td>a strftime format, e.g. <code>%Y.%m.%d</code></td><td><code>2026.06.14</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -429,6 +430,11 @@ version_type = "major.minor.patch"
 path = "./nightly"
 release_type = "node"
 versioning = { version_type = "year.month.day+hour.minute.second" }
+
+[[package]]
+path = "./docs"
+release_type = "generic"
+versioning = { version_type = "%y.%m" }
 </code></pre>
 <ul>
 <li><strong><code>major.minor.patch</code></strong> — standard semver driven by conventional commits.</li>
@@ -439,15 +445,73 @@ calendar-based versions derived from the current UTC time; commits and
 the previous tag are ignored. Plain <code>year.month.day</code> allows <strong>one
 release per day</strong> by design; a same-day re-run reports nothing to
 release. Use a time-based variant when you need multiple releases per
-day.</li>
+day. These stay valid semver, so they work with every package manager.</li>
+<li><strong>A strftime format</strong> (any value containing <code>%</code>) — calendar versions in
+exactly the layout you write, for CalVer schemes the semver-shaped types
+cannot express, such as zero-padded <code>2026.06.14</code> or two-digit <code>26.06</code>.
+See <a href="#custom-calendar-formats">Custom calendar formats</a> below.</li>
 </ul>
 <p><code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code> both honor
 <code>[prerelease]</code> (below) and the semver increment controls
 (<code>breaking_always_increment_major</code>, <code>features_always_increment_minor</code>,
 <code>custom_major_increment_regex</code>, <code>custom_minor_increment_regex</code>). For
-date-based types those settings are ignored — if you set any of them
-explicitly alongside a date-based <code>version_type</code>, Releasaurus logs a warning
-naming the package and setting so the no-op config does not pass silently.</p>
+date-based types, including strftime formats, those settings are ignored —
+if you set any of them explicitly alongside a date-based <code>version_type</code>,
+Releasaurus logs a warning naming the package and setting so the no-op
+config does not pass silently.</p>
+<h3 id="custom-calendar-formats"><a class="header" href="#custom-calendar-formats">Custom calendar formats</a></h3>
+<p>A strftime <code>version_type</code> is rendered from the current UTC time with the
+<a href="https://docs.rs/chrono/latest/chrono/format/strftime/index.html">chrono specifiers</a>.
+The ones most CalVer schemes need (the chrono page lists the rest):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Specifier</th><th>Meaning</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>%Y</code> / <code>%y</code></td><td>Four- / two-digit year</td><td><code>2026</code> / <code>26</code></td></tr>
+<tr><td><code>%m</code> / <code>%-m</code></td><td>Zero-padded / unpadded month</td><td><code>06</code> / <code>6</code></td></tr>
+<tr><td><code>%d</code> / <code>%-d</code></td><td>Zero-padded / unpadded day</td><td><code>04</code> / <code>4</code></td></tr>
+<tr><td><code>%j</code></td><td>Day of year, zero-padded</td><td><code>155</code></td></tr>
+<tr><td><code>%H%M%S</code></td><td>Time, 24-hour</td><td><code>153045</code></td></tr>
+<tr><td><code>%6f</code> / <code>%.3f</code></td><td>Fractional seconds: 6 digits / <code>.</code> + 3</td><td><code>123456</code> / <code>.123</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>%3f</code>, <code>%6f</code> and <code>%9f</code> print that many sub-second digits; <code>%.3f</code>, <code>%.6f</code>
+and <code>%.9f</code> the same with a leading dot; <code>%f</code> all nine digits.</p>
+<p>The tag name is the tag prefix followed by the rendered version, exactly —
+<code>v2026.06.14</code> for <code>%Y.%m.%d</code> with the default prefix. Existing tags are
+recognised by parsing their names in the same format, which accepts
+unpadded fields, so a project moving from <code>year.month.day</code> to <code>%Y.%m.%d</code>
+keeps finding its <code>v2026.6.14</code> tags.</p>
+<p>Each format allows <strong>one release per period it can express</strong>: <code>%Y.%m.%d</code>
+once a day, <code>%Y.%m</code> once a month, <code>%Y.%m.%d.%H%M</code> once a minute, and
+<code>%Y.%-m.%-d+%H.%M.%S.%6f</code> is the strftime equivalent of
+<code>year.month.day+hour.minute.second.micro</code>. A re-run within the same period
+reports nothing to release, exactly like <code>year.month.day</code>.</p>
+<p>The format is checked when the configuration loads and rejected if it</p>
+<ul>
+<li>is not valid strftime (<code>%Q</code>);</li>
+<li>renders something git refuses as a tag name — a space, <code>~</code>, <code>^</code>, <code>:</code>,
+<code>?</code>, <code>*</code>, <code>[</code>, <code>\</code>, <code>..</code>, <code>@{</code>, <code>//</code>, a trailing <code>.</code> or <code>/</code>, or a
+<code>.lock</code> component — which rules out <code>%T</code>, <code>%c</code> and <code>%+</code>, and any
+space-padded field (<code>%e</code>, <code>%k</code>, <code>%_m</code>) even when the current value
+happens to fill it; or</li>
+<li>cannot be parsed back from the names it produces (<code>%A</code>, or a format
+with no year), since that is how the current release is found.</li>
+</ul>
+<blockquote>
+<p><strong>Package-manager compatibility.</strong> Cargo, npm, Go modules and Helm chart
+versions accept only semver, and semver forbids leading zeros:
+<code>2026.06.14</code> is not a valid Cargo or npm version. Releasaurus writes the
+rendered version into manifests as-is and logs a warning when a <code>rust</code>,
+<code>node</code>, <code>go</code> or <code>helm</code> package uses a format whose output is not semver.
+For those ecosystems use the <code>year.month.day</code> types, or an unpadded
+format such as <code>%Y.%-m.%-d</code>.</p>
+</blockquote>
+<p>On the command line, quote the value so the shell leaves <code>%</code> alone:
+<code>--version-type '%Y.%m.%d'</code>.</p>
 <h2 id="prereleases"><a class="header" href="#prereleases">Prereleases</a></h2>
 <p>Publish alpha/beta/rc/snapshot versions before a stable release. Configure
 for every package with <code>[defaults.versioning.prerelease]</code>, or per-package

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6da03f34.js";
+            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -256,7 +256,7 @@ table (see <a href="#package"><code>[[package]]</code></a>).</p>
 <tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>version_type</code></td><td>string</td><td><code>major.minor.patch</code></td><td>Version format to produce. See <a href="./configuration.html#version-types">Version Types</a> for the five accepted values.</td></tr>
+<tr><td><code>version_type</code></td><td>string</td><td><code>major.minor.patch</code></td><td>Version format to produce: a named type or a strftime format such as <code>%Y.%m.%d</code>. See <a href="./configuration.html#version-types">Version Types</a>.</td></tr>
 <tr><td><code>auto_start_next</code></td><td>bool</td><td><code>false</code></td><td>Bump patch versions automatically after a release (see <a href="./commands.html#start-next"><code>start-next</code></a>).</td></tr>
 <tr><td><code>breaking_always_increment_major</code></td><td>bool</td><td><code>true</code></td><td>Breaking changes (<code>feat!:</code>, <code>BREAKING CHANGE:</code>) bump major.</td></tr>
 <tr><td><code>features_always_increment_minor</code></td><td>bool</td><td><code>true</code></td><td><code>feat:</code> commits bump minor.</td></tr>
@@ -363,7 +363,7 @@ carry the <code>commit.pr</code> clause itself; see
 <tr><td><code>path</code></td><td>string</td><td><code>.</code></td><td>Package directory, relative to <code>workspace_root</code>.</td></tr>
 <tr><td><code>workspace_root</code></td><td>string</td><td><code>.</code></td><td>Workspace root, relative to repo root.</td></tr>
 <tr><td><code>name</code></td><td>string</td><td>derived from path</td><td>Explicit package name; must be unique.</td></tr>
-<tr><td><code>release_type</code></td><td>string</td><td>none</td><td>Language for version updates (see <a href="#supported-languages">Supported Languages</a>). Omit for changelog/tagging only.</td></tr>
+<tr><td><code>release_type</code></td><td>string / table</td><td>none</td><td>Language for version updates (see <a href="#supported-languages">Supported Languages</a>). Omit for changelog/tagging only.</td></tr>
 <tr><td><code>tag_prefix</code></td><td>string</td><td><code>v</code> (root) / <code>&lt;name&gt;-v</code> (nested)</td><td>Git tag prefix. Override: <code>--tag-prefix</code> or <code>--set-package &lt;name&gt;.tag_prefix=</code>.</td></tr>
 <tr><td><code>sub_packages</code></td><td>object[]</td><td>none</td><td>Group packages under one shared tag/changelog (see <a href="./configuration.html#grouped-releases-sub-packages">Grouped Releases</a>).</td></tr>
 <tr><td><code>additional_paths</code></td><td>string[]</td><td>none</td><td>Extra directories whose changes trigger a release for this package.</td></tr>
@@ -392,11 +392,16 @@ release_type = "rust"
 additional_manifest_files = [
     "VERSION",                    # default regex
     "README.md",                  # default regex
-    { path = "helm/Chart.yaml", version_regex = "appVersion:\\s*\"?(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)\"?" },
+    { path = "docker-compose.yml", version_regex = "image:\\s*myorg/app:(?&lt;version&gt;\\d+\\.\\d+\\.\\d+)" },
 ]
 </code></pre>
-<p>The default regex matches common forms like <code>version = "1.0.0"</code>,
-<code>version: "1.0.0"</code>, <code>VERSION='1.0.0'</code>, and <code>"version": "1.0.0"</code>. A custom
+<p>The default regex is best effort: it matches a line whose key is
+<code>version</code> — any case, optionally quoted, optionally indented — followed by
+<code>:</code> or <code>=</code>, such as <code>version = "1.0.0"</code>, <code>version: 1.0.0</code>,
+<code>VERSION='1.0.0'</code>, or <code>"version": "1.0.0"</code>. Whatever value follows is
+replaced, whatever its format. Other lines are left alone, so in a file
+like <code>README.md</code> only lines of that shape are updated; anything else needs
+a custom <code>version_regex</code>. A custom
 <code>version_regex</code> <strong>must</strong> include a named capture group <code>(?&lt;version&gt;...)</code>;
 only that group is replaced. Files without a match are skipped; an invalid
 regex errors during config resolution.</p>
@@ -560,6 +565,7 @@ languages support workspace/monorepo layouts.</p>
 <tbody>
 <tr><td><code>generic</code></td><td>Custom files via <a href="#additional_manifest_files"><code>additional_manifest_files</code></a></td></tr>
 <tr><td><code>go</code></td><td><code>version.go</code>, <code>version/version.go</code>, <code>internal/version.go</code>, <code>internal/version/version.go</code></td></tr>
+<tr><td><code>helm</code></td><td><code>Chart.yaml</code> (the chart <code>version</code>; <code>appVersion</code> opt-in — see below)</td></tr>
 <tr><td><code>java</code></td><td><code>pom.xml</code>, <code>build.gradle</code>, <code>build.gradle.kts</code>, <code>gradle.properties</code>, <code>gradle/libs.versions.toml</code></td></tr>
 <tr><td><code>node</code></td><td><code>package.json</code>, <code>package-lock.json</code>, <code>yarn.lock</code></td></tr>
 <tr><td><code>php</code></td><td><code>composer.json</code>, <code>composer.lock</code></td></tr>
@@ -569,6 +575,60 @@ languages support workspace/monorepo layouts.</p>
 </tbody>
 </table>
 </div>
+<h3 id="helm-charts"><a class="header" href="#helm-charts">Helm charts</a></h3>
+<p>By default <code>helm</code> writes the chart’s own top-level <code>version</code> and nothing
+else. Three fields in a <code>Chart.yaml</code> look like versions and only one is
+the chart’s:</p>
+<ul>
+<li><strong><code>appVersion</code></strong> names the application the chart deploys, which is
+often released from a different repository on its own cadence. It is
+left alone unless you opt in (see
+<a href="#updating-appversion">Updating <code>appVersion</code></a>).</li>
+<li><strong><code>dependencies[].version</code></strong> pins another chart, including sibling
+charts in the same repo. These are not rewritten when a sibling
+releases; an umbrella chart keeps pointing at the previous version
+until you update it.</li>
+<li><strong><code>Chart.lock</code></strong> carries a digest over the resolved dependency set.
+Releasaurus does not write it — re-run <code>helm dependency update</code>.</li>
+</ul>
+<h4 id="updating-appversion"><a class="header" href="#updating-appversion">Updating <code>appVersion</code></a></h4>
+<p>When the application and its chart are released together, write the
+release version to <code>appVersion</code> as well by giving <code>release_type</code> a
+<code>helm</code> table:</p>
+<pre><code class="language-toml">[[package]]
+path = "charts/my-app"
+release_type = { helm = { update_app_version = true } }
+</code></pre>
+<p>The usual layout is the chart as a
+<a href="./configuration.html#grouped-releases-sub-packages">sub-package</a> of the
+application, so the chart’s <code>version</code> and <code>appVersion</code> both take the
+application’s release version:</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = "rust"
+sub_packages = [
+  { name = "my-chart", path = "chart", release_type = { helm = { update_app_version = true } } },
+]
+</code></pre>
+<p><code>release_type = "helm"</code> is shorthand for
+<code>{ helm = { update_app_version = false } }</code>.</p>
+<p><code>appVersion</code> is set to the package’s release version, the same value
+written to <code>version</code>. It is <strong>not</strong> bumped from its own current value.</p>
+<p>When <code>appVersion</code> names an image tag that carries the git tag’s prefix,
+add <code>app_version_tag_prefix</code> to write the full tag name instead
+(<code>v1.2.0</code> rather than <code>1.2.0</code>):</p>
+<pre><code class="language-toml">[[package]]
+path = "."
+release_type = { helm = { update_app_version = true, app_version_tag_prefix = true } }
+</code></pre>
+<p>The prefix is the package’s resolved <code>tag_prefix</code>: <code>v</code> at the repository
+root and <code>&lt;name&gt;-v</code> for a nested package unless <code>tag_prefix</code> is set. A
+sub-package uses its parent’s. <code>app_version_tag_prefix</code> has no effect
+unless <code>update_app_version</code> is also set.</p>
+<p>Whatever value the top-level <code>version</code> and <code>appVersion</code> currently hold
+(<code>latest</code>, <code>1.16</code>, <code>v1.2.3</code>, …) is replaced whole; quotes and trailing
+comments are kept. <code>dependencies[].version</code> and <code>Chart.lock</code> are still
+not written.</p>
 
                     </main>
 

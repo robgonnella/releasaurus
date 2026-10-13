@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6da03f34.js";
+            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -425,7 +425,7 @@ CI settings.</p>
 <tbody>
 <tr><td><code>--base-branch &lt;branch&gt;</code></td><td>Override the base branch</td></tr>
 <tr><td><code>--tag-prefix &lt;prefix&gt;</code></td><td>Global tag prefix for all packages</td></tr>
-<tr><td><code>--version-type &lt;value&gt;</code></td><td>Global version type for all packages</td></tr>
+<tr><td><code>--version-type &lt;value&gt;</code></td><td>Named type or strftime format for all packages</td></tr>
 <tr><td><code>--prerelease-suffix &lt;suffix&gt;</code></td><td>Global prerelease suffix (empty <code>""</code> disables)</td></tr>
 <tr><td><code>--prerelease-strategy &lt;versioned|static&gt;</code></td><td>Global prerelease strategy</td></tr>
 <tr><td><code>--skip-sha &lt;sha&gt;</code></td><td>Skip a commit by SHA prefix (repeatable)</td></tr>
@@ -453,6 +453,10 @@ releasaurus release-pr \
 # Date-based versioning for just the nightly package
 releasaurus release-pr \
   --set-package nightly.versioning.version_type=year.month.day \
+  --repo "https://github.com/owner/repo"
+
+# Zero-padded calendar versions; quote the value so the shell leaves % alone
+releasaurus release-pr --version-type '%Y.%m.%d' \
   --repo "https://github.com/owner/repo"
 
 # Skip one commit and reword another

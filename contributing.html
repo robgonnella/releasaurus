@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6da03f34.js";
+            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -249,17 +249,18 @@ module, file parsers, tests, and docs. To add one:</p>
 <code>crates/core/src/config/release_type.rs</code>.</li>
 <li><strong>Create the manifests module</strong>
 (<code>crates/core/src/updater/&lt;lang&gt;/manifests.rs</code>, implementing
-<code>ManifestTargets</code>) and register it in
-<code>crates/core/src/updater/manager.rs</code> under
-<code>release_type_manifest_targets()</code>.</li>
+<code>ManifestTargets</code>).</li>
 <li><strong>Create the updater</strong> (<code>crates/core/src/updater/&lt;lang&gt;/updater.rs</code>
-implementing <code>PackageUpdater</code>, plus per-format file parsers), declare
-the module in <code>crates/core/src/updater.rs</code>, and register it in the
-<code>updater()</code> function in <code>manager.rs</code>.</li>
+implementing <code>FileUpdater</code>, plus per-format file parsers) and declare
+the module in <code>crates/core/src/updater.rs</code>.</li>
+<li><strong>Register both</strong> in <code>crates/core/src/updater/dispatch.rs</code>: add an
+<code>Updater</code> variant and an arm to each of <code>new</code>, <code>manifest_targets</code>,
+<code>update_all</code>, and the <code>Debug</code> impl.</li>
 <li><strong>Add tests</strong> for manifest generation, updater integration, and each
 file parser.</li>
 <li><strong>Update the docs</strong> — add the language to the Supported Languages
-table in <code>book/src/configuration-reference.md</code>.</li>
+table in <code>book/src/configuration-reference.md</code>, and regenerate the
+config schema with <code>just gen-schema</code>.</li>
 </ol>
 <p><strong>Reference implementations:</strong> PHP and Python are good simple starting
 points; Node, Rust, and Java show workspace support, lock files, and
