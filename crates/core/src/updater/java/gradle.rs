@@ -9,11 +9,16 @@ use crate::{
 };
 
 /// Gradle-specific version regex that only matches the project `version`
-/// property. Unlike GENERIC_VERSION_REGEX, this anchors to the start of the
-/// line and only allows an optional `project.` prefix, preventing false matches
-/// on variables like `awsSoftwareVersion`, `kotlinVersion`, etc.
+/// property. It anchors to the start of the line and only allows an
+/// optional `project.` prefix, preventing false matches on variables like
+/// `awsSoftwareVersion`, `kotlinVersion`, etc. Whatever string literal is
+/// assigned is replaced; an expression (`version = rootProject.version`)
+/// has nothing to match.
 static GRADLE_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?mi)(?<start>^\s*(?:project\.)?version\s*=\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#).unwrap()
+    Regex::new(
+        r#"(?mi)^\s*(?:project\.)?version\s*=\s*['"](?<version>[^'"]*)['"]"#,
+    )
+    .unwrap()
 });
 
 /// Handles Gradle build.gradle and build.gradle.kts file parsing and version updates for Java packages.
@@ -49,6 +54,7 @@ impl FileUpdater for Gradle {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Utc};
     use std::path::Path;
 
     use semver::Version;
@@ -306,5 +312,59 @@ version = "1.0.0"
         let result = gradle.update(&manifest).unwrap();
         let change = result.unwrap();
         assert_eq!(change.content, "version   =   \"2.0.0\"");
+    }
+
+    /// Whatever value is set is replaced, whatever its shape.
+    #[test]
+    fn updates_a_calver_version() {
+        let updater = Gradle::new();
+        let manifest = ManifestFile {
+            path: Path::new("build.gradle").to_path_buf(),
+            basename: "build.gradle".to_string(),
+            content: "version = \"26.09\"\n".to_string(),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v26.10".into(),
+                    version: TagVersion::Strftime(
+                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
+                        "%y.%m".into(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let updated = updater.update(&manifest).unwrap().unwrap().content;
+
+        assert_eq!(updated, "version = \"26.10\"\n");
+    }
+
+    /// An expression is code, not a value of ours to write.
+    #[test]
+    fn leaves_a_version_expression_alone() {
+        let manifest = ManifestFile {
+            path: Path::new("build.gradle").to_path_buf(),
+            basename: "build.gradle".to_string(),
+            content: "version = rootProject.version\n".to_string(),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    version: TagVersion::Semantic(Version::new(2, 0, 0)),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        assert!(Gradle::new().update(&manifest).unwrap().is_none());
     }
 }

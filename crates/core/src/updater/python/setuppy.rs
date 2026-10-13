@@ -1,10 +1,20 @@
+use regex::Regex;
+use std::sync::LazyLock;
+
 use crate::{
-    config::package::GENERIC_VERSION_REGEX,
     forge::request::FileChange,
     packages::manifests::ManifestFile,
     result::Result,
     updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
+
+/// A `version` keyword argument or variable assigned a string literal,
+/// anywhere on a line since `setup(name=…, version='…')` is often written
+/// on one. Whatever the literal holds is replaced; `version=get_version()`
+/// has nothing to match, and `\b` keeps `python_version` out.
+static SETUP_PY_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"\bversion\s*=\s*['"](?<version>[^'"]*)['"]"#).unwrap()
+});
 
 pub struct SetupPy {}
 
@@ -28,13 +38,14 @@ impl FileUpdater for SetupPy {
 
         Ok(GenericUpdater::update_manifest(
             manifest,
-            &GENERIC_VERSION_REGEX,
+            &SETUP_PY_VERSION_REGEX,
         ))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Utc};
     use std::path::Path;
 
     use crate::{
@@ -216,5 +227,85 @@ setup(
         let result = setuppy.update(&manifest).unwrap();
 
         assert!(result.is_none());
+    }
+
+    /// Whatever value is set is replaced, whatever its shape.
+    #[test]
+    fn updates_a_calver_version() {
+        let updater = SetupPy::new();
+        let manifest = ManifestFile {
+            path: Path::new("setup.py").to_path_buf(),
+            basename: "setup.py".to_string(),
+            content: "setup(\n    version=\"26.09\",\n)\n".to_string(),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v26.10".into(),
+                    version: TagVersion::Strftime(
+                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
+                        "%y.%m".into(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let updated = updater.update(&manifest).unwrap().unwrap().content;
+
+        assert_eq!(updated, "setup(\n    version=\"26.10\",\n)\n");
+    }
+
+    fn update(content: &str) -> Option<String> {
+        let manifest = ManifestFile {
+            path: Path::new("setup.py").to_path_buf(),
+            basename: "setup.py".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        SetupPy::new()
+            .update(&manifest)
+            .unwrap()
+            .map(|change| change.content)
+    }
+
+    #[test]
+    fn updates_a_one_line_setup_call() {
+        let updated = update("setup(name='my-package', version='1.0.0')\n");
+
+        assert_eq!(
+            updated.as_deref(),
+            Some("setup(name='my-package', version='2.0.0')\n")
+        );
+    }
+
+    /// Only a string literal is ours to write: a call or reference is code,
+    /// and `python_version` is a different keyword.
+    #[test]
+    fn leaves_non_literal_and_other_version_keywords_alone() {
+        for content in [
+            "setup(version=get_version())\n",
+            "setup(version=__version__)\n",
+            "setup(python_version='3.11.0')\n",
+        ] {
+            assert_eq!(update(content), None, "{content}");
+        }
     }
 }

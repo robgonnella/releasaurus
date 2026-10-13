@@ -1,10 +1,18 @@
+use regex::Regex;
+use std::sync::LazyLock;
+
 use crate::{
-    config::package::GENERIC_VERSION_REGEX,
     forge::request::FileChange,
     packages::manifests::ManifestFile,
     result::Result,
     updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
+
+/// A `VERSION` constant assigned a string literal. Whatever the literal
+/// holds is replaced; a trailing `.freeze` is outside the quotes.
+static VERSION_RB_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)^\s*VERSION\s*=\s*['"](?<version>[^'"]*)['"]"#).unwrap()
+});
 
 /// Handles version.rb file parsing and version updates for Ruby packages.
 pub struct VersionRb {}
@@ -29,15 +37,13 @@ impl FileUpdater for VersionRb {
             return Ok(None);
         }
 
-        Ok(GenericUpdater::update_manifest(
-            manifest,
-            &GENERIC_VERSION_REGEX,
-        ))
+        Ok(GenericUpdater::update_manifest(manifest, &VERSION_RB_REGEX))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Utc};
     use std::path::Path;
 
     use crate::{
@@ -255,5 +261,35 @@ end
         let result = version_rb.update(&manifest).unwrap();
 
         assert!(result.is_none());
+    }
+
+    /// Whatever value is set is replaced, whatever its shape.
+    #[test]
+    fn updates_a_calver_version() {
+        let updater = VersionRb::new();
+        let manifest = ManifestFile {
+            path: Path::new("version.rb").to_path_buf(),
+            basename: "version.rb".to_string(),
+            content: "  VERSION = \"26.09\"\n".to_string(),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v26.10".into(),
+                    version: TagVersion::Strftime(
+                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
+                        "%y.%m".into(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let updated = updater.update(&manifest).unwrap().unwrap().content;
+
+        assert_eq!(updated, "  VERSION = \"26.10\"\n");
     }
 }
