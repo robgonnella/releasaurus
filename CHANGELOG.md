@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/robgonnella/releasaurus/compare/v1.3.0-rc.1...v1.3.0) - 2026-10-13
+
+### 🚀 Features
+
+- adds updater and release_type for helm charts [_(6394e49)_](https://github.com/robgonnella/releasaurus/commit/6394e498ec33f9aa3f9cffe76b92bf5581ed301d) (Rob Gonnella) ([PR 375](https://github.com/robgonnella/releasaurus/pull/375))
+
+- adds full support for CalVer using strftime [_(068e78c)_](https://github.com/robgonnella/releasaurus/commit/068e78c5a37a9fae56e88f2b6ffa9c20d36cca85) (Rob Gonnella) ([PR 390](https://github.com/robgonnella/releasaurus/pull/390))
+
+### 🐛 Bug Fixes
+
+- fixes issue with regex based version updaters [_(a53bb14)_](https://github.com/robgonnella/releasaurus/commit/a53bb14991c788b3554c60c7512dba9740342b5e) (Rob Gonnella) ([PR 375](https://github.com/robgonnella/releasaurus/pull/375))
+
 # [1.3.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.2.3...v1.3.0-rc.1) - 2026-10-07
 
 ### 🚀 Features
