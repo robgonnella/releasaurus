@@ -3,38 +3,32 @@ use std::sync::LazyLock;
 
 use crate::{
     config::release_type::ReleaseType,
-    forge::request::FileChange,
+    forge::request::{FileChange, FileUpdateType},
     packages::manifests::ManifestFile,
     result::Result,
     updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
 
 /// Helm-specific version regex matching only the chart's own `version`
-/// key. Anchoring to column 0 is what keeps it off the two other version
-/// fields a Chart.yaml carries: `appVersion` does not start the line, and
-/// a `dependencies[].version` is always indented under its list item.
-/// GENERIC_VERSION_REGEX leads with `.*` and would rewrite all three to
-/// the chart version.
+/// key, whatever its current value. Anchoring to column 0 is what keeps it
+/// off the two other version fields a Chart.yaml carries, `appVersion`
+/// and `dependencies[].version`.
 static HELM_CHART_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r#"(?m)^(?<start>version:[ \t]*['"]?)(?<version>\d+\.\d+\.\d+[^'"\s#]*)(?<end>.*)$"#,
+        r#"(?m)^(?<start>version:[ \t]*['"]?)(?<version>[^'"\s#]+)(?<end>.*)$"#,
     )
     .unwrap()
 });
 
-/// Helm-specific version regex matching both the chart's own `version` and
-/// `appVersion` keys. Anchoring to column 0 is what keeps it off
-/// `dependencies[].version`, which is always indented under its list item.
-/// GENERIC_VERSION_REGEX leads with `.*` and would rewrite all three to
-/// the chart version.
-static HELM_CHART_COMBINED_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(
-    || {
-        Regex::new(
-          r#"(?m)^(?<start>(?:version|appVersion):[ \t]*['"]?)(?<version>\d+\.\d+\.\d+[^'"\s#]*)(?<end>.*)$"#,
+/// Matches the chart's top-level `appVersion`, whatever its current value,
+/// so a value written with a tag prefix keeps matching on the next release
+/// and switching the prefix on or off converges.
+static HELM_APP_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"(?m)^(?<start>appVersion:[ \t]*['"]?)(?<version>[^'"\s#]+)(?<end>.*)$"#,
     )
     .unwrap()
-    },
-);
+});
 
 /// Handles Chart.yaml file parsing and version updates for Helm charts.
 pub struct ChartYaml {}
@@ -55,22 +49,49 @@ impl Default for ChartYaml {
 impl FileUpdater for ChartYaml {
     /// Process Chart.yaml files for all Helm packages.
     fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
-        if manifest.basename != "Chart.yaml"
-            || !matches!(manifest.release_type, ReleaseType::Helm(_))
-        {
+        let ReleaseType::Helm(conf) = manifest.release_type else {
+            return Ok(None);
+        };
+
+        if manifest.basename != "Chart.yaml" {
             return Ok(None);
         }
 
-        let version_regex = if let ReleaseType::Helm(conf) =
-            manifest.release_type
-            && conf.update_app_version
-        {
-            &HELM_CHART_COMBINED_VERSION_REGEX
-        } else {
-            &HELM_CHART_VERSION_REGEX
+        let Some(owner) = manifest.owner.as_ref() else {
+            return Ok(None);
         };
 
-        Ok(GenericUpdater::update_manifest(manifest, version_regex))
+        let version = owner.tag.version.to_string();
+
+        let mut content = GenericUpdater::replace_versions(
+            &manifest.content,
+            &HELM_CHART_VERSION_REGEX,
+            &version,
+        );
+
+        if conf.update_app_version {
+            let app_version = if conf.app_version_tag_prefix {
+                &owner.tag.name
+            } else {
+                &version
+            };
+
+            content = GenericUpdater::replace_versions(
+                &content,
+                &HELM_APP_VERSION_REGEX,
+                app_version,
+            );
+        }
+
+        if content == manifest.content {
+            return Ok(None);
+        }
+
+        Ok(Some(FileChange {
+            path: manifest.path.to_string_lossy().to_string(),
+            content,
+            update_type: FileUpdateType::Replace,
+        }))
     }
 }
 
@@ -143,6 +164,12 @@ dependencies:
 
     const WITH_APP_VERSION: HelmConfig = HelmConfig {
         update_app_version: true,
+        app_version_tag_prefix: false,
+    };
+
+    const WITH_TAG_PREFIX: HelmConfig = HelmConfig {
+        update_app_version: true,
+        app_version_tag_prefix: true,
     };
 
     #[test]
@@ -266,18 +293,106 @@ dependencies:
         );
     }
 
-    /// Only a bare `X.Y.Z` value is rewritten: anything else is left as-is.
+    /// Whatever value is set is replaced, including an existing prefix.
+    /// `app` also appears inside the key, so only replacing the captured
+    /// value by position gets it right.
     #[test]
-    fn leaves_non_semver_app_version_alone() {
-        for app_version in [r#""v1.0.0""#, r#""1.16""#, "latest"] {
+    fn replaces_any_app_version_value() {
+        for (app_version, expected) in [
+            ("latest", "2.0.0"),
+            (r#""1.16""#, r#""2.0.0""#),
+            ("v1.0.0", "2.0.0"),
+            (r#""api-v1.0.0""#, r#""2.0.0""#),
+            ("app", "2.0.0"),
+        ] {
             let content =
                 format!("version: 1.0.0\nappVersion: {app_version}\n");
 
             assert_eq!(
                 update_with(WITH_APP_VERSION, &content),
-                format!("version: 2.0.0\nappVersion: {app_version}\n")
+                format!("version: 2.0.0\nappVersion: {expected}\n")
             );
         }
+    }
+
+    #[test]
+    fn replaces_any_chart_version_value() {
+        for (version, expected) in [
+            ("0.1", "2.0.0"),
+            (r#""26.09""#, r#""2.0.0""#),
+            ("on", "2.0.0"),
+        ] {
+            assert_eq!(
+                update(&format!("version: {version}\n")),
+                format!("version: {expected}\n")
+            );
+        }
+    }
+
+    #[test]
+    fn writes_tag_name_to_app_version_with_prefix() {
+        let updated = update_with(WITH_TAG_PREFIX, CHART);
+
+        assert!(updated.contains("\nversion: 2.0.0\n"));
+        assert!(updated.contains("\nappVersion: v2.0.0\n"));
+        assert!(updated.contains("\n    version: 1.0.0\n"));
+        assert_eq!(updated.matches("2.0.0").count(), 2);
+    }
+
+    /// A prefixed value written by one release must still match on the
+    /// next.
+    #[test]
+    fn prefixed_app_version_keeps_updating() {
+        let updated = update_with(
+            WITH_TAG_PREFIX,
+            "version: 1.0.0\nappVersion: v1.0.0\n",
+        );
+
+        assert_eq!(updated, "version: 2.0.0\nappVersion: v2.0.0\n");
+    }
+
+    #[test]
+    fn tag_prefix_preserves_quotes_and_trailing_comments() {
+        let updated = update_with(
+            WITH_TAG_PREFIX,
+            "version: 1.0.0\nappVersion: \"v1.0.0\" # the app\n",
+        );
+
+        assert_eq!(
+            updated,
+            "version: 2.0.0\nappVersion: \"v2.0.0\" # the app\n"
+        );
+    }
+
+    #[test]
+    fn prefix_containing_a_digit_still_matches() {
+        let mut manifest = manifest(
+            "Chart.yaml",
+            "version: 1.0.0\nappVersion: app2-v1.0.0\n",
+            true,
+        );
+        manifest.release_type = ReleaseType::Helm(WITH_TAG_PREFIX);
+        manifest.owner.as_mut().unwrap().tag.name = "app2-v2.0.0".into();
+
+        let updated = ChartYaml::new().update(&manifest).unwrap().unwrap();
+
+        assert_eq!(
+            updated.content,
+            "version: 2.0.0\nappVersion: app2-v2.0.0\n"
+        );
+    }
+
+    #[test]
+    fn tag_prefix_alone_leaves_app_version_untouched() {
+        let config = HelmConfig {
+            update_app_version: false,
+            app_version_tag_prefix: true,
+        };
+
+        let updated =
+            update_with(config, "version: 1.0.0\nappVersion: v1.0.0\n");
+
+        assert_eq!(updated, "version: 2.0.0\nappVersion: v1.0.0\n");
     }
 
     /// Key names: only `version` and `appVersion`, exactly as spelled.

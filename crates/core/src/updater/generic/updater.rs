@@ -1,4 +1,4 @@
-use regex::Regex;
+use regex::{Captures, Regex};
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
@@ -22,23 +22,11 @@ impl GenericUpdater {
     ) -> Option<FileChange> {
         let owner = manifest.owner.as_ref()?;
 
-        if !version_regex.is_match(&manifest.content) {
-            return None;
-        }
-
-        let content = version_regex
-            .replace_all(&manifest.content, |caps: &regex::Captures| {
-                // Replace only the version capture group, preserving
-                // surrounding context
-                let full_match = &caps[0];
-                let version_match = &caps["version"];
-                full_match.replacen(
-                    version_match,
-                    &owner.tag.version.to_string(),
-                    1,
-                )
-            })
-            .to_string();
+        let content = Self::replace_versions(
+            &manifest.content,
+            version_regex,
+            &owner.tag.version.to_string(),
+        );
 
         if content != manifest.content {
             return Some(FileChange {
@@ -49,6 +37,36 @@ impl GenericUpdater {
         }
 
         None
+    }
+
+    /// Replaces the `version` capture group of every match of
+    /// `version_regex` in `content` with `new_version`.
+    pub fn replace_versions(
+        content: &str,
+        version_regex: &Regex,
+        new_version: &str,
+    ) -> String {
+        version_regex
+            .replace_all(content, |caps: &Captures| {
+                Self::replace_capture(caps, new_version)
+            })
+            .to_string()
+    }
+
+    /// One match of a version regex with its `version` capture group
+    /// replaced by `new_version`. Replaces by position: the same text can
+    /// also appear earlier in the match (a key containing the value).
+    pub fn replace_capture(caps: &Captures, new_version: &str) -> String {
+        let full = caps.get(0).unwrap();
+        let version = caps.name("version").unwrap();
+        let start = version.start() - full.start();
+        let end = version.end() - full.start();
+
+        format!(
+            "{}{new_version}{}",
+            &full.as_str()[..start],
+            &full.as_str()[end..]
+        )
     }
 }
 
@@ -88,6 +106,54 @@ mod tests {
                 },
             }),
             releasing: vec![],
+        }
+    }
+
+    /// `on` also appears inside the key, so only replacing the captured
+    /// value by position gets it right.
+    #[test]
+    fn update_manifest_replaces_the_captured_value_not_an_earlier_copy() {
+        let manifest = create_manifest("version: on");
+
+        let result =
+            GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
+
+        assert_eq!(result.unwrap().content, "version: 2.0.0");
+    }
+
+    #[test]
+    fn default_regex_replaces_a_value_of_any_shape() {
+        for (before, after) in [
+            ("version = 26.09", "version = 2.0.0"),
+            (r#"version = "20260901""#, r#"version = "2.0.0""#),
+            ("version: latest", "version: 2.0.0"),
+        ] {
+            let result = GenericUpdater::update_manifest(
+                &create_manifest(before),
+                &GENERIC_VERSION_REGEX,
+            );
+
+            assert_eq!(result.unwrap().content, after);
+        }
+    }
+
+    /// The key must start the line (after indentation) and be followed by
+    /// `:` or `=`.
+    #[test]
+    fn default_regex_leaves_other_lines_mentioning_version_alone() {
+        for content in [
+            "apiVersion: 1.0.0",
+            "const Version = \"1.0.0\"",
+            "spec.required_ruby_version = \">= 2.7\"",
+            "install version 1.0.0",
+            "# version = 1.0.0",
+        ] {
+            let result = GenericUpdater::update_manifest(
+                &create_manifest(content),
+                &GENERIC_VERSION_REGEX,
+            );
+
+            assert!(result.is_none(), "{content}");
         }
     }
 
@@ -183,12 +249,17 @@ mod tests {
 
     #[test]
     fn update_manifest_is_case_insensitive() {
-        let manifest = create_manifest(r#"VERSION = "1.0.0""#);
+        for (before, after) in [
+            (r#"VERSION = "1.0.0""#, r#"VERSION = "2.0.0""#),
+            ("Version: 1.0.0", "Version: 2.0.0"),
+        ] {
+            let result = GenericUpdater::update_manifest(
+                &create_manifest(before),
+                &GENERIC_VERSION_REGEX,
+            );
 
-        let result =
-            GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
-
-        assert!(result.unwrap().content.contains("2.0.0"));
+            assert_eq!(result.unwrap().content, after);
+        }
     }
 
     #[test]
@@ -207,24 +278,6 @@ mod tests {
         assert!(content.contains("version: \"2.5.3\""));
         assert!(content.contains("metadata:"));
         assert!(content.contains("description: \"My app\""));
-    }
-
-    #[test]
-    fn update_manifest_updates_go_version_file() {
-        let mut manifest = create_manifest(
-            "package main\n\nconst Version = \"1.0.0\"\nconst AppName = \"myapp\"",
-        );
-        manifest.owner.as_mut().unwrap().tag.name = "v3.2.1".into();
-        manifest.owner.as_mut().unwrap().tag.version =
-            TagVersion::Semantic(Version::new(3, 2, 1));
-
-        let result =
-            GenericUpdater::update_manifest(&manifest, &GENERIC_VERSION_REGEX);
-
-        let content = result.unwrap().content;
-        assert!(content.contains("const Version = \"3.2.1\""));
-        assert!(content.contains("package main"));
-        assert!(content.contains("const AppName = \"myapp\""));
     }
 
     #[test]

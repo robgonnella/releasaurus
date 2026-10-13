@@ -1,12 +1,21 @@
-use std::path::Path;
+use regex::Regex;
+use std::{path::Path, sync::LazyLock};
 
 use crate::{
-    config::package::GENERIC_VERSION_REGEX,
     forge::request::FileChange,
     packages::manifests::ManifestFile,
     result::Result,
     updater::{generic::updater::GenericUpdater, traits::FileUpdater},
 };
+
+/// A specification's `version` (`spec.version`, `s.version`, …) assigned a
+/// string literal. Whatever the literal holds is replaced; an assignment
+/// from a constant (`spec.version = MyGem::VERSION`) has nothing to match,
+/// and `required_ruby_version` is a different attribute.
+static GEMSPEC_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?m)^\s*\w+\.version\s*=\s*['"](?<version>[^'"]*)['"]"#)
+        .unwrap()
+});
 
 /// Handles .gemspec file parsing and version updates for Ruby packages.
 pub struct Gemspec {}
@@ -38,7 +47,7 @@ impl FileUpdater for Gemspec {
 
             return Ok(GenericUpdater::update_manifest(
                 manifest,
-                &GENERIC_VERSION_REGEX,
+                &GEMSPEC_VERSION_REGEX,
             ));
         }
 
@@ -53,6 +62,7 @@ mod tests {
         forge::request::{Tag, TagVersion},
         packages::manifests::{ManifestFile, ManifestPackage},
     };
+    use chrono::{TimeZone, Utc};
 
     use super::*;
 
@@ -266,5 +276,68 @@ end
         let result = gemspec.update(&manifest).unwrap();
 
         assert!(result.is_none());
+    }
+
+    /// Whatever value is set is replaced, whatever its shape.
+    #[test]
+    fn updates_a_calver_version() {
+        let updater = Gemspec::new();
+        let manifest = ManifestFile {
+            path: Path::new("my-gem.gemspec").to_path_buf(),
+            basename: "my-gem.gemspec".to_string(),
+            content: "  spec.version = \"26.09\"\n".to_string(),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v26.10".into(),
+                    version: TagVersion::Strftime(
+                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
+                        "%y.%m".into(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let updated = updater.update(&manifest).unwrap().unwrap().content;
+
+        assert_eq!(updated, "  spec.version = \"26.10\"\n");
+    }
+
+    /// Only a literal assigned to the specification's own `version` is
+    /// ours: a constant reference and other `*_version` attributes are not.
+    #[test]
+    fn leaves_non_literal_and_other_version_attributes_alone() {
+        let content = r#"Gem::Specification.new do |spec|
+  spec.version = MyGem::VERSION
+  spec.required_ruby_version = ">= 2.7.0"
+  spec.required_rubygems_version = ">= 3.0.0"
+end
+"#;
+        let manifest = ManifestFile {
+            path: Path::new("my-gem.gemspec").to_path_buf(),
+            basename: "my-gem.gemspec".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Ruby,
+            owner: Some(ManifestPackage {
+                name: "my-gem".to_string(),
+                release_type: ReleaseType::Ruby,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    version: TagVersion::Semantic(
+                        semver::Version::parse("2.0.0").unwrap(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        assert!(Gemspec::new().update(&manifest).unwrap().is_none());
     }
 }

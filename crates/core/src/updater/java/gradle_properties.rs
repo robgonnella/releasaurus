@@ -10,9 +10,10 @@ use crate::{
 
 /// Gradle properties-specific version regex that only matches a standalone
 /// `version` property. Prevents false matches on properties like
-/// `awsSoftwareVersion`, `kotlinVersion`, etc.
+/// `awsSoftwareVersion`, `kotlinVersion`, etc. Property values are always
+/// literal, so whatever value is set is replaced.
 static GRADLE_PROPERTIES_VERSION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?mi)(?<start>^\s*version\s*=\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#).unwrap()
+    Regex::new(r#"(?mi)^\s*version\s*=\s*['"]?(?<version>[^'"\s]+)"#).unwrap()
 });
 
 /// Handles gradle.properties file parsing and version updates for Java packages.
@@ -47,6 +48,7 @@ impl FileUpdater for GradleProperties {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Utc};
     use std::path::Path;
 
     use semver::Version;
@@ -300,5 +302,35 @@ mod tests {
             "commented version should not be updated"
         );
         assert!(change.content.contains("version=2.0.0"));
+    }
+
+    /// Whatever value is set is replaced, whatever its shape.
+    #[test]
+    fn updates_a_calver_version() {
+        let updater = GradleProperties::new();
+        let manifest = ManifestFile {
+            path: Path::new("gradle.properties").to_path_buf(),
+            basename: "gradle.properties".to_string(),
+            content: "version=26.09\n".to_string(),
+            release_type: ReleaseType::Java,
+            owner: Some(ManifestPackage {
+                name: "pkg".to_string(),
+                release_type: ReleaseType::Java,
+                tag: Tag {
+                    name: "v26.10".into(),
+                    version: TagVersion::Strftime(
+                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
+                        "%y.%m".into(),
+                    ),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        };
+
+        let updated = updater.update(&manifest).unwrap().unwrap().content;
+
+        assert_eq!(updated, "version=26.10\n");
     }
 }

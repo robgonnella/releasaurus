@@ -13,8 +13,10 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
-/// Default generic version matcher regex pattern
-pub const GENERIC_VERSION_REGEX_PATTERN: &str = r#"(?mi)(?<start>.*version"?:?\s*=?\s*['"]?)(?<version>\d+\.\d+\.\d+-?.*?)(?<end>['",].*)?$"#;
+/// Default generic version matcher regex pattern.
+/// Best effort: a line whose key is `version`
+/// (any case, optionally quoted and indented) followed by `:` or `=`.
+pub const GENERIC_VERSION_REGEX_PATTERN: &str = r#"(?mi)^(?<start>\s*["']?version["']?\s*[:=]\s*['"]?)(?<version>[^'"\s,]+)(?<end>.*)$"#;
 
 /// Compiled version of GENERIC_VERSION_REGEX_PATTERN
 pub static GENERIC_VERSION_REGEX: LazyLock<Regex> =
