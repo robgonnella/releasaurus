@@ -16,6 +16,7 @@
 use chrono::{Datelike, Timelike, Utc};
 use semver::{BuildMetadata, Version as SemVer};
 
+use super::on_stable_date;
 use crate::{
     analyzer::{Analyzer, config::AnalyzerConfig},
     config::{
@@ -700,6 +701,48 @@ fn test_strftime_version_with_time_releases_twice_in_one_day() {
             .unwrap()
     );
     assert_eq!(release.tag.version.to_string().len(), an_hour_ago.len());
+}
+
+#[test]
+fn test_strftime_version_with_counter_releases_twice_in_one_day() {
+    let fmt = "%Y.%m.%d.%i";
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime(fmt.into()),
+        tag_prefix: Some("v".into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let (today, release) = on_stable_date(|today| {
+        let current_tag = strftime_tag(&format!("{today}.1"), fmt);
+        analyzer
+            .analyze(commit_for_date_test(), Some(current_tag))
+            .unwrap()
+            .unwrap()
+    });
+
+    assert_eq!(release.tag.version.to_string(), format!("{today}.2"));
+    assert_eq!(release.tag.name, format!("v{today}.2"));
+}
+
+#[test]
+fn test_strftime_version_with_counter_does_not_go_backwards() {
+    let fmt = "%Y.%m.%d.%i";
+    let config = AnalyzerConfig {
+        version_type: VersionType::Strftime(fmt.into()),
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let current_tag = strftime_tag("2999.01.01.4", fmt);
+
+    let result = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap();
+    assert!(
+        result.is_none(),
+        "a future-dated tag must not be superseded"
+    );
 }
 
 #[test]

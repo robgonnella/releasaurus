@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize, ser::SerializeStruct};
 use std::{fmt::Display, hash::Hash};
 
 use crate::{
-    config::versioning::{VersionType, parse_strftime},
+    config::versioning::{COUNTER_SUFFIX, VersionType, parse_strftime},
     result::{ReleasaurusError, Result},
 };
 
@@ -168,7 +168,14 @@ pub struct Commit {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TagVersion {
     Semantic(semver::Version),
-    Strftime(DateTime<Utc>, String),
+    Strftime {
+        date: DateTime<Utc>,
+        /// Present when the format ends in [`COUNTER_SUFFIX`] and the tag
+        /// carries the counter; numbers releases that share `date`.
+        count: Option<u16>,
+        /// The format with [`COUNTER_SUFFIX`] removed.
+        date_fmt: String,
+    },
 }
 
 impl TagVersion {
@@ -186,24 +193,37 @@ impl TagVersion {
                 Ok(Self::Semantic(semver::Version::parse(raw)?))
             }
             VersionType::Strftime(fmt) => {
-                Ok(Self::Strftime(parse_strftime(raw, fmt)?, fmt.clone()))
+                let (date, count) = parse_strftime(raw, fmt)?;
+                let date_fmt = fmt.strip_suffix(COUNTER_SUFFIX).unwrap_or(fmt);
+                Ok(Self::Strftime {
+                    date,
+                    count,
+                    date_fmt: date_fmt.to_string(),
+                })
             }
         }
     }
 
-    /// Now, truncated to the precision `fmt` expresses.
+    /// Now, truncated to the precision `fmt` expresses. A format ending in
+    /// [`COUNTER_SUFFIX`] starts the counter at 1.
     pub fn strftime_now(fmt: &str) -> Result<Self> {
-        let rendered = Utc::now().format(fmt).to_string();
-        Ok(Self::Strftime(
-            parse_strftime(&rendered, fmt)?,
-            fmt.to_string(),
-        ))
+        let (date_fmt, count) = match fmt.strip_suffix(COUNTER_SUFFIX) {
+            Some(date_fmt) => (date_fmt, Some(1)),
+            None => (fmt, None),
+        };
+        let rendered = Utc::now().format(date_fmt).to_string();
+        let (date, _) = parse_strftime(&rendered, date_fmt)?;
+        Ok(Self::Strftime {
+            date,
+            count,
+            date_fmt: date_fmt.to_string(),
+        })
     }
 
     pub fn semver(&self) -> Result<&semver::Version> {
         match self {
             Self::Semantic(v) => Ok(v),
-            Self::Strftime(..) => Err(ReleasaurusError::Other(eyre!(
+            Self::Strftime { .. } => Err(ReleasaurusError::Other(eyre!(
                 "tag version {self} is not a semantic version"
             ))),
         }
@@ -212,14 +232,14 @@ impl TagVersion {
     pub fn pre(&self) -> &str {
         match self {
             Self::Semantic(v) => v.pre.as_str(),
-            Self::Strftime(..) => "",
+            Self::Strftime { .. } => "",
         }
     }
 
     pub fn build(&self) -> &str {
         match self {
             Self::Semantic(v) => v.build.as_str(),
-            Self::Strftime(..) => "",
+            Self::Strftime { .. } => "",
         }
     }
 
@@ -234,7 +254,17 @@ impl Display for TagVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Semantic(v) => write!(f, "{v}"),
-            Self::Strftime(d, fmt) => write!(f, "{}", d.format(fmt)),
+            Self::Strftime {
+                date,
+                count,
+                date_fmt,
+            } => {
+                write!(f, "{}", date.format(date_fmt))?;
+                if let Some(c) = count {
+                    write!(f, ".{c}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -336,6 +366,9 @@ mod tests {
             ("20261005130709123456789", "%Y%m%d%H%M%S%f"),
             ("2026.10.05.130709123456", "%Y.%m.%d.%H%M%S%6f"),
             ("2026.10.05.130709.123", "%Y.%m.%d.%H%M%S%.3f"),
+            ("2026.10.05.3", "%Y.%m.%d.%i"),
+            ("26.10.5.12", "%y.%-m.%-d.%i"),
+            ("2026.10.05", "%Y.%m.%d.%i"),
         ] {
             let version_type = VersionType::Strftime(fmt.to_string());
             let version = TagVersion::parse(name, &version_type).unwrap();
@@ -356,14 +389,40 @@ mod tests {
     }
 
     #[test]
+    fn strftime_tags_sort_by_date_then_release_counter() {
+        let version_type = VersionType::Strftime("%y.%-m.%-d.%i".to_string());
+        let mut tags = ["26.10.5.10", "26.10.6.1", "26.10.5.2", "26.10.5"]
+            .map(|name| TagVersion::parse(name, &version_type).unwrap());
+        tags.sort();
+        assert_eq!(
+            tags.map(|t| t.to_string()),
+            ["26.10.5", "26.10.5.2", "26.10.5.10", "26.10.6.1"]
+        );
+    }
+
+    #[test]
+    fn strftime_now_starts_the_release_counter_at_one() {
+        let now = TagVersion::strftime_now("%Y.%m.%d.%i").unwrap();
+        let TagVersion::Strftime { count, .. } = &now else {
+            panic!("expected strftime version");
+        };
+        assert_eq!(*count, Some(1));
+
+        let version_type = VersionType::Strftime("%Y.%m.%d.%i".to_string());
+        let from_name =
+            TagVersion::parse(&now.to_string(), &version_type).unwrap();
+        assert_eq!(now, from_name);
+    }
+
+    #[test]
     fn strftime_now_is_truncated_to_format_precision() {
         let now = TagVersion::strftime_now("%Y.%m.%d").unwrap();
-        let TagVersion::Strftime(instant, _) = &now else {
+        let TagVersion::Strftime { date, .. } = &now else {
             panic!("expected strftime version");
         };
         assert_eq!(
-            *instant,
-            instant.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc()
+            *date,
+            date.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc()
         );
 
         let version_type = VersionType::Strftime("%Y.%m.%d".to_string());

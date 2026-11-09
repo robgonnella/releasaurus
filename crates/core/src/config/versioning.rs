@@ -11,7 +11,9 @@ mod parser;
 mod version_type;
 
 pub use parser::{Group, MAX_PARSER_ORDER, NAMED_PARSERS, Parser, ParserList};
-pub use version_type::{DEFAULT_VERSION_TYPE, VersionType, parse_strftime};
+pub use version_type::{
+    COUNTER_SUFFIX, DEFAULT_VERSION_TYPE, VersionType, parse_strftime,
+};
 
 pub const DEFAULT_SKIP_MERGE_COMMITS: bool = true;
 pub const DEFAULT_BREAKING_ALWAYS_INCREMENT_MAJOR: bool = true;

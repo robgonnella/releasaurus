@@ -14,3 +14,16 @@ mod prerelease;
 mod rendering;
 mod version_rules;
 mod version_types;
+
+use chrono::Utc;
+
+/// Runs `f` with today's date, retrying if the date changes mid-call.
+pub(super) fn on_stable_date<T>(f: impl Fn(&str) -> T) -> (String, T) {
+    loop {
+        let day = Utc::now().format("%Y.%m.%d").to_string();
+        let out = f(&day);
+        if Utc::now().format("%Y.%m.%d").to_string() == day {
+            return (day, out);
+        }
+    }
+}

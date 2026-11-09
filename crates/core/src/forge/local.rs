@@ -898,6 +898,35 @@ mod tests {
         assert_eq!(result[0].sha, second.to_string());
     }
 
+    #[tokio::test]
+    async fn strftime_tags_with_release_counter_sort_numerically() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let first = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "v2026.10.05", first);
+        let second = add_commit(&repo, "second commit");
+        tag_oid(&repo, "v2026.10.05.2", second);
+        let third = add_commit(&repo, "third commit");
+        tag_oid(&repo, "v2026.10.05.10", third);
+        let branch = current_branch_name(&repo);
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let mut result = forge
+            .get_latest_tags_for_prefix(
+                "v",
+                &branch,
+                &VersionType::Strftime("%Y.%m.%d.%i".into()),
+                None,
+            )
+            .await
+            .unwrap();
+        result.sort_by(|a, b| b.version.cmp(&a.version));
+
+        let names: Vec<_> = result.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, ["v2026.10.05.10", "v2026.10.05.2", "v2026.10.05"]);
+        assert_eq!(result[0].sha, third.to_string());
+    }
+
     /// `create_branch` must create a branch pointing to current HEAD.
     #[tokio::test]
     async fn create_branch_from_base_branch() {

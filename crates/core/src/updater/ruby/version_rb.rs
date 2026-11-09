@@ -277,10 +277,13 @@ end
                 release_type: ReleaseType::Ruby,
                 tag: Tag {
                     name: "v26.10".into(),
-                    version: TagVersion::Strftime(
-                        Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap(),
-                        "%y.%m".into(),
-                    ),
+                    version: TagVersion::Strftime {
+                        date: Utc
+                            .with_ymd_and_hms(2026, 10, 1, 0, 0, 0)
+                            .unwrap(),
+                        count: None,
+                        date_fmt: "%y.%m".into(),
+                    },
                     sha: "abc".into(),
                     ..Tag::default()
                 },
