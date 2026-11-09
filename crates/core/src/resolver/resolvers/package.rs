@@ -8,7 +8,9 @@ use crate::{
         overrides::{CommitModifiers, GlobalOverrides, PackageOverridesHash},
         package::PackageConfig,
         release_type::ReleaseType,
-        versioning::{DEFAULT_VERSION_TYPE, VersionType, VersioningConfig},
+        versioning::{
+            COUNTER_SUFFIX, DEFAULT_VERSION_TYPE, VersionType, VersioningConfig,
+        },
     },
     forge::link::LinkStyle,
     packages::resolved::ResolvedPackage,
@@ -169,11 +171,15 @@ pub fn resolve_package(
 /// fields are single-digit so zero padding, which semver forbids, shows up
 /// regardless of today's date.
 fn non_semver_sample(fmt: &str) -> Option<String> {
-    let sample = Utc
+    let date_fmt = fmt.strip_suffix(COUNTER_SUFFIX);
+    let mut sample = Utc
         .with_ymd_and_hms(2026, 1, 2, 3, 4, 5)
         .unwrap()
-        .format(fmt)
+        .format(date_fmt.unwrap_or(fmt))
         .to_string();
+    if date_fmt.is_some() {
+        sample.push_str(".1");
+    }
     semver::Version::parse(&sample).is_err().then_some(sample)
 }
 
@@ -258,5 +264,16 @@ mod tests {
         for fmt in ["%Y.%-m.%-d", "%y.%-m.%-d", "%Y.%-m.%-d+%H.%M.%S"] {
             assert_eq!(non_semver_sample(fmt), None, "{fmt:?}");
         }
+    }
+
+    #[test]
+    fn non_semver_sample_includes_the_release_counter() {
+        // counter: a fourth dot-separated segment is never semver
+        assert_eq!(
+            non_semver_sample("%Y.%-m.%-d.%i").as_deref(),
+            Some("2026.1.2.1")
+        );
+        // counter: as the third segment it can complete a semver shape
+        assert_eq!(non_semver_sample("%Y.%-m.%i"), None);
     }
 }

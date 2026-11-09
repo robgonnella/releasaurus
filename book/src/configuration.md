@@ -300,6 +300,7 @@ versioning = { version_type = "%y.%m" }
 - **A strftime format** (any value containing `%`) — calendar versions in
   exactly the layout you write, for CalVer schemes the semver-shaped types
   cannot express, such as zero-padded `2026.06.14` or two-digit `26.06`.
+  End it with `.%i` to number releases on the same date (`2026.06.14.2`).
   See [Custom calendar formats](#custom-calendar-formats) below.
 
 `major.minor.patch` and `major.minor.patch+timestamp.sha` both honor
@@ -341,9 +342,30 @@ once a day, `%Y.%m` once a month, `%Y.%m.%d.%H%M` once a minute, and
 `year.month.day+hour.minute.second.micro`. A re-run within the same period
 reports nothing to release, exactly like `year.month.day`.
 
+#### Release counter (`%i`)
+
+To release more than once per period without a timestamp, end the format
+with `.%i` — the CalVer `MICRO` segment. It numbers the releases that share
+a rendered date, starting at 1:
+
+| Release              | `%Y.%m.%d.%i`  |
+| -------------------- | -------------- |
+| First on 14 June     | `2026.06.14.1` |
+| Second on 14 June    | `2026.06.14.2` |
+| First on 15 June     | `2026.06.15.1` |
+
+The counter continues from the current tag when that tag has the same
+rendered date and restarts at 1 when the date changes. A tag without a
+counter, such as `v2026.06.14` from before `.%i` was added to the format,
+is still recognised; the next release on that date is `2026.06.14.1`.
+
+`%i` is not a chrono specifier and may appear only once, as the final
+segment, after a `.`. A release still needs releasable commits; a re-run
+with nothing new reports nothing to release.
+
 The format is checked when the configuration loads and rejected if it
 
-- is not valid strftime (`%Q`);
+- is not valid strftime (`%Q`), or uses `%i` anywhere but a final `.%i`;
 - renders something git refuses as a tag name — a space, `~`, `^`, `:`,
   `?`, `*`, `[`, `\`, `..`, `@{`, `//`, a trailing `.` or `/`, or a
   `.lock` component — which rules out `%T`, `%c` and `%+`, and any
@@ -358,7 +380,8 @@ The format is checked when the configuration loads and rejected if it
 > rendered version into manifests as-is and logs a warning when a `rust`,
 > `node`, `go` or `helm` package uses a format whose output is not semver.
 > For those ecosystems use the `year.month.day` types, or an unpadded
-> format such as `%Y.%-m.%-d`.
+> format such as `%Y.%-m.%-d`. A release counter after a full date adds a
+> fourth segment (`2026.6.14.1`), which is never semver.
 
 On the command line, quote the value so the shell leaves `%` alone:
 `--version-type '%Y.%m.%d'`.
