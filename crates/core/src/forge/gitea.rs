@@ -399,7 +399,11 @@ impl Forge for Gitea {
             has_more = headers
                 .get("x-hasmore")
                 .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+                .unwrap_or(false)
+                || headers
+                    .get("link")
+                    .and_then(|h| h.to_str().ok())
+                    .is_some_and(|l| l.contains(r#"rel="next""#));
 
             let result = response.error_for_status()?;
             let page_tags: Vec<GiteaTag> = result.json().await?;
@@ -985,9 +989,10 @@ impl Forge for Gitea {
 #[cfg(test)]
 mod tests {
     use secrecy::SecretString;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{method, path, path_regex, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    use crate::config::versioning::VersionType;
     use crate::forge::config::{PENDING_LABEL, RepoUrl, Scheme};
     use crate::forge::traits::Forge;
 
@@ -1342,5 +1347,77 @@ mod tests {
 
         assert_eq!(merge_pr.id, sub_pr.id);
         assert_eq!(merge_pr.link, sub_pr.link);
+    }
+
+    #[tokio::test]
+    async fn get_latest_tags_for_prefix_follows_link_header_without_x_hasmore()
+    {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+        let next = format!(
+            "<{}/api/v1/repos/foo/bar/tags?limit=50&page=2>; rel=\"next\"",
+            server.uri()
+        );
+
+        // Forgejo sends a Link header but no x-hasmore on the tags endpoint.
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/tags"))
+            .and(query_param("page", "1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!([
+                        {
+                            "name": "other-v1.0.0",
+                            "commit": {
+                                "sha": "aaa",
+                                "created": "2026-01-02T00:00:00Z"
+                            }
+                        }
+                    ]))
+                    .insert_header("link", next.as_str()),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/tags"))
+            .and(query_param("page", "2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    {
+                        "name": "pkg-v0.2.0",
+                        "commit": {
+                            "sha": "bbb",
+                            "created": "2026-01-01T00:00:00Z"
+                        }
+                    }
+                ]),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path_regex(r"^/api/v1/repos/foo/bar/compare/.+$"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "total_commits": 0 })),
+            )
+            .mount(&server)
+            .await;
+
+        let tags = gitea
+            .get_latest_tags_for_prefix(
+                "pkg-v",
+                "main",
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(tags.len(), 1, "expected the tag on the second page");
+        assert_eq!(tags[0].name, "pkg-v0.2.0");
     }
 }
