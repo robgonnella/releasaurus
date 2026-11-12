@@ -47,6 +47,19 @@ use crate::{
 
 mod types;
 
+/// Returns true if a paginated response has another page. Gitea and Forgejo
+/// only send `x-hasmore` on the commit-listing endpoints; every list endpoint
+/// sends a `Link` header with `rel="next"` when more pages remain.
+fn has_next_page(headers: &HeaderMap) -> bool {
+    headers
+        .get("x-hasmore")
+        .is_some_and(|h| h.to_str().unwrap_or_default() == "true")
+        || headers
+            .get("link")
+            .and_then(|h| h.to_str().ok())
+            .is_some_and(|l| l.contains(r#"rel="next""#))
+}
+
 /// Gitea forge implementation using reqwest for API interactions with
 /// commit history, tags, pull requests, and releases.
 pub struct Gitea {
@@ -182,10 +195,7 @@ impl Gitea {
             let request = self.client.get(labels_url).build()?;
             let response = self.client.execute(request).await?;
             let headers = response.headers();
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+            has_more = has_next_page(headers);
             let result = response.error_for_status()?;
             let batch: Vec<GiteaLabel> = result.json().await?;
             labels.extend(batch);
@@ -241,10 +251,7 @@ impl Gitea {
             let request = self.client.get(commits_url).build()?;
             let response = self.client.execute(request).await?;
             let headers = response.headers();
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+            has_more = has_next_page(headers);
             let result = response.error_for_status()?;
             let batch: Vec<GiteaPullCommit> = result.json().await?;
             shas.extend(batch.into_iter().map(|c| c.sha));
@@ -396,14 +403,7 @@ impl Forge for Gitea {
 
             let headers = response.headers();
 
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false)
-                || headers
-                    .get("link")
-                    .and_then(|h| h.to_str().ok())
-                    .is_some_and(|l| l.contains(r#"rel="next""#));
+            has_more = has_next_page(headers);
 
             let result = response.error_for_status()?;
             let page_tags: Vec<GiteaTag> = result.json().await?;
@@ -497,10 +497,7 @@ impl Forge for Gitea {
             let response = self.client.execute(request).await?;
             let headers = response.headers();
 
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+            has_more = has_next_page(headers);
 
             let result = response.error_for_status()?;
             let results: Vec<GiteaCommitQueryObject> = result.json().await?;
@@ -766,10 +763,7 @@ impl Forge for Gitea {
             let response = self.client.execute(request).await?;
             let headers = response.headers();
 
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+            has_more = has_next_page(headers);
 
             let result = response.error_for_status()?;
             let issues: Vec<GiteaIssue> = result.json().await?;
@@ -840,10 +834,7 @@ impl Forge for Gitea {
             let response = self.client.execute(request).await?;
             let headers = response.headers();
 
-            has_more = headers
-                .get("x-hasmore")
-                .map(|h| h.to_str().unwrap_or_default() == "true")
-                .unwrap_or(false);
+            has_more = has_next_page(headers);
 
             let result = response.error_for_status()?;
             let issues: Vec<GiteaIssue> = result.json().await?;
@@ -988,6 +979,7 @@ impl Forge for Gitea {
 
 #[cfg(test)]
 mod tests {
+    use reqwest::header::{HeaderMap, HeaderValue};
     use secrecy::SecretString;
     use wiremock::matchers::{method, path, path_regex, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -996,7 +988,7 @@ mod tests {
     use crate::forge::config::{PENDING_LABEL, RepoUrl, Scheme};
     use crate::forge::traits::Forge;
 
-    use super::Gitea;
+    use super::{Gitea, has_next_page};
     use crate::forge::request::GetPrRequest;
 
     const COMMIT_SHA: &str = "abc123def456";
@@ -1419,5 +1411,84 @@ mod tests {
 
         assert_eq!(tags.len(), 1, "expected the tag on the second page");
         assert_eq!(tags[0].name, "pkg-v0.2.0");
+    }
+
+    #[test]
+    fn has_next_page_reads_x_hasmore_and_link_headers() {
+        let next = "<https://x/tags?page=2>; rel=\"next\"";
+        let last_page = "<https://x/tags?page=1>; rel=\"first\",\
+            <https://x/tags?page=1>; rel=\"prev\"";
+        let cases: &[(&[(&str, &str)], bool)] = &[
+            // either header alone signals another page
+            (&[("x-hasmore", "true")], true),
+            (&[("link", next)], true),
+            (&[("x-hasmore", "false"), ("link", next)], true),
+            // no next page: headers absent, false, or link lacks rel="next"
+            (&[], false),
+            (&[("x-hasmore", "false")], false),
+            (&[("link", last_page)], false),
+        ];
+
+        for (pairs, expected) in cases {
+            let mut headers = HeaderMap::new();
+            for (name, value) in pairs.iter() {
+                headers.insert(*name, HeaderValue::from_str(value).unwrap());
+            }
+            assert_eq!(has_next_page(&headers), *expected, "{pairs:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn pending_label_exists_follows_link_header_to_second_page() {
+        let server = MockServer::start().await;
+        let gitea = make_gitea(&server, "foo", "bar").await;
+        let next = format!(
+            "<{}/api/v1/repos/foo/bar/labels?limit=50&page=2>; rel=\"next\"",
+            server.uri()
+        );
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/labels"))
+            .and(query_param("page", "1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!([
+                        {
+                            "id": 1,
+                            "name": "bug",
+                            "color": "ff0000",
+                            "description": "",
+                            "exclusive": false,
+                            "is_archived": false
+                        }
+                    ]))
+                    .insert_header("link", next.as_str()),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/repos/foo/bar/labels"))
+            .and(query_param("page", "2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    {
+                        "id": 2,
+                        "name": PENDING_LABEL,
+                        "color": "a47dab",
+                        "description": "",
+                        "exclusive": false,
+                        "is_archived": false
+                    }
+                ]),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let exists = gitea.pending_label_exists().await.unwrap();
+
+        assert!(exists, "expected the pending label on the second page");
     }
 }
