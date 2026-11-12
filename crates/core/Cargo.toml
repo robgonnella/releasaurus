@@ -28,19 +28,19 @@ git2 = { version = "0.21.0", default-features = false, features = [
     "vendored-libgit2",
     "vendored-openssl",
 ] }
-gitlab = "0.1902.0"
+gitlab = "0.1905.0"
 graphql_client = "0.14.0"
 indexmap.workspace = true
 log.workspace = true
 md5 = "0.8.1"
 merge.workspace = true
-next_version = "0.3.2"
-octocrab = { version = "0.54.1", features = ["stream"] }
+next_version = "0.3.5"
+octocrab = { version = "0.54.9", features = ["stream"] }
 quick-xml = "0.41.0"
 regex = "1.13.1"
-reqwest = "0.13.4"
+reqwest = "0.13.5"
 rustls = { version = "0.23", default-features = false }
-schemars = { version = "1.2.2", features = ["indexmap2"] }
+schemars = { version = "1.2.3", features = ["indexmap2"] }
 secrecy.workspace = true
 semver = "1.0.28"
 serde.workspace = true
@@ -48,11 +48,11 @@ serde_json.workspace = true
 serde_regex.workspace = true
 strum = { version = "0.28.0", features = ["derive"] }
 tera = "1.20.1"
-thiserror = "2.0.20"
+thiserror = "2.0.21"
 tl = "0.7.8"
 tokio.workspace = true
-toml = "1.1.4"
-toml_edit = "0.25.13"
+toml = "1.2.1"
+toml_edit = "0.25.19"
 url.workspace = true
 
 [dev-dependencies]
