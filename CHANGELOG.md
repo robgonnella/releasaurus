@@ -1,3 +1,15 @@
+# [1.4.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.3.0...v1.4.0-rc.1) - 2026-11-12
+
+### 🚀 Features
+
+- _(versioning)_ add %i release counter to strftime version types [_(949eeaa)_](https://github.com/robgonnella/releasaurus/commit/949eeaa4e0f3cce1ec57df1fdfe7ff147dc097c6) (Rob Gonnella) ([PR 394](https://github.com/robgonnella/releasaurus/pull/394))
+
+### 🐛 Bug Fixes
+
+- _(gitea/forgejo)_ fixes issue with pagination [_(eb213a0)_](https://github.com/robgonnella/releasaurus/commit/eb213a0cf554c514933766902b99780b046bdcd6) (Rob Gonnella) ([PR 398](https://github.com/robgonnella/releasaurus/pull/398))
+
+- _(forge)_ follow the Link header when paging Gitea and Forgejo tags [_(27f27d3)_](https://github.com/robgonnella/releasaurus/commit/27f27d3a04ba1b7430ef588e2ff0b96bea80adf0) (Hugo) ([PR 396](https://github.com/robgonnella/releasaurus/pull/396))
+
 # [1.3.0](https://github.com/robgonnella/releasaurus/compare/v1.3.0-rc.1...v1.3.0) - 2026-10-13
 
 ### 🚀 Features
