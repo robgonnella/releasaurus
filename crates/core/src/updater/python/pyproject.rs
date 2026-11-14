@@ -1,4 +1,4 @@
-use toml_edit::{DocumentMut, value};
+use toml_edit::{DocumentMut, Table, value};
 
 use crate::{
     forge::request::{FileChange, FileUpdateType},
@@ -17,6 +17,15 @@ impl PyProject {
     fn load_doc(&self, content: &str) -> Result<DocumentMut> {
         let doc = content.parse::<DocumentMut>()?;
         Ok(doc)
+    }
+
+    /// `dynamic` lists each field the build backend computes; every field
+    /// not listed is static.
+    fn version_is_dynamic(table: &Table) -> bool {
+        table
+            .get("dynamic")
+            .and_then(|d| d.as_array())
+            .is_some_and(|a| a.iter().any(|v| v.as_str() == Some("version")))
     }
 }
 
@@ -39,7 +48,7 @@ impl FileUpdater for PyProject {
         let mut doc = self.load_doc(&manifest.content)?;
 
         if let Some(project) = doc["project"].as_table_mut() {
-            if project.get("dynamic").is_some() {
+            if Self::version_is_dynamic(project) {
                 log::info!(
                     "dynamic version found in pyproject.toml: skipping update"
                 );
@@ -64,7 +73,7 @@ impl FileUpdater for PyProject {
         if let Some(tool) = doc["tool"].as_table_mut()
             && let Some(project) = tool["poetry"].as_table_mut()
         {
-            if project.get("dynamic").is_some() {
+            if Self::version_is_dynamic(project) {
                 log::info!(
                     "dynamic version found in pyproject.toml: skipping update"
                 );
@@ -339,5 +348,55 @@ requires = ["setuptools", "wheel"]
         let result = pyproject.update(&manifest).unwrap();
 
         assert!(result.is_none());
+    }
+
+    fn owned_manifest(content: &str) -> ManifestFile {
+        ManifestFile {
+            path: Path::new("pyproject.toml").to_path_buf(),
+            basename: "pyproject.toml".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Python,
+            owner: Some(ManifestPackage {
+                name: "my-package".to_string(),
+                release_type: ReleaseType::Python,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        }
+    }
+
+    #[test]
+    fn updates_static_version_when_other_project_fields_are_dynamic() {
+        let content = r#"[project]
+name = "my-package"
+version = "1.0.0"
+dynamic = ["dependencies", "readme"]
+"#;
+
+        let result = PyProject::new().update(&owned_manifest(content)).unwrap();
+
+        let updated = result.unwrap().content;
+        assert!(updated.contains("version = \"2.0.0\""));
+        assert!(updated.contains("dynamic = [\"dependencies\", \"readme\"]"));
+    }
+
+    #[test]
+    fn updates_static_version_when_other_poetry_fields_are_dynamic() {
+        let content = r#"[tool.poetry]
+name = "my-package"
+version = "1.0.0"
+dynamic = ["readme"]
+"#;
+
+        let result = PyProject::new().update(&owned_manifest(content)).unwrap();
+
+        assert!(result.unwrap().content.contains("version = \"2.0.0\""));
     }
 }
