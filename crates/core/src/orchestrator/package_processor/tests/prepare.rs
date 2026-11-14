@@ -467,3 +467,87 @@ async fn pr_links_are_fetched_only_for_packages_that_opt_in() {
         "the opted-out package should carry no PR"
     );
 }
+
+#[tokio::test]
+async fn aggregate_prereleases_keeps_cycle_commits_when_another_package_is_older()
+ {
+    // pkg-a's older tag starts the shared commit fetch before pkg-b's
+    // stable tag, so pkg-b's prerelease-cycle commits are in that fetch
+    // but outside pkg-b's own window; aggregation must still include them.
+    let semantic =
+        |v: &str| TagVersion::Semantic(semver::Version::parse(v).unwrap());
+    let a_stable = Tag {
+        name: "pkg-a-v1.0.0".to_string(),
+        version: semantic("1.0.0"),
+        sha: "sha-a-stable".to_string(),
+        timestamp: Some(100),
+    };
+    let b_stable = Tag {
+        name: "pkg-b-v1.0.0".to_string(),
+        version: semantic("1.0.0"),
+        sha: "sha-b-stable".to_string(),
+        timestamp: Some(200),
+    };
+    let b_rc = Tag {
+        name: "pkg-b-v1.1.0-rc.1".to_string(),
+        version: semantic("1.1.0-rc.1"),
+        sha: "sha-b-rc".to_string(),
+        timestamp: Some(300),
+    };
+
+    let commit = |id: &str, ts: i64, pkg: &str| {
+        ForgeCommitBuilder::default()
+            .id(id)
+            .short_id(id)
+            .message(format!("feat: {id}"))
+            .timestamp(ts)
+            .files(vec![format!("packages/{pkg}/src/lib.rs")])
+            .build()
+            .unwrap()
+    };
+    let b_cycle = commit("b-cycle", 250, "pkg-b");
+    let a_feature = commit("a-feature", 350, "pkg-a");
+    let b_after_rc = commit("b-after-rc", 400, "pkg-b");
+
+    let mut mock = MockForge::new();
+
+    mock.expect_get_latest_tags_for_prefix().returning(
+        move |prefix, _, _, since| match (prefix, since) {
+            ("pkg-a-v", _) => Ok(vec![a_stable.clone()]),
+            ("pkg-b-v", None) => Ok(vec![b_rc.clone(), b_stable.clone()]),
+            _ => Ok(vec![b_rc.clone()]),
+        },
+    );
+
+    mock.expect_get_commits().returning(move |_, since| {
+        match since.as_deref() {
+            Some("sha-b-stable") => {
+                Ok(vec![b_after_rc.clone(), b_cycle.clone()])
+            }
+            _ => {
+                Ok(vec![b_after_rc.clone(), a_feature.clone(), b_cycle.clone()])
+            }
+        }
+    });
+
+    let pkg = |name: &str| {
+        PackageConfigBuilder::default()
+            .name(name)
+            .path(format!("packages/{name}"))
+            .tag_prefix(format!("{name}-v"))
+            .build()
+            .unwrap()
+    };
+
+    let processor = create_package_processor(
+        mock,
+        Some(vec![pkg("pkg-a"), pkg("pkg-b")]),
+        Some(aggregate_config()),
+    );
+
+    let prepared = processor.prepare_packages(None).await.unwrap();
+    let pkg_b = prepared.iter().find(|p| p.name == "pkg-b").unwrap();
+    let ids: Vec<&str> = pkg_b.commits.iter().map(|c| c.id.as_str()).collect();
+
+    assert_eq!(ids, vec!["b-after-rc", "b-cycle"]);
+}

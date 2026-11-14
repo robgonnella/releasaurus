@@ -148,8 +148,6 @@ impl PackageProcessor {
         let (commits, tags) =
             commit_fetcher.get_commits_for_all_packages(target).await?;
 
-        let commit_hash_set: HashSet<_> = commits.iter().collect();
-
         for (name, package) in self.config.package_configs.hash().iter() {
             if let Some(target) = target
                 && package.name != target
@@ -174,10 +172,12 @@ impl PackageProcessor {
                         package,
                     )
                     .await?;
+                let window_ids: HashSet<String> =
+                    commits.iter().map(|c| c.id.clone()).collect();
                 commits.extend(
                     additional
                         .into_iter()
-                        .filter(|c| !commit_hash_set.contains(c)),
+                        .filter(|c| !window_ids.contains(&c.id)),
                 );
                 // restore the newest-first order guaranteed by
                 // Forge::get_commits
