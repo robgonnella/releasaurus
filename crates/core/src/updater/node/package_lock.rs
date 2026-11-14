@@ -4,7 +4,7 @@ use crate::{
     forge::request::{FileChange, FileUpdateType},
     packages::manifests::ManifestFile,
     result::Result,
-    updater::traits::FileUpdater,
+    updater::{node::bumped_dependency_spec, traits::FileUpdater},
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -61,15 +61,15 @@ impl PackageLock {
 
                         for ws_package in manifest.releasing.iter() {
                             if let Some(spec) = deps.get_mut(&ws_package.name)
-                                && !spec.as_str().is_some_and(|s| {
-                                    s.starts_with("workspace:")
-                                        || s.starts_with("repo:")
-                                })
+                                && let Some(bumped) =
+                                    spec.as_str().and_then(|s| {
+                                        bumped_dependency_spec(
+                                            s,
+                                            &ws_package.tag.version,
+                                        )
+                                    })
                             {
-                                *spec = json!(format!(
-                                    "^{}",
-                                    ws_package.tag.version
-                                ));
+                                *spec = json!(bumped);
                             }
                         }
                     }
@@ -257,7 +257,7 @@ mod tests {
         let result = package_lock.update(&manifest).unwrap();
 
         let updated = result.unwrap().content.clone();
-        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
+        assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
     #[test]
@@ -313,7 +313,7 @@ mod tests {
         let result = package_lock.update(&manifest).unwrap();
 
         let updated = result.unwrap().content.clone();
-        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
+        assert!(updated.contains("\"package-b\": \"3.0.0\""));
     }
 
     #[test]
@@ -559,5 +559,46 @@ mod tests {
             packages["node_modules/package-b"],
             serde_json::json!({ "resolved": "packages/b", "link": true })
         );
+    }
+
+    #[test]
+    fn keeps_range_prefixes_in_root_dependencies() {
+        let content = r#"{
+  "name": "root",
+  "lockfileVersion": 3,
+  "packages": {
+    "": {
+      "name": "root",
+      "dependencies": {
+        "package-b": "~1.0.0",
+        "package-c": "1.0.0"
+      },
+      "devDependencies": {
+        "package-d": ">=1.0.0 <2.0.0"
+      }
+    }
+  }
+}"#;
+
+        let manifest = ManifestFile {
+            path: Path::new("package-lock.json").to_path_buf(),
+            basename: "package-lock.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: None,
+            releasing: vec![
+                released("package-b", "3.0.0"),
+                released("package-c", "3.0.0"),
+                released("package-d", "3.0.0"),
+            ],
+        };
+
+        let updated = PackageLock::new().update(&manifest).unwrap().unwrap();
+        let parsed: Value = serde_json::from_str(&updated.content).unwrap();
+        let root = &parsed["packages"][""];
+
+        assert_eq!(root["dependencies"]["package-b"], "~3.0.0");
+        assert_eq!(root["dependencies"]["package-c"], "3.0.0");
+        assert_eq!(root["devDependencies"]["package-d"], ">=1.0.0 <2.0.0");
     }
 }
