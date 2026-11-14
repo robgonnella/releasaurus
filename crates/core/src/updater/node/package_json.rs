@@ -5,7 +5,7 @@ use crate::{
     forge::request::{FileChange, FileUpdateType},
     packages::manifests::{ManifestFile, ManifestPackage},
     result::Result,
-    updater::traits::FileUpdater,
+    updater::{node::bumped_dependency_spec, traits::FileUpdater},
 };
 
 /// Handles package.json file parsing and version updates for Node.js packages.
@@ -42,20 +42,14 @@ impl PackageJson {
         }
 
         if let Some(deps) = doc[dep_type].as_object_mut() {
-            for (dep_name, dep_value) in deps.clone() {
-                // Skip workspace: and repo: protocol dependencies
-                if let Some(version_str) = dep_value.as_str()
-                    && (version_str.starts_with("workspace:")
-                        || version_str.starts_with("repo:"))
-                {
-                    continue;
-                }
-
+            for (dep_name, dep_value) in deps.iter_mut() {
                 if let Some(package) =
-                    other_packages.iter().find(|p| p.name == dep_name)
+                    other_packages.iter().find(|p| p.name == *dep_name)
+                    && let Some(spec) = dep_value.as_str().and_then(|s| {
+                        bumped_dependency_spec(s, &package.tag.version)
+                    })
                 {
-                    deps[&dep_name] =
-                        json!(format!("^{}", package.tag.version));
+                    *dep_value = json!(spec);
                 }
             }
         }
@@ -469,5 +463,53 @@ mod tests {
         assert!(updated.contains("\"description\": \"A test package\""));
         assert!(updated.contains("\"main\": \"index.js\""));
         assert!(updated.contains("\"test\": \"jest\""));
+    }
+
+    #[test]
+    fn keeps_range_prefixes_on_dependencies() {
+        let content = r#"{
+  "name": "package-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "package-b": "~1.0.0",
+    "package-c": "1.0.0"
+  },
+  "devDependencies": {
+    "package-d": ">=1.0.0 <2.0.0"
+  }
+}"#;
+
+        let released = |name: &str| ManifestPackage {
+            name: name.to_string(),
+            release_type: ReleaseType::Node,
+            tag: Tag {
+                name: "v3.0.0".into(),
+                version: TagVersion::Semantic(
+                    semver::Version::parse("3.0.0").unwrap(),
+                ),
+                sha: "def".into(),
+                ..Tag::default()
+            },
+        };
+
+        let manifest = ManifestFile {
+            path: Path::new("packages/a/package.json").to_path_buf(),
+            basename: "package.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: Some(released("package-a")),
+            releasing: vec![
+                released("package-b"),
+                released("package-c"),
+                released("package-d"),
+            ],
+        };
+
+        let updated = PackageJson::new().update(&manifest).unwrap().unwrap();
+        let parsed: Value = serde_json::from_str(&updated.content).unwrap();
+
+        assert_eq!(parsed["dependencies"]["package-b"], "~3.0.0");
+        assert_eq!(parsed["dependencies"]["package-c"], "3.0.0");
+        assert_eq!(parsed["devDependencies"]["package-d"], ">=1.0.0 <2.0.0");
     }
 }
