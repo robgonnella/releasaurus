@@ -47,14 +47,9 @@ impl FileUpdater for PyProject {
 
         let mut doc = self.load_doc(&manifest.content)?;
 
-        if let Some(project) = doc["project"].as_table_mut() {
-            if Self::version_is_dynamic(project) {
-                log::info!(
-                    "dynamic version found in pyproject.toml: skipping update"
-                );
-                return Ok(None);
-            }
-
+        if let Some(project) = doc["project"].as_table_mut()
+            && !Self::version_is_dynamic(project)
+        {
             log::info!(
                 "updating {} project version to {}",
                 manifest.path.to_string_lossy(),
@@ -70,16 +65,13 @@ impl FileUpdater for PyProject {
             }));
         }
 
+        // Poetry 2 keeps the base version here when `[project]` declares
+        // it dynamic.
         if let Some(tool) = doc["tool"].as_table_mut()
             && let Some(project) = tool["poetry"].as_table_mut()
+            && !Self::version_is_dynamic(project)
+            && project.contains_key("version")
         {
-            if Self::version_is_dynamic(project) {
-                log::info!(
-                    "dynamic version found in pyproject.toml: skipping update"
-                );
-                return Ok(None);
-            }
-
             log::info!(
                 "updating {} tool.poetry version to {}",
                 manifest.path.to_string_lossy(),
@@ -95,6 +87,9 @@ impl FileUpdater for PyProject {
             }));
         }
 
+        log::info!(
+            "no static version found in pyproject.toml: skipping update"
+        );
         Ok(None)
     }
 }
@@ -398,5 +393,40 @@ dynamic = ["readme"]
         let result = PyProject::new().update(&owned_manifest(content)).unwrap();
 
         assert!(result.unwrap().content.contains("version = \"2.0.0\""));
+    }
+
+    #[test]
+    fn updates_poetry_base_version_when_project_version_is_dynamic() {
+        let content = r#"[project]
+name = "my-package"
+dynamic = ["version"]
+
+[tool.poetry]
+version = "1.0.0"
+"#;
+
+        let updated = PyProject::new()
+            .update(&owned_manifest(content))
+            .unwrap()
+            .unwrap()
+            .content;
+
+        assert!(updated.contains("dynamic = [\"version\"]"));
+        assert!(updated.contains("version = \"2.0.0\""));
+    }
+
+    #[test]
+    fn skips_dynamic_project_version_without_poetry_base_version() {
+        let content = r#"[project]
+name = "my-package"
+dynamic = ["version"]
+
+[tool.poetry]
+packages = [{ include = "my_package" }]
+"#;
+
+        let result = PyProject::new().update(&owned_manifest(content)).unwrap();
+
+        assert!(result.is_none());
     }
 }
