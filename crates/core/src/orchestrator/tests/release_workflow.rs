@@ -21,6 +21,10 @@ use crate::{
     },
     result::ReleasaurusError,
 };
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use super::common::*;
 
@@ -839,4 +843,245 @@ async fn create_releases_does_not_mark_a_stable_tag_behind_a_hyphenated_prefix()
     );
 
     orchestrator.create_releases(None).await.unwrap();
+}
+
+/// Mirrors the real forges' merged-PR lookup, which only matches a PR while
+/// it still carries the pending label.
+fn expect_merged_pr_until_relabeled(mock_forge: &mut MockForge, body: String) {
+    let pending = Arc::new(AtomicBool::new(true));
+
+    let lookup_pending = Arc::clone(&pending);
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(move |_| {
+            if !lookup_pending.load(Ordering::SeqCst) {
+                return Ok(None);
+            }
+            Ok(Some(PullRequest {
+                number: 42,
+                sha: "shared-sha".to_string(),
+                body: body.clone(),
+            }))
+        });
+
+    mock_forge
+        .expect_replace_pr_labels()
+        .times(1)
+        .returning(move |_| {
+            pending.store(false, Ordering::SeqCst);
+            Ok(())
+        });
+}
+
+fn two_package_configs() -> Vec<crate::config::package::PackageConfig> {
+    vec![
+        PackageConfigBuilder::default()
+            .name("pkg-a")
+            .path("packages/pkg-a")
+            .tag_prefix("pkg-a-v")
+            .build()
+            .unwrap(),
+        PackageConfigBuilder::default()
+            .name("pkg-b")
+            .path("packages/pkg-b")
+            .tag_prefix("pkg-b-v")
+            .build()
+            .unwrap(),
+    ]
+}
+
+#[tokio::test]
+async fn create_releases_releases_every_package_in_shared_pr() {
+    let body = [("pkg-a", "pkg-a-v1.0.0"), ("pkg-b", "pkg-b-v2.0.0")]
+        .iter()
+        .map(|&(pkg, tag)| {
+            make_pr_body(&PrBodyInput {
+                pkg,
+                tag,
+                notes: "notes",
+                tag_link: "tag-link",
+                sha_link: "sha-link",
+                header: "",
+                footer: "",
+            })
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let mut mock_forge = MockForge::new();
+    expect_merged_pr_until_relabeled(&mut mock_forge, body);
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
+    for tag in ["pkg-a-v1.0.0", "pkg-b-v2.0.0"] {
+        mock_forge
+            .expect_tag_commit()
+            .withf(move |t, _| t == tag)
+            .times(1)
+            .returning(|_, _| Ok(()));
+        mock_forge
+            .expect_create_release()
+            .withf(move |req| req.tag == tag)
+            .times(1)
+            .returning(|_| Ok(()));
+    }
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_skips_packages_absent_from_shared_pr() {
+    let body = make_pr_body(&PrBodyInput {
+        pkg: "pkg-a",
+        tag: "pkg-a-v1.0.0",
+        notes: "notes",
+        tag_link: "tag-link",
+        sha_link: "sha-link",
+        header: "",
+        footer: "",
+    });
+
+    let mut mock_forge = MockForge::new();
+    expect_merged_pr_until_relabeled(&mut mock_forge, body);
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
+    mock_forge
+        .expect_tag_commit()
+        .withf(|t, _| t == "pkg-a-v1.0.0")
+        .times(1)
+        .returning(|_, _| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .withf(|req| req.tag == "pkg-a-v1.0.0")
+        .times(1)
+        .returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    orchestrator.create_releases(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_errors_when_merged_pr_has_no_package_details() {
+    let mut mock_forge = MockForge::new();
+
+    mock_forge.expect_get_merged_release_pr().returning(|_| {
+        Ok(Some(PullRequest {
+            number: 42,
+            sha: "shared-sha".to_string(),
+            body: "no release details here".to_string(),
+        }))
+    });
+    mock_forge.expect_tag_commit().times(0);
+    mock_forge.expect_create_release().times(0);
+    mock_forge.expect_replace_pr_labels().times(0);
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    let err = orchestrator.create_releases(None).await.unwrap_err();
+
+    assert!(matches!(err, ReleasaurusError::Other(_)));
+}
+
+fn two_package_pr_body() -> String {
+    [("pkg-a", "pkg-a-v1.0.0"), ("pkg-b", "pkg-b-v2.0.0")]
+        .iter()
+        .map(|&(pkg, tag)| {
+            make_pr_body(&PrBodyInput {
+                pkg,
+                tag,
+                notes: "notes",
+                tag_link: "tag-link",
+                sha_link: "sha-link",
+                header: "",
+                footer: "",
+            })
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn expect_target_release_of_pkg_a(mock_forge: &mut MockForge) {
+    mock_forge
+        .expect_tag_commit()
+        .withf(|t, _| t == "pkg-a-v1.0.0")
+        .times(1)
+        .returning(|_, _| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .withf(|req| req.tag == "pkg-a-v1.0.0")
+        .times(1)
+        .returning(|_| Ok(()));
+}
+
+#[tokio::test]
+async fn create_releases_target_keeps_shared_pr_pending_for_untagged_siblings()
+{
+    let body = two_package_pr_body();
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(move |_| {
+            Ok(Some(PullRequest {
+                number: 42,
+                sha: "shared-sha".to_string(),
+                body: body.clone(),
+            }))
+        });
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+    expect_target_release_of_pkg_a(&mut mock_forge);
+    mock_forge.expect_replace_pr_labels().times(0);
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    orchestrator
+        .create_releases(Some("pkg-a".into()))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn create_releases_target_relabels_shared_pr_once_siblings_are_tagged() {
+    let mut mock_forge = MockForge::new();
+    expect_merged_pr_until_relabeled(&mut mock_forge, two_package_pr_body());
+
+    mock_forge.expect_get_tag().returning(|tag| {
+        if tag == "pkg-b-v2.0.0" {
+            return Ok(Some(TagResponse {
+                tag: tag.to_string(),
+                sha: "shared-sha".to_string(),
+            }));
+        }
+        Ok(None)
+    });
+    expect_target_release_of_pkg_a(&mut mock_forge);
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    orchestrator
+        .create_releases(Some("pkg-a".into()))
+        .await
+        .unwrap();
 }

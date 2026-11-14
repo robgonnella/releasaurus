@@ -2,7 +2,7 @@ use color_eyre::eyre::eyre;
 use derive_builder::Builder;
 use serde::Serialize;
 use std::{
-    collections::{HashMap, hash_map::Entry},
+    collections::{BTreeMap, HashMap, hash_map::Entry},
     path::Path,
     rc::Rc,
 };
@@ -20,7 +20,7 @@ use crate::{
     },
     orchestrator::{
         package_processor::{PackageProcessor, PrBranchResult},
-        pr_body::parse_pr_body,
+        pr_body::{parse_pr_body, pr_body_has_package},
     },
     packages::{
         releasable::ReleasablePackageGroups,
@@ -291,38 +291,93 @@ impl Orchestrator {
 
         self.validate_target(target.as_deref())?;
 
-        for (name, package) in self.config.package_configs.hash().iter() {
+        // Packages sharing a release PR are released together before it is
+        // relabeled: forges only find a merged release PR while it still
+        // carries the pending label.
+        let mut packages_by_branch: BTreeMap<String, Vec<&ResolvedPackage>> =
+            BTreeMap::new();
+
+        for package in self.config.package_configs.hash().values() {
+            packages_by_branch
+                .entry(self.config.release_branch_for(&package.name))
+                .or_default()
+                .push(package);
+        }
+
+        for (head_branch, mut packages) in packages_by_branch {
             if let Some(target_name) = target.as_ref()
-                && name != target_name
+                && !packages.iter().any(|p| &p.name == target_name)
             {
                 continue;
             }
 
             let req = GetPrRequest {
                 base_branch: base_branch.clone(),
-                head_branch: self.config.release_branch_for(&package.name),
+                head_branch,
             };
 
-            if let Some(merged_pr) =
-                self.forge.get_merged_release_pr(req).await?
-            {
+            let Some(merged_pr) = self.forge.get_merged_release_pr(req).await?
+            else {
+                continue;
+            };
+
+            packages.sort_by(|a, b| a.name.cmp(&b.name));
+            packages.retain(|p| pr_body_has_package(&p.name, &merged_pr.body));
+
+            let (to_release, siblings): (Vec<_>, Vec<_>) =
+                packages.into_iter().partition(|p| {
+                    target.as_ref().is_none_or(|target| &p.name == target)
+                });
+
+            if to_release.is_empty() {
+                return Err(ReleasaurusError::Other(eyre!(
+                    "merged release PR #{} has no release details for any \
+                     configured package",
+                    merged_pr.number
+                )));
+            }
+
+            for package in to_release {
                 self.create_package_release(package, &merged_pr).await?;
-
-                let req = PrLabelsRequest {
-                    pr_number: merged_pr.number,
-                    labels: vec![TAGGED_LABEL.into()],
-                };
-
-                self.forge.replace_pr_labels(req).await?;
 
                 if package
                     .versioning_config
                     .auto_start_next
                     .unwrap_or_default()
                 {
-                    auto_start_packages.push(name.clone());
+                    auto_start_packages.push(package.name.clone());
                 };
             }
+
+            // A targeted run must not hide the PR from later runs that
+            // release the packages it skipped.
+            let mut untagged_siblings = vec![];
+            for sibling in siblings {
+                let (tag, _) = parse_pr_body(
+                    &sibling.name,
+                    merged_pr.number,
+                    &merged_pr.body,
+                )?;
+                if !self.forge.tag_exists_for_sha(&tag, &merged_pr.sha).await? {
+                    untagged_siblings.push(sibling.name.as_str());
+                }
+            }
+
+            if !untagged_siblings.is_empty() {
+                log::info!(
+                    "leaving PR #{} pending: not yet released: {}",
+                    merged_pr.number,
+                    untagged_siblings.join(", ")
+                );
+                continue;
+            }
+
+            let req = PrLabelsRequest {
+                pr_number: merged_pr.number,
+                labels: vec![TAGGED_LABEL.into()],
+            };
+
+            self.forge.replace_pr_labels(req).await?;
         }
 
         if !auto_start_packages.is_empty() {

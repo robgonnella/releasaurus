@@ -63,6 +63,15 @@ pub fn extract_preserved_header_footer(
     (header, footer)
 }
 
+/// Whether `body` carries a release-details section for `package_name`.
+/// A shared release PR only includes the packages that had changes.
+pub fn pr_body_has_package(package_name: &str, body: &str) -> bool {
+    tl::parse(body, tl::ParserOptions::default()).is_ok_and(|dom| {
+        dom.get_element_by_id(normalize_html_id(package_name).as_bytes())
+            .is_some()
+    })
+}
+
 pub fn parse_pr_body(
     package_name: &str,
     pr_number: u64,
