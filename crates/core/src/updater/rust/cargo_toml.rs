@@ -107,7 +107,10 @@ impl FileUpdater for CargoToml {
         if let Some(owner) = manifest.owner.as_ref() {
             let next_version = owner.tag.version.to_string();
 
+            // `version.workspace = true` inherits from the root's
+            // `[workspace.package]`, which is bumped below instead.
             if let Some(pkg_table) = Self::dep_table_mut(&mut doc, &["package"])
+                && pkg_table.get("version").is_none_or(|v| v.is_str())
                 && pkg_table.get("version").and_then(|v| v.as_str())
                     != Some(next_version.as_str())
             {
@@ -117,6 +120,22 @@ impl FileUpdater for CargoToml {
                 );
 
                 pkg_table.insert("version", value(&next_version));
+                changed = true;
+            }
+
+            if let Some(ws_table) =
+                Self::dep_table_mut(&mut doc, &["workspace", "package"])
+                && let Some(version) = ws_table.get_mut("version")
+                && version.is_str()
+                && version.as_str() != Some(next_version.as_str())
+            {
+                log::info!(
+                    "setting workspace.package version for {} to \
+                     {next_version}",
+                    owner.name
+                );
+
+                *version = value(&next_version);
                 changed = true;
             }
         }
@@ -733,6 +752,78 @@ serde = "1.0"
         };
 
         let result = cargo_toml.update(&manifest).unwrap();
+
+        assert!(result.is_none());
+    }
+
+    fn root_manifest(content: &str, owner: Option<&str>) -> ManifestFile {
+        ManifestFile {
+            path: Path::new("Cargo.toml").to_path_buf(),
+            basename: "Cargo.toml".to_string(),
+            content: content.into(),
+            release_type: ReleaseType::Rust,
+            owner: owner.map(|name| ManifestPackage {
+                name: name.to_string(),
+                release_type: ReleaseType::Rust,
+                tag: Tag {
+                    name: "v2.0.0".into(),
+                    version: TagVersion::Semantic(semver::Version::new(
+                        2, 0, 0,
+                    )),
+                    sha: "abc".into(),
+                    ..Tag::default()
+                },
+            }),
+            releasing: vec![],
+        }
+    }
+
+    #[test]
+    fn keeps_an_inherited_package_version_intact() {
+        let content = r#"[package]
+name = "member"
+version.workspace = true
+"#;
+
+        let result = CargoToml::new()
+            .update(&root_manifest(content, Some("member")))
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn bumps_the_shared_workspace_version_for_an_owned_root() {
+        let content = r#"[workspace]
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+"#;
+
+        let result = CargoToml::new()
+            .update(&root_manifest(content, Some("workspace")))
+            .unwrap();
+
+        let updated = result.unwrap().content;
+        assert!(updated.contains("version = \"2.0.0\""));
+        assert!(updated.contains("edition = \"2024\""));
+        assert!(!updated.contains("[package]\n"));
+    }
+
+    #[test]
+    fn leaves_the_shared_workspace_version_alone_without_an_owner() {
+        let content = r#"[workspace]
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.0.0"
+"#;
+
+        let result = CargoToml::new()
+            .update(&root_manifest(content, None))
+            .unwrap();
 
         assert!(result.is_none());
     }
