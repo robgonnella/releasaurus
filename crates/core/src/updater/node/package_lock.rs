@@ -4,7 +4,10 @@ use crate::{
     forge::request::{FileChange, FileUpdateType},
     packages::manifests::ManifestFile,
     result::Result,
-    updater::{node::bumped_dependency_spec, traits::FileUpdater},
+    updater::{
+        node::{bumped_dependency_spec, format_like},
+        traits::FileUpdater,
+    },
 };
 
 /// Handles package-lock.json file parsing and version updates for Node.js packages.
@@ -92,7 +95,7 @@ impl PackageLock {
             }
         }
 
-        let formatted_json = serde_json::to_string_pretty(&lock_doc)?;
+        let formatted_json = format_like(&lock_doc, &manifest.content)?;
 
         Ok(Some(FileChange {
             path: manifest.path.to_string_lossy().to_string(),
@@ -600,5 +603,34 @@ mod tests {
         assert_eq!(root["dependencies"]["package-b"], "~3.0.0");
         assert_eq!(root["dependencies"]["package-c"], "3.0.0");
         assert_eq!(root["devDependencies"]["package-d"], ">=1.0.0 <2.0.0");
+    }
+
+    #[test]
+    fn preserves_indentation_and_trailing_newline() {
+        let cases = [
+            (
+                "{\n\t\"name\": \"a\",\n\t\"version\": \"1.0.0\"\n}\n",
+                "{\n\t\"name\": \"a\",\n\t\"version\": \"2.0.0\"\n}\n",
+            ),
+            (
+                "{\n    \"name\": \"a\",\n    \"version\": \"1.0.0\"\n}",
+                "{\n    \"name\": \"a\",\n    \"version\": \"2.0.0\"\n}",
+            ),
+        ];
+
+        for (content, expected) in cases {
+            let manifest = ManifestFile {
+                path: Path::new("package-lock.json").to_path_buf(),
+                basename: "package-lock.json".to_string(),
+                content: content.to_string(),
+                release_type: ReleaseType::Node,
+                owner: Some(released("a", "2.0.0")),
+                releasing: vec![],
+            };
+
+            let updated =
+                PackageLock::new().update(&manifest).unwrap().unwrap();
+            assert_eq!(updated.content, expected, "{content:?}");
+        }
     }
 }

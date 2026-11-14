@@ -1,12 +1,14 @@
-use serde::Serialize;
-use serde_json::{Serializer, Value, json, ser::PrettyFormatter};
+use serde_json::{Value, json};
 
 use crate::{
     config::release_type::ReleaseType,
     forge::request::{FileChange, FileUpdateType},
     packages::manifests::{ManifestFile, ManifestPackage},
     result::Result,
-    updater::{node::bumped_dependency_spec, traits::FileUpdater},
+    updater::{
+        node::{bumped_dependency_spec, format_like},
+        traits::FileUpdater,
+    },
 };
 
 /// Handles package.json file parsing and version updates for Node.js packages.
@@ -99,31 +101,6 @@ impl FileUpdater for PackageJson {
             update_type: FileUpdateType::Replace,
         }))
     }
-}
-
-/// Serializes `doc` with the original file's indentation and trailing
-/// newline, defaulting to two spaces.
-fn format_like(doc: &Value, original: &str) -> Result<String> {
-    let indent = original
-        .lines()
-        .skip(1)
-        .map(|line| {
-            let rest = line.trim_start_matches([' ', '\t']);
-            &line[..line.len() - rest.len()]
-        })
-        .find(|ws| !ws.is_empty())
-        .unwrap_or("  ");
-
-    let mut buf = Vec::new();
-    let formatter = PrettyFormatter::with_indent(indent.as_bytes());
-    let mut serializer = Serializer::with_formatter(&mut buf, formatter);
-    doc.serialize(&mut serializer)?;
-
-    let mut formatted = String::from_utf8(buf)?;
-    if original.ends_with('\n') {
-        formatted.push('\n');
-    }
-    Ok(formatted)
 }
 
 #[cfg(test)]
