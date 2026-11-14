@@ -456,13 +456,7 @@ impl Forge for Gitlab {
                 author_email: commit.author_email.clone(),
                 author_name: commit.author_name.clone(),
                 id: commit.id.clone(),
-                short_id: commit
-                    .id
-                    .clone()
-                    .split("")
-                    .take(8)
-                    .collect::<Vec<&str>>()
-                    .join(""),
+                short_id: commit.id.chars().take(8).collect(),
                 link: commit.web_url.clone(),
                 pr: None,
                 merge_commit: commit.parent_ids.len() > 1,
