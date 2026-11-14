@@ -442,6 +442,18 @@ next release only, so it has to be repeated each cycle.
 
 [skip-commits]: ./configuration.md#skipping-or-rewording-commits
 
+### Merge Commits: Older Branch Commits Can Be Missed
+
+When a branch is merged with a merge commit, its commits keep the dates
+they were originally committed on. Any of those commits dated before a
+package's last release are left out of that package's next release: they
+don't appear in the changelog and don't count toward the version bump.
+This applies to every forge.
+
+**Fix (recommended):** merge with **squash** or **rebase**. Both give the
+merged commits a fresh date, so nothing is missed. Rebasing the branch onto
+the base branch before merging has the same effect.
+
 ## Getting Help
 
 ```bash
