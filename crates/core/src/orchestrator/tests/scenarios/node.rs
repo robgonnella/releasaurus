@@ -5,7 +5,7 @@ use super::common::*;
 
 /// An npm workspace with no released root. The lock's own `version` and
 /// its `packages[""]` entry describe the *root* package, so a member's
-/// version must not land in either — while `node_modules/*` entries for
+/// version must not land in either — while the path-keyed entries for
 /// released members must still be bumped.
 #[tokio::test]
 async fn an_unowned_root_lock_keeps_its_own_version() {
@@ -37,9 +37,19 @@ release_type = "node"
       "version": "9.9.9"
     },
     "node_modules/pkg-a": {
-      "version": "0.0.1"
+      "resolved": "packages/a",
+      "link": true
     },
     "node_modules/pkg-b": {
+      "resolved": "packages/b",
+      "link": true
+    },
+    "packages/a": {
+      "name": "pkg-a",
+      "version": "0.0.1"
+    },
+    "packages/b": {
+      "name": "pkg-b",
       "version": "0.0.1"
     }
   }
@@ -73,7 +83,7 @@ release_type = "node"
     assert_eq!(
         lock.content.matches("\"version\": \"0.1.0\"").count(),
         2,
-        "both node_modules entries should be bumped:\n{}",
+        "both member entries should be bumped:\n{}",
         lock.content
     );
 }

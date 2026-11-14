@@ -48,34 +48,28 @@ impl PackageLock {
                             json!(owner.tag.version.to_string());
                     }
 
-                    // Update dependencies within root package entry
-                    if let Some(deps) = package_info.get_mut("dependencies")
-                        && let Some(deps_obj) = deps.as_object_mut()
-                    {
-                        for ws_package in manifest.releasing.iter() {
-                            if let Some((_, dep_info)) =
-                                deps_obj.iter_mut().find(|(name, _)| {
-                                    name.to_string() == ws_package.name
-                                })
-                            {
-                                *dep_info =
-                                    json!(ws_package.tag.version.to_string());
-                            }
-                        }
-                    }
+                    // The root entry copies its dependency ranges from
+                    // package.json, so they must match what the package.json
+                    // updater writes.
+                    for dep_type in ["dependencies", "devDependencies"] {
+                        let Some(deps) = package_info
+                            .get_mut(dep_type)
+                            .and_then(|d| d.as_object_mut())
+                        else {
+                            continue;
+                        };
 
-                    // Update devDependencies within root package entry
-                    if let Some(deps) = package_info.get_mut("devDependencies")
-                        && let Some(deps_obj) = deps.as_object_mut()
-                    {
                         for ws_package in manifest.releasing.iter() {
-                            if let Some((_, dep_info)) =
-                                deps_obj.iter_mut().find(|(name, _)| {
-                                    name.to_string() == ws_package.name
+                            if let Some(spec) = deps.get_mut(&ws_package.name)
+                                && !spec.as_str().is_some_and(|s| {
+                                    s.starts_with("workspace:")
+                                        || s.starts_with("repo:")
                                 })
                             {
-                                *dep_info =
-                                    json!(ws_package.tag.version.to_string());
+                                *spec = json!(format!(
+                                    "^{}",
+                                    ws_package.tag.version
+                                ));
                             }
                         }
                     }
@@ -83,13 +77,15 @@ impl PackageLock {
                     continue;
                 }
 
-                // Extract package name from node_modules/ key
-                if let Some(package_name) = key.strip_prefix("node_modules/")
-                    && let Some(ws_pkg) = manifest
-                        .releasing
-                        .iter()
-                        .find(|p| p.name == package_name)
-                {
+                // A local package is keyed by its path; `node_modules`
+                // entries are registry installs or links to those paths.
+                if key.split('/').any(|segment| segment == "node_modules") {
+                    continue;
+                }
+
+                if let Some(ws_pkg) = manifest.releasing.iter().find(|p| {
+                    package_info["name"].as_str() == Some(p.name.as_str())
+                }) {
                     package_info["version"] =
                         json!(ws_pkg.tag.version.to_string());
                 }
@@ -261,7 +257,7 @@ mod tests {
         let result = package_lock.update(&manifest).unwrap();
 
         let updated = result.unwrap().content.clone();
-        assert!(updated.contains("\"package-b\": \"3.0.0\""));
+        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
     }
 
     #[test]
@@ -317,11 +313,11 @@ mod tests {
         let result = package_lock.update(&manifest).unwrap();
 
         let updated = result.unwrap().content.clone();
-        assert!(updated.contains("\"package-b\": \"3.0.0\""));
+        assert!(updated.contains("\"package-b\": \"^3.0.0\""));
     }
 
     #[test]
-    fn updates_node_modules_entries_for_workspace_packages() {
+    fn leaves_registry_node_modules_entries_alone() {
         let package_lock = PackageLock::new();
         let content = r#"{
   "name": "package-a",
@@ -374,9 +370,11 @@ mod tests {
 
         let updated = result.unwrap().content.clone();
         let parsed: Value = serde_json::from_str(&updated).unwrap();
+        // A non-link `node_modules` entry is a registry install; its
+        // `resolved` and `integrity` would no longer match a new version.
         assert_eq!(
             parsed["packages"]["node_modules/package-b"]["version"],
-            "3.0.0"
+            "1.0.0"
         );
     }
 
@@ -491,5 +489,75 @@ mod tests {
         assert!(updated.contains("\"version\": \"2.0.0\""));
         assert!(updated.contains("\"lockfileVersion\": 2"));
         assert!(updated.contains("\"requires\": true"));
+    }
+
+    fn released(name: &str, version: &str) -> ManifestPackage {
+        ManifestPackage {
+            name: name.to_string(),
+            release_type: ReleaseType::Node,
+            tag: Tag {
+                name: format!("v{version}"),
+                version: TagVersion::Semantic(
+                    semver::Version::parse(version).unwrap(),
+                ),
+                sha: "abc".into(),
+                ..Tag::default()
+            },
+        }
+    }
+
+    #[test]
+    fn updates_workspace_members_in_a_v3_lock() {
+        let content = r#"{
+  "name": "root",
+  "lockfileVersion": 3,
+  "packages": {
+    "": {
+      "name": "root",
+      "workspaces": ["packages/*"],
+      "dependencies": {
+        "package-b": "^1.0.0",
+        "package-c": "workspace:*"
+      }
+    },
+    "node_modules/package-b": {
+      "resolved": "packages/b",
+      "link": true
+    },
+    "packages/b": {
+      "name": "package-b",
+      "version": "1.0.0"
+    },
+    "packages/c": {
+      "name": "package-c",
+      "version": "1.0.0"
+    }
+  }
+}"#;
+
+        let manifest = ManifestFile {
+            path: Path::new("package-lock.json").to_path_buf(),
+            basename: "package-lock.json".to_string(),
+            content: content.to_string(),
+            release_type: ReleaseType::Node,
+            owner: None,
+            releasing: vec![
+                released("package-b", "3.0.0"),
+                released("package-c", "4.0.0"),
+            ],
+        };
+
+        let updated = PackageLock::new().update(&manifest).unwrap().unwrap();
+        let parsed: Value = serde_json::from_str(&updated.content).unwrap();
+        let packages = &parsed["packages"];
+
+        assert_eq!(packages[""]["dependencies"]["package-b"], "^3.0.0");
+        assert_eq!(packages[""]["dependencies"]["package-c"], "workspace:*");
+        assert_eq!(packages["packages/b"]["version"], "3.0.0");
+        assert_eq!(packages["packages/c"]["version"], "4.0.0");
+        assert_eq!(
+            packages["node_modules/package-b"],
+            serde_json::json!({ "resolved": "packages/b", "link": true })
+        );
     }
 }
