@@ -637,7 +637,6 @@ impl Forge for AzureDevops {
         version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut url = self.endpoint("refs")?;
         url.query_pairs_mut().append_pair("filter", "tags/");
         let response = self.client.get(url).send().await?;
@@ -655,11 +654,10 @@ impl Forge for AzureDevops {
         let mut tags = vec![];
         for (r, timestamp) in dated.into_iter().take(self.tag_search_depth) {
             let name = strip_refs_tags(&r.name).to_string();
-            if !re.is_match(&name) {
+            let Some(stripped) = name.strip_prefix(prefix) else {
                 continue;
-            }
-            let stripped = re.replace_all(&name, "").to_string();
-            let Ok(ver) = TagVersion::parse(&stripped, version_type) else {
+            };
+            let Ok(ver) = TagVersion::parse(stripped, version_type) else {
                 continue;
             };
             // Only return tags reachable from the target branch.

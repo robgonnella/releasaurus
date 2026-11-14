@@ -31,7 +31,6 @@ use gitlab::{
     },
 };
 use graphql_client::GraphQLQuery;
-use regex::Regex;
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, SecretString};
 use std::cmp;
@@ -343,8 +342,6 @@ impl Forge for Gitlab {
         version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        let re = Regex::new(format!(r"^{prefix}").as_str())?;
-
         let endpoint = Tags::builder()
             .project(&self.project_id)
             .order_by(TagsOrderBy::Version)
@@ -359,30 +356,28 @@ impl Forge for Gitlab {
         let mut tags = vec![];
 
         for tag in gitlab_tags.into_iter() {
-            if re.is_match(&tag.name) {
-                let stripped = re.replace_all(&tag.name, "").to_string();
-                if let Ok(ver) = TagVersion::parse(&stripped, version_type)
-                    && self
-                        .is_tag_ancestor_of_branch(&tag.commit.id, branch)
-                        .await?
+            if let Some(stripped) = tag.name.strip_prefix(prefix)
+                && let Ok(ver) = TagVersion::parse(stripped, version_type)
+                && self
+                    .is_tag_ancestor_of_branch(&tag.commit.id, branch)
+                    .await?
+            {
+                if let Some(sha) = starting_sha.as_ref()
+                    && tag.commit.id == *sha
                 {
-                    if let Some(sha) = starting_sha.as_ref()
-                        && tag.commit.id == *sha
-                    {
-                        break;
-                    }
-
-                    tags.push(Tag {
-                        name: tag.name,
-                        version: ver,
-                        sha: tag.commit.id,
-                        timestamp: DateTime::parse_from_rfc3339(
-                            &tag.commit.created_at,
-                        )
-                        .map(|t| t.timestamp())
-                        .ok(),
-                    });
+                    break;
                 }
+
+                tags.push(Tag {
+                    name: tag.name,
+                    version: ver,
+                    sha: tag.commit.id,
+                    timestamp: DateTime::parse_from_rfc3339(
+                        &tag.commit.created_at,
+                    )
+                    .map(|t| t.timestamp())
+                    .ok(),
+                });
             }
         }
 

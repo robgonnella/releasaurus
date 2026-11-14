@@ -5,7 +5,6 @@ use git2::{
     BranchType, Commit as Git2Commit, Oid, RemoteCallbacks, Sort,
     StatusOptions, TreeWalkMode,
 };
-use regex::Regex;
 use secrecy::{ExposeSecret, SecretString};
 use std::{
     path::{Path, PathBuf},
@@ -421,9 +420,6 @@ impl Forge for LocalRepo {
         version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        let regex_prefix = format!(r"^{}", prefix);
-        let tag_prefix_regex = Regex::new(&regex_prefix)?;
-
         let repo = self.repo.lock().await;
 
         let mut all_tags: Vec<(String, git2::Commit)> = vec![];
@@ -447,9 +443,9 @@ impl Forge for LocalRepo {
         let mut commits: Vec<(git2::Commit, Tag)> = vec![];
 
         for (name, commit) in all_tags.into_iter().take(self.tag_search_depth) {
-            if !tag_prefix_regex.is_match(&name) {
+            let Some(stripped) = name.strip_prefix(prefix) else {
                 continue;
-            }
+            };
 
             if let Some(sha) = starting_sha.as_ref()
                 && commit.id().to_string() == *sha
@@ -457,10 +453,7 @@ impl Forge for LocalRepo {
                 break;
             }
 
-            let Ok(ver) = TagVersion::parse(
-                tag_prefix_regex.replace_all(&name, "").as_ref(),
-                version_type,
-            ) else {
+            let Ok(ver) = TagVersion::parse(stripped, version_type) else {
                 continue;
             };
 
@@ -1421,5 +1414,43 @@ mod tests {
         let mut files = commits[0].files.clone();
         files.sort();
         assert_eq!(files, vec!["Cargo.toml", "src/lib.rs"]);
+    }
+
+    #[tokio::test]
+    async fn tag_prefix_is_matched_literally() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let oid = add_commit(&repo, "initial commit");
+        tag_oid(&repo, "my.pkg-v1.0.0", oid);
+        tag_oid(&repo, "myXpkg-v2.0.0", oid);
+        tag_oid(&repo, "c++-v3.0.0", oid);
+        let branch = current_branch_name(&repo);
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let names = |tags: Vec<Tag>| -> Vec<String> {
+            tags.into_iter().map(|t| t.name).collect()
+        };
+
+        let dotted = forge
+            .get_latest_tags_for_prefix(
+                "my.pkg-v",
+                &branch,
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(names(dotted), vec!["my.pkg-v1.0.0"]);
+
+        let plus = forge
+            .get_latest_tags_for_prefix(
+                "c++-v",
+                &branch,
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(names(plus), vec!["c++-v3.0.0"]);
     }
 }
