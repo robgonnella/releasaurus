@@ -497,3 +497,77 @@ fn test_custom_regex_matches_non_conventional_commit() {
         TagVersion::Semantic(SemVer::parse("1.0.0").unwrap())
     );
 }
+
+/// Analyzes a single commit `message` from `current` and returns the next
+/// version.
+fn next_version_for(
+    config: &AnalyzerConfig,
+    current: &str,
+    message: &str,
+) -> TagVersion {
+    let analyzer = Analyzer::new(config).unwrap();
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        name: current.to_string(),
+        version: TagVersion::Semantic(SemVer::parse(current).unwrap()),
+        ..Tag::default()
+    };
+    let commits = vec![ForgeCommit {
+        id: "abc123".to_string(),
+        message: message.to_string(),
+        timestamp: 1000,
+        ..ForgeCommit::default()
+    }];
+
+    analyzer
+        .analyze(commits, Some(current_tag))
+        .unwrap()
+        .unwrap()
+        .tag
+        .version
+}
+
+// custom regexes: matched against the whole message, not just the type
+
+#[test]
+fn test_custom_major_regex_matches_description_of_conventional_commit() {
+    let config = AnalyzerConfig {
+        custom_major_increment_regex: Some(Regex::new(r"\[MAJOR\]").unwrap()),
+        ..AnalyzerConfig::default()
+    };
+
+    assert_eq!(
+        next_version_for(&config, "1.0.0", "fix: [MAJOR] drop the v1 api"),
+        TagVersion::Semantic(SemVer::parse("2.0.0").unwrap())
+    );
+    assert_eq!(
+        next_version_for(&config, "0.1.0", "fix: [MAJOR] drop the v1 api"),
+        TagVersion::Semantic(SemVer::parse("1.0.0").unwrap())
+    );
+}
+
+#[test]
+fn test_custom_minor_regex_matches_description_of_conventional_commit() {
+    let config = AnalyzerConfig {
+        custom_minor_increment_regex: Some(Regex::new("FEATURE").unwrap()),
+        ..AnalyzerConfig::default()
+    };
+
+    assert_eq!(
+        next_version_for(&config, "1.0.0", "chore: FEATURE add export"),
+        TagVersion::Semantic(SemVer::parse("1.1.0").unwrap())
+    );
+}
+
+#[test]
+fn test_custom_minor_regex_keeps_breaking_marker() {
+    let config = AnalyzerConfig {
+        custom_minor_increment_regex: Some(Regex::new("FEATURE").unwrap()),
+        ..AnalyzerConfig::default()
+    };
+
+    assert_eq!(
+        next_version_for(&config, "1.0.0", "fix!: FEATURE replace export"),
+        TagVersion::Semantic(SemVer::parse("2.0.0").unwrap())
+    );
+}
