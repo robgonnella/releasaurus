@@ -566,13 +566,9 @@ impl Forge for LocalRepo {
                               return 1;
                           }
 
-                          let entry_path = if dir == "," {
-                              name.to_string()
-                          } else {
-                              format!("{dir}/{name}")
-                          };
-
-                          changes.push(entry_path.into());
+                          // git2 passes "" for the root and "src/" for
+                          // subdirectories, so `dir` is already a prefix.
+                          changes.push(format!("{dir}{name}").into());
 
                           0
                       })
@@ -1404,5 +1400,26 @@ mod tests {
         let repo = git2::Repository::open(dir.path()).unwrap();
         let current_branch = current_branch_name(&repo);
         assert_eq!(current_branch, test_branch);
+    }
+
+    #[tokio::test]
+    async fn first_commit_lists_repo_relative_file_paths() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        std::fs::create_dir(dir.path().join("src")).unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        std::fs::write(dir.path().join("src/lib.rs"), "").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new("Cargo.toml")).unwrap();
+        index.add_path(Path::new("src/lib.rs")).unwrap();
+        index.write().unwrap();
+        add_commit(&repo, "initial commit");
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let commits = forge.get_commits(None, None).await.unwrap();
+
+        let mut files = commits[0].files.clone();
+        files.sort();
+        assert_eq!(files, vec!["Cargo.toml", "src/lib.rs"]);
     }
 }
