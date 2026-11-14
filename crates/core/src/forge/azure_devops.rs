@@ -642,11 +642,18 @@ impl Forge for AzureDevops {
         url.query_pairs_mut().append_pair("filter", "tags/");
         let response = self.client.get(url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
+
+        // The refs API lists tags by name; sort newest-first so the depth
+        // drops the oldest tags.
+        let mut dated = Vec::with_capacity(refs.value.len());
+        for r in refs.value {
+            let timestamp = self.get_commit_timestamp(&r.object_id).await.ok();
+            dated.push((r, timestamp));
+        }
+        dated.sort_by_key(|(_, ts)| std::cmp::Reverse(*ts));
+
         let mut tags = vec![];
-        for (count, r) in refs.value.into_iter().enumerate() {
-            if count >= self.tag_search_depth {
-                break;
-            }
+        for (r, timestamp) in dated.into_iter().take(self.tag_search_depth) {
             let name = strip_refs_tags(&r.name).to_string();
             if !re.is_match(&name) {
                 continue;
@@ -664,7 +671,6 @@ impl Forge for AzureDevops {
             {
                 break;
             }
-            let timestamp = self.get_commit_timestamp(&r.object_id).await.ok();
             tags.push(Tag {
                 name,
                 version: ver,
@@ -1228,6 +1234,63 @@ mod tests {
     fn looks_like_jwt_rejects_invalid_base64_header() {
         // Starts with "eyJ" but contains an illegal base64url character.
         assert!(!looks_like_jwt("eyJ!!!.payload.sig"));
+    }
+
+    #[tokio::test]
+    async fn tag_search_depth_keeps_newest_tags() {
+        let server = MockServer::start().await;
+        let mut azure = make_azure(&server).await;
+        azure.set_tag_search_depth(1);
+
+        // The refs API lists tags by name, which is oldest-first here.
+        Mock::given(method("GET"))
+            .and(path(api_path("refs")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({
+                    "count": 2,
+                    "value": [
+                        { "name": "refs/tags/v1.0.0", "objectId": "old" },
+                        { "name": "refs/tags/v2.0.0", "objectId": "new" },
+                    ]
+                }),
+            ))
+            .mount(&server)
+            .await;
+        for (sha, date) in [
+            ("old", "2020-01-01T00:00:00Z"),
+            ("new", "2024-01-01T00:00:00Z"),
+        ] {
+            Mock::given(method("GET"))
+                .and(path(api_path(&format!("commits/{sha}"))))
+                .respond_with(ResponseTemplate::new(200).set_body_json(
+                    serde_json::json!({
+                        "commitId": sha,
+                        "author": { "date": date },
+                    }),
+                ))
+                .mount(&server)
+                .await;
+        }
+        Mock::given(method("GET"))
+            .and(path(api_path("diffs/commits")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({ "baseCommit": "x", "commonCommit": "x" }),
+            ))
+            .mount(&server)
+            .await;
+
+        let tags = azure
+            .get_latest_tags_for_prefix(
+                "v",
+                "main",
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let names: Vec<_> = tags.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["v2.0.0"]);
     }
 
     #[tokio::test]
