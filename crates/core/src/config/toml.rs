@@ -68,7 +68,7 @@ mod tests {
         let versioning = config.defaults.versioning.unwrap();
         let named_parsers = versioning.named_parsers.unwrap();
 
-        assert_eq!(named_parsers.len(), 1);
+        assert_eq!(named_parsers.len(), 2);
     }
 
     /// Every ```toml example in the book must parse as a real `Config`.

@@ -10,6 +10,7 @@ aggregate_prereleases = true
 
 [defaults.versioning.named_parsers]
 ci.skip = true
+chore.skip = true
 
 # [defaults.versioning.prerelease]
 # strategy = "versioned"
