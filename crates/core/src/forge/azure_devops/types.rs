@@ -22,9 +22,14 @@ pub struct AzureRepo {
 pub struct AzureRef {
     /// Fully-qualified ref name (e.g. `refs/heads/main`).
     pub name: String,
-    /// SHA-1 commit ID that this ref currently points to.
+    /// Object this ref points to: a commit, or for an annotated tag the
+    /// tag object.
     #[serde(rename = "objectId")]
     pub object_id: String,
+    /// Commit an annotated tag points to. Only set when the request passes
+    /// `peelTags=true`.
+    #[serde(rename = "peeledObjectId", default)]
+    pub peeled_object_id: Option<String>,
 }
 
 /// Describes a ref update to include in a push or Refs API request.

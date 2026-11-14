@@ -616,7 +616,8 @@ impl Forge for AzureDevops {
         // release-PR body.
         let mut url = self.endpoint("refs")?;
         url.query_pairs_mut()
-            .append_pair("filter", &format!("tags/{tag}"));
+            .append_pair("filter", &format!("tags/{tag}"))
+            .append_pair("peelTags", "true");
         let response = self.client.get(url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
         let want = format!("refs/tags/{tag}");
@@ -625,7 +626,7 @@ impl Forge for AzureDevops {
         )?;
         Ok(ReleaseByTagResponse {
             tag: tag.to_string(),
-            sha: r.object_id,
+            sha: r.peeled_object_id.unwrap_or(r.object_id),
             notes: String::new(),
         })
     }
@@ -638,7 +639,9 @@ impl Forge for AzureDevops {
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
         let mut url = self.endpoint("refs")?;
-        url.query_pairs_mut().append_pair("filter", "tags/");
+        url.query_pairs_mut()
+            .append_pair("filter", "tags/")
+            .append_pair("peelTags", "true");
         let response = self.client.get(url).send().await?;
         let refs: AzureList<AzureRef> = read_json(response).await?;
 
@@ -646,14 +649,17 @@ impl Forge for AzureDevops {
         // drops the oldest tags.
         let mut dated = Vec::with_capacity(refs.value.len());
         for r in refs.value {
-            let timestamp = self.get_commit_timestamp(&r.object_id).await.ok();
-            dated.push((r, timestamp));
+            let sha = r.peeled_object_id.unwrap_or(r.object_id);
+            let timestamp = self.get_commit_timestamp(&sha).await.ok();
+            dated.push((r.name, sha, timestamp));
         }
-        dated.sort_by_key(|(_, ts)| std::cmp::Reverse(*ts));
+        dated.sort_by_key(|(_, _, ts)| std::cmp::Reverse(*ts));
 
         let mut tags = vec![];
-        for (r, timestamp) in dated.into_iter().take(self.tag_search_depth) {
-            let name = strip_refs_tags(&r.name).to_string();
+        for (ref_name, sha, timestamp) in
+            dated.into_iter().take(self.tag_search_depth)
+        {
+            let name = strip_refs_tags(&ref_name).to_string();
             let Some(stripped) = name.strip_prefix(prefix) else {
                 continue;
             };
@@ -661,18 +667,18 @@ impl Forge for AzureDevops {
                 continue;
             };
             // Only return tags reachable from the target branch.
-            if !self.is_ancestor_of_branch(&r.object_id, branch).await? {
+            if !self.is_ancestor_of_branch(&sha, branch).await? {
                 continue;
             }
-            if let Some(sha) = starting_sha.as_ref()
-                && r.object_id == *sha
+            if let Some(start) = starting_sha.as_ref()
+                && sha == *start
             {
                 break;
             }
             tags.push(Tag {
                 name,
                 version: ver,
-                sha: r.object_id,
+                sha,
                 timestamp,
             });
         }
@@ -860,7 +866,8 @@ impl Forge for AzureDevops {
     async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
         let mut url = self.endpoint("refs")?;
         url.query_pairs_mut()
-            .append_pair("filter", &format!("tags/{tag_name}"));
+            .append_pair("filter", &format!("tags/{tag_name}"))
+            .append_pair("peelTags", "true");
         let response = self.client.get(url).send().await?;
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(None);
@@ -870,7 +877,7 @@ impl Forge for AzureDevops {
             if strip_refs_tags(&tag.name) == tag_name {
                 return Ok(Some(TagResponse {
                     tag: tag.name,
-                    sha: tag.object_id,
+                    sha: tag.peeled_object_id.unwrap_or(tag.object_id),
                 }));
             }
         }
@@ -1040,7 +1047,7 @@ impl Forge for AzureDevops {
 mod tests {
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{body_json, method, path},
+        matchers::{body_json, method, path, query_param},
     };
 
     use super::*;
@@ -1564,5 +1571,87 @@ mod tests {
             .await;
 
         assert!(matches!(result, Err(ReleasaurusError::NetworkError(_))));
+    }
+
+    /// Annotated tags point at a tag object; only the peeled ref names the
+    /// commit, and Azure only peels when asked.
+    async fn mount_annotated_tag_ref(server: &MockServer, filter: &str) {
+        Mock::given(method("GET"))
+            .and(path(api_path("refs")))
+            .and(query_param("filter", filter))
+            .and(query_param("peelTags", "true"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({
+                    "count": 1,
+                    "value": [{
+                        "name": "refs/tags/v1.0.0",
+                        "objectId": "tag-object-sha",
+                        "peeledObjectId": "commit-sha",
+                    }]
+                }),
+            ))
+            .mount(server)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn get_tag_resolves_annotated_tag_to_its_commit() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_annotated_tag_ref(&server, "tags/v1.0.0").await;
+
+        let tag = azure.get_tag("v1.0.0").await.unwrap().unwrap();
+
+        assert_eq!(tag.sha, "commit-sha");
+    }
+
+    #[tokio::test]
+    async fn get_release_by_tag_resolves_annotated_tag_to_its_commit() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_annotated_tag_ref(&server, "tags/v1.0.0").await;
+
+        let release = azure.get_release_by_tag("v1.0.0").await.unwrap();
+
+        assert_eq!(release.sha, "commit-sha");
+    }
+
+    #[tokio::test]
+    async fn tag_search_resolves_annotated_tags_to_their_commits() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+        mount_annotated_tag_ref(&server, "tags/").await;
+        Mock::given(method("GET"))
+            .and(path(api_path("commits/commit-sha")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({
+                    "commitId": "commit-sha",
+                    "author": { "date": "2024-01-01T00:00:00Z" },
+                }),
+            ))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(api_path("diffs/commits")))
+            .and(query_param("baseVersion", "commit-sha"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({ "baseCommit": "x", "commonCommit": "x" }),
+            ))
+            .mount(&server)
+            .await;
+
+        let tags = azure
+            .get_latest_tags_for_prefix(
+                "v",
+                "main",
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(tags.len(), 1);
+        assert_eq!(tags[0].sha, "commit-sha");
+        assert!(tags[0].timestamp.is_some());
     }
 }
