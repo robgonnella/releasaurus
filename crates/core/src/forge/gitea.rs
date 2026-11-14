@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use chrono::DateTime;
 use color_eyre::eyre::ContextCompat;
-use regex::Regex;
 use reqwest::{
     Client, StatusCode,
     header::{HeaderMap, HeaderValue},
@@ -382,7 +381,6 @@ impl Forge for Gitea {
         version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        let re = Regex::new(format!(r"^{prefix}").as_str())?;
         let mut has_more = true;
         let mut page = 1;
         let page_limit = DEFAULT_PAGE_SIZE.to_string();
@@ -414,36 +412,34 @@ impl Forge for Gitea {
                     break;
                 }
                 count += 1;
-                if re.is_match(&tag.name) {
-                    let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(ver) = TagVersion::parse(&stripped, version_type)
-                        && self
-                            .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
-                            .await?
+                if let Some(stripped) = tag.name.strip_prefix(prefix)
+                    && let Ok(ver) = TagVersion::parse(stripped, version_type)
+                    && self
+                        .is_tag_ancestor_of_branch(&tag.commit.sha, branch)
+                        .await?
+                {
+                    // Reached the starting SHA (e.g. last stable tag):
+                    // stop paging entirely, not just this page. Tag
+                    // ordering from the API is not guaranteed, so this is
+                    // a best-effort bound; downstream callers re-sort and
+                    // filter by SHA membership.
+                    if let Some(sha) = starting_sha.as_ref()
+                        && tag.commit.sha == *sha
                     {
-                        // Reached the starting SHA (e.g. last stable tag):
-                        // stop paging entirely, not just this page. Tag
-                        // ordering from the API is not guaranteed, so this is
-                        // a best-effort bound; downstream callers re-sort and
-                        // filter by SHA membership.
-                        if let Some(sha) = starting_sha.as_ref()
-                            && tag.commit.sha == *sha
-                        {
-                            has_more = false;
-                            break;
-                        }
-
-                        tags.push(Tag {
-                            name: tag.name,
-                            version: ver,
-                            sha: tag.commit.sha,
-                            timestamp: DateTime::parse_from_rfc3339(
-                                &tag.commit.created,
-                            )
-                            .map(|t| t.timestamp())
-                            .ok(),
-                        });
+                        has_more = false;
+                        break;
                     }
+
+                    tags.push(Tag {
+                        name: tag.name,
+                        version: ver,
+                        sha: tag.commit.sha,
+                        timestamp: DateTime::parse_from_rfc3339(
+                            &tag.commit.created,
+                        )
+                        .map(|t| t.timestamp())
+                        .ok(),
+                    });
                 }
             }
 

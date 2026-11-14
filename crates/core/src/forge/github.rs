@@ -8,7 +8,6 @@ use octocrab::{
     models::repos::{Object, RepoCommit},
     params::{self, repos::Reference},
 };
-use regex::Regex;
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, SecretString};
 use tokio::pin;
@@ -344,8 +343,6 @@ impl Forge for Github {
         version_type: &VersionType,
         starting_sha: Option<String>,
     ) -> Result<Vec<Tag>> {
-        let re = Regex::new(format!(r"^{prefix}").as_str())?;
-
         let mut cursor = None;
         let mut has_next_page = true;
         let mut count = 0;
@@ -376,49 +373,47 @@ impl Forge for Github {
 
                 count += 1;
 
-                if re.is_match(&tag.name) {
-                    let stripped = re.replace_all(&tag.name, "").to_string();
-                    if let Ok(ver) = TagVersion::parse(&stripped, version_type)
+                if let Some(stripped) = tag.name.strip_prefix(prefix)
+                    && let Ok(ver) = TagVersion::parse(stripped, version_type)
+                {
+                    let sha = tag
+                        .target
+                        .target
+                        .as_ref()
+                        .map(|t| t.oid.clone())
+                        .unwrap_or(tag.target.oid.clone());
+
+                    // Reached the starting SHA (e.g. last stable tag):
+                    // stop paging entirely, not just this page. Tag
+                    // ordering from the API is not guaranteed, so this is
+                    // a best-effort bound; downstream callers re-sort and
+                    // filter by SHA membership.
+                    if let Some(start) = starting_sha.as_ref()
+                        && sha == *start
                     {
-                        let sha = tag
-                            .target
-                            .target
-                            .as_ref()
-                            .map(|t| t.oid.clone())
-                            .unwrap_or(tag.target.oid.clone());
+                        has_next_page = false;
+                        break;
+                    }
 
-                        // Reached the starting SHA (e.g. last stable tag):
-                        // stop paging entirely, not just this page. Tag
-                        // ordering from the API is not guaranteed, so this is
-                        // a best-effort bound; downstream callers re-sort and
-                        // filter by SHA membership.
-                        if let Some(start) = starting_sha.as_ref()
-                            && sha == *start
-                        {
-                            has_next_page = false;
-                            break;
-                        }
-
-                        if self.is_tag_ancestor_of_branch(&sha, branch).await? {
-                            let committed_date =
-                                tag.target.committed_date.unwrap_or(
-                                    tag.target
-                                        .target
-                                        .as_ref()
-                                        .map(|t| t.committed_date.clone())
-                                        .unwrap_or_default(),
-                                );
-                            tags.push(Tag {
-                                name: tag.name,
-                                version: ver,
-                                sha,
-                                timestamp: DateTime::parse_from_rfc3339(
-                                    &committed_date,
-                                )
-                                .map(|t| t.timestamp())
-                                .ok(),
-                            });
-                        }
+                    if self.is_tag_ancestor_of_branch(&sha, branch).await? {
+                        let committed_date =
+                            tag.target.committed_date.unwrap_or(
+                                tag.target
+                                    .target
+                                    .as_ref()
+                                    .map(|t| t.committed_date.clone())
+                                    .unwrap_or_default(),
+                            );
+                        tags.push(Tag {
+                            name: tag.name,
+                            version: ver,
+                            sha,
+                            timestamp: DateTime::parse_from_rfc3339(
+                                &committed_date,
+                            )
+                            .map(|t| t.timestamp())
+                            .ok(),
+                        });
                     }
                 }
             }
