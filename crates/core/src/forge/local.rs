@@ -590,13 +590,7 @@ impl Forge for LocalRepo {
                 pr: None,
                 merge_commit: commit.parent_count() > 1,
                 message: commit.message().unwrap_or("").to_string(),
-                short_id: commit
-                    .id()
-                    .to_string()
-                    .split("")
-                    .take(8)
-                    .collect::<Vec<&str>>()
-                    .join(""),
+                short_id: commit.id().to_string().chars().take(8).collect(),
                 timestamp: commit.time().seconds(),
             });
         }
@@ -1414,6 +1408,18 @@ mod tests {
         let mut files = commits[0].files.clone();
         files.sort();
         assert_eq!(files, vec!["Cargo.toml", "src/lib.rs"]);
+    }
+
+    #[tokio::test]
+    async fn short_id_is_first_eight_characters() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let oid = add_commit(&repo, "initial commit");
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let commits = forge.get_commits(None, None).await.unwrap();
+
+        assert_eq!(commits[0].short_id, oid.to_string()[..8]);
     }
 
     #[tokio::test]

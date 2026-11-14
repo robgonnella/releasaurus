@@ -529,12 +529,7 @@ impl Forge for Github {
 
             let sha = commit.sha.clone();
 
-            let short_sha = sha
-                .clone()
-                .split("")
-                .take(8)
-                .collect::<Vec<&str>>()
-                .join("");
+            let short_sha = sha.chars().take(8).collect();
 
             commits.push(ForgeCommit {
                 id: sha,
