@@ -1,8 +1,10 @@
 use next_version::VersionUpdater;
+use regex::Regex;
 use semver::{BuildMetadata, Version};
 
 use crate::{
     analyzer::{
+        commit::Commit,
         config::AnalyzerConfig,
         helpers,
         version_strategy::{
@@ -21,6 +23,29 @@ use crate::{
     forge::request::{Tag, TagVersion},
     result::Result,
 };
+
+const CUSTOM_MAJOR_TYPE: &str = "releasaurus-custom-major";
+const CUSTOM_MINOR_TYPE: &str = "releasaurus-custom-minor";
+
+/// The message next_version sees for `commit`. A commit matching a custom
+/// increment regex becomes a marker-typed commit, keeping its breaking
+/// marker; anything else passes through unchanged.
+pub fn version_input(config: &AnalyzerConfig, commit: &Commit) -> String {
+    let matches = |regex: Option<&Regex>| {
+        regex.is_some_and(|r| r.is_match(&commit.raw_message))
+    };
+
+    let marker_type = if matches(config.custom_major_increment_regex.as_ref()) {
+        CUSTOM_MAJOR_TYPE
+    } else if matches(config.custom_minor_increment_regex.as_ref()) {
+        CUSTOM_MINOR_TYPE
+    } else {
+        return commit.raw_message.clone();
+    };
+
+    let breaking = if commit.breaking { "!" } else { "" };
+    format!("{marker_type}{breaking}: custom increment")
+}
 
 /// Context for version calculation containing all necessary information.
 #[derive(Debug)]
@@ -58,14 +83,22 @@ impl<'a> Context<'a> {
                     .unwrap_or(DEFAULT_FEAT_ALWAYS_INCREMENT_MINOR),
             );
 
-        if let Some(regex) = self.config.custom_major_increment_regex.as_ref() {
+        // next_version matches custom regexes against only the type of a
+        // conventional commit, so the user's regexes are applied to the
+        // whole message in `version_input` and next_version is given
+        // regexes that match the marker types written there.
+        if self.config.custom_major_increment_regex.is_some() {
             version_updater = version_updater
-                .with_custom_major_increment_regex(regex.as_str())?;
+                .with_custom_major_increment_regex(&format!(
+                    "^{CUSTOM_MAJOR_TYPE}$"
+                ))?;
         }
 
-        if let Some(regex) = self.config.custom_minor_increment_regex.as_ref() {
+        if self.config.custom_minor_increment_regex.is_some() {
             version_updater = version_updater
-                .with_custom_minor_increment_regex(regex.as_str())?;
+                .with_custom_minor_increment_regex(&format!(
+                    "^{CUSTOM_MINOR_TYPE}$"
+                ))?;
         }
 
         Ok(version_updater)

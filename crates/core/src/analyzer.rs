@@ -8,7 +8,10 @@ use crate::{
         config::AnalyzerConfig,
         group::GroupParser,
         release::Release,
-        version_strategy::{context::Context, factory::VersionStrategyFactory},
+        version_strategy::{
+            context::{Context, version_input},
+            factory::VersionStrategyFactory,
+        },
     },
     forge::request::{ForgeCommit, Tag},
     result::Result,
@@ -76,7 +79,7 @@ impl<'a> Analyzer<'a> {
         let commits: Vec<String> = release
             .commits
             .iter()
-            .map(|c| c.raw_message.clone())
+            .map(|c| version_input(self.config, c))
             .collect();
 
         let context = Context {
