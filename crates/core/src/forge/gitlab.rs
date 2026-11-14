@@ -614,20 +614,28 @@ impl Forge for Gitlab {
     }
 
     async fn get_tag(&self, tag_name: &str) -> Result<Option<TagResponse>> {
-        let endpoint = Tags::builder()
+        let endpoint = GitlabTagBuilder::builder()
             .project(&self.project_id)
-            .search(tag_name)
+            .tag_name(tag_name)
             .build()?;
 
-        let tags: Vec<GitlabTag> = endpoint.query_async(&self.gl).await?;
+        let result: std::result::Result<
+            GitlabTag,
+            gitlab::api::ApiError<gitlab::RestError>,
+        > = endpoint.query_async(&self.gl).await;
 
-        if tags.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(TagResponse {
-                tag: tags[0].name.clone(),
-                sha: tags[0].commit.id.clone(),
-            }))
+        match result {
+            Ok(tag) => Ok(Some(TagResponse {
+                tag: tag.name,
+                sha: tag.commit.id,
+            })),
+            Err(gitlab::api::ApiError::GitlabWithStatus { status, .. })
+            | Err(gitlab::api::ApiError::GitlabService { status, .. })
+                if status == StatusCode::NOT_FOUND =>
+            {
+                Ok(None)
+            }
+            Err(err) => Err(err.into()),
         }
     }
 
@@ -827,5 +835,119 @@ impl Forge for Gitlab {
         ignore(endpoint).query_async(&self.gl).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use super::*;
+    use crate::forge::config::Scheme;
+
+    const TAGS_ROUTE: &str = "/api/v4/projects/foo%2Fbar/repository/tags";
+
+    /// Builds a `Gitlab` against `server` over plain HTTP, which
+    /// `Gitlab::new` doesn't support. Only the token check made while
+    /// building the client is mounted here.
+    async fn make_gitlab(server: &MockServer) -> Gitlab {
+        Mock::given(method("GET"))
+            .and(path("/api/v4/user"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({})),
+            )
+            .mount(server)
+            .await;
+
+        let host = server.address().to_string();
+        let gl = gitlab::GitlabBuilder::new(host.clone(), "token")
+            .insecure()
+            .build_async()
+            .await
+            .unwrap();
+
+        Gitlab {
+            url: RepoUrl {
+                scheme: Scheme::Http,
+                host,
+                owner: "foo".into(),
+                name: "bar".into(),
+                path: "/foo/bar".into(),
+                port: None,
+                token: None,
+            },
+            commit_search_depth: DEFAULT_COMMIT_SEARCH_DEPTH,
+            tag_search_depth: DEFAULT_TAG_SEARCH_DEPTH,
+            git_user: None,
+            gl,
+            project_id: "foo/bar".into(),
+            default_branch: "main".into(),
+            release_link_base_url: Url::parse("http://x/releases/").unwrap(),
+            compare_link_base_url: Url::parse("http://x/compare/").unwrap(),
+        }
+    }
+
+    fn tag_json(name: &str, sha: &str) -> serde_json::Value {
+        serde_json::json!({
+            "name": name,
+            "commit": {
+                "id": sha,
+                "message": "msg",
+                "author_name": "a",
+                "author_email": "a@example.com",
+                "parent_ids": [],
+                "created_at": "2026-01-01T00:00:00Z",
+                "web_url": "http://x",
+            },
+        })
+    }
+
+    #[tokio::test]
+    async fn get_tag_returns_the_exact_tag_not_a_substring_match() {
+        let server = MockServer::start().await;
+        let gitlab = make_gitlab(&server).await;
+
+        // GitLab's tag search is a substring match.
+        Mock::given(method("GET"))
+            .and(path(TAGS_ROUTE))
+            .and(query_param("search", "v1.0.0"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!([
+                    tag_json("api-v1.0.0", "api-sha"),
+                    tag_json("v1.0.0", "exact-sha"),
+                ]),
+            ))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("{TAGS_ROUTE}/v1.0.0")))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(tag_json("v1.0.0", "exact-sha")),
+            )
+            .mount(&server)
+            .await;
+
+        let tag = gitlab.get_tag("v1.0.0").await.unwrap().unwrap();
+
+        assert_eq!(tag.tag, "v1.0.0");
+        assert_eq!(tag.sha, "exact-sha");
+    }
+
+    #[tokio::test]
+    async fn get_tag_returns_none_when_the_tag_does_not_exist() {
+        let server = MockServer::start().await;
+        let gitlab = make_gitlab(&server).await;
+
+        Mock::given(method("GET"))
+            .and(path(format!("{TAGS_ROUTE}/v9.9.9")))
+            .respond_with(ResponseTemplate::new(404).set_body_json(
+                serde_json::json!({ "message": "404 Tag Not Found" }),
+            ))
+            .mount(&server)
+            .await;
+
+        assert!(gitlab.get_tag("v9.9.9").await.unwrap().is_none());
     }
 }
