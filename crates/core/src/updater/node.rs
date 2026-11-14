@@ -1,6 +1,9 @@
 //! Node.js package updater supporting npm, yarn, and pnpm projects.
 
-use crate::forge::request::TagVersion;
+use serde::Serialize;
+use serde_json::{Serializer, Value, ser::PrettyFormatter};
+
+use crate::{forge::request::TagVersion, result::Result};
 
 pub mod manifests;
 pub mod package_json;
@@ -21,6 +24,31 @@ pub fn bumped_dependency_spec(
     };
     semver::Version::parse(current).ok()?;
     Some(format!("{prefix}{version}"))
+}
+
+/// Serializes `doc` with the original file's indentation and trailing
+/// newline, defaulting to two spaces.
+pub fn format_like(doc: &Value, original: &str) -> Result<String> {
+    let indent = original
+        .lines()
+        .skip(1)
+        .map(|line| {
+            let rest = line.trim_start_matches([' ', '\t']);
+            &line[..line.len() - rest.len()]
+        })
+        .find(|ws| !ws.is_empty())
+        .unwrap_or("  ");
+
+    let mut buf = Vec::new();
+    let formatter = PrettyFormatter::with_indent(indent.as_bytes());
+    let mut serializer = Serializer::with_formatter(&mut buf, formatter);
+    doc.serialize(&mut serializer)?;
+
+    let mut formatted = String::from_utf8(buf)?;
+    if original.ends_with('\n') {
+        formatted.push('\n');
+    }
+    Ok(formatted)
 }
 
 #[cfg(test)]
