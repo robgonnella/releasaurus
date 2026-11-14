@@ -1,3 +1,45 @@
+# [1.4.0-rc.2](https://github.com/robgonnella/releasaurus/compare/v1.4.0-rc.1...v1.4.0-rc.2) - 2026-11-14
+
+### 🐛 Bug Fixes
+
+- preserves package-lock.json indentation and trailing newline [_(9ae7f3a6)_](https://github.com/robgonnella/releasaurus/commit/9ae7f3a64955601464c05a84bfd3621c7ceaf34c) (Rob Gonnella) ([PR 418](https://github.com/robgonnella/releasaurus/pull/418))
+
+- bumps Poetry base version when project version is dynamic [_(a4c2b9aa)_](https://github.com/robgonnella/releasaurus/commit/a4c2b9aac0ee71b96fa99dfb724f9acd195c257a) (Rob Gonnella) ([PR 417](https://github.com/robgonnella/releasaurus/pull/417))
+
+- preserves package.json indentation and trailing newline [_(06721004)_](https://github.com/robgonnella/releasaurus/commit/06721004e4eac042d1e03cf283ceab300a229a0f) (Rob Gonnella) ([PR 416](https://github.com/robgonnella/releasaurus/pull/416))
+
+- uses 8-character short commit IDs on every forge [_(ea00ea0f)_](https://github.com/robgonnella/releasaurus/commit/ea00ea0f0660d39459f23e55528e8d3225a1c5b8) (Rob Gonnella) ([PR 415](https://github.com/robgonnella/releasaurus/pull/415))
+
+- keeps existing range prefix when bumping npm workspace deps [_(4c3384a3)_](https://github.com/robgonnella/releasaurus/commit/4c3384a31d3b3dbf917a0f47cb7ec89155aba110) (Rob Gonnella) ([PR 414](https://github.com/robgonnella/releasaurus/pull/414))
+
+- updates npm workspace members correctly in package-lock.json [_(5875843b)_](https://github.com/robgonnella/releasaurus/commit/5875843bb4b139557c7173aeda82930543450ec9) (Rob Gonnella) ([PR 413](https://github.com/robgonnella/releasaurus/pull/413))
+
+- resolves annotated tags to their commits in Azure DevOps [_(fbc6841a)_](https://github.com/robgonnella/releasaurus/commit/fbc6841a934ed27b124106a8915a128f6512fb11) (Rob Gonnella) ([PR 412](https://github.com/robgonnella/releasaurus/pull/412))
+
+- matches tag prefixes literally in every forge [_(98b0cb83)_](https://github.com/robgonnella/releasaurus/commit/98b0cb8331d45304b88b0f004a0925d8961bf972) (Rob Gonnella) ([PR 410](https://github.com/robgonnella/releasaurus/pull/410))
+
+- matches scoped and multi-specifier entries in yarn.lock [_(51e7552e)_](https://github.com/robgonnella/releasaurus/commit/51e7552ee5aa9ce6e9bea417666cc60d7b027158) (Rob Gonnella) ([PR 409](https://github.com/robgonnella/releasaurus/pull/409))
+
+- skips pyproject version bump only when version is dynamic [_(6efd3f03)_](https://github.com/robgonnella/releasaurus/commit/6efd3f03e784a87c32715832e5ee43336d7bbfb5) (Rob Gonnella) ([PR 408](https://github.com/robgonnella/releasaurus/pull/408))
+
+- lists correct file paths for the first commit in local forge [_(c7842198)_](https://github.com/robgonnella/releasaurus/commit/c7842198622c1379c58a454fb13550891d5996b7) (Rob Gonnella) ([PR 407](https://github.com/robgonnella/releasaurus/pull/407))
+
+- matches custom increment regexes against the full commit message [_(6409ba45)_](https://github.com/robgonnella/releasaurus/commit/6409ba45d79753e5939c489367264366cac77fcb) (Rob Gonnella) ([PR 406](https://github.com/robgonnella/releasaurus/pull/406))
+
+- matches GitLab tags by exact name in get_tag [_(af4c83ef)_](https://github.com/robgonnella/releasaurus/commit/af4c83ef3c68cb0c3f71f375f32c3750a702d7c8) (Rob Gonnella) ([PR 405](https://github.com/robgonnella/releasaurus/pull/405))
+
+- preserves inherited Cargo versions and bumps workspace.package [_(b23573d6)_](https://github.com/robgonnella/releasaurus/commit/b23573d6ca7c09a0c9e85c4a82913609a9a8a95e) (Rob Gonnella) ([PR 404](https://github.com/robgonnella/releasaurus/pull/404))
+
+- releases every package in a shared release PR [_(51d6b37a)_](https://github.com/robgonnella/releasaurus/commit/51d6b37a2928d04eccbcf5f08c2d989caa205742) (Rob Gonnella) ([PR 402](https://github.com/robgonnella/releasaurus/pull/402))
+
+- keeps prerelease cycle commits when aggregating in monorepos [_(9014a3d3)_](https://github.com/robgonnella/releasaurus/commit/9014a3d3a68ec7ad8ac5287066e1c6c93ee69c44) (Rob Gonnella) ([PR 403](https://github.com/robgonnella/releasaurus/pull/403))
+
+- fixes issue with seaching tags in local and azure forges [_(a291b8ae)_](https://github.com/robgonnella/releasaurus/commit/a291b8ae2b06b97774f654f9619aa4ce0a476737) (Rob Gonnella) ([PR 401](https://github.com/robgonnella/releasaurus/pull/401))
+
+### 📚 Documentation
+
+- notes that merge commits can drop older branch commits [_(2869bf0c)_](https://github.com/robgonnella/releasaurus/commit/2869bf0cab93334f573e0e1bd2d627a72e1d0011) (Rob Gonnella) ([PR 411](https://github.com/robgonnella/releasaurus/pull/411))
+
 # [1.4.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.3.0...v1.4.0-rc.1) - 2026-11-12
 
 ### 🚀 Features
