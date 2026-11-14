@@ -1,4 +1,5 @@
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::{Serializer, Value, json, ser::PrettyFormatter};
 
 use crate::{
     config::release_type::ReleaseType,
@@ -90,7 +91,7 @@ impl FileUpdater for PackageJson {
         self.update_deps(&mut doc, "dependencies", &other_pkgs)?;
         self.update_deps(&mut doc, "devDependencies", &other_pkgs)?;
 
-        let formatted_json = serde_json::to_string_pretty(&doc)?;
+        let formatted_json = format_like(&doc, &manifest.content)?;
 
         Ok(Some(FileChange {
             path: manifest.path.to_string_lossy().to_string(),
@@ -98,6 +99,31 @@ impl FileUpdater for PackageJson {
             update_type: FileUpdateType::Replace,
         }))
     }
+}
+
+/// Serializes `doc` with the original file's indentation and trailing
+/// newline, defaulting to two spaces.
+fn format_like(doc: &Value, original: &str) -> Result<String> {
+    let indent = original
+        .lines()
+        .skip(1)
+        .map(|line| {
+            let rest = line.trim_start_matches([' ', '\t']);
+            &line[..line.len() - rest.len()]
+        })
+        .find(|ws| !ws.is_empty())
+        .unwrap_or("  ");
+
+    let mut buf = Vec::new();
+    let formatter = PrettyFormatter::with_indent(indent.as_bytes());
+    let mut serializer = Serializer::with_formatter(&mut buf, formatter);
+    doc.serialize(&mut serializer)?;
+
+    let mut formatted = String::from_utf8(buf)?;
+    if original.ends_with('\n') {
+        formatted.push('\n');
+    }
+    Ok(formatted)
 }
 
 #[cfg(test)]
@@ -511,5 +537,56 @@ mod tests {
         assert_eq!(parsed["dependencies"]["package-b"], "~3.0.0");
         assert_eq!(parsed["dependencies"]["package-c"], "3.0.0");
         assert_eq!(parsed["devDependencies"]["package-d"], ">=1.0.0 <2.0.0");
+    }
+
+    #[test]
+    fn preserves_indentation_and_trailing_newline() {
+        let cases = [
+            // indentation: taken from the original file
+            (
+                "{\n    \"name\": \"a\",\n    \"version\": \"1.0.0\"\n}\n",
+                "{\n    \"name\": \"a\",\n    \"version\": \"2.0.0\"\n}\n",
+            ),
+            (
+                "{\n\t\"name\": \"a\",\n\t\"version\": \"1.0.0\"\n}\n",
+                "{\n\t\"name\": \"a\",\n\t\"version\": \"2.0.0\"\n}\n",
+            ),
+            // trailing newline: kept only if the original had one
+            (
+                "{\n  \"name\": \"a\",\n  \"version\": \"1.0.0\"\n}",
+                "{\n  \"name\": \"a\",\n  \"version\": \"2.0.0\"\n}",
+            ),
+            // no indented lines: two spaces
+            (
+                "{\"name\":\"a\",\"version\":\"1.0.0\"}\n",
+                "{\n  \"name\": \"a\",\n  \"version\": \"2.0.0\"\n}\n",
+            ),
+        ];
+
+        for (content, expected) in cases {
+            let manifest = ManifestFile {
+                path: Path::new("package.json").to_path_buf(),
+                basename: "package.json".to_string(),
+                content: content.to_string(),
+                release_type: ReleaseType::Node,
+                owner: Some(ManifestPackage {
+                    name: "a".to_string(),
+                    release_type: ReleaseType::Node,
+                    tag: Tag {
+                        name: "v2.0.0".into(),
+                        version: TagVersion::Semantic(
+                            semver::Version::parse("2.0.0").unwrap(),
+                        ),
+                        sha: "abc".into(),
+                        ..Tag::default()
+                    },
+                }),
+                releasing: vec![],
+            };
+
+            let updated =
+                PackageJson::new().update(&manifest).unwrap().unwrap();
+            assert_eq!(updated.content, expected, "{content:?}");
+        }
     }
 }
