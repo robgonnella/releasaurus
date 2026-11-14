@@ -1,3 +1,41 @@
+# [1.4.0](https://github.com/robgonnella/releasaurus/compare/v1.4.0-rc.1...v1.4.0) - 2026-11-14
+
+### 🚀 Features
+
+- _(versioning)_ add %i release counter to strftime version types [_(949eeaa)_](https://github.com/robgonnella/releasaurus/commit/949eeaa4e0f3cce1ec57df1fdfe7ff147dc097c6) (Rob Gonnella) ([PR 394](https://github.com/robgonnella/releasaurus/pull/394))
+
+### 🐛 Bug Fixes
+
+- resolves annotated tags to their commits in Azure DevOps [_(fbc6841)_](https://github.com/robgonnella/releasaurus/commit/fbc6841a934ed27b124106a8915a128f6512fb11) (Rob Gonnella) ([PR 412](https://github.com/robgonnella/releasaurus/pull/412))
+
+- matches tag prefixes literally in every forge [_(98b0cb8)_](https://github.com/robgonnella/releasaurus/commit/98b0cb8331d45304b88b0f004a0925d8961bf972) (Rob Gonnella) ([PR 410](https://github.com/robgonnella/releasaurus/pull/410))
+
+- matches scoped and multi-specifier entries in yarn.lock [_(51e7552)_](https://github.com/robgonnella/releasaurus/commit/51e7552ee5aa9ce6e9bea417666cc60d7b027158) (Rob Gonnella) ([PR 409](https://github.com/robgonnella/releasaurus/pull/409))
+
+- skips pyproject version bump only when version is dynamic [_(6efd3f0)_](https://github.com/robgonnella/releasaurus/commit/6efd3f03e784a87c32715832e5ee43336d7bbfb5) (Rob Gonnella) ([PR 408](https://github.com/robgonnella/releasaurus/pull/408))
+
+- lists correct file paths for the first commit in local forge [_(c784219)_](https://github.com/robgonnella/releasaurus/commit/c7842198622c1379c58a454fb13550891d5996b7) (Rob Gonnella) ([PR 407](https://github.com/robgonnella/releasaurus/pull/407))
+
+- matches custom increment regexes against the full commit message [_(6409ba4)_](https://github.com/robgonnella/releasaurus/commit/6409ba45d79753e5939c489367264366cac77fcb) (Rob Gonnella) ([PR 406](https://github.com/robgonnella/releasaurus/pull/406))
+
+- matches GitLab tags by exact name in get_tag [_(af4c83e)_](https://github.com/robgonnella/releasaurus/commit/af4c83ef3c68cb0c3f71f375f32c3750a702d7c8) (Rob Gonnella) ([PR 405](https://github.com/robgonnella/releasaurus/pull/405))
+
+- preserves inherited Cargo versions and bumps workspace.package [_(b23573d)_](https://github.com/robgonnella/releasaurus/commit/b23573d6ca7c09a0c9e85c4a82913609a9a8a95e) (Rob Gonnella) ([PR 404](https://github.com/robgonnella/releasaurus/pull/404))
+
+- releases every package in a shared release PR [_(51d6b37)_](https://github.com/robgonnella/releasaurus/commit/51d6b37a2928d04eccbcf5f08c2d989caa205742) (Rob Gonnella) ([PR 402](https://github.com/robgonnella/releasaurus/pull/402))
+
+- keeps prerelease cycle commits when aggregating in monorepos [_(9014a3d)_](https://github.com/robgonnella/releasaurus/commit/9014a3d3a68ec7ad8ac5287066e1c6c93ee69c44) (Rob Gonnella) ([PR 403](https://github.com/robgonnella/releasaurus/pull/403))
+
+- fixes issue with seaching tags in local and azure forges [_(a291b8a)_](https://github.com/robgonnella/releasaurus/commit/a291b8ae2b06b97774f654f9619aa4ce0a476737) (Rob Gonnella) ([PR 401](https://github.com/robgonnella/releasaurus/pull/401))
+
+- _(gitea/forgejo)_ fixes issue with pagination [_(eb213a0)_](https://github.com/robgonnella/releasaurus/commit/eb213a0cf554c514933766902b99780b046bdcd6) (Rob Gonnella) ([PR 398](https://github.com/robgonnella/releasaurus/pull/398))
+
+- _(forge)_ follow the Link header when paging Gitea and Forgejo tags [_(27f27d3)_](https://github.com/robgonnella/releasaurus/commit/27f27d3a04ba1b7430ef588e2ff0b96bea80adf0) (Hugo) ([PR 396](https://github.com/robgonnella/releasaurus/pull/396))
+
+### 📚 Documentation
+
+- notes that merge commits can drop older branch commits [_(2869bf0)_](https://github.com/robgonnella/releasaurus/commit/2869bf0cab93334f573e0e1bd2d627a72e1d0011) (Rob Gonnella) ([PR 411](https://github.com/robgonnella/releasaurus/pull/411))
+
 # [1.4.0-rc.1](https://github.com/robgonnella/releasaurus/compare/v1.3.0...v1.4.0-rc.1) - 2026-11-12
 
 ### 🚀 Features
