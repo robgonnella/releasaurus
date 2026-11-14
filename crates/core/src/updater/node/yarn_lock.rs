@@ -26,8 +26,11 @@ impl Default for YarnLock {
 impl FileUpdater for YarnLock {
     /// Update version fields in yarn.lock files for all Node packages.
     fn update(&self, manifest: &ManifestFile) -> Result<Option<FileChange>> {
-        // Regex to match package entries like "package@^1.0.0:"
-        let package_regex = Regex::new(r#"^"?([^@"]+)@[^"]*"?:$"#)?;
+        // Matches entry headers such as `package@^1.0.0:`,
+        // `"@scope/package@^1.0.0":` and
+        // `"package@^1.0.0", "package@^1.1.0":`, capturing the name.
+        let package_regex =
+            Regex::new(r#"^"?((?:@[^@"/\s]+/)?[^@"\s]+)@.*:$"#)?;
         let version_regex = Regex::new(r#"^(\s+version\s+)"(.*)""#)?;
 
         if manifest.basename != "yarn.lock" {
@@ -360,5 +363,61 @@ package-a@^1.0.0:
         let updated = result.unwrap().content.clone();
         // Both entries should be updated to 2.0.0
         assert_eq!(updated.matches("version \"2.0.0\"").count(), 2);
+    }
+
+    #[test]
+    fn updates_scoped_workspace_packages() {
+        let content = r#"# yarn lockfile v1
+
+"@scope/package-a@^1.0.0":
+  version "1.0.0"
+
+"@scope/package-b@^1.0.0", "@scope/package-b@^1.1.0":
+  version "1.0.0"
+
+"@other/external-lib@^5.0.0":
+  version "5.0.0"
+"#;
+
+        let manifest = manifest(
+            "yarn.lock",
+            content,
+            package("@scope/package-a", "2.0.0"),
+            vec![package("@scope/package-b", "3.0.0")],
+        );
+
+        let updated = YarnLock::new().update(&manifest).unwrap().unwrap();
+
+        assert!(
+            updated
+                .content
+                .contains("\"@scope/package-a@^1.0.0\":\n  version \"2.0.0\"")
+        );
+        assert!(
+            updated
+                .content
+                .contains("\"@scope/package-b@^1.1.0\":\n  version \"3.0.0\"")
+        );
+        assert!(updated.content.contains("version \"5.0.0\""));
+    }
+
+    #[test]
+    fn updates_package_with_multiple_quoted_specifiers() {
+        let content = r#"# yarn lockfile v1
+
+"package-a@^1.0.0", "package-a@^1.1.0":
+  version "1.0.0"
+"#;
+
+        let manifest = manifest(
+            "yarn.lock",
+            content,
+            package("package-a", "2.0.0"),
+            vec![],
+        );
+
+        let updated = YarnLock::new().update(&manifest).unwrap().unwrap();
+
+        assert!(updated.content.contains("version \"2.0.0\""));
     }
 }
