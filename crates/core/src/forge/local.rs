@@ -426,50 +426,52 @@ impl Forge for LocalRepo {
 
         let repo = self.repo.lock().await;
 
-        let references = repo
-            .references()?
-            .filter_map(|r| r.ok())
-            .collect::<Vec<git2::Reference>>();
+        let mut all_tags: Vec<(String, git2::Commit)> = vec![];
+
+        for reference in repo.references_glob("refs/tags/*")? {
+            let reference = reference?;
+            if let Ok(name) = reference.name()
+                && let Some(stripped) = name.strip_prefix("refs/tags/")
+            {
+                all_tags
+                    .push((stripped.to_string(), reference.peel_to_commit()?));
+            }
+        }
+
+        // libgit2 returns refs in name/filesystem order; sort newest-first
+        // (by tagged commit date, like GitHub) so the depth drops the oldest.
+        all_tags.sort_by_key(|(_, commit)| {
+            std::cmp::Reverse(commit.time().seconds())
+        });
 
         let mut commits: Vec<(git2::Commit, Tag)> = vec![];
-        let mut count = 0;
 
-        for reference in references.iter() {
-            if reference.is_tag() {
-                if count >= self.tag_search_depth {
-                    break;
-                }
-                count += 1;
-                if let Ok(name) = reference.name()
-                    && let Some(stripped) = name.strip_prefix("refs/tags/")
-                    && tag_prefix_regex.is_match(stripped)
-                {
-                    let commit = reference.peel_to_commit()?;
-                    let commit_id = commit.id().to_string();
-
-                    if let Some(sha) = starting_sha.as_ref()
-                        && commit_id == *sha
-                    {
-                        break;
-                    }
-
-                    let Ok(ver) = TagVersion::parse(
-                        tag_prefix_regex.replace_all(stripped, "").as_ref(),
-                        version_type,
-                    ) else {
-                        continue;
-                    };
-
-                    let tag = Tag {
-                        sha: commit.id().to_string(),
-                        name: stripped.to_string(),
-                        version: ver,
-                        timestamp: Some(commit.time().seconds()),
-                    };
-
-                    commits.push((commit, tag));
-                }
+        for (name, commit) in all_tags.into_iter().take(self.tag_search_depth) {
+            if !tag_prefix_regex.is_match(&name) {
+                continue;
             }
+
+            if let Some(sha) = starting_sha.as_ref()
+                && commit.id().to_string() == *sha
+            {
+                break;
+            }
+
+            let Ok(ver) = TagVersion::parse(
+                tag_prefix_regex.replace_all(&name, "").as_ref(),
+                version_type,
+            ) else {
+                continue;
+            };
+
+            let tag = Tag {
+                sha: commit.id().to_string(),
+                name,
+                version: ver,
+                timestamp: Some(commit.time().seconds()),
+            };
+
+            commits.push((commit, tag));
         }
 
         if commits.is_empty() {
@@ -867,6 +869,59 @@ mod tests {
 
         assert!(!result.is_empty(), "tag at branch head should be found");
         assert_eq!(result[0].name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn tag_search_depth_keeps_newest_tags() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let tree_id = repo.index().unwrap().write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let old_sig = git2::Signature::new(
+            "Test",
+            "test@example.com",
+            &git2::Time::new(1_000_000, 0),
+        )
+        .unwrap();
+        let new_sig = git2::Signature::new(
+            "Test",
+            "test@example.com",
+            &git2::Time::new(2_000_000, 0),
+        )
+        .unwrap();
+        let old_oid = repo
+            .commit(Some("HEAD"), &old_sig, &old_sig, "old", &tree, &[])
+            .unwrap();
+        let old_commit = repo.find_commit(old_oid).unwrap();
+        let new_oid = repo
+            .commit(
+                Some("HEAD"),
+                &new_sig,
+                &new_sig,
+                "new",
+                &tree,
+                &[&old_commit],
+            )
+            .unwrap();
+        // Ref-name order is oldest-first here.
+        tag_oid(&repo, "v1.0.0", old_oid);
+        tag_oid(&repo, "v2.0.0", new_oid);
+        let branch = current_branch_name(&repo);
+
+        let mut forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        forge.set_tag_search_depth(1);
+        let result = forge
+            .get_latest_tags_for_prefix(
+                "v",
+                &branch,
+                &VersionType::Semantic,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let names: Vec<_> = result.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["v2.0.0"]);
     }
 
     #[tokio::test]

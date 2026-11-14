@@ -21,7 +21,7 @@ Repository-wide settings:
 | `git_user`                   | object   | none         | Git user info to use when creating commits. Consists of `name` and `email`.                                  |
 | `base_branch`                | string   | repo default | Branch targeted for PRs, tagging, and releases. Override: `--base-branch`.                                   |
 | `first_release_search_depth` | integer  | `400`        | Commits to analyze for the **first** release (when no matching tag exists).                                  |
-| `tag_search_depth`           | integer  | `100`        | Max tags fetched when searching for a previous release. `0` = all tags.                                      |
+| `tag_search_depth`           | integer  | `100`        | Number of most recent tags searched for a package's previous release. `0` = all tags.                        |
 | `separate_pull_requests`     | bool     | `false`      | One PR per package (`true`) vs. a single combined PR (`false`).                                              |
 | `skip_shas`                  | string[] | none         | Skip commits by SHA prefix (7+ chars); affects changelog **and** version bump. Repo-wide. CLI: `--skip-sha`. |
 | `reword`                     | object[] | none         | Rewrite commit messages (affects changelog **and** version bump). Repo-wide. CLI: `--reword`.                |

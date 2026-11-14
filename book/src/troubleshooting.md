@@ -35,8 +35,11 @@ If no matching tag exists, Releasaurus treats it as a first release and
 analyzes up to `first_release_search_depth` commits (default 400). Raise
 it for a fuller first changelog, or lower it for speed. This affects
 **only** the first release — once a matching tag exists, all commits back
-to that tag are analyzed. To control how many tags are fetched while
-searching, use `tag_search_depth`.
+to that tag are analyzed.
+
+If the tag exists and the prefix matches, the repository may have more
+recent tags than `tag_search_depth` (default 100) covers, for example
+tags from other packages. Raise it, or set it to `0` to search all tags.
 
 ## "Authentication failed" / 401 Unauthorized
 
