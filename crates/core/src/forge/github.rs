@@ -51,6 +51,11 @@ use crate::{
     result::{ReleasaurusError, Result},
 };
 
+/// Longest pull request body GitHub accepts, in characters; a longer one
+/// is rejected with "body is too long (maximum is 65536 characters)".
+/// GitHub does not document the limit, the value comes from that error.
+const MAX_PR_BODY_LEN: usize = 65_536;
+
 /// GitHub forge implementation using Octocrab for API interactions with
 /// commit history, tags, PRs, and releases.
 pub struct Github {
@@ -947,5 +952,12 @@ impl Forge for Github {
             .await?;
 
         Ok(())
+    }
+
+    /// The release notes are read back from the merged PR body, so a
+    /// release whose PR body fell back to short notes is published with
+    /// them; the changelog keeps the full notes.
+    fn max_pr_body_len(&self) -> Option<usize> {
+        Some(MAX_PR_BODY_LEN)
     }
 }

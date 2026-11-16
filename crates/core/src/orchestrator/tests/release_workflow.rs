@@ -14,13 +14,21 @@ use crate::{
         versioning::VersioningConfig,
     },
     forge::{
+        request::PrMetadataBlock,
         request::{
             Commit, GetPrRequest, PullRequest, Tag, TagResponse, TagVersion,
         },
         traits::MockForge,
     },
+    orchestrator::{
+        package_processor::{PRMetadata, PRMetadataFields},
+        pr_body::{
+            CONDENSED_NOTES_MARKER, PackageSection, render_release_pr_body,
+        },
+    },
     result::ReleasaurusError,
 };
+use base64::{Engine, prelude::BASE64_STANDARD};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -1084,4 +1092,132 @@ async fn create_releases_target_relabels_shared_pr_once_siblings_are_tagged() {
         .create_releases(Some("pkg-a".into()))
         .await
         .unwrap();
+}
+
+/// A shared release PR body as Azure DevOps gets it: metadata in a
+/// `data-meta` attribute, and short notes in place of the full ones to fit
+/// the 4000 character description limit. `pkg-a` keeps its first lines;
+/// the single long commit of `pkg-b` does not fit its share, so its notes
+/// are only the marker. `pkg-a` carries a long maintainer footer to
+/// tighten the budget.
+fn condensed_two_package_pr_body(pkg_a_footer: &str) -> String {
+    let metadata = |package: &str| {
+        let json = serde_json::to_string(&PRMetadata {
+            metadata: PRMetadataFields {
+                sha_compare_link: Some(format!("{package}-sha-link")),
+                tag_compare_link: Some(format!("{package}-tag-link")),
+                ..Default::default()
+            },
+        })
+        .unwrap();
+        PrMetadataBlock {
+            inline_content: String::new(),
+            div_attribute: format!(
+                r#"data-meta="{}""#,
+                BASE64_STANDARD.encode(json)
+            ),
+        }
+    };
+    let commit = |group: &str, title: String, short_id: String| {
+        crate::analyzer::commit::Commit {
+            group: group.into(),
+            title,
+            short_id,
+            ..Default::default()
+        }
+    };
+    let pkg_a_commits = (0..100)
+        .map(|index| {
+            commit(
+                "Bug Fixes",
+                format!("fix pkg-a issue number {index}"),
+                format!("a{index}"),
+            )
+        })
+        .collect::<Vec<_>>();
+    let pkg_a_notes = pkg_a_commits
+        .iter()
+        .map(|commit| format!("- {}", commit.title))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let pkg_b_commits =
+        [commit("Features", "long subject ".repeat(80), "b0".into())];
+    let sections = [
+        PackageSection {
+            name: "pkg-a",
+            tag_name: "pkg-a-v1.0.0",
+            open: false,
+            metadata: metadata("pkg-a"),
+            header: String::new(),
+            footer: pkg_a_footer.into(),
+            notes: format!("### Bug Fixes\n\n{pkg_a_notes}"),
+            commits: &pkg_a_commits,
+        },
+        PackageSection {
+            name: "pkg-b",
+            tag_name: "pkg-b-v2.0.0",
+            open: false,
+            metadata: metadata("pkg-b"),
+            header: String::new(),
+            footer: String::new(),
+            notes: format!("### Features\n\n- {}", pkg_b_commits[0].title),
+            commits: &pkg_b_commits,
+        },
+    ];
+
+    render_release_pr_body(&sections, Some(4000)).unwrap()
+}
+
+#[tokio::test]
+async fn create_releases_releases_every_package_in_condensed_shared_pr() {
+    let footer = "Maintainer note. ".repeat(150);
+    let footer = footer.trim();
+    let body = condensed_two_package_pr_body(footer);
+
+    assert!(body.encode_utf16().count() <= 4000);
+    assert_eq!(body.matches(CONDENSED_NOTES_MARKER).count(), 2);
+    assert!(!body.contains("long subject"));
+
+    let mut mock_forge = MockForge::new();
+    expect_merged_pr_until_relabeled(&mut mock_forge, body);
+    mock_forge.expect_get_tag().returning(|_| Ok(None));
+
+    for tag in ["pkg-a-v1.0.0", "pkg-b-v2.0.0"] {
+        mock_forge
+            .expect_tag_commit()
+            .withf(move |t, sha| t == tag && sha == "shared-sha")
+            .times(1)
+            .returning(|_, _| Ok(()));
+    }
+
+    let expected_footer = footer.to_string();
+    mock_forge
+        .expect_create_release()
+        .withf(move |req| {
+            req.tag == "pkg-a-v1.0.0"
+                && req.notes.starts_with(
+                    "### Bug Fixes\n- fix pkg-a issue number 0 _(a0)_\n\
+                     - fix pkg-a issue number 1 _(a1)_\n",
+                )
+                && !req.notes.contains("issue number 99")
+                && req.notes.contains(CONDENSED_NOTES_MARKER)
+                && req.notes.ends_with(&expected_footer)
+        })
+        .times(1)
+        .returning(|_| Ok(()));
+    mock_forge
+        .expect_create_release()
+        .withf(|req| {
+            req.tag == "pkg-b-v2.0.0" && req.notes == CONDENSED_NOTES_MARKER
+        })
+        .times(1)
+        .returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator_with_config(
+        mock_forge,
+        two_package_configs(),
+        None,
+    );
+
+    orchestrator.create_releases(None).await.unwrap();
 }

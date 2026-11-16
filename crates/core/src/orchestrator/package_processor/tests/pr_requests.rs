@@ -16,8 +16,8 @@ use crate::{
     },
     forge::{
         request::{
-            Commit, PullRequest, ResolvedCreateReleaseBranchRequest, Tag,
-            TagVersion,
+            Commit, PrMetadataBlock, PullRequest,
+            ResolvedCreateReleaseBranchRequest, Tag, TagVersion,
         },
         traits::MockForge,
     },
@@ -78,6 +78,139 @@ async fn create_pr_branches_creates_branch_before_pr_request() {
         pr_requests[0].request.head_branch,
         "releasaurus-release-main"
     );
+}
+
+#[tokio::test]
+async fn create_pr_branches_falls_back_to_short_notes_over_forge_limit() {
+    const LIMIT: usize = 2000;
+
+    let mut mock_forge = MockForge::new();
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None));
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+    mock_forge
+        .expect_create_release_branch()
+        .times(1)
+        .returning(|_| {
+            Ok(Commit {
+                sha: "abc123".to_string(),
+            })
+        });
+    mock_forge
+        .expect_max_pr_body_len()
+        .returning(|| Some(LIMIT));
+    mock_forge
+        .expect_encode_pr_metadata()
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
+
+    let processor = create_package_processor(mock_forge, None, None);
+
+    let commits = (0..60)
+        .map(|index| crate::analyzer::commit::Commit {
+            group: "Bug Fixes".into(),
+            title: format!("a commit subject long enough to add up {index}"),
+            short_id: format!("abc{index}"),
+            ..Default::default()
+        })
+        .collect::<Vec<_>>();
+    let entries = commits
+        .iter()
+        .map(|commit| {
+            format!(
+                "- {} [_({id})_](https://example.com/commit/{id})",
+                commit.title,
+                id = commit.short_id
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let full_notes = format!("# 1.2.3\n\n### Bug Fixes\n\n{entries}");
+    let releasable = ReleasablePackage {
+        name: "test-pkg".to_string(),
+        tag: Tag {
+            name: "v1.2.3".to_string(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
+            ..Default::default()
+        },
+        notes: full_notes.clone(),
+        commits,
+        ..Default::default()
+    };
+
+    let groups = processor.group_releasable_packages(vec![releasable]);
+    let bundles = processor.release_pr_bundles(groups).await.unwrap();
+    let changelog = bundles[0]
+        .file_changes
+        .iter()
+        .find(|change| change.path.ends_with("CHANGELOG.md"))
+        .map(|change| change.content.clone())
+        .unwrap();
+    let pr_requests = processor.create_pr_branches(bundles).await.unwrap();
+
+    let body = &pr_requests[0].request.body;
+    assert!(body.encode_utf16().count() <= LIMIT);
+    assert!(body.contains("Release notes condensed to fit"));
+    assert!(
+        body.contains("- a commit subject long enough to add up 0 _(abc0)_")
+    );
+    assert!(!body.contains("https://example.com/commit/"));
+    // the changelog on the release branch keeps the full notes
+    assert!(changelog.contains(&full_notes));
+}
+
+#[tokio::test]
+async fn create_pr_branches_pushes_no_branch_when_a_body_cannot_fit() {
+    const LIMIT: usize = 2000;
+
+    let mut mock_forge = MockForge::new();
+    // a maintainer footer alone is over the limit
+    mock_forge.expect_get_open_release_pr().returning(|_| {
+        Ok(Some(PullRequest {
+            number: 7,
+            sha: "abc123".to_string(),
+            body: format!(
+                "<div id=\"test-pkg-footer\">{}</div>",
+                "x".repeat(LIMIT)
+            ),
+        }))
+    });
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+    mock_forge.expect_create_release_branch().times(0);
+    mock_forge
+        .expect_max_pr_body_len()
+        .returning(|| Some(LIMIT));
+    mock_forge
+        .expect_encode_pr_metadata()
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
+
+    let processor = create_package_processor(mock_forge, None, None);
+
+    let releasable = ReleasablePackage {
+        name: "test-pkg".to_string(),
+        tag: Tag {
+            name: "v1.2.3".to_string(),
+            version: TagVersion::Semantic(Version::parse("1.2.3").unwrap()),
+            ..Default::default()
+        },
+        notes: "Test release notes".to_string(),
+        ..Default::default()
+    };
+
+    let groups = processor.group_releasable_packages(vec![releasable]);
+    let bundles = processor.release_pr_bundles(groups).await.unwrap();
+
+    let Err(error) = processor.create_pr_branches(bundles).await else {
+        panic!("expected the oversized PR body to fail");
+    };
+
+    assert!(error.to_string().contains("cannot fit"), "{error}");
 }
 
 #[tokio::test]
@@ -547,6 +680,9 @@ async fn create_pr_branches_handles_existing_pr_body_sections() {
 async fn create_pr_branches_skips_a_bundle_with_no_file_changes() {
     let mut mock_forge = MockForge::new();
 
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None));
     mock_forge.expect_create_release_branch().times(0);
     expect_html_comment_encoding(&mut mock_forge);
 

@@ -1,0 +1,386 @@
+//! Reads a merged release PR body back: each package's tag and release
+//! notes, and the header and footer maintainers edited.
+
+use base64::{Engine, prelude::BASE64_STANDARD};
+use color_eyre::eyre::eyre;
+use regex::Regex;
+use std::sync::LazyLock;
+
+use crate::{
+    orchestrator::package_processor::PRMetadata,
+    result::{ReleasaurusError, Result},
+};
+
+use super::normalize_html_id;
+
+pub(crate) static METADATA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?ms)^<!--\s*(?<metadata>\{.*?\})\s*-->"#).unwrap()
+});
+
+/// Extracts the inner HTML of an element with the given `id` from a
+/// pre-parsed `VDom`. Returns an empty string if the element is absent
+/// or its content is empty.
+fn extract_section_from_dom(dom: &tl::VDom, id: &str) -> String {
+    let parser = dom.parser();
+    let Some(handle) = dom.get_element_by_id(id.as_bytes()) else {
+        return String::new();
+    };
+    let Some(node) = handle.get(parser) else {
+        return String::new();
+    };
+    node.inner_html(parser).trim().to_string()
+}
+
+/// Extracts both the header (`{html_id}-header`) and footer
+/// (`{html_id}-footer`) preserved sections from `body` in a single DOM
+/// parse. Returns `(header, footer)`; either is an empty string when the
+/// corresponding element is absent or empty.
+pub fn extract_preserved_header_footer(
+    body: &str,
+    html_id: &str,
+) -> (String, String) {
+    let Ok(dom) = tl::parse(body, tl::ParserOptions::default()) else {
+        log::debug!(
+            "extract_preserved_header_footer: \
+             failed to parse body for id={html_id}"
+        );
+        return (String::new(), String::new());
+    };
+    let header = extract_section_from_dom(&dom, &format!("{html_id}-header"));
+    let footer = extract_section_from_dom(&dom, &format!("{html_id}-footer"));
+    (header, footer)
+}
+
+/// Whether `body` carries a release-details section for `package_name`.
+/// A shared release PR only includes the packages that had changes.
+pub fn pr_body_has_package(package_name: &str, body: &str) -> bool {
+    tl::parse(body, tl::ParserOptions::default()).is_ok_and(|dom| {
+        dom.get_element_by_id(normalize_html_id(package_name).as_bytes())
+            .is_some()
+    })
+}
+
+pub fn parse_pr_body(
+    package_name: &str,
+    pr_number: u64,
+    body: &str,
+) -> Result<(String, String)> {
+    let dom = tl::parse(body, tl::ParserOptions::default()).map_err(|e| {
+        ReleasaurusError::Other(eyre!(
+            "failed to parse merged PR body: pkg={} pr={} - {}",
+            package_name,
+            pr_number,
+            e
+        ))
+    })?;
+
+    let parser = dom.parser();
+
+    let normalized_id = normalize_html_id(package_name);
+
+    let handle = dom.get_element_by_id(normalized_id.as_bytes()).ok_or(
+        ReleasaurusError::Other(eyre!(
+            "failed to find details in PR body for package: pkg={} pr={}",
+            package_name,
+            pr_number,
+        )),
+    )?;
+
+    let div = handle.get(parser).ok_or(ReleasaurusError::Other(eyre!(
+        "failed to create PR parser for package: pkg={} pr={}",
+        package_name,
+        pr_number,
+    )))?;
+
+    let div_tag = div.as_tag().ok_or(ReleasaurusError::Other(eyre!(
+        "failed to find details tag matching package: pkg={} pr={}",
+        package_name,
+        pr_number,
+    )))?;
+
+    let pkg_tag = div_tag
+            .attributes()
+            .get("data-tag")
+            .flatten()
+            .ok_or(ReleasaurusError::Other(eyre!(
+                "failed to find data-tag attribute for package details: pkg={} pr={}",
+                package_name,
+                pr_number
+            )))?.as_utf8_str();
+
+    let notes = div.inner_html(parser);
+
+    // Try data-meta attribute first (base64 JSON); fall back to the inline HTML comment
+    let json: PRMetadata = if let Some(b64) = div_tag
+        .attributes()
+        .get("data-meta")
+        .flatten()
+        .map(|b| b.as_utf8_str().to_string())
+    {
+        let decoded = BASE64_STANDARD.decode(b64.as_bytes()).map_err(|e| {
+            ReleasaurusError::Other(eyre!(
+                "failed to decode data-meta for package: pkg={} pr={} - {e}",
+                package_name,
+                pr_number
+            ))
+        })?;
+        let s = String::from_utf8(decoded).map_err(|e| {
+            ReleasaurusError::Other(eyre!(
+                "data-meta is not valid UTF-8: pkg={} pr={} - {e}",
+                package_name,
+                pr_number
+            ))
+        })?;
+        log::debug!("parsing metadata from data-meta attribute: {s:?}");
+        serde_json::from_str(&s)?
+    } else {
+        let cap =
+            METADATA_REGEX
+                .captures(&notes)
+                .ok_or(ReleasaurusError::Other(eyre!(
+                    "failed to find metadata for package: pkg={} pr={}",
+                    package_name,
+                    pr_number
+                )))?;
+        let metadata_str = cap
+            .name("metadata")
+            .ok_or(ReleasaurusError::Other(eyre!(
+                "failed to parse metadata from PR body: pkg={} pr={}",
+                package_name,
+                pr_number,
+            )))?
+            .as_str();
+        log::debug!("parsing metadata from HTML comment: {metadata_str:?}");
+        serde_json::from_str(metadata_str)?
+    };
+
+    let tag_compare_link =
+        json.metadata
+            .tag_compare_link
+            .ok_or(ReleasaurusError::Other(eyre!(
+                "failed to find tag_compare_link in PR metadata: pkg={} pr={}",
+                package_name,
+                pr_number
+            )))?;
+
+    let sha_compare_link =
+        json.metadata
+            .sha_compare_link
+            .ok_or(ReleasaurusError::Other(eyre!(
+                "failed to find sha_compare_link in PR metadata: pkg={} pr={}",
+                package_name,
+                pr_number
+            )))?;
+
+    let notes = METADATA_REGEX.replace(&notes, "");
+    let notes = notes.replace(&sha_compare_link, &tag_compare_link);
+
+    // Collect header and footer preserved sections, if present.
+    // Re-use the already-parsed dom to avoid two redundant parses.
+    let header =
+        extract_section_from_dom(&dom, &format!("{normalized_id}-header"));
+    let footer =
+        extract_section_from_dom(&dom, &format!("{normalized_id}-footer"));
+
+    let header = header.as_str();
+    let footer = footer.as_str();
+    let notes = notes.trim();
+
+    let mut release_notes = String::new();
+
+    if !header.is_empty() {
+        release_notes.push_str(header);
+        release_notes.push('\n');
+    }
+
+    release_notes.push_str(notes);
+
+    if !footer.is_empty() {
+        release_notes.push('\n');
+        release_notes.push_str(footer);
+    }
+
+    Ok((pkg_tag.to_string(), release_notes))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::orchestrator::tests::common::{PrBodyInput, make_pr_body};
+
+    use super::*;
+
+    // extract_preserved_header_footer
+
+    #[test]
+    fn extract_preserved_header_footer_returns_both_sections() {
+        let html = r#"<div id="pkg-header">Heads up</div>
+            <div id="pkg-footer">Ship it</div>"#;
+        assert_eq!(
+            extract_preserved_header_footer(html, "pkg"),
+            ("Heads up".to_string(), "Ship it".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_preserved_header_footer_returns_empty_for_missing_ids() {
+        let html = r#"<div id="other">content</div>"#;
+        assert_eq!(
+            extract_preserved_header_footer(html, "pkg"),
+            (String::new(), String::new())
+        );
+    }
+
+    #[test]
+    fn extract_preserved_header_footer_graceful_on_malformed_html() {
+        assert_eq!(
+            extract_preserved_header_footer("<<broken>>>", "pkg"),
+            (String::new(), String::new())
+        );
+    }
+
+    // parse_pr_body
+
+    #[test]
+    fn parse_pr_body_happy_path() {
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: "Release notes",
+            tag_link: "tag_link",
+            sha_link: "sha-link",
+            header: "",
+            footer: "",
+        });
+        let (tag, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert_eq!(tag, "v1.2.3");
+        assert!(notes.contains("Release notes"));
+    }
+
+    #[test]
+    fn parse_pr_body_strips_metadata_comment() {
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: "Release notes",
+            tag_link: "tag_link",
+            sha_link: "sha-link",
+            header: "",
+            footer: "",
+        });
+        let (_, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert!(!notes.contains("<!--"));
+        assert!(!notes.contains("sha-link"));
+        assert!(!notes.contains("tag-link"));
+    }
+
+    #[test]
+    fn parse_pr_body_replaces_sha_link_with_tag_link() {
+        let sha = "https://example.com/sha1...sha2";
+        let tag = "https://example.com/v1.2.2...v1.2.3";
+        let notes = format!("Compare: {sha}");
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: &notes,
+            tag_link: tag,
+            sha_link: sha,
+            header: "",
+            footer: "",
+        });
+        let (_, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert!(notes.contains(tag));
+        assert!(!notes.contains(sha));
+    }
+
+    #[test]
+    fn parse_pr_body_with_header() {
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: "Notes",
+            tag_link: "tag-link",
+            sha_link: "sha-link",
+            header: "Header text",
+            footer: "",
+        });
+        let (_, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert!(notes.starts_with("Header text"));
+        assert!(notes.contains("Notes"));
+    }
+
+    #[test]
+    fn parse_pr_body_with_footer() {
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: "Notes",
+            tag_link: "tag-link",
+            sha_link: "sha-link",
+            header: "",
+            footer: "Footer text",
+        });
+
+        let (_, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert!(notes.ends_with("Footer text"));
+        assert!(notes.contains("Notes"));
+    }
+
+    #[test]
+    fn parse_pr_body_with_header_and_footer() {
+        let body = make_pr_body(&PrBodyInput {
+            pkg: "test-pkg",
+            tag: "v1.2.3",
+            notes: "Notes",
+            tag_link: "tag-link",
+            sha_link: "sha-link",
+            header: "Header text",
+            footer: "Footer text",
+        });
+
+        let (_, notes) = parse_pr_body("test-pkg", 1, &body).unwrap();
+        assert!(notes.starts_with("Header text"));
+        assert!(notes.ends_with("Footer text"));
+        assert!(notes.contains("Notes"));
+    }
+
+    #[test]
+    fn parse_pr_body_error_missing_div() {
+        let body = r#"<details open><summary>v1.0.0</summary></details>"#;
+        assert!(parse_pr_body("test-pkg", 1, body).is_err());
+    }
+
+    #[test]
+    fn parse_pr_body_error_missing_data_tag() {
+        let body = r#"<div id="test-pkg">
+<!--{"metadata":{"sha_compare_link":"sha","tag_compare_link":"tag"}}-->
+notes
+</div>"#;
+        assert!(parse_pr_body("test-pkg", 1, body).is_err());
+    }
+
+    #[test]
+    fn parse_pr_body_error_missing_metadata_comment() {
+        let body = r#"<div id="test-pkg" data-tag="v1.0.0">
+just notes, no metadata comment
+</div>"#;
+        assert!(parse_pr_body("test-pkg", 1, body).is_err());
+    }
+
+    #[test]
+    fn parse_pr_body_error_missing_tag_compare_link() {
+        let body = r#"<div id="test-pkg" data-tag="v1.0.0">
+<!--{"metadata":{"sha_compare_link":"sha"}}-->
+notes
+</div>"#;
+        assert!(parse_pr_body("test-pkg", 1, body).is_err());
+    }
+
+    #[test]
+    fn parse_pr_body_error_missing_sha_compare_link() {
+        let body = r#"<div id="test-pkg" data-tag="v1.0.0">
+<!--{"metadata":{"tag_compare_link":"tag"}}-->
+notes
+</div>"#;
+        assert!(parse_pr_body("test-pkg", 1, body).is_err());
+    }
+}
