@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
+            window.path_to_searchindex_js = "searchindex-caa785db.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -203,8 +203,10 @@ tag_prefix = "v"   # for v1.0.0; use "api-v" for api-v1.0.0; "" for 1.0.0
 analyzes up to <code>first_release_search_depth</code> commits (default 400). Raise
 it for a fuller first changelog, or lower it for speed. This affects
 <strong>only</strong> the first release — once a matching tag exists, all commits back
-to that tag are analyzed. To control how many tags are fetched while
-searching, use <code>tag_search_depth</code>.</p>
+to that tag are analyzed.</p>
+<p>If the tag exists and the prefix matches, the repository may have more
+recent tags than <code>tag_search_depth</code> (default 100) covers, for example
+tags from other packages. Raise it, or set it to <code>0</code> to search all tags.</p>
 <h2 id="authentication-failed--401-unauthorized"><a class="header" href="#authentication-failed--401-unauthorized">“Authentication failed” / 401 Unauthorized</a></h2>
 <ol>
 <li><strong>Confirm the token is set</strong> for the forge you’re targeting

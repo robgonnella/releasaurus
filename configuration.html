@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
+            window.path_to_searchindex_js = "searchindex-caa785db.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -449,6 +449,7 @@ day. These stay valid semver, so they work with every package manager.</li>
 <li><strong>A strftime format</strong> (any value containing <code>%</code>) — calendar versions in
 exactly the layout you write, for CalVer schemes the semver-shaped types
 cannot express, such as zero-padded <code>2026.06.14</code> or two-digit <code>26.06</code>.
+End it with <code>.%i</code> to number releases on the same date (<code>2026.06.14.2</code>).
 See <a href="#custom-calendar-formats">Custom calendar formats</a> below.</li>
 </ul>
 <p><code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code> both honor
@@ -490,9 +491,32 @@ once a day, <code>%Y.%m</code> once a month, <code>%Y.%m.%d.%H%M</code> once a m
 <code>%Y.%-m.%-d+%H.%M.%S.%6f</code> is the strftime equivalent of
 <code>year.month.day+hour.minute.second.micro</code>. A re-run within the same period
 reports nothing to release, exactly like <code>year.month.day</code>.</p>
+<h4 id="release-counter-i"><a class="header" href="#release-counter-i">Release counter (<code>%i</code>)</a></h4>
+<p>To release more than once per period without a timestamp, end the format
+with <code>.%i</code> — the CalVer <code>MICRO</code> segment. It numbers the releases that share
+a rendered date, starting at 1:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Release</th><th><code>%Y.%m.%d.%i</code></th></tr>
+</thead>
+<tbody>
+<tr><td>First on 14 June</td><td><code>2026.06.14.1</code></td></tr>
+<tr><td>Second on 14 June</td><td><code>2026.06.14.2</code></td></tr>
+<tr><td>First on 15 June</td><td><code>2026.06.15.1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The counter continues from the current tag when that tag has the same
+rendered date and restarts at 1 when the date changes. A tag without a
+counter, such as <code>v2026.06.14</code> from before <code>.%i</code> was added to the format,
+is still recognised; the next release on that date is <code>2026.06.14.1</code>.</p>
+<p><code>%i</code> is not a chrono specifier and may appear only once, as the final
+segment, after a <code>.</code>. A release still needs releasable commits; a re-run
+with nothing new reports nothing to release.</p>
 <p>The format is checked when the configuration loads and rejected if it</p>
 <ul>
-<li>is not valid strftime (<code>%Q</code>);</li>
+<li>is not valid strftime (<code>%Q</code>), or uses <code>%i</code> anywhere but a final <code>.%i</code>;</li>
 <li>renders something git refuses as a tag name — a space, <code>~</code>, <code>^</code>, <code>:</code>,
 <code>?</code>, <code>*</code>, <code>[</code>, <code>\</code>, <code>..</code>, <code>@{</code>, <code>//</code>, a trailing <code>.</code> or <code>/</code>, or a
 <code>.lock</code> component — which rules out <code>%T</code>, <code>%c</code> and <code>%+</code>, and any
@@ -508,7 +532,8 @@ versions accept only semver, and semver forbids leading zeros:
 rendered version into manifests as-is and logs a warning when a <code>rust</code>,
 <code>node</code>, <code>go</code> or <code>helm</code> package uses a format whose output is not semver.
 For those ecosystems use the <code>year.month.day</code> types, or an unpadded
-format such as <code>%Y.%-m.%-d</code>.</p>
+format such as <code>%Y.%-m.%-d</code>. A release counter after a full date adds a
+fourth segment (<code>2026.6.14.1</code>), which is never semver.</p>
 </blockquote>
 <p>On the command line, quote the value so the shell leaves <code>%</code> alone:
 <code>--version-type '%Y.%m.%d'</code>.</p>

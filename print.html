@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
+            window.path_to_searchindex_js = "searchindex-caa785db.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -1057,6 +1057,15 @@ merge commit.</p>
 <p><strong>Alternative:</strong> drop individual merge commits with <code>skip_shas</code> (see
 <a href="#skipping-or-rewording-commits">Skipping or Rewording Commits</a>). That setting applies to the
 next release only, so it has to be repeated each cycle.</p>
+<h3 id="merge-commits-older-branch-commits-can-be-missed"><a class="header" href="#merge-commits-older-branch-commits-can-be-missed">Merge Commits: Older Branch Commits Can Be Missed</a></h3>
+<p>When a branch is merged with a merge commit, its commits keep the dates
+they were originally committed on. Any of those commits dated before a
+package’s last release are left out of that package’s next release: they
+don’t appear in the changelog and don’t count toward the version bump.
+This applies to every forge.</p>
+<p><strong>Fix (recommended):</strong> merge with <strong>squash</strong> or <strong>rebase</strong>. Both give the
+merged commits a fresh date, so nothing is missed. Rebasing the branch onto
+the base branch before merging has the same effect.</p>
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
 <pre><code class="language-bash">releasaurus --help          # general help
 releasaurus &lt;cmd&gt; --help    # command-specific help
@@ -1335,6 +1344,7 @@ day. These stay valid semver, so they work with every package manager.</li>
 <li><strong>A strftime format</strong> (any value containing <code>%</code>) — calendar versions in
 exactly the layout you write, for CalVer schemes the semver-shaped types
 cannot express, such as zero-padded <code>2026.06.14</code> or two-digit <code>26.06</code>.
+End it with <code>.%i</code> to number releases on the same date (<code>2026.06.14.2</code>).
 See <a href="#custom-calendar-formats">Custom calendar formats</a> below.</li>
 </ul>
 <p><code>major.minor.patch</code> and <code>major.minor.patch+timestamp.sha</code> both honor
@@ -1376,9 +1386,32 @@ once a day, <code>%Y.%m</code> once a month, <code>%Y.%m.%d.%H%M</code> once a m
 <code>%Y.%-m.%-d+%H.%M.%S.%6f</code> is the strftime equivalent of
 <code>year.month.day+hour.minute.second.micro</code>. A re-run within the same period
 reports nothing to release, exactly like <code>year.month.day</code>.</p>
+<h4 id="release-counter-i"><a class="header" href="#release-counter-i">Release counter (<code>%i</code>)</a></h4>
+<p>To release more than once per period without a timestamp, end the format
+with <code>.%i</code> — the CalVer <code>MICRO</code> segment. It numbers the releases that share
+a rendered date, starting at 1:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Release</th><th><code>%Y.%m.%d.%i</code></th></tr>
+</thead>
+<tbody>
+<tr><td>First on 14 June</td><td><code>2026.06.14.1</code></td></tr>
+<tr><td>Second on 14 June</td><td><code>2026.06.14.2</code></td></tr>
+<tr><td>First on 15 June</td><td><code>2026.06.15.1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The counter continues from the current tag when that tag has the same
+rendered date and restarts at 1 when the date changes. A tag without a
+counter, such as <code>v2026.06.14</code> from before <code>.%i</code> was added to the format,
+is still recognised; the next release on that date is <code>2026.06.14.1</code>.</p>
+<p><code>%i</code> is not a chrono specifier and may appear only once, as the final
+segment, after a <code>.</code>. A release still needs releasable commits; a re-run
+with nothing new reports nothing to release.</p>
 <p>The format is checked when the configuration loads and rejected if it</p>
 <ul>
-<li>is not valid strftime (<code>%Q</code>);</li>
+<li>is not valid strftime (<code>%Q</code>), or uses <code>%i</code> anywhere but a final <code>.%i</code>;</li>
 <li>renders something git refuses as a tag name — a space, <code>~</code>, <code>^</code>, <code>:</code>,
 <code>?</code>, <code>*</code>, <code>[</code>, <code>\</code>, <code>..</code>, <code>@{</code>, <code>//</code>, a trailing <code>.</code> or <code>/</code>, or a
 <code>.lock</code> component — which rules out <code>%T</code>, <code>%c</code> and <code>%+</code>, and any
@@ -1394,7 +1427,8 @@ versions accept only semver, and semver forbids leading zeros:
 rendered version into manifests as-is and logs a warning when a <code>rust</code>,
 <code>node</code>, <code>go</code> or <code>helm</code> package uses a format whose output is not semver.
 For those ecosystems use the <code>year.month.day</code> types, or an unpadded
-format such as <code>%Y.%-m.%-d</code>.</p>
+format such as <code>%Y.%-m.%-d</code>. A release counter after a full date adds a
+fourth segment (<code>2026.6.14.1</code>), which is never semver.</p>
 </blockquote>
 <p>On the command line, quote the value so the shell leaves <code>%</code> alone:
 <code>--version-type '%Y.%m.%d'</code>.</p>
@@ -2135,8 +2169,10 @@ tag_prefix = "v"   # for v1.0.0; use "api-v" for api-v1.0.0; "" for 1.0.0
 analyzes up to <code>first_release_search_depth</code> commits (default 400). Raise
 it for a fuller first changelog, or lower it for speed. This affects
 <strong>only</strong> the first release — once a matching tag exists, all commits back
-to that tag are analyzed. To control how many tags are fetched while
-searching, use <code>tag_search_depth</code>.</p>
+to that tag are analyzed.</p>
+<p>If the tag exists and the prefix matches, the repository may have more
+recent tags than <code>tag_search_depth</code> (default 100) covers, for example
+tags from other packages. Raise it, or set it to <code>0</code> to search all tags.</p>
 <h2 id="authentication-failed--401-unauthorized"><a class="header" href="#authentication-failed--401-unauthorized">“Authentication failed” / 401 Unauthorized</a></h2>
 <ol>
 <li><strong>Confirm the token is set</strong> for the forge you’re targeting
@@ -2194,7 +2230,7 @@ config load rather than being silently ignored.</p>
 <tr><td><code>git_user</code></td><td>object</td><td>none</td><td>Git user info to use when creating commits. Consists of <code>name</code> and <code>email</code>.</td></tr>
 <tr><td><code>base_branch</code></td><td>string</td><td>repo default</td><td>Branch targeted for PRs, tagging, and releases. Override: <code>--base-branch</code>.</td></tr>
 <tr><td><code>first_release_search_depth</code></td><td>integer</td><td><code>400</code></td><td>Commits to analyze for the <strong>first</strong> release (when no matching tag exists).</td></tr>
-<tr><td><code>tag_search_depth</code></td><td>integer</td><td><code>100</code></td><td>Max tags fetched when searching for a previous release. <code>0</code> = all tags.</td></tr>
+<tr><td><code>tag_search_depth</code></td><td>integer</td><td><code>100</code></td><td>Number of most recent tags searched for a package’s previous release. <code>0</code> = all tags.</td></tr>
 <tr><td><code>separate_pull_requests</code></td><td>bool</td><td><code>false</code></td><td>One PR per package (<code>true</code>) vs. a single combined PR (<code>false</code>).</td></tr>
 <tr><td><code>skip_shas</code></td><td>string[]</td><td>none</td><td>Skip commits by SHA prefix (7+ chars); affects changelog <strong>and</strong> version bump. Repo-wide. CLI: <code>--skip-sha</code>.</td></tr>
 <tr><td><code>reword</code></td><td>object[]</td><td>none</td><td>Rewrite commit messages (affects changelog <strong>and</strong> version bump). Repo-wide. CLI: <code>--reword</code>.</td></tr>

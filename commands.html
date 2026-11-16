@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c1c5f99f.js";
+            window.path_to_searchindex_js = "searchindex-caa785db.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-56585206.js"></script>
@@ -542,6 +542,15 @@ merge commit.</p>
 <p><strong>Alternative:</strong> drop individual merge commits with <code>skip_shas</code> (see
 <a href="./configuration.html#skipping-or-rewording-commits">Skipping or Rewording Commits</a>). That setting applies to the
 next release only, so it has to be repeated each cycle.</p>
+<h3 id="merge-commits-older-branch-commits-can-be-missed"><a class="header" href="#merge-commits-older-branch-commits-can-be-missed">Merge Commits: Older Branch Commits Can Be Missed</a></h3>
+<p>When a branch is merged with a merge commit, its commits keep the dates
+they were originally committed on. Any of those commits dated before a
+package’s last release are left out of that package’s next release: they
+don’t appear in the changelog and don’t count toward the version bump.
+This applies to every forge.</p>
+<p><strong>Fix (recommended):</strong> merge with <strong>squash</strong> or <strong>rebase</strong>. Both give the
+merged commits a fresh date, so nothing is missed. Rebasing the branch onto
+the base branch before merging has the same effect.</p>
 <h2 id="getting-help"><a class="header" href="#getting-help">Getting Help</a></h2>
 <pre><code class="language-bash">releasaurus --help          # general help
 releasaurus &lt;cmd&gt; --help    # command-specific help
