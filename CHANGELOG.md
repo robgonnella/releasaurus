@@ -1,3 +1,9 @@
+# [1.4.1](https://github.com/robgonnella/releasaurus/compare/v1.4.0...v1.4.1) - 2026-11-19
+
+### 🐛 Bug Fixes
+
+- _(gitlab)_ fixes issue with insecure schemes and ports [_(02232804)_](https://github.com/robgonnella/releasaurus/commit/022328046a79a4a342a8bcc7d6a8deb7cd45f6a8) (Rob Gonnella) ([PR 422](https://github.com/robgonnella/releasaurus/pull/422))
+
 # [1.4.0](https://github.com/robgonnella/releasaurus/compare/v1.4.0-rc.2...v1.4.0) - 2026-11-14
 
 ### 🚀 Features
