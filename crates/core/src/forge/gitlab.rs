@@ -51,7 +51,7 @@ use crate::{
     forge::{
         config::{
             DEFAULT_LABEL_COLOR, DEFAULT_PAGE_SIZE, PENDING_LABEL, RepoUrl,
-            TokenVar, resolve_token,
+            Scheme, TokenVar, resolve_token,
         },
         gitlab::{
             graphql::{CommitDiffQuery, CommitDiffQueryVars},
@@ -116,10 +116,19 @@ impl Gitlab {
 
         let project_id = path.to_string();
 
-        let gl =
-            gitlab::GitlabBuilder::new(url.host.clone(), token.expose_secret())
-                .build_async()
-                .await?;
+        let host = match url.port {
+            Some(port) => format!("{}:{}", url.host, port),
+            None => url.host.clone(),
+        };
+
+        let mut gl_builder =
+            gitlab::GitlabBuilder::new(host, token.expose_secret());
+
+        if matches!(url.scheme, Scheme::Http) {
+            gl_builder.insecure();
+        }
+
+        let gl = gl_builder.build_async().await?;
 
         let endpoint = Project::builder().project(&project_id).build()?;
         let gl_project: serde_json::Value = endpoint.query_async(&gl).await?;
@@ -837,9 +846,9 @@ mod tests {
 
     const TAGS_ROUTE: &str = "/api/v4/projects/foo%2Fbar/repository/tags";
 
-    /// Builds a `Gitlab` against `server` over plain HTTP, which
-    /// `Gitlab::new` doesn't support. Only the token check made while
-    /// building the client is mounted here.
+    /// Builds a `Gitlab` against `server` over plain HTTP without the
+    /// project lookup `Gitlab::new` makes. Only the token check made
+    /// while building the client is mounted here.
     async fn make_gitlab(server: &MockServer) -> Gitlab {
         Mock::given(method("GET"))
             .and(path("/api/v4/user"))
@@ -890,6 +899,42 @@ mod tests {
                 "web_url": "http://x",
             },
         })
+    }
+
+    #[tokio::test]
+    async fn new_connects_over_http_using_the_url_port() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/api/v4/user"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({})),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/v4/projects/foo%2Fbar"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({ "default_branch": "develop" }),
+            ))
+            .mount(&server)
+            .await;
+
+        let url = RepoUrl {
+            scheme: Scheme::Http,
+            host: server.address().ip().to_string(),
+            owner: "foo".into(),
+            name: "bar".into(),
+            path: "/foo/bar".into(),
+            port: Some(server.address().port()),
+            token: None,
+        };
+
+        let gitlab = Gitlab::new(url, Some(SecretString::from("token")))
+            .await
+            .unwrap();
+
+        assert_eq!(gitlab.default_branch, "develop");
     }
 
     #[tokio::test]
