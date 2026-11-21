@@ -42,6 +42,7 @@ impl ReleasablePackageBuilder for ReleasablePackage {
             release_type: pkg_config.release_type,
             tag: release.tag,
             notes: release.notes,
+            commits: release.commits,
             tag_compare_link: release.tag_compare_link,
             sha_compare_link: release.sha_compare_link,
             sub_packages,

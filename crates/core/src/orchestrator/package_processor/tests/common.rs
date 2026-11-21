@@ -69,8 +69,9 @@ pub fn create_package_processor(
 }
 
 /// Stubs metadata encoding with the plain HTML comment form used by
-/// GitHub and Gitea.
+/// GitHub and Gitea, on a forge with no PR body limit.
 pub fn expect_html_comment_encoding(mock: &mut MockForge) {
+    mock.expect_max_pr_body_len().returning(|| None);
     mock.expect_encode_pr_metadata()
         .returning(|json| PrMetadataBlock {
             inline_content: format!("<!--{json}-->"),
@@ -120,6 +121,7 @@ pub fn release_pr_package(name: &str, tag: &str) -> ReleasePRPackage {
         name: name.into(),
         tag: tag_for(tag),
         notes: String::new(),
+        commits: vec![],
         tag_compare_link: String::new(),
         sha_compare_link: String::new(),
     }

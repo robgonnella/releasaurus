@@ -14,7 +14,10 @@ use crate::{
     },
     orchestrator::{
         commit_fetcher::CommitFetcher,
-        pr_body::{extract_preserved_header_footer, normalize_html_id},
+        pr_body::{
+            PackageSection, extract_preserved_header_footer, normalize_html_id,
+            render_release_pr_body,
+        },
     },
     packages::{
         analyzed::AnalyzedPackage,
@@ -249,6 +252,7 @@ impl PackageProcessor {
                 name: target.name.clone(),
                 tag: target.tag.clone(),
                 notes: target.notes.clone(),
+                commits: target.commits.clone(),
                 tag_compare_link: target.tag_compare_link.clone(),
                 sha_compare_link: target.sha_compare_link.clone(),
             });
@@ -310,13 +314,38 @@ impl PackageProcessor {
         Ok(bundles)
     }
 
+    /// Pushes each bundle's release branch and pairs it with the request
+    /// that opens or updates its release PR.
+    ///
+    /// Every PR body is rendered before any branch is pushed, so a body
+    /// that cannot fit the forge's limit fails the run without leaving a
+    /// release branch behind with no PR.
     pub async fn create_pr_branches(
         &self,
         bundles: Vec<PRBundle>,
     ) -> Result<Vec<PrBranchResult>> {
-        let mut pr_results = vec![];
+        let mut prepared = vec![];
 
         for bundle in bundles.into_iter() {
+            let existing_pr = self
+                .forge
+                .get_open_release_pr(GetPrRequest {
+                    head_branch: bundle.release_branch.clone(),
+                    base_branch: self.config.base_branch.clone(),
+                })
+                .await?;
+
+            let body = self.release_pr_body_for_pr_package_list(
+                &bundle.packages,
+                existing_pr.as_ref().map(|pr| pr.body.as_str()),
+            )?;
+
+            prepared.push((bundle, body, existing_pr));
+        }
+
+        let mut pr_results = vec![];
+
+        for (bundle, body, existing_pr) in prepared {
             let release_branch = bundle.release_branch;
 
             let created = self
@@ -337,27 +366,11 @@ impl PackageProcessor {
                 continue;
             }
 
-            // Looked up here rather than while building the bundle: only
-            // this flow reads it, and only once there is a branch to open
-            // a PR from.
-            let existing_pr = self
-                .forge
-                .get_open_release_pr(GetPrRequest {
-                    head_branch: release_branch.clone(),
-                    base_branch: self.config.base_branch.clone(),
-                })
-                .await?;
-
-            let existing_body = existing_pr.as_ref().map(|pr| pr.body.as_str());
-
             let request = CreatePrRequest {
                 base_branch: self.config.base_branch.clone(),
-                head_branch: release_branch.clone(),
+                head_branch: release_branch,
                 title: bundle.pr_title,
-                body: self.release_pr_body_for_pr_package_list(
-                    &bundle.packages,
-                    existing_body,
-                )?,
+                body,
             };
 
             pr_results.push(PrBranchResult {
@@ -479,76 +492,54 @@ impl PackageProcessor {
         Ok(tera::Tera::one_off(template, &context, false)?)
     }
 
+    /// Renders the release PR body for `pr_packages`, keeping the
+    /// maintainer-edited header and footer of each package from
+    /// `existing_body`, and fitted within the forge's PR body limit.
     fn release_pr_body_for_pr_package_list(
         &self,
         pr_packages: &[ReleasePRPackage],
         existing_body: Option<&str>,
     ) -> Result<String> {
-        let mut body = String::new();
+        let sections = pr_packages
+            .iter()
+            .map(|pkg| {
+                let metadata = PRMetadata {
+                    metadata: PRMetadataFields {
+                        sha_compare_link: Some(pkg.sha_compare_link.clone()),
+                        tag_compare_link: Some(pkg.tag_compare_link.clone()),
+                        ..Default::default()
+                    },
+                };
+                let json = serde_json::to_string(&metadata)?;
 
-        for pkg in pr_packages.iter() {
-            let start_details = if pr_packages.len() == 1 {
-                // auto-open dropdown if there's only one package
-                "<details open>"
-            } else {
-                "<details>"
-            };
+                let (header, footer) = existing_body
+                    .map(|b| {
+                        extract_preserved_header_footer(
+                            b,
+                            &normalize_html_id(&pkg.name),
+                        )
+                    })
+                    .unwrap_or_default();
 
-            let metadata = PRMetadata {
-                metadata: PRMetadataFields {
-                    sha_compare_link: Some(pkg.sha_compare_link.clone()),
-                    tag_compare_link: Some(pkg.tag_compare_link.clone()),
-                    ..Default::default()
-                },
-            };
+                Ok(PackageSection {
+                    name: &pkg.name,
+                    tag_name: &pkg.tag.name,
+                    // auto-open dropdown if there's only one package
+                    open: pr_packages.len() == 1,
+                    metadata: self.forge.encode_pr_metadata(&json),
+                    header,
+                    footer,
+                    // in the PR body link to the comparison with sha
+                    // instead of tag since the tag doesn't exist yet
+                    notes: pkg
+                        .notes
+                        .replace(&pkg.tag_compare_link, &pkg.sha_compare_link),
+                    commits: &pkg.commits,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-            let json = serde_json::to_string(&metadata)?;
-            let block = self.forge.encode_pr_metadata(&json);
-
-            let div_attr = if block.div_attribute.is_empty() {
-                String::new()
-            } else {
-                format!(" {}", block.div_attribute)
-            };
-            let inline_section = if block.inline_content.is_empty() {
-                "\n".to_string()
-            } else {
-                format!("{}\n\n", block.inline_content)
-            };
-
-            // in the PR body link to the comparison with sha instead
-            // of tag since the tag doesn't exist yet
-            let notes = pkg
-                .notes
-                .replace(&pkg.tag_compare_link, &pkg.sha_compare_link);
-
-            let html_id = normalize_html_id(&pkg.name);
-
-            let (header, footer) = existing_body
-                .map(|b| extract_preserved_header_footer(b, &html_id))
-                .unwrap_or_default();
-
-            // create the drop down
-            let package_body = format!(
-                r#"{start_details}
-<summary>{}</summary>
-<div id="{html_id}-header">{header}</div>
-<div id="{html_id}" data-tag="{}"{div_attr}>
-{inline_section}{notes}
-</div>
-<div id="{html_id}-footer">{footer}</div>
-</details>"#,
-                pkg.tag.name, pkg.tag.name
-            );
-
-            if body.is_empty() {
-                body = package_body;
-            } else {
-                body = format!("{body}\n{package_body}");
-            }
-        }
-
-        Ok(body)
+        render_release_pr_body(&sections, self.forge.max_pr_body_len())
     }
 
     /// Generic method for building releasable packages with different output

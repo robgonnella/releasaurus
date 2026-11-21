@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
 
 use crate::{
-    analyzer::release::Release, config::release_type::ReleaseType,
-    forge::request::Tag, updater::manager::ManifestTarget,
+    analyzer::{commit::Commit, release::Release},
+    config::release_type::ReleaseType,
+    forge::request::Tag,
+    updater::manager::ManifestTarget,
 };
 
 pub type BranchName = String;
@@ -29,7 +31,7 @@ pub struct ReleasableSubPackage {
 /// Package ready for manifest updates and PR creation, with a
 /// computed next-version tag, changelog notes, and loaded manifest
 /// file content.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct ReleasablePackage {
     pub name: String,
     /// Normalized, repo-relative directory. Manifest ownership is
@@ -38,11 +40,37 @@ pub struct ReleasablePackage {
     pub release_type: ReleaseType,
     pub tag: Tag,
     pub notes: String,
+    /// Commits in this release, for the short notes a release PR falls
+    /// back to when the full notes exceed the forge's PR body limit.
+    pub commits: Vec<Commit>,
     pub tag_compare_link: String,
     pub sha_compare_link: String,
     pub sub_packages: Vec<ReleasableSubPackage>,
     pub manifest_targets: Vec<ManifestTarget>,
     pub additional_manifest_targets: Vec<(ManifestTarget, Regex)>,
+}
+
+/// Shows the number of commits rather than the commits themselves, which
+/// carry author emails and full messages and would flood debug logs.
+impl std::fmt::Debug for ReleasablePackage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReleasablePackage")
+            .field("name", &self.name)
+            .field("path", &self.path)
+            .field("release_type", &self.release_type)
+            .field("tag", &self.tag)
+            .field("notes", &self.notes)
+            .field("commits", &self.commits.len())
+            .field("tag_compare_link", &self.tag_compare_link)
+            .field("sha_compare_link", &self.sha_compare_link)
+            .field("sub_packages", &self.sub_packages)
+            .field("manifest_targets", &self.manifest_targets)
+            .field(
+                "additional_manifest_targets",
+                &self.additional_manifest_targets,
+            )
+            .finish()
+    }
 }
 
 /// Serializable form of a releasable package including full commit

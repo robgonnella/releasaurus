@@ -21,6 +21,8 @@ use crate::{
     result::ReleasaurusError,
 };
 
+use std::sync::{Arc, Mutex};
+
 use super::common::*;
 
 #[tokio::test]
@@ -139,6 +141,8 @@ async fn create_release_prs_creates_new_prs() {
         })
         .times(2);
 
+    mock_forge.expect_max_pr_body_len().returning(|| None);
+
     mock_forge
         .expect_encode_pr_metadata()
         .times(2)
@@ -201,6 +205,131 @@ async fn create_release_prs_creates_new_prs() {
     orchestrator.create_release_prs(None).await.unwrap();
 }
 
+/// The whole PR-side fallback: forge commits go through the analyzer and
+/// the releasable package into a release PR body that is over the forge's
+/// limit, so it carries short notes built from those commits while the
+/// changelog on the release branch keeps the full notes.
+#[tokio::test]
+async fn create_release_prs_falls_back_to_short_notes_over_forge_limit() {
+    const LIMIT: usize = 4000;
+
+    let mut mock_forge = MockForge::new();
+
+    mock_forge
+        .expect_get_latest_tags_for_prefix()
+        .returning(|_, _, _, _| Ok(vec![]));
+
+    mock_forge.expect_get_commits().returning(|_, _| {
+        let breaking = ForgeCommitBuilder::default()
+            .id("breaking")
+            .short_id("brk")
+            .link("https://example.com/commit/brk")
+            .message(
+                "feat!: drop the v1 endpoints\n\n\
+                 The v1 endpoints are gone; migrate to v2.",
+            )
+            .timestamp(1_000_001)
+            .files(vec!["dummy.txt".into()])
+            .build()
+            .unwrap();
+        let fixes = (0..60).map(|index| {
+            ForgeCommitBuilder::default()
+                .id(format!("commit{index:03}"))
+                .short_id(format!("c{index:03}"))
+                .link(format!("https://example.com/commit/c{index:03}"))
+                .message(format!(
+                    "fix: correct a fairly long commit subject number {index}"
+                ))
+                .timestamp(1_000_000 - index)
+                .files(vec!["dummy.txt".into()])
+                .build()
+                .unwrap()
+        });
+        Ok(std::iter::once(breaking).chain(fixes).collect())
+    });
+
+    mock_forge
+        .expect_get_merged_release_pr()
+        .returning(|_| Ok(None));
+    mock_forge
+        .expect_get_open_release_pr()
+        .returning(|_| Ok(None));
+    mock_forge.expect_get_file_content().returning(|_| Ok(None));
+
+    let changelog = Arc::new(Mutex::new(String::new()));
+    let branch_changelog = Arc::clone(&changelog);
+    mock_forge
+        .expect_create_release_branch()
+        .times(1)
+        .returning(move |req| {
+            let change = req
+                .file_changes
+                .iter()
+                .find(|change| change.repo_path.ends_with("CHANGELOG.md"))
+                .unwrap();
+            *branch_changelog.lock().unwrap() = change.full_content.clone();
+            Ok(Commit {
+                sha: "abc123".to_string(),
+            })
+        });
+
+    mock_forge
+        .expect_max_pr_body_len()
+        .returning(|| Some(LIMIT));
+    mock_forge
+        .expect_encode_pr_metadata()
+        .returning(|json| PrMetadataBlock {
+            inline_content: format!("<!--{json}-->"),
+            div_attribute: String::new(),
+        });
+
+    let body = Arc::new(Mutex::new(String::new()));
+    let pr_body = Arc::clone(&body);
+    mock_forge
+        .expect_create_pr()
+        .times(1)
+        .returning(move |req| {
+            *pr_body.lock().unwrap() = req.body;
+            Ok(PullRequest {
+                number: 1,
+                sha: "abc123".into(),
+                body: "".into(),
+            })
+        });
+    mock_forge.expect_update_pr().times(0);
+    mock_forge.expect_replace_pr_labels().returning(|_| Ok(()));
+
+    let orchestrator = create_test_orchestrator(mock_forge);
+
+    orchestrator.create_release_prs(None).await.unwrap();
+
+    let changelog = changelog.lock().unwrap();
+    assert!(changelog.contains("https://example.com/commit/c000"));
+    assert!(changelog.contains("> The v1 endpoints are gone; migrate to v2."));
+
+    let body = body.lock().unwrap();
+    assert!(body.encode_utf16().count() <= LIMIT, "{body}");
+    assert!(body.contains("Release notes condensed to fit"), "{body}");
+    // group headings come without their `<!-- NN -->` sort tags
+    assert!(
+        body.contains(
+            "### ❌ Breaking\n\
+             - [**breaking**]: drop the v1 endpoints _(brk)_\n\
+             ### 🐛 Bug Fixes\n- "
+        ),
+        "{body}"
+    );
+    assert!(!body.contains("<!-- "), "{body}");
+    assert!(
+        body.contains(
+            "- correct a fairly long commit subject number 0 _(c000)_"
+        ),
+        "{body}"
+    );
+    assert!(!body.contains("https://example.com/commit/"), "{body}");
+    assert!(!body.contains("The v1 endpoints are gone"), "{body}");
+}
+
 #[tokio::test]
 async fn create_release_prs_targets_specific_package() {
     let mut mock_forge = MockForge::new();
@@ -242,6 +371,8 @@ async fn create_release_prs_targets_specific_package() {
             })
         })
         .times(1);
+
+    mock_forge.expect_max_pr_body_len().returning(|| None);
 
     mock_forge
         .expect_encode_pr_metadata()
@@ -386,6 +517,8 @@ async fn create_release_prs_updates_existing_prs() {
         .times(1);
 
     mock_forge.expect_create_pr().times(0);
+
+    mock_forge.expect_max_pr_body_len().returning(|| None);
 
     mock_forge
         .expect_encode_pr_metadata()

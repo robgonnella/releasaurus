@@ -130,6 +130,20 @@ pub trait Forge: Any + Send + Sync {
             div_attribute: String::new(),
         }
     }
+
+    /// Longest pull request body the forge accepts, in UTF-16 code units,
+    /// or `None` when it has no limit worth fitting.
+    ///
+    /// A release PR body longer than this has its release notes trimmed
+    /// to fit. UTF-16 code units are never fewer than characters, so the
+    /// value is safe for a forge that counts characters too.
+    ///
+    /// The release step reads release notes back from the merged PR body,
+    /// so on a forge that publishes releases the trimmed notes would end
+    /// up in the release as well.
+    fn max_pr_body_len(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// Abstraction for loading file content from a source.

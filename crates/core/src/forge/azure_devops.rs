@@ -63,6 +63,11 @@ const API_VERSION: &str = "7.1";
 const LABELS_API_VERSION: &str = "7.1-preview.1";
 const ZERO_SHA: &str = "0000000000000000000000000000000000000000";
 
+/// Longest pull request description Azure DevOps accepts, in UTF-16 code
+/// units; a longer one is rejected with HTTP 400. Documented on
+/// [Pull Requests - Update](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-7.1).
+const MAX_PR_DESCRIPTION_LEN: usize = 4000;
+
 static EXPERIMENTAL_WARNING: Once = Once::new();
 
 /// Strips the `Merged PR NNN: ` prefix that Azure DevOps prepends to
@@ -1041,6 +1046,12 @@ impl Forge for AzureDevops {
             div_attribute: format!(r#"data-meta="{b64}""#),
         }
     }
+
+    /// Azure DevOps has no release object, so the trimmed notes never
+    /// reach a published release: the changelog keeps the full notes.
+    fn max_pr_body_len(&self) -> Option<usize> {
+        Some(MAX_PR_DESCRIPTION_LEN)
+    }
 }
 
 #[cfg(test)]
@@ -1653,5 +1664,13 @@ mod tests {
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].sha, "commit-sha");
         assert!(tags[0].timestamp.is_some());
+    }
+
+    #[tokio::test]
+    async fn max_pr_body_len_is_the_azure_description_limit() {
+        let server = MockServer::start().await;
+        let azure = make_azure(&server).await;
+
+        assert_eq!(azure.max_pr_body_len(), Some(4000));
     }
 }
